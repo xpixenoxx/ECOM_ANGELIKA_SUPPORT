@@ -1,4 +1,5 @@
 import { getNewArrivals, getVidhyasPicks, getLooks, getInstagramPosts } from '@/lib/actions/homepage';
+import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import HomePageClient from './HomePageClient';
 
 export const revalidate = 60;
@@ -104,11 +105,12 @@ const homeJsonLd = {
 };
 
 export default async function HomePage() {
-  const [vidhyasPicks, newArrivals, looks, instagramPosts] = await Promise.all([
+  const [vidhyasPicks, newArrivals, looks, instagramPosts, heroData] = await Promise.all([
     getVidhyasPicks(4),
     getNewArrivals(8),
     getLooks(3),
     getInstagramPosts(8),
+    getHomepageHeroData(),
   ]);
 
   return (
@@ -122,6 +124,7 @@ export default async function HomePage() {
         newArrivals={newArrivals}
         looks={looks}
         instagramPosts={instagramPosts}
+        heroData={heroData}
       />
     </>
   );

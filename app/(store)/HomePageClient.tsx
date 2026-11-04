@@ -15,6 +15,7 @@ import { ScrollReveal as ScrollRevealAnim } from '@/components/animations/Scroll
 import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
 import { useCart } from '@/lib/hooks/useCart';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage';
+import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
 
 const navigation = [
   { label: 'Kurtis', href: '/shop/kurtis' },
@@ -116,6 +117,7 @@ interface HomePageClientProps {
   newArrivals: HomepageProductCard[];
   looks: LookData[];
   instagramPosts: Array<{ id: string; image_url: string }>;
+  heroData?: HomepageHeroData;
 }
 
 export default function HomePageClient({
@@ -123,6 +125,7 @@ export default function HomePageClient({
   newArrivals,
   looks,
   instagramPosts,
+  heroData,
 }: HomePageClientProps) {
   const { addItem } = useCart();
 
@@ -140,8 +143,8 @@ export default function HomePageClient({
       {/* Hero Section */}
       <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden">
         <Image
-          src="/images/hero-new-couture.jpg"
-          alt="Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya"
+          src={heroData?.backgroundImage || "/images/hero-new-couture.jpg"}
+          alt={heroData?.backgroundImageAlt || "Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya"}
           fill
           priority
           className="object-cover object-[80%_center] md:object-right lg:object-center z-0"
@@ -154,48 +157,64 @@ export default function HomePageClient({
         <div className="relative z-10 container-custom px-6 sm:px-10 py-24 md:py-32">
           <div className="max-w-lg lg:max-w-xl">
             {/* Brand Signature - Exact Luxury Editorial Style */}
-            <div className="flex flex-col items-start gap-1 mb-10">
-              <div className="flex items-center gap-2 mb-1">
-                <svg className="w-5 h-5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L14.5 9H22L16 13.5L18.5 20.5L12 16L5.5 20.5L8 13.5L2 9H9.5L12 2Z" />
-                </svg>
-                <span className="font-display tracking-[0.35em] text-sm sm:text-base uppercase text-[#FAF8F5] font-normal">
-                  A N G E L I K A
+            {(heroData?.showBadge ?? true) && (
+              <div className="flex flex-col items-start gap-1 mb-10">
+                <div className="flex items-center gap-2 mb-1">
+                  <svg className="w-5 h-5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L14.5 9H22L16 13.5L18.5 20.5L12 16L5.5 20.5L8 13.5L2 9H9.5L12 2Z" />
+                  </svg>
+                  <span className="font-display tracking-[0.35em] text-sm sm:text-base uppercase text-[#FAF8F5] font-normal">
+                    {heroData?.badgeText || 'A N G E L I K A'}
+                  </span>
+                </div>
+                <span className="text-[9px] sm:text-[10px] tracking-[0.25em] text-[#C9A84C] uppercase font-medium pl-0.5">
+                  {heroData?.badgeTagline || 'Tradition in Every Thread'}
                 </span>
               </div>
-              <span className="text-[9px] sm:text-[10px] tracking-[0.25em] text-[#C9A84C] uppercase font-medium pl-0.5">
-                Tradition in Every Thread
-              </span>
-            </div>
+            )}
 
             {/* Headline - Editorial Serif */}
             <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-normal text-[#FAF8F5] leading-[1.06] tracking-tight drop-shadow-2xl mb-6">
-              Grace in <br />
-              <span className="italic font-light text-[#FAF8F5]">Every Drape</span>
+              {heroData?.headline ? (
+                <>
+                  {heroData.headline} {heroData.headlineHighlight && <br />}
+                  {heroData.headlineHighlight && (
+                    <span className="italic font-light text-[#FAF8F5]">{heroData.headlineHighlight}</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  Grace in <br />
+                  <span className="italic font-light text-[#FAF8F5]">Every Drape</span>
+                </>
+              )}
             </h1>
 
             {/* Subtitle */}
-            <p className="text-[#E6DFD5]/90 text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-md drop-shadow-md mb-9">
-              Timeless traditional wear for the modern woman. <br className="hidden sm:inline" />
-              Rooted in heritage, designed for your today.
+            <p className="text-[#E6DFD5]/90 text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-md drop-shadow-md mb-9 whitespace-pre-line">
+              {heroData?.subtitle || 'Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.'}
             </p>
 
             {/* CTA Button - Exact Minimalist Bordered Aesthetic */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              <Link
-                href="/shop"
-                className="inline-flex items-center justify-center gap-3 px-7 py-3.5 border border-white/60 hover:border-[var(--color-gold)] hover:bg-[var(--color-gold)] text-[#FAF8F5] hover:text-[#0D0D0D] bg-black/40 backdrop-blur-md text-xs tracking-[0.22em] uppercase font-medium transition-all duration-300 shadow-xl group"
-              >
-                <span>Explore Collection</span>
-                <span className="text-sm transition-transform duration-300 group-hover:translate-x-1.5" aria-hidden="true">→</span>
-              </Link>
+              {heroData?.primaryCtaText && (
+                <Link
+                  href={heroData.primaryCtaLink || '/shop'}
+                  className="inline-flex items-center justify-center gap-3 px-7 py-3.5 border border-white/60 hover:border-[var(--color-gold)] hover:bg-[var(--color-gold)] text-[#FAF8F5] hover:text-[#0D0D0D] bg-black/40 backdrop-blur-md text-xs tracking-[0.22em] uppercase font-medium transition-all duration-300 shadow-xl group"
+                >
+                  <span>{heroData.primaryCtaText}</span>
+                  <span className="text-sm transition-transform duration-300 group-hover:translate-x-1.5" aria-hidden="true">→</span>
+                </Link>
+              )}
 
-              <Link
-                href="/vidhyas-picks"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/20 hover:border-white/50 text-[#E6DFD5] hover:text-white bg-black/20 backdrop-blur-md text-xs tracking-[0.18em] uppercase font-medium transition-all duration-300"
-              >
-                Vidhya's Picks
-              </Link>
+              {heroData?.secondaryCtaText && (
+                <Link
+                  href={heroData.secondaryCtaLink || '/vidhyas-picks'}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/20 hover:border-white/50 text-[#E6DFD5] hover:text-white bg-black/20 backdrop-blur-md text-xs tracking-[0.18em] uppercase font-medium transition-all duration-300"
+                >
+                  {heroData.secondaryCtaText}
+                </Link>
+              )}
             </div>
           </div>
         </div>

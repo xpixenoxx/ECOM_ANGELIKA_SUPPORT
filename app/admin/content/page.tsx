@@ -7,11 +7,11 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input, Textarea } from '@/components/ui/Input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import { cn } from '@/lib/utils/cn';
+import { HomepageHeroEditor } from '@/components/admin/HomepageHeroEditor';
 
 const contentSections = [
   { id: 'hero', label: 'Homepage Hero', type: 'hero' },
@@ -30,13 +30,13 @@ const contentSections = [
 
 const mockContent = {
   'hero': {
-    title: 'Crafted with Intention, Worn with Pride',
-    subtitle: 'Discover handcrafted ethnic wear that tells a story. Every piece curated by Vidhya.',
-    ctaText: 'Shop Collection',
+    title: 'Grace in',
+    subtitle: 'Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.',
+    ctaText: 'Explore Collection',
     ctaLink: '/shop',
-    secondaryCtaText: "View Vidhya's Picks",
+    secondaryCtaText: "Vidhya's Picks",
     secondaryCtaLink: "/vidhyas-picks",
-    backgroundImage: '/images/home-hero.jpg',
+    backgroundImage: '/images/hero-new-couture.jpg',
   },
   'features': {
     items: [
@@ -57,26 +57,26 @@ const mockContent = {
 };
 
 const mediaItems = [
-  { id: 'img-1', name: 'home-hero.jpg', type: 'image', size: '2.4 MB', url: '/images/home-hero.jpg', usedIn: ['Homepage Hero', 'About Page'] },
-  { id: 'img-2', name: 'vidhya-founder.jpg', type: 'image', size: '1.8 MB', url: '/images/vidhya-founder.jpg', usedIn: ['About Page', 'Founder Note'] },
-  { id: 'img-3', name: 'artisan-workshop.jpg', type: 'image', size: '3.1 MB', url: '/images/artisan-workshop.jpg', usedIn: ['Artisan Stories'] },
-  { id: 'img-4', name: 'product-1.jpg', type: 'image', size: '890 KB', url: '/images/product-1.jpg', usedIn: ['Product: Cotton Anarkali'] },
-  { id: 'img-5', name: 'product-2.jpg', type: 'image', size: '920 KB', url: '/images/product-2.jpg', usedIn: ['Product: Silk Palazzo'] },
+  { id: 'img-1', name: 'hero-new-couture.jpg', type: 'image', size: '2.4 MB', url: '/images/hero-new-couture.jpg', usedIn: ['Homepage Hero'] },
+  { id: 'img-2', name: 'logo.png', type: 'image', size: '250 KB', url: '/images/logo.png', usedIn: ['Header', 'Footer'] },
+  { id: 'img-3', name: 'vidhya-founder.jpg', type: 'image', size: '1.8 MB', url: '/images/vidhya-founder.jpg', usedIn: ['About Page', 'Founder Note'] },
+  { id: 'img-4', name: 'artisan-workshop.jpg', type: 'image', size: '3.1 MB', url: '/images/artisan-workshop.jpg', usedIn: ['Artisan Stories'] },
+  { id: 'img-5', name: 'collection-kurtis.jpg', type: 'image', size: '890 KB', url: '/images/collection-kurtis.jpg', usedIn: ['Collections: Kurtis'] },
+  { id: 'img-6', name: 'collection-sarees.jpg', type: 'image', size: '920 KB', url: '/images/collection-sarees.jpg', usedIn: ['Collections: Sarees'] },
 ];
 
 export default function AdminContentPage() {
   const [activeTab, setActiveTab] = useState('sections');
-  const [editingSection, setEditingSection] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [editingSection, setEditingSection] = useState<string | null>('hero');
+  const [formData, setFormData] = useState<Record<string, any>>(mockContent['hero']);
 
   const handleEdit = (sectionId: string) => {
     setEditingSection(sectionId);
     setFormData(mockContent[sectionId as keyof typeof mockContent] || {});
   };
 
-  const handleSave = () => {
-    // In real app: save to Supabase
-    alert(`Saved ${editingSection}! Changes will be live after deployment.`);
+  const handleSaveMock = () => {
+    alert(`Saved ${editingSection}! Changes updated.`);
     setEditingSection(null);
   };
 
@@ -89,9 +89,18 @@ export default function AdminContentPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <div>
-          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">Content Management</h1>
-          <p className="text-[var(--color-slate)] mt-1">Zero-code editing for Vidhya - update text, images, and layout without developers</p>
+          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">Pages</h1>
+          <p className="text-[var(--color-slate)] mt-1">Zero-code editing for Vidhya - update text, images, navigation, and layout without developers</p>
         </div>
+        <Link
+          href="/"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--color-snow)] hover:bg-[var(--color-whisper)] text-xs font-semibold text-[var(--color-ink)] border border-[var(--color-whisper)] transition-colors self-start sm:self-auto"
+        >
+          <span>View Live Storefront</span>
+          <span>↗</span>
+        </Link>
       </motion.div>
 
       {/* Tabs */}
@@ -148,7 +157,27 @@ export default function AdminContentPage() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
               >
-                {editingSection ? (
+                {editingSection === 'hero' ? (
+                  <Card variant="elevated" padding="lg">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
+                      <div>
+                        <Badge variant="outline" className="text-xs mb-2">HERO</Badge>
+                        <CardTitle className="text-[var(--font-display)] text-lg">Homepage Hero & Header Navigation</CardTitle>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setEditingSection(null)}>Close</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <HomepageHeroEditor
+                        onCancel={() => setEditingSection(null)}
+                        onSaved={() => {
+                          // Saved hook
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                ) : editingSection ? (
                   <Card variant="elevated" padding="lg">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
                       <div>
@@ -157,25 +186,11 @@ export default function AdminContentPage() {
                       </div>
                       <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setEditingSection(null)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleSave}>Save Changes</Button>
+                        <Button variant="primary" onClick={handleSaveMock}>Save Changes</Button>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-6">
-                        {/* Dynamic form based on section type */}
-                        {editingSection === 'hero' && (
-                          <div>
-                            <Input label="Main Headline" value={formData['title']} onChange={(e) => setFormData({...formData, title: e.target.value})} />
-                            <Textarea label="Subtitle" value={formData['subtitle']} onChange={(e) => setFormData({...formData, subtitle: e.target.value})} rows={3} />
-                            <div className="grid sm:grid-cols-2 gap-4">
-                              <Input label="Primary CTA Text" value={formData['ctaText']} onChange={(e) => setFormData({...formData, ctaText: e.target.value})} />
-                              <Input label="Primary CTA Link" value={formData['ctaLink']} onChange={(e) => setFormData({...formData, ctaLink: e.target.value})} />
-                              <Input label="Secondary CTA Text" value={formData['secondaryCtaText']} onChange={(e) => setFormData({...formData, secondaryCtaText: e.target.value})} />
-                              <Input label="Secondary CTA Link" value={formData['secondaryCtaLink']} onChange={(e) => setFormData({...formData, secondaryCtaLink: e.target.value})} />
-                            </div>
-                            <Input label="Background Image URL" value={formData['backgroundImage']} onChange={(e) => setFormData({...formData, backgroundImage: e.target.value})} />
-                          </div>
-                        )}
                         {editingSection === 'features' && (
                           <div>
                             <p className="text-sm text-[var(--color-slate)] mb-4">Edit the 4 feature cards shown on homepage</p>
@@ -298,34 +313,20 @@ export default function AdminContentPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Title</TableHead>
+                      <TableHead>Author</TableHead>
                       <TableHead>Category</TableHead>
+                      <TableHead>Date</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Published</TableHead>
-                      <TableHead className="w-32">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[
-                      { title: 'How to Drape a Saree: 5 Modern Styles', category: 'Styling Guide', status: 'Published', date: '2026-01-15' },
-                      { title: 'The Art of Banarasi Weaving', category: 'Artisan Story', status: 'Published', date: '2026-01-08' },
-                      { title: 'Winter Wedding Guest Outfit Ideas', category: 'Styling Guide', status: 'Draft', date: '—' },
-                      { title: 'Meet Ramesh-ji: 40 Years of Weaving', category: 'Artisan Story', status: 'Scheduled', date: '2026-01-25' },
-                    ].map((post, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{post.title}</TableCell>
-                        <TableCell><Badge variant="outline">{post.category}</Badge></TableCell>
-                        <TableCell>
-                          <Badge variant={post.status === 'Published' ? 'success' : post.status === 'Draft' ? 'outline' : 'warning'}>{post.status}</Badge>
-                        </TableCell>
-                        <TableCell>{post.date}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="sm" className="p-1.5">Edit</Button>
-                            <Button variant="ghost" size="sm" className="p-1.5">View</Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    <TableRow>
+                      <TableCell className="font-medium">The Art of Hand Block Printing</TableCell>
+                      <TableCell>Vidhya</TableCell>
+                      <TableCell>Craft & Technique</TableCell>
+                      <TableCell>Jan 15, 2026</TableCell>
+                      <TableCell><Badge variant="outline">Published</Badge></TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </CardContent>
@@ -342,42 +343,35 @@ export default function AdminContentPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)]">Static Pages</h2>
-                <p className="text-[var(--color-slate)]">Manage content for static pages</p>
+                <p className="text-[var(--color-slate)]">Manage legal pages, contact info, and policies</p>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { title: 'About Us', slug: 'about', status: 'Published', lastEdited: '2026-01-10' },
-                { title: 'Contact', slug: 'contact', status: 'Published', lastEdited: '2026-01-05' },
-                { title: 'FAQ', slug: 'faq', status: 'Published', lastEdited: '2026-01-12' },
-                { title: 'Size Guide', slug: 'size-finder', status: 'Published', lastEdited: '2026-01-08' },
-                { title: 'Shipping Policy', slug: 'shipping', status: 'Draft', lastEdited: '2026-01-01' },
-                { title: 'Returns Policy', slug: 'returns', status: 'Draft', lastEdited: '2026-01-01' },
-              ].map((page) => (
-                <motion.div
-                  key={page.slug}
-                  className="p-4 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-xl)] hover:shadow-[var(--shadow-md)] transition-shadow"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.05 }}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-[var(--font-display)] text-base font-medium text-[var(--color-ink)]">{page.title}</h3>
-                    <Badge variant={page.status === 'Published' ? 'success' : 'outline'}>{page.status}</Badge>
-                  </div>
-                  <p className="text-sm text-[var(--color-slate)] mb-3">/{page.slug}</p>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/admin/content/pages/${page.slug}`}>Edit</Link>
-                    </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/${page.slug}`} target="_blank" rel="noopener noreferrer">View</Link>
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+            <Card variant="elevated" padding="none">
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Page</TableHead>
+                      <TableHead>Path</TableHead>
+                      <TableHead>Last Updated</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="font-medium">About Us</TableCell>
+                      <TableCell>/about</TableCell>
+                      <TableCell>Jan 10, 2026</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="font-medium">Shipping Policy</TableCell>
+                      <TableCell>/shipping</TableCell>
+                      <TableCell>Dec 20, 2025</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           </motion.div>
         </TabsContent>
       </Tabs>

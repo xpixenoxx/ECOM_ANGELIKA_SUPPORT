@@ -37,6 +37,9 @@ export interface NavItem {
 export interface HeaderProps {
   logo?: ReactNode;
   logoHref?: string;
+  brandName?: string;
+  brandTagline?: string;
+  logoUrl?: string;
   navigation?: NavItem[];
   searchPlaceholder?: string;
   showAccount?: boolean;
@@ -412,6 +415,9 @@ function getUserDisplayData(user: User | null): { name: string; email: string; a
 export function Header({
   logo,
   logoHref = '/',
+  brandName = 'Angelika',
+  brandTagline = 'Fashions',
+  logoUrl = '/images/logo.png',
   navigation = defaultNavigation,
   searchPlaceholder = 'Search for kurtis, sarees, lehengas...',
   showAccount = true,
@@ -505,21 +511,23 @@ export function Header({
                 </svg>
               </button>
 
-              <Link href={logoHref} className="flex-shrink-0 flex items-center gap-2 py-1" aria-label="Angelika Fashions - Home">
+              <Link href={logoHref} className="flex-shrink-0 flex items-center gap-2 py-1" aria-label={`${brandName} ${brandTagline} - Home`}>
                 {logo || (
                   <div className="flex items-center gap-2">
                     <img
-                      src="/images/logo.png"
-                      alt="Angelika Fashions"
+                      src={logoUrl || "/images/logo.png"}
+                      alt={`${brandName} ${brandTagline}`}
                       className="h-9 md:h-11 w-auto object-contain rounded-sm"
                     />
                     <div className="hidden sm:flex flex-col">
                       <span className="font-display text-lg md:text-xl font-bold tracking-tight text-[var(--color-ink)] leading-none">
-                        Angelika
+                        {brandName}
                       </span>
-                      <span className="text-[9px] tracking-[0.22em] text-[var(--color-gold)] uppercase font-semibold">
-                        Fashions
-                      </span>
+                      {brandTagline ? (
+                        <span className="text-[9px] tracking-[0.22em] text-[var(--color-gold)] uppercase font-semibold">
+                          {brandTagline}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -642,6 +650,9 @@ export function Header({
       </header>
 
       <MobileMenu
+        logoUrl={logoUrl}
+        brandName={brandName}
+        brandTagline={brandTagline}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         navigation={navigation}
@@ -1119,6 +1130,9 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
 }
 
 interface MobileMenuProps {
+  logoUrl?: string;
+  brandName?: string;
+  brandTagline?: string;
   isOpen: boolean;
   onClose: () => void;
   navigation: NavItem[];
@@ -1132,6 +1146,9 @@ interface MobileMenuProps {
 }
 
 function MobileMenu({
+  logoUrl = '/images/logo.png',
+  brandName = 'Angelika',
+  brandTagline = 'Fashions',
   isOpen,
   onClose,
   navigation,
@@ -1169,11 +1186,16 @@ function MobileMenu({
             <div className="flex items-center justify-between p-4 border-b border-[var(--color-whisper)] sticky top-0 bg-[var(--color-white)] z-10">
               <div className="flex items-center gap-2.5">
                 <img
-                  src="/images/logo.png"
-                  alt="Angelika Fashions"
+                  src={logoUrl || "/images/logo.png"}
+                  alt={`${brandName} ${brandTagline}`}
                   className="h-8 w-auto object-contain rounded-sm"
                 />
-                <span className="font-display text-lg font-bold text-[var(--color-ink)]">Angelika</span>
+                <div className="flex flex-col">
+                  <span className="font-display text-lg font-bold text-[var(--color-ink)] leading-none">{brandName}</span>
+                  {brandTagline ? (
+                    <span className="text-[8px] tracking-[0.2em] text-[var(--color-gold)] uppercase font-semibold">{brandTagline}</span>
+                  ) : null}
+                </div>
               </div>
               <motion.button
                 className="p-2 rounded-full text-[var(--color-mist)] hover:text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-colors"
