@@ -12,11 +12,14 @@ import { Badge } from '@/components/ui/Badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/Table';
 import { cn } from '@/lib/utils/cn';
 import { HomepageHeroEditor } from '@/components/admin/HomepageHeroEditor';
+import { CategoryShowcaseEditor } from '@/components/admin/CategoryShowcaseEditor';
+import { NewArrivalsEditor } from '@/components/admin/NewArrivalsEditor';
 
 const contentSections = [
   { id: 'hero', label: 'Homepage Hero', type: 'hero' },
   { id: 'features', label: 'Features Section', type: 'features' },
   { id: 'categories', label: 'Category Showcase', type: 'categories' },
+  { id: 'new-arrivals', label: 'New Arrivals (Fresh from Atelier)', type: 'products' },
   { id: 'vidhyas-picks', label: "Vidhya's Picks", type: 'editorial' },
   { id: 'brand-story', label: 'Brand Story', type: 'richtext' },
   { id: 'newsletter', label: 'Newsletter Signup', type: 'form' },
@@ -50,6 +53,147 @@ const defaultMockContent: Record<string, any> = {
     badge: 'Curated Collections',
     title: 'Shop by Category',
     subtitle: 'Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.',
+    items: [
+      {
+        title: 'Kurtis',
+        subtitle: 'Hand-block printed cotton',
+        image: '/images/collection-kurtis.jpg',
+        href: '/shop/kurtis',
+        cta: 'Shop Kurtis',
+        color: 'from-[var(--color-kurti)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Salwars',
+        subtitle: 'Elegant palazzo & churidar sets',
+        image: '/images/collection-salwars.jpg',
+        href: '/shop/salwars',
+        cta: 'Shop Salwars',
+        color: 'from-[var(--color-salwar)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Lehengas',
+        subtitle: 'Bridal & festive wear',
+        image: '/images/collection-lehengas.jpg',
+        href: '/shop/lehengas',
+        cta: 'Shop Lehengas',
+        color: 'from-[var(--color-lehenga)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Sarees',
+        subtitle: 'Silk, cotton & chiffon drapes',
+        image: '/images/collection-sarees.jpg',
+        href: '/shop/sarees',
+        cta: 'Shop Sarees',
+        color: 'from-[var(--color-saree)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Dupattas',
+        subtitle: 'Embroidered & printed accents',
+        image: '/images/collection-dupattas.jpg',
+        href: '/shop/dupattas',
+        cta: 'Shop Dupattas',
+        color: 'from-[var(--color-dupatta)] to-[var(--color-gold-hover)]',
+      },
+    ],
+  },
+  'new-arrivals': {
+    badge: 'New Arrivals',
+    heading: 'Fresh from',
+    headingHighlight: 'the Atelier',
+    ctaText: 'View All New',
+    ctaLink: '/new-arrivals',
+    mode: 'custom',
+    limit: 8,
+    items: [
+      {
+        id: 'na-1',
+        name: 'Royal Crimson Zari Bridal Lehenga Set',
+        category: 'Salwars',
+        price: 28999,
+        originalPrice: 34999,
+        image: '/images/collection-lehengas.jpg',
+        href: '/shop/salwars',
+        isVidhyasPick: true,
+        discount: 17,
+      },
+      {
+        id: 'na-2',
+        name: 'Handcrafted Velvet Zardosi Couture Ensemble',
+        category: 'Kurtis',
+        price: 11999,
+        originalPrice: 14999,
+        image: '/images/cat-lehengas.jpg',
+        href: '/shop/kurtis',
+        isVidhyasPick: false,
+        discount: 20,
+      },
+      {
+        id: 'na-3',
+        name: 'Banarasi Silk Brocade Palazzo & Churidar Set',
+        category: 'Salwars',
+        price: 14499,
+        originalPrice: 17999,
+        image: '/images/collection-salwars.jpg',
+        href: '/shop/salwars',
+        isVidhyasPick: false,
+        discount: 19,
+      },
+      {
+        id: 'na-4',
+        name: 'Hand-Block Printed Chanderi Cotton Kurti',
+        category: 'Kurtis',
+        price: 6499,
+        originalPrice: 7999,
+        image: '/images/collection-kurtis.jpg',
+        href: '/shop/kurtis',
+        isVidhyasPick: true,
+        discount: 19,
+      },
+      {
+        id: 'na-5',
+        name: 'Handwoven Gold Zari Chanderi Saree',
+        category: 'Sarees',
+        price: 12999,
+        originalPrice: 15499,
+        image: '/images/artisan-workshop.jpg',
+        href: '/product/handwoven-gold-zari-chanderi-saree',
+        isVidhyasPick: false,
+        discount: 16,
+      },
+      {
+        id: 'na-6',
+        name: 'Heritage Temple Kanjivaram Silk Saree',
+        category: 'Sarees',
+        price: 22499,
+        originalPrice: 26999,
+        image: '/images/collection-sarees.jpg',
+        href: '/product/heritage-temple-kanjivaram-silk-saree',
+        isVidhyasPick: true,
+        discount: 17,
+      },
+      {
+        id: 'na-7',
+        name: 'Lucknowi Mukaish Chikankari Georgette Saree',
+        category: 'Sarees',
+        price: 15499,
+        originalPrice: 18999,
+        image: '/images/cat-sarees.jpg',
+        href: '/product/lucknowi-mukaish-chikankari-georgette-saree',
+        isVidhyasPick: true,
+        discount: 18,
+      },
+      {
+        id: 'na-8',
+        name: 'Amritsari Hand-Embroidered Phulkari Dupatta',
+        category: 'Dupattas',
+        price: 3299,
+        originalPrice: 3999,
+        image: '/images/collection-dupattas.jpg',
+        href: '/product/amritsari-hand-embroidered-phulkari-dupatta',
+        isVidhyasPick: false,
+        discount: 18,
+      },
+    ],
   },
   'vidhyas-picks': {
     title: "Vidhya's Monthly Edit",
@@ -497,6 +641,52 @@ export default function AdminContentPage() {
                         onCancel={() => setEditingSection(null)}
                         onSaved={() => {
                           // Saved hook
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                ) : editingSection === 'categories' ? (
+                  <Card variant="elevated" padding="lg">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
+                      <div>
+                        <Badge variant="outline" className="text-xs mb-2">CATEGORIES</Badge>
+                        <CardTitle className="text-[var(--font-display)] text-lg">Category Showcase & Curated Collections</CardTitle>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setEditingSection(null)}>Close</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <CategoryShowcaseEditor
+                        onCancel={() => setEditingSection(null)}
+                        onSaved={(savedData) => {
+                          setContentState((prev) => ({
+                            ...prev,
+                            categories: savedData,
+                          }));
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                ) : editingSection === 'new-arrivals' ? (
+                  <Card variant="elevated" padding="lg">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
+                      <div>
+                        <Badge variant="outline" className="text-xs mb-2">NEW ARRIVALS</Badge>
+                        <CardTitle className="text-[var(--font-display)] text-lg">Fresh from the Atelier · New Arrivals</CardTitle>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setEditingSection(null)}>Close</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <NewArrivalsEditor
+                        onCancel={() => setEditingSection(null)}
+                        onSaved={(savedData) => {
+                          setContentState((prev) => ({
+                            ...prev,
+                            'new-arrivals': savedData,
+                          }));
                         }}
                       />
                     </CardContent>

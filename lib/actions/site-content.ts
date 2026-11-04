@@ -18,6 +18,45 @@ export interface HeroContent {
   backgroundImage: string;
 }
 
+export interface CategoryCollectionItem {
+  title: string;
+  subtitle: string;
+  image: string;
+  href: string;
+  cta: string;
+  color?: string;
+}
+
+export interface CategoriesContent {
+  badge: string;
+  title: string;
+  subtitle: string;
+  items: CategoryCollectionItem[];
+}
+
+export interface NewArrivalProductItem {
+  id?: string;
+  name: string;
+  category: string;
+  price: number;
+  originalPrice?: number;
+  image: string;
+  href: string;
+  isVidhyasPick?: boolean;
+  discount?: number;
+}
+
+export interface NewArrivalsContent {
+  badge: string;
+  heading: string;
+  headingHighlight: string;
+  ctaText: string;
+  ctaLink: string;
+  mode: 'auto' | 'custom';
+  limit?: number;
+  items: NewArrivalProductItem[];
+}
+
 export interface SiteContent {
   hero: HeroContent;
   features: {
@@ -31,11 +70,8 @@ export interface SiteContent {
     note: string;
     products: string[];
   };
-  categories?: {
-    badge: string;
-    title: string;
-    subtitle: string;
-  };
+  categories?: CategoriesContent;
+  'new-arrivals'?: NewArrivalsContent;
   'brand-story'?: {
     title?: string;
     story?: string;
@@ -82,6 +118,147 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     badge: 'Curated Collections',
     title: 'Shop by Category',
     subtitle: 'Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.',
+    items: [
+      {
+        title: 'Kurtis',
+        subtitle: 'Hand-block printed cotton',
+        image: '/images/collection-kurtis.jpg',
+        href: '/shop/kurtis',
+        cta: 'Shop Kurtis',
+        color: 'from-[var(--color-kurti)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Salwars',
+        subtitle: 'Elegant palazzo & churidar sets',
+        image: '/images/collection-salwars.jpg',
+        href: '/shop/salwars',
+        cta: 'Shop Salwars',
+        color: 'from-[var(--color-salwar)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Lehengas',
+        subtitle: 'Bridal & festive wear',
+        image: '/images/collection-lehengas.jpg',
+        href: '/shop/lehengas',
+        cta: 'Shop Lehengas',
+        color: 'from-[var(--color-lehenga)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Sarees',
+        subtitle: 'Silk, cotton & chiffon drapes',
+        image: '/images/collection-sarees.jpg',
+        href: '/shop/sarees',
+        cta: 'Shop Sarees',
+        color: 'from-[var(--color-saree)] to-[var(--color-gold-hover)]',
+      },
+      {
+        title: 'Dupattas',
+        subtitle: 'Embroidered & printed accents',
+        image: '/images/collection-dupattas.jpg',
+        href: '/shop/dupattas',
+        cta: 'Shop Dupattas',
+        color: 'from-[var(--color-dupatta)] to-[var(--color-gold-hover)]',
+      },
+    ],
+  },
+  'new-arrivals': {
+    badge: 'New Arrivals',
+    heading: 'Fresh from',
+    headingHighlight: 'the Atelier',
+    ctaText: 'View All New',
+    ctaLink: '/new-arrivals',
+    mode: 'custom',
+    limit: 8,
+    items: [
+      {
+        id: 'na-1',
+        name: 'Royal Crimson Zari Bridal Lehenga Set',
+        category: 'Salwars',
+        price: 28999,
+        originalPrice: 34999,
+        image: '/images/collection-lehengas.jpg',
+        href: '/shop/salwars',
+        isVidhyasPick: true,
+        discount: 17,
+      },
+      {
+        id: 'na-2',
+        name: 'Handcrafted Velvet Zardosi Couture Ensemble',
+        category: 'Kurtis',
+        price: 11999,
+        originalPrice: 14999,
+        image: '/images/cat-lehengas.jpg',
+        href: '/shop/kurtis',
+        isVidhyasPick: false,
+        discount: 20,
+      },
+      {
+        id: 'na-3',
+        name: 'Banarasi Silk Brocade Palazzo & Churidar Set',
+        category: 'Salwars',
+        price: 14499,
+        originalPrice: 17999,
+        image: '/images/collection-salwars.jpg',
+        href: '/shop/salwars',
+        isVidhyasPick: false,
+        discount: 19,
+      },
+      {
+        id: 'na-4',
+        name: 'Hand-Block Printed Chanderi Cotton Kurti',
+        category: 'Kurtis',
+        price: 6499,
+        originalPrice: 7999,
+        image: '/images/collection-kurtis.jpg',
+        href: '/shop/kurtis',
+        isVidhyasPick: true,
+        discount: 19,
+      },
+      {
+        id: 'na-5',
+        name: 'Handwoven Gold Zari Chanderi Saree',
+        category: 'Sarees',
+        price: 12999,
+        originalPrice: 15499,
+        image: '/images/artisan-workshop.jpg',
+        href: '/product/handwoven-gold-zari-chanderi-saree',
+        isVidhyasPick: false,
+        discount: 16,
+      },
+      {
+        id: 'na-6',
+        name: 'Heritage Temple Kanjivaram Silk Saree',
+        category: 'Sarees',
+        price: 22499,
+        originalPrice: 26999,
+        image: '/images/collection-sarees.jpg',
+        href: '/product/heritage-temple-kanjivaram-silk-saree',
+        isVidhyasPick: true,
+        discount: 17,
+      },
+      {
+        id: 'na-7',
+        name: 'Lucknowi Mukaish Chikankari Georgette Saree',
+        category: 'Sarees',
+        price: 15499,
+        originalPrice: 18999,
+        image: '/images/cat-sarees.jpg',
+        href: '/product/lucknowi-mukaish-chikankari-georgette-saree',
+        isVidhyasPick: true,
+        discount: 18,
+      },
+      {
+        id: 'na-8',
+        name: 'Amritsari Hand-Embroidered Phulkari Dupatta',
+        category: 'Dupattas',
+        price: 3299,
+        originalPrice: 3999,
+        image: '/images/collection-dupattas.jpg',
+        href: '/product/amritsari-hand-embroidered-phulkari-dupatta',
+        isVidhyasPick: false,
+        discount: 18,
+      },
+    ],
   },
   'brand-story': {
     title: 'Artisanal Luxury, Rooted in Indian Heritage',
@@ -126,6 +303,20 @@ export async function getSiteContent(): Promise<SiteContent> {
           ? parsed.features.items
           : DEFAULT_SITE_CONTENT.features.items,
       },
+      categories: {
+        ...DEFAULT_SITE_CONTENT.categories,
+        ...(parsed.categories || {}),
+        items: (parsed.categories?.items && parsed.categories.items.length > 0)
+          ? parsed.categories.items
+          : (DEFAULT_SITE_CONTENT.categories?.items || []),
+      },
+      'new-arrivals': {
+        ...DEFAULT_SITE_CONTENT['new-arrivals'],
+        ...(parsed['new-arrivals'] || {}),
+        items: (parsed['new-arrivals']?.items && parsed['new-arrivals'].items.length > 0)
+          ? parsed['new-arrivals'].items
+          : (DEFAULT_SITE_CONTENT['new-arrivals']?.items || []),
+      },
     };
   } catch (err) {
     return DEFAULT_SITE_CONTENT;
@@ -154,6 +345,38 @@ export async function updateSectionContent(
           desc: item.desc || item.description || '',
           description: item.desc || item.description || '',
         })),
+      };
+    }
+
+    // If updating categories, ensure items array is valid
+    if (sectionId === 'categories') {
+      const defaultCategories = DEFAULT_SITE_CONTENT.categories;
+      const items = Array.isArray(sectionData?.items) && sectionData.items.length > 0
+        ? sectionData.items
+        : (defaultCategories?.items || []);
+      normalizedData = {
+        badge: sectionData?.badge || defaultCategories?.badge || 'Curated Collections',
+        title: sectionData?.title || defaultCategories?.title || 'Shop by Category',
+        subtitle: sectionData?.subtitle || defaultCategories?.subtitle || '',
+        items,
+      };
+    }
+
+    // If updating new-arrivals, ensure items and fields are valid
+    if (sectionId === 'new-arrivals') {
+      const defaultNA = DEFAULT_SITE_CONTENT['new-arrivals'];
+      const items = Array.isArray(sectionData?.items) && sectionData.items.length > 0
+        ? sectionData.items
+        : (defaultNA?.items || []);
+      normalizedData = {
+        badge: sectionData?.badge || defaultNA?.badge || 'New Arrivals',
+        heading: sectionData?.heading || defaultNA?.heading || 'Fresh from',
+        headingHighlight: sectionData?.headingHighlight || defaultNA?.headingHighlight || 'the Atelier',
+        ctaText: sectionData?.ctaText || defaultNA?.ctaText || 'View All New',
+        ctaLink: sectionData?.ctaLink || defaultNA?.ctaLink || '/new-arrivals',
+        mode: sectionData?.mode || defaultNA?.mode || 'custom',
+        limit: sectionData?.limit || defaultNA?.limit || 8,
+        items,
       };
     }
 

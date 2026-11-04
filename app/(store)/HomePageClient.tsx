@@ -321,136 +321,151 @@ export default function HomePageClient({
           </div>
 
           {/* Shop by Category: 2 on Left, 1 Centerpiece, 2 on Right */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
-            {/* Left Column: 2 Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
-              {[featuredCollections[0], featuredCollections[1]].map((collection) => {
-                if (!collection) return null;
-                return (
-                  <Link
-                    key={collection.title}
-                    href={collection.href}
-                    className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                  >
-                    {/* Background Image */}
-                    <Image
-                      src={collection.image}
-                      alt={`Angelika ${collection.title} Collection`}
-                      fill
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                    />
+          {(() => {
+            const rawItems = siteContent?.categories?.items;
+            const items = (Array.isArray(rawItems) && rawItems.length >= 5)
+              ? rawItems
+              : featuredCollections.map((fc, idx) => ({
+                  ...fc,
+                  ...(rawItems?.[idx] || {}),
+                }));
 
-                    {/* Dark Gradient Overlay for Contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
+            const leftCards = [items[0] || featuredCollections[0], items[1] || featuredCollections[1]];
+            const centerCard = items[2] || featuredCollections[2];
+            const rightCards = [items[3] || featuredCollections[3], items[4] || featuredCollections[4]];
 
-                    {/* Content Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
-                      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
-                        {collection.subtitle}
-                      </span>
-                      <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
-                        {collection.title}
-                      </h3>
-                      <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
-                        <span>{collection.cta}</span>
-                        <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+                {/* Left Column: 2 Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
+                  {leftCards.map((collection, idx) => {
+                    if (!collection) return null;
+                    return (
+                      <Link
+                        key={collection.title || `left-${idx}`}
+                        href={collection.href || '/shop'}
+                        className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
+                      >
+                        {/* Background Image */}
+                        <Image
+                          src={collection.image || '/images/collection-kurtis.jpg'}
+                          alt={`Angelika ${collection.title || 'Collection'}`}
+                          fill
+                          unoptimized
+                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
+                          sizes="(max-width: 768px) 50vw, 25vw"
+                        />
+
+                        {/* Dark Gradient Overlay for Contrast */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
+
+                        {/* Content Overlay */}
+                        <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
+                          <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
+                            {collection.subtitle}
+                          </span>
+                          <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
+                            {collection.title}
+                          </h3>
+                          <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
+                            <span>{collection.cta || 'Shop Now'}</span>
+                            <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                {/* Center Column: 1 Hero Centerpiece (reduced size, matching height) */}
+                <div className="w-full h-full">
+                  {centerCard && (
+                    <Link
+                      key={centerCard.title || 'centerpiece'}
+                      href={centerCard.href || '/shop'}
+                      className="group relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-auto md:h-full min-h-[380px] md:min-h-0 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 bg-[var(--color-whisper)] block"
+                    >
+                      {/* Background Image */}
+                      <Image
+                        src={centerCard.image || '/images/collection-lehengas.jpg'}
+                        alt={`Angelika ${centerCard.title || 'Collection'}`}
+                        fill
+                        unoptimized
+                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        priority
+                      />
+
+                      {/* Dark Gradient Overlay for Contrast */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
+
+                      {/* Content Overlay */}
+                      <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 md:p-6 flex flex-col justify-end z-10">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] bg-[var(--color-gold)]/20 text-[var(--color-gold)] border border-[var(--color-gold)]/40 mb-2.5 w-fit backdrop-blur-xs">
+                          <span>✦</span>
+                          <span>{centerCard.subtitle}</span>
+                        </span>
+                        <h3 className="font-display text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-medium text-white mb-2.5 drop-shadow-lg group-hover:text-[var(--color-gold-light)] transition-colors">
+                          {centerCard.title}
+                        </h3>
+                        <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold uppercase tracking-wider text-white group-hover:text-[var(--color-gold)] transition-colors">
+                          <span>{centerCard.cta || 'Shop Now'}</span>
+                          <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M5 12h14M12 5l7 7-7 7" />
+                          </svg>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
+                    </Link>
+                  )}
+                </div>
 
-            {/* Center Column: 1 Hero Centerpiece (reduced size, matching height) */}
-            <div className="w-full h-full">
-              {(() => {
-                const collection = featuredCollections[2];
-                if (!collection) return null;
-                return (
-                  <Link
-                    key={collection.title}
-                    href={collection.href}
-                    className="group relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-auto md:h-full min-h-[380px] md:min-h-0 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                  >
-                    {/* Background Image */}
-                    <Image
-                      src={collection.image}
-                      alt={`Angelika ${collection.title} Collection`}
-                      fill
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      priority
-                    />
+                {/* Right Column: 2 Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
+                  {rightCards.map((collection, idx) => {
+                    if (!collection) return null;
+                    return (
+                      <Link
+                        key={collection.title || `right-${idx}`}
+                        href={collection.href || '/shop'}
+                        className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
+                      >
+                        {/* Background Image */}
+                        <Image
+                          src={collection.image || '/images/collection-sarees.jpg'}
+                          alt={`Angelika ${collection.title || 'Collection'}`}
+                          fill
+                          unoptimized
+                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
+                          sizes="(max-width: 768px) 50vw, 25vw"
+                        />
 
-                    {/* Dark Gradient Overlay for Contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
+                        {/* Dark Gradient Overlay for Contrast */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
 
-                    {/* Content Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 md:p-6 flex flex-col justify-end z-10">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] bg-[var(--color-gold)]/20 text-[var(--color-gold)] border border-[var(--color-gold)]/40 mb-2.5 w-fit backdrop-blur-xs">
-                        <span>✦</span>
-                        <span>{collection.subtitle}</span>
-                      </span>
-                      <h3 className="font-display text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-medium text-white mb-2.5 drop-shadow-lg group-hover:text-[var(--color-gold-light)] transition-colors">
-                        {collection.title}
-                      </h3>
-                      <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold uppercase tracking-wider text-white group-hover:text-[var(--color-gold)] transition-colors">
-                        <span>{collection.cta}</span>
-                        <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })()}
-            </div>
-
-            {/* Right Column: 2 Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
-              {[featuredCollections[3], featuredCollections[4]].map((collection) => {
-                if (!collection) return null;
-                return (
-                  <Link
-                    key={collection.title}
-                    href={collection.href}
-                    className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                  >
-                    {/* Background Image */}
-                    <Image
-                      src={collection.image}
-                      alt={`Angelika ${collection.title} Collection`}
-                      fill
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                    />
-
-                    {/* Dark Gradient Overlay for Contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
-
-                    {/* Content Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
-                      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
-                        {collection.subtitle}
-                      </span>
-                      <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
-                        {collection.title}
-                      </h3>
-                      <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
-                        <span>{collection.cta}</span>
-                        <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+                        {/* Content Overlay */}
+                        <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
+                          <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
+                            {collection.subtitle}
+                          </span>
+                          <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
+                            {collection.title}
+                          </h3>
+                          <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
+                            <span>{collection.cta || 'Shop Now'}</span>
+                            <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </section>
 
@@ -507,51 +522,81 @@ export default function HomePageClient({
         </div>
       </section>
 
-      {/* New Arrivals */}
-      <section className="section bg-[var(--color-snow)]">
-        <div className="container-custom px-6">
-          <motion.div
-            className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
-          >
-            <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-3">
-                New Arrivals
-              </span>
-              <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)]">
-                Fresh from <span className="text-gradient-gold">the Atelier</span>
-              </h2>
+      {/* New Arrivals: Fresh from the Atelier */}
+      {(() => {
+        const naContent = siteContent?.['new-arrivals'];
+        const badge = naContent?.badge || 'New Arrivals';
+        const headingPrefix = naContent?.heading || 'Fresh from';
+        const headingHighlight = naContent?.headingHighlight || 'the Atelier';
+        const ctaText = naContent?.ctaText || 'View All New';
+        const ctaLink = naContent?.ctaLink || '/new-arrivals';
+
+        // Choose between custom curated items or dynamic database items
+        const isCustomMode = naContent?.mode === 'custom' && Array.isArray(naContent?.items) && naContent.items.length > 0;
+        const productsToDisplay = isCustomMode
+          ? naContent.items
+          : (newArrivals.length > 0 ? newArrivals : (naContent?.items || []));
+
+        return (
+          <section className="section bg-[var(--color-snow)]">
+            <div className="container-custom px-6">
+              <motion.div
+                className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
+              >
+                <div>
+                  <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-3">
+                    {badge}
+                  </span>
+                  <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)]">
+                    {headingPrefix}{' '}
+                    <span className="text-gradient-gold">{headingHighlight}</span>
+                  </h2>
+                </div>
+                <Button variant="outline" asChild className="mt-4 md:mt-0">
+                  <Link href={ctaLink}>
+                    {ctaText} <span aria-hidden="true">→</span>
+                  </Link>
+                </Button>
+              </motion.div>
+              <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {productsToDisplay.length > 0 ? (
+                  productsToDisplay.map((product: any, index: number) => {
+                    const imgUrl = product.image || product.images?.[0]?.url || '/images/placeholder.jpg';
+                    const categoryName = typeof product.category === 'string'
+                      ? product.category
+                      : product.category?.name || '';
+                    const origPrice = product.originalPrice ?? product.compare_at_price ?? undefined;
+                    const isVPick = product.isVidhyasPick ?? product.is_vidyas_pick ?? false;
+                    const productHref = product.href || (product.slug ? `/product/${product.slug}` : '/shop');
+
+                    return (
+                      <StaggerItem key={product.id || index} delay={index * 0.08} variant="scale">
+                        <ProductCard
+                          image={imgUrl}
+                          name={product.name}
+                          price={Number(product.price)}
+                          originalPrice={origPrice ? Number(origPrice) : undefined}
+                          category={categoryName}
+                          isVidhyasPick={isVPick}
+                          discount={product.discount}
+                          href={productHref}
+                          onAddToBag={() => handleAddToBag(product)}
+                        />
+                      </StaggerItem>
+                    );
+                  })
+                ) : (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <StaggerItem key={`skeleton-na-${i}`} delay={i * 0.08} variant="scale">
+                      <SkeletonProductCard />
+                    </StaggerItem>
+                  ))
+                )}
+              </StaggerContainer>
             </div>
-            <Button variant="outline" asChild className="mt-4 md:mt-0">
-              <Link href="/new-arrivals">View All New <span aria-hidden="true">→</span></Link>
-            </Button>
-          </motion.div>
-          <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {newArrivals.length > 0 ? (
-              newArrivals.map((product, index) => (
-                <StaggerItem key={product.id} delay={index * 0.08} variant="scale">
-                  <ProductCard
-                    image={product.images[0]?.url || '/images/placeholder.jpg'}
-                    name={product.name}
-                    price={product.price}
-                    originalPrice={product.compare_at_price || undefined}
-                    category={product.category?.name || ''}
-                    isVidhyasPick={product.is_vidyas_pick}
-                    discount={product.discount}
-                    href={`/product/${product.slug}`}
-                    onAddToBag={() => handleAddToBag(product)}
-                  />
-                </StaggerItem>
-              ))
-            ) : (
-              Array.from({ length: 4 }).map((_, i) => (
-                <StaggerItem key={`skeleton-na-${i}`} delay={i * 0.08} variant="scale">
-                  <SkeletonProductCard />
-                </StaggerItem>
-              ))
-            )}
-          </StaggerContainer>
-        </div>
-      </section>
+          </section>
+        );
+      })()}
 
       {/* About Vidhya / Brand Story */}
       <section className="section bg-[var(--color-white)]">
