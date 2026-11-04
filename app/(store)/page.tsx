@@ -1,5 +1,6 @@
 import { getNewArrivals, getVidhyasPicks, getLooks, getInstagramPosts } from '@/lib/actions/homepage';
 import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
+import { getSiteContent } from '@/lib/actions/site-content';
 import HomePageClient from './HomePageClient';
 
 export const revalidate = 60;
@@ -54,7 +55,6 @@ const homeJsonLd = {
     {
       '@type': 'WebSite',
       '@id': 'https://angelikafashions.com/#website',
-      url: 'https://angelikafashions.com',
       name: 'Angelika Fashions',
       publisher: { '@id': 'https://angelikafashions.com/#organization' },
       potentialAction: {
@@ -105,12 +105,13 @@ const homeJsonLd = {
 };
 
 export default async function HomePage() {
-  const [vidhyasPicks, newArrivals, looks, instagramPosts, heroData] = await Promise.all([
+  const [vidhyasPicks, newArrivals, looks, instagramPosts, heroData, siteContent] = await Promise.all([
     getVidhyasPicks(4),
     getNewArrivals(8),
     getLooks(3),
     getInstagramPosts(8),
     getHomepageHeroData(),
+    getSiteContent(),
   ]);
 
   return (
@@ -125,6 +126,7 @@ export default async function HomePage() {
         looks={looks}
         instagramPosts={instagramPosts}
         heroData={heroData}
+        siteContent={siteContent}
       />
     </>
   );

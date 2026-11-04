@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -28,23 +28,28 @@ const contentSections = [
   { id: 'artisan-story', label: 'Artisan Spotlight', type: 'richtext' },
 ];
 
-const mockContent = {
+const defaultMockContent: Record<string, any> = {
   'hero': {
-    title: 'Grace in',
-    subtitle: 'Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.',
+    title: 'Grace in Every Drape',
+    subtitle: 'Timeless traditional wear for the modern woman. Rooted in heritage, designed for your today.',
     ctaText: 'Explore Collection',
     ctaLink: '/shop',
     secondaryCtaText: "Vidhya's Picks",
-    secondaryCtaLink: "/vidhyas-picks",
+    secondaryCtaLink: '/vidhyas-picks',
     backgroundImage: '/images/hero-new-couture.jpg',
   },
   'features': {
     items: [
-      { icon: '🚚', title: 'Free Shipping', desc: 'On orders ₹2,999+ across India' },
-      { icon: '🔄', title: '15-Day Returns', desc: 'Hassle-free returns & exchanges' },
-      { icon: '💬', title: 'Personal Styling', desc: 'Chat with Vidhya on WhatsApp' },
-      { icon: '🎁', title: 'Gift Wrapping', desc: 'Complimentary on all orders' },
+      { icon: '🚚', title: 'Free Shipping', desc: 'On orders ₹2,999+ across India', description: 'On orders ₹2,999+ across India' },
+      { icon: '🔄', title: '15-Day Returns', desc: 'Hassle-free returns & exchanges', description: 'Hassle-free returns & exchanges' },
+      { icon: '💬', title: 'Personal Styling', desc: 'Chat with Vidhya on WhatsApp', description: 'Chat with Vidhya on WhatsApp' },
+      { icon: '🎁', title: 'Gift Wrapping', desc: 'Complimentary on all orders', description: 'Complimentary on all orders' },
     ],
+  },
+  'categories': {
+    badge: 'Curated Collections',
+    title: 'Shop by Category',
+    subtitle: 'Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.',
   },
   'vidhyas-picks': {
     title: "Vidhya's Monthly Edit",
@@ -53,6 +58,15 @@ const mockContent = {
     theme: 'New Beginnings in Silk',
     note: 'Starting the year with fabrics that feel like fresh starts...',
     products: ['prod-1', 'prod-2', 'prod-3'],
+  },
+  'brand-story': {
+    title: 'Artisanal Luxury, Rooted in Indian Heritage',
+    story: 'Every piece in the Angelika collection is thoughtfully curated by designer Vidhya, honoring ancient weaving traditions while embracing contemporary silhouettes.',
+    quote: '"Fashion that honors where you come from while embracing where you are going."',
+  },
+  'newsletter': {
+    title: 'Join the Angelika Circle',
+    subtitle: 'Receive exclusive invitations to preview new arrivals, bespoke styling sessions, and private editorial drops.',
   },
 };
 
@@ -65,19 +79,273 @@ const mediaItems = [
   { id: 'img-6', name: 'collection-sarees.jpg', type: 'image', size: '920 KB', url: '/images/collection-sarees.jpg', usedIn: ['Collections: Sarees'] },
 ];
 
+function FeatureIconUploader({
+  icon,
+  onChange,
+}: {
+  icon: string;
+  onChange: (newIcon: string) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [pasteSuccess, setPasteSuccess] = useState(false);
+
+  const isImage =
+    icon &&
+    (icon.startsWith('/') ||
+      icon.startsWith('http://') ||
+      icon.startsWith('https://') ||
+      icon.startsWith('data:image'));
+
+  const uploadFile = async (file: File) => {
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/admin/content/upload-icon', {
+        method: 'POST',
+        body: fd,
+      });
+      const data = await res.json();
+      if (data.success && data.url) {
+        onChange(data.url);
+        setPasteSuccess(true);
+        setTimeout(() => setPasteSuccess(false), 3000);
+      } else {
+        setUploadError(data.error || 'Upload failed');
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item && item.type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            await uploadFile(file);
+            return;
+          }
+        }
+      }
+    }
+
+    // Check if pasted plain text is an image URL
+    const text = e.clipboardData?.getData('text');
+    if (
+      text &&
+      (text.startsWith('http://') ||
+        text.startsWith('https://') ||
+        text.startsWith('/'))
+    ) {
+      onChange(text.trim());
+      setPasteSuccess(true);
+      setTimeout(() => setPasteSuccess(false), 3000);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadFile(file);
+    }
+    e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      uploadFile(file);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        {/* Preview Badge */}
+        <div
+          className="w-12 h-12 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] border border-[var(--color-gold)]/40 shrink-0 shadow-2xs overflow-hidden mx-auto sm:mx-0"
+          title={isImage ? 'Uploaded Custom Image' : 'Emoji Icon'}
+        >
+          {isImage ? (
+            <img src={icon} alt="Icon preview" className="w-6 h-6 object-contain" />
+          ) : (
+            <span className="text-2xl leading-none select-none">{icon || '✨'}</span>
+          )}
+        </div>
+
+        {/* Upload & Paste Dropzone */}
+        <div
+          tabIndex={0}
+          onPaste={handlePaste}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            'flex-1 border-2 border-dashed rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-2 cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]',
+            isDragging
+              ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/40'
+              : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)] bg-[var(--color-white)]'
+          )}
+        >
+          <div className="flex items-center gap-2.5 text-center sm:text-left">
+            <span className="text-xl">📁</span>
+            <div>
+              <div className="text-xs font-medium text-[var(--color-ink)] flex flex-wrap items-center gap-1.5 justify-center sm:justify-start">
+                <span>Upload from device</span>
+                <span className="text-[var(--color-slate)] font-normal">or</span>
+                <span className="px-1.5 py-0.5 bg-[var(--color-whisper)] text-[10px] font-mono rounded text-[var(--color-ink)] border border-[var(--color-slate)]/20">
+                  Ctrl+V to paste
+                </span>
+              </div>
+              <p className="text-[10px] text-[var(--color-slate)] mt-0.5">
+                PNG, JPG, SVG, WebP from your device or clipboard
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {isUploading ? (
+              <span className="text-xs text-[var(--color-gold)] font-medium animate-pulse">
+                Uploading...
+              </span>
+            ) : pasteSuccess ? (
+              <span className="text-xs text-emerald-600 font-medium">✓ Image added!</span>
+            ) : (
+              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-[var(--color-snow)] hover:bg-[var(--color-whisper)] text-[var(--color-ink)] border border-[var(--color-whisper)] transition-colors">
+                Browse file
+              </span>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.svg"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
+      </div>
+
+      {uploadError && <p className="text-xs text-rose-500">{uploadError}</p>}
+
+      {/* Manual Emoji / URL input row */}
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-[11px] text-[var(--color-slate)] shrink-0">Emoji or Image URL:</span>
+        <input
+          type="text"
+          value={icon || ''}
+          placeholder="e.g. 🚚, 🎁, or /uploads/..."
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 text-xs px-2.5 py-1 rounded-md border border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)]"
+        />
+        {isImage && (
+          <button
+            type="button"
+            onClick={() => onChange('✨')}
+            className="text-[11px] text-rose-500 hover:underline shrink-0"
+            title="Switch back to emoji"
+          >
+            Clear image
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminContentPage() {
   const [activeTab, setActiveTab] = useState('sections');
-  const [editingSection, setEditingSection] = useState<string | null>('hero');
-  const [formData, setFormData] = useState<Record<string, any>>(mockContent['hero']);
+  const [editingSection, setEditingSection] = useState<string | null>('features');
+  const [contentState, setContentState] = useState<Record<string, any>>(defaultMockContent);
+  const [formData, setFormData] = useState<Record<string, any>>(defaultMockContent['features']);
+  const [isSaving, setIsSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Load saved content from API on mount
+  useEffect(() => {
+    let isMounted = true;
+    fetch('/api/admin/content')
+      .then((res) => res.json())
+      .then((data) => {
+        if (isMounted && data.success && data.content) {
+          setContentState(data.content);
+          if (editingSection && data.content[editingSection]) {
+            setFormData(JSON.parse(JSON.stringify(data.content[editingSection])));
+          }
+        }
+      })
+      .catch((err) => console.error('Error loading content:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleEdit = (sectionId: string) => {
     setEditingSection(sectionId);
-    setFormData(mockContent[sectionId as keyof typeof mockContent] || {});
+    setStatusMessage(null);
+    const currentData = contentState[sectionId] || defaultMockContent[sectionId] || {};
+    setFormData(JSON.parse(JSON.stringify(currentData)));
   };
 
-  const handleSaveMock = () => {
-    alert(`Saved ${editingSection}! Changes updated.`);
-    setEditingSection(null);
+  const handleSave = async () => {
+    if (!editingSection) return;
+    setIsSaving(true);
+    setStatusMessage(null);
+
+    try {
+      const res = await fetch('/api/admin/content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionId: editingSection,
+          data: formData,
+        }),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        setContentState((prev) => ({
+          ...prev,
+          [editingSection]: formData,
+        }));
+        const sectionLabel = contentSections.find((s) => s.id === editingSection)?.label || editingSection;
+        setStatusMessage({
+          type: 'success',
+          text: `"${sectionLabel}" updated successfully! Your changes are now live on the homepage.`,
+        });
+      } else {
+        setStatusMessage({
+          type: 'error',
+          text: result.error || 'Failed to save changes. Please try again.',
+        });
+      }
+    } catch (err: any) {
+      setStatusMessage({
+        type: 'error',
+        text: err.message || 'Network error while saving.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -89,8 +357,19 @@ export default function AdminContentPage() {
         animate={{ opacity: 1, y: 0 }}
       >
         <div>
-          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">Pages</h1>
-          <p className="text-[var(--color-slate)] mt-1">Zero-code editing for Vidhya - update text, images, navigation, and layout without developers</p>
+          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">Content Management</h1>
+          <p className="text-[var(--color-slate)] mt-1">Zero-code editing for Vidhya - update text, icons, and layout with instant homepage sync</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            target="_blank"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-[var(--color-whisper)] rounded-lg text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors bg-[var(--color-white)] shadow-2xs"
+          >
+            <span>View Live Homepage</span>
+            <span className="text-sm">↗</span>
+          </Link>
         </div>
         <Link
           href="/"
@@ -181,55 +460,262 @@ export default function AdminContentPage() {
                   <Card variant="elevated" padding="lg">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
                       <div>
-                        <Badge variant="outline" className="text-xs mb-2">{contentSections.find(s => s.id === editingSection)?.type}</Badge>
-                        <CardTitle className="text-[var(--font-display)] text-lg">{contentSections.find(s => s.id === editingSection)?.label}</CardTitle>
+                        <Badge variant="outline" className="text-xs mb-2">
+                          {contentSections.find((s) => s.id === editingSection)?.type}
+                        </Badge>
+                        <CardTitle className="text-[var(--font-display)] text-lg">
+                          {contentSections.find((s) => s.id === editingSection)?.label}
+                        </CardTitle>
                       </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setEditingSection(null)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleSaveMock}>Save Changes</Button>
+                      <div className="flex gap-2 items-center">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setEditingSection(null);
+                            setStatusMessage(null);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="primary"
+                          onClick={handleSave}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? 'Saving Changes...' : 'Save Changes'}
+                        </Button>
                       </div>
                     </CardHeader>
                     <CardContent>
+                      {/* Status Notification */}
+                      {statusMessage && (
+                        <div
+                          className={cn(
+                            'p-3.5 rounded-xl text-xs sm:text-sm mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border',
+                            statusMessage.type === 'success'
+                              ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                              : 'bg-rose-50 text-rose-900 border-rose-200'
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{statusMessage.type === 'success' ? '✓' : '⚠️'}</span>
+                            <span className="font-medium">{statusMessage.text}</span>
+                          </div>
+                          {statusMessage.type === 'success' && (
+                            <Link
+                              href="/"
+                              target="_blank"
+                              className="font-semibold text-emerald-800 underline hover:text-emerald-950 inline-flex items-center gap-1 shrink-0"
+                            >
+                              <span>View Homepage</span>
+                              <span>↗</span>
+                            </Link>
+                          )}
+                        </div>
+                      )}
+
                       <div className="space-y-6">
                         {editingSection === 'features' && (
                           <div>
-                            <p className="text-sm text-[var(--color-slate)] mb-4">Edit the 4 feature cards shown on homepage</p>
-                            {(formData['items'] as any[])?.map((item: any, i: number) => (
-                              <div key={i} className="p-4 border border-[var(--color-whisper)] rounded-[var(--radius-lg)] mb-4">
-                                <div className="grid sm:grid-cols-3 gap-4">
-                                  <Input label="Icon/Emoji" value={item.icon} onChange={(e) => { const items = [...(formData['items'] as any[])]; items[i] = {...items[i], icon: e.target.value}; setFormData({...formData, items}); }} />
-                                  <Input label="Title" value={item.title} onChange={(e) => { const items = [...(formData['items'] as any[])]; items[i] = {...items[i], title: e.target.value}; setFormData({...formData, items}); }} />
-                                  <Textarea label="Description" value={item.desc} onChange={(e) => { const items = [...(formData['items'] as any[])]; items[i] = {...items[i], desc: e.target.value}; setFormData({...formData, items}); }} rows={2} />
+                            <div className="flex items-center justify-between mb-4">
+                              <p className="text-sm text-[var(--color-slate)]">Edit the feature cards shown on homepage</p>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const items = [...(formData['items'] || [])];
+                                  items.push({ icon: '✨', title: 'New Feature', desc: 'Feature description' });
+                                  setFormData({ ...formData, items });
+                                }}
+                              >
+                                + Add Feature Card
+                              </Button>
+                            </div>
+                            {((formData['items'] as any[]) || []).map((item: any, i: number) => (
+                              <div key={i} className="p-4 border border-[var(--color-whisper)] rounded-[var(--radius-lg)] mb-4 bg-[var(--color-snow)]/40 relative">
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">Card {i + 1}</span>
+                                  {((formData['items'] as any[]).length > 1) && (
+                                    <button
+                                      type="button"
+                                      className="text-xs text-rose-500 hover:text-rose-700 underline"
+                                      onClick={() => {
+                                        const items = (formData['items'] as any[]).filter((_, idx) => idx !== i);
+                                        setFormData({ ...formData, items });
+                                      }}
+                                    >
+                                      Remove
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="space-y-4">
+                                  {/* Icon Uploader & Paste Area */}
+                                  <div>
+                                    <label className="text-xs font-medium text-[var(--color-slate)] mb-1.5 block">
+                                      Card Icon (Upload, Paste image or Emoji)
+                                    </label>
+                                    <FeatureIconUploader
+                                      icon={item.icon || ''}
+                                      onChange={(newIcon) => {
+                                        const items = [...(formData['items'] as any[])];
+                                        items[i] = { ...items[i], icon: newIcon };
+                                        setFormData({ ...formData, items });
+                                      }}
+                                    />
+                                  </div>
+
+                                  <div className="grid sm:grid-cols-2 gap-4">
+                                    <Input
+                                      label="Title"
+                                      value={item.title || ''}
+                                      placeholder="Free Shipping"
+                                      onChange={(e) => {
+                                        const items = [...(formData['items'] as any[])];
+                                        items[i] = { ...items[i], title: e.target.value };
+                                        setFormData({ ...formData, items });
+                                      }}
+                                    />
+                                    <Textarea
+                                      label="Description"
+                                      value={item.desc || item.description || ''}
+                                      placeholder="On orders above ₹2,999 across India"
+                                      onChange={(e) => {
+                                        const items = [...(formData['items'] as any[])];
+                                        items[i] = {
+                                          ...items[i],
+                                          desc: e.target.value,
+                                          description: e.target.value,
+                                        };
+                                        setFormData({ ...formData, items });
+                                      }}
+                                      rows={2}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             ))}
                           </div>
                         )}
+
+                        {editingSection === 'categories' && (
+                          <div className="space-y-4">
+                            <Input
+                              label="Badge / Eyebrow Text"
+                              value={formData['badge'] || ''}
+                              placeholder="Curated Collections"
+                              onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
+                            />
+                            <Input
+                              label="Section Title"
+                              value={formData['title'] || ''}
+                              placeholder="Shop by Category"
+                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                            />
+                            <Textarea
+                              label="Description / Subtitle"
+                              value={formData['subtitle'] || ''}
+                              placeholder="Discover our complete range of premium ethnic wear..."
+                              onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                              rows={3}
+                            />
+                          </div>
+                        )}
+
                         {editingSection === 'vidhyas-picks' && (
-                          <div>
-                            <Input label="Section Title" value={formData['title']} onChange={(e) => setFormData({...formData, title: e.target.value})} />
-                            <Textarea label="Subtitle" value={formData['subtitle']} onChange={(e) => setFormData({...formData, subtitle: e.target.value})} rows={2} />
+                          <div className="space-y-4">
+                            <Input
+                              label="Section Title"
+                              value={formData['title'] || ''}
+                              placeholder="Vidhya's Monthly Edit"
+                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                            />
+                            <Textarea
+                              label="Subtitle"
+                              value={formData['subtitle'] || ''}
+                              placeholder="Handpicked favorites with personal styling notes"
+                              onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                              rows={2}
+                            />
                             <div className="grid sm:grid-cols-2 gap-4">
-                              <Input label="Current Month" value={formData['currentMonth']} onChange={(e) => setFormData({...formData, currentMonth: e.target.value})} />
-                              <Input label="Theme" value={formData['theme']} onChange={(e) => setFormData({...formData, theme: e.target.value})} />
+                              <Input
+                                label="Current Month"
+                                value={formData['currentMonth'] || ''}
+                                placeholder="January 2026"
+                                onChange={(e) => setFormData({ ...formData, currentMonth: e.target.value })}
+                              />
+                              <Input
+                                label="Theme"
+                                value={formData['theme'] || ''}
+                                placeholder="New Beginnings in Silk"
+                                onChange={(e) => setFormData({ ...formData, theme: e.target.value })}
+                              />
                             </div>
-                            <Textarea label="Vidhya's Note" value={formData['note']} onChange={(e) => setFormData({...formData, note: e.target.value})} rows={4} />
+                            <Textarea
+                              label="Vidhya's Note"
+                              value={formData['note'] || ''}
+                              placeholder="Starting the year with fabrics that feel like fresh starts..."
+                              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                              rows={4}
+                            />
                             <div>
-                              <label className="input-label">Featured Product IDs (comma-separated)</label>
-                              <Input value={formData['products']?.join(', ') || ''} onChange={(e) => setFormData({...formData, products: e.target.value.split(',').map(s => s.trim())})} placeholder="prod-1, prod-2, prod-3" />
+                              <label className="text-xs font-medium text-[var(--color-slate)] mb-1 block">Featured Product IDs (comma-separated)</label>
+                              <Input
+                                value={Array.isArray(formData['products']) ? formData['products'].join(', ') : (formData['products'] || '')}
+                                placeholder="prod-1, prod-2, prod-3"
+                                onChange={(e) => setFormData({ ...formData, products: e.target.value.split(',').map((s: string) => s.trim()) })}
+                              />
                             </div>
                           </div>
                         )}
-                        {editingSection === 'founder-note' && (
-                          <div>
-                            <Textarea label="Founder's Quote" value={formData['quote']} onChange={(e) => setFormData({...formData, quote: e.target.value})} rows={4} placeholder='"I started Angelika because..."' />
-                            <Textarea label="Full Story" value={formData['story']} onChange={(e) => setFormData({...formData, story: e.target.value})} rows={8} placeholder="Tell your story..." />
+
+                        {editingSection === 'brand-story' && (
+                          <div className="space-y-4">
+                            <Input
+                              label="Headline"
+                              value={formData['title'] || ''}
+                              placeholder="Artisanal Luxury, Rooted in Indian Heritage"
+                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                            />
+                            <Textarea
+                              label="Full Story"
+                              value={formData['story'] || ''}
+                              placeholder="Every piece in the Angelika collection..."
+                              onChange={(e) => setFormData({ ...formData, story: e.target.value })}
+                              rows={6}
+                            />
+                            <Input
+                              label="Quote"
+                              value={formData['quote'] || ''}
+                              placeholder='"Fashion that honors where you come from..."'
+                              onChange={(e) => setFormData({ ...formData, quote: e.target.value })}
+                            />
                           </div>
                         )}
-                        {!['hero', 'features', 'vidhyas-picks', 'founder-note'].includes(editingSection) && (
+
+                        {editingSection === 'founder-note' && (
+                          <div className="space-y-4">
+                            <Textarea
+                              label="Founder's Quote"
+                              value={formData['quote'] || ''}
+                              onChange={(e) => setFormData({ ...formData, quote: e.target.value })}
+                              rows={4}
+                              placeholder='"I started Angelika because..."'
+                            />
+                            <Textarea
+                              label="Full Story"
+                              value={formData['story'] || ''}
+                              onChange={(e) => setFormData({ ...formData, story: e.target.value })}
+                              rows={8}
+                              placeholder="Tell your story..."
+                            />
+                          </div>
+                        )}
+
+                        {!['hero', 'features', 'categories', 'vidhyas-picks', 'brand-story', 'founder-note'].includes(editingSection) && (
                           <div className="text-center py-8">
-                            <p className="text-[var(--color-slate)] mb-4">Editor for "{contentSections.find(s => s.id === editingSection)?.label}" coming soon.</p>
-                            <p className="text-sm text-[var(--color-mist)]">This will include appropriate fields for {contentSections.find(s => s.id === editingSection)?.type} content type.</p>
+                            <p className="text-[var(--color-slate)] mb-4">Editor for "{contentSections.find((s) => s.id === editingSection)?.label}" coming soon.</p>
+                            <p className="text-sm text-[var(--color-mist)]">This will include appropriate fields for {contentSections.find((s) => s.id === editingSection)?.type} content type.</p>
                           </div>
                         )}
                       </div>

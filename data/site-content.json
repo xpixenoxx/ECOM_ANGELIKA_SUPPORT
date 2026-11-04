@@ -1,0 +1,65 @@
+{
+  "hero": {
+    "title": "Grace in Every Drape",
+    "subtitle": "Timeless traditional wear for the modern woman. Rooted in heritage, designed for your today.",
+    "ctaText": "Explore Collection",
+    "ctaLink": "/shop",
+    "secondaryCtaText": "Vidhya's Picks",
+    "secondaryCtaLink": "/vidhyas-picks",
+    "backgroundImage": "/images/hero-new-couture.jpg"
+  },
+  "features": {
+    "items": [
+      {
+        "icon": "/uploads/icons/icon-1793775974589-kyseui.png",
+        "title": "Free Shipping",
+        "desc": "On orders ₹2,999+ across India",
+        "description": "On orders ₹2,999+ across India"
+      },
+      {
+        "icon": "/uploads/icons/icon-1793775800999-91kim9.png",
+        "title": "15-Day Returns",
+        "desc": "Hassle-free returns & exchanges",
+        "description": "Hassle-free returns & exchanges"
+      },
+      {
+        "icon": "/uploads/icons/icon-1793775808653-ho8iuf.png",
+        "title": "Personal Styling",
+        "desc": "Chat with Vidhya on WhatsApp",
+        "description": "Chat with Vidhya on WhatsApp"
+      },
+      {
+        "icon": "/uploads/icons/icon-1793775814440-pyd8an.png",
+        "title": "Gift Wrapping",
+        "desc": "Complimentary on all orders",
+        "description": "Complimentary on all orders"
+      }
+    ]
+  },
+  "vidhyas-picks": {
+    "title": "Vidhya's Monthly Edit",
+    "subtitle": "Handpicked favorites with personal styling notes",
+    "currentMonth": "January 2026",
+    "theme": "New Beginnings in Silk",
+    "note": "Starting the year with fabrics that feel like fresh starts...",
+    "products": [
+      "prod-1",
+      "prod-2",
+      "prod-3"
+    ]
+  },
+  "categories": {
+    "badge": "Curated Collections",
+    "title": "Shop by Category",
+    "subtitle": "Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail."
+  },
+  "brand-story": {
+    "title": "Artisanal Luxury, Rooted in Indian Heritage",
+    "story": "Every piece in the Angelika collection is thoughtfully curated by designer Vidhya, honoring ancient weaving traditions while embracing contemporary silhouettes.",
+    "quote": "\"Fashion that honors where you come from while embracing where you are going.\""
+  },
+  "newsletter": {
+    "title": "Join the Angelika Circle",
+    "subtitle": "Receive exclusive invitations to preview new arrivals, bespoke styling sessions, and private editorial drops."
+  }
+}

@@ -16,6 +16,7 @@ import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
 import { useCart } from '@/lib/hooks/useCart';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage';
 import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
+import type { SiteContent } from '@/lib/actions/site-content';
 
 const navigation = [
   { label: 'Kurtis', href: '/shop/kurtis' },
@@ -118,6 +119,7 @@ interface HomePageClientProps {
   looks: LookData[];
   instagramPosts: Array<{ id: string; image_url: string }>;
   heroData?: HomepageHeroData;
+  siteContent?: SiteContent;
 }
 
 export default function HomePageClient({
@@ -126,8 +128,52 @@ export default function HomePageClient({
   looks,
   instagramPosts,
   heroData,
+  siteContent,
 }: HomePageClientProps) {
   const { addItem } = useCart();
+
+  const heroContent = siteContent?.hero || {
+    title: 'Grace in Every Drape',
+    subtitle: 'Timeless traditional wear for the modern woman. Rooted in heritage, designed for your today.',
+    ctaText: 'Explore Collection',
+    ctaLink: '/shop',
+    secondaryCtaText: "Vidhya's Picks",
+    secondaryCtaLink: '/vidhyas-picks',
+    backgroundImage: '/images/hero-new-couture.jpg',
+  };
+
+  const activeFeatures = (siteContent?.features?.items && siteContent.features.items.length > 0)
+    ? siteContent.features.items.map((item, index) => {
+        let iconNode: React.ReactNode = features[index % features.length]?.icon;
+        if (typeof item.icon === 'string' && item.icon.trim()) {
+          const isImageUrl =
+            item.icon.startsWith('/') ||
+            item.icon.startsWith('http') ||
+            item.icon.startsWith('data:image');
+
+          if (isImageUrl) {
+            iconNode = (
+              <img
+                src={item.icon}
+                alt={item.title || 'Feature icon'}
+                className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
+              />
+            );
+          } else {
+            iconNode = (
+              <span className="text-base sm:text-lg leading-none select-none inline-flex items-center justify-center" aria-hidden="true">
+                {item.icon}
+              </span>
+            );
+          }
+        }
+        return {
+          icon: iconNode,
+          title: item.title,
+          description: item.desc || item.description || '',
+        };
+      })
+    : features;
 
   const handleAddToBag = (product: HomepageProductCard) => {
     if (product.variant_id) {
@@ -143,8 +189,8 @@ export default function HomePageClient({
       {/* Hero Section */}
       <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden">
         <Image
-          src={heroData?.backgroundImage || "/images/hero-new-couture.jpg"}
-          alt={heroData?.backgroundImageAlt || "Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya"}
+          src={heroData?.backgroundImage || heroContent.backgroundImage || '/images/hero-new-couture.jpg'}
+          alt={heroData?.backgroundImageAlt || (heroContent.title ? `Angelika Fashions - ${heroContent.title}` : 'Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya')}
           fill
           priority
           className="object-cover object-[80%_center] md:object-right lg:object-center z-0"
@@ -182,6 +228,17 @@ export default function HomePageClient({
                     <span className="italic font-light text-[#FAF8F5]">{heroData.headlineHighlight}</span>
                   )}
                 </>
+              ) : heroContent.title ? (
+                heroContent.title.includes('\n') ? (
+                  heroContent.title.split('\n').map((line, idx) => (
+                    <span key={idx}>
+                      {line}
+                      {idx === 0 && <br />}
+                    </span>
+                  ))
+                ) : (
+                  heroContent.title
+                )
               ) : (
                 <>
                   Grace in <br />
@@ -192,27 +249,27 @@ export default function HomePageClient({
 
             {/* Subtitle */}
             <p className="text-[#E6DFD5]/90 text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-md drop-shadow-md mb-9 whitespace-pre-line">
-              {heroData?.subtitle || 'Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.'}
+              {heroData?.subtitle || heroContent.subtitle || 'Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.'}
             </p>
 
             {/* CTA Button - Exact Minimalist Bordered Aesthetic */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              {heroData?.primaryCtaText && (
+              {(heroData?.primaryCtaText || heroContent.ctaText) && (
                 <Link
-                  href={heroData.primaryCtaLink || '/shop'}
+                  href={heroData?.primaryCtaLink || heroContent.ctaLink || '/shop'}
                   className="inline-flex items-center justify-center gap-3 px-7 py-3.5 border border-white/60 hover:border-[var(--color-gold)] hover:bg-[var(--color-gold)] text-[#FAF8F5] hover:text-[#0D0D0D] bg-black/40 backdrop-blur-md text-xs tracking-[0.22em] uppercase font-medium transition-all duration-300 shadow-xl group"
                 >
-                  <span>{heroData.primaryCtaText}</span>
+                  <span>{heroData?.primaryCtaText || heroContent.ctaText || 'Explore Collection'}</span>
                   <span className="text-sm transition-transform duration-300 group-hover:translate-x-1.5" aria-hidden="true">→</span>
                 </Link>
               )}
 
-              {heroData?.secondaryCtaText && (
+              {(heroData?.secondaryCtaText || heroContent.secondaryCtaText) && (
                 <Link
-                  href={heroData.secondaryCtaLink || '/vidhyas-picks'}
+                  href={heroData?.secondaryCtaLink || heroContent.secondaryCtaLink || '/vidhyas-picks'}
                   className="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/20 hover:border-white/50 text-[#E6DFD5] hover:text-white bg-black/20 backdrop-blur-md text-xs tracking-[0.18em] uppercase font-medium transition-all duration-300"
                 >
-                  {heroData.secondaryCtaText}
+                  {heroData?.secondaryCtaText || heroContent.secondaryCtaText || "Vidhya's Picks"}
                 </Link>
               )}
             </div>
@@ -235,8 +292,8 @@ export default function HomePageClient({
       <section className="bg-[var(--color-white)] border-y border-[var(--color-whisper)] py-4 sm:py-5">
         <div className="container-custom px-4 sm:px-6">
           <StaggerContainer variant="default" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            {features.map((feature, index) => (
-              <StaggerItem key={feature.title} delay={index * 0.08} className="flex flex-col items-center text-center gap-1.5">
+            {activeFeatures.map((feature, index) => (
+              <StaggerItem key={feature.title || index} delay={index * 0.08} className="flex flex-col items-center text-center gap-1.5">
                 <MagneticIcon className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] shadow-2xs">
                   {feature.icon}
                 </MagneticIcon>
@@ -253,13 +310,13 @@ export default function HomePageClient({
         <div className="container-custom px-4 sm:px-6">
           <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
             <span className="inline-block text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-gold)] mb-1.5">
-              Curated Collections
+              {siteContent?.categories?.badge || 'Curated Collections'}
             </span>
             <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-medium text-[var(--color-ink)] mb-2">
-              Shop by Category
+              {siteContent?.categories?.title || 'Shop by Category'}
             </h2>
             <p className="text-[var(--color-slate)] text-xs sm:text-sm leading-relaxed">
-              Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.
+              {siteContent?.categories?.subtitle || 'Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.'}
             </p>
           </div>
 
