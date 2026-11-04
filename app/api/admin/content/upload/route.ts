@@ -17,8 +17,9 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    const fileName = file.name || 'upload.png';
     // Validate extension/mime
-    const extMatch = file.name.match(/\.(jpg|jpeg|png|webp|svg|avif|gif)$/i);
+    const extMatch = fileName.match(/\.(jpg|jpeg|png|webp|svg|avif|gif)$/i);
     const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/avif', 'image/gif'];
     if (!validMimes.includes(file.type) && !extMatch) {
       return NextResponse.json({
@@ -27,11 +28,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const originalExt = path.extname(file.name) || (extMatch ? extMatch[0] : '.jpg');
+    const originalExt = path.extname(fileName) || (extMatch ? extMatch[0] : '.png');
     const cleanExt = originalExt.toLowerCase();
     const safeTarget = target.replace(/[^a-zA-Z0-9_-]/g, '') || 'upload';
     const timestamp = Date.now();
-    const sanitizedBase = path.basename(file.name, originalExt).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30);
+    const sanitizedBase = path.basename(fileName, originalExt).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 30) || 'file';
     const filename = `${safeTarget}-${sanitizedBase}-${timestamp}${cleanExt}`;
 
     const uploadDir = path.join(process.cwd(), 'public', 'images', 'uploads');
@@ -55,4 +56,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: error?.message || 'Failed to upload image' }, { status: 500 });
   }
 }
-

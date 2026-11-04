@@ -102,23 +102,68 @@ function FeatureIconUploader({
   const uploadFile = async (file: File) => {
     setIsUploading(true);
     setUploadError(null);
+
+    const useLocalDataUrl = () => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          onChange(reader.result);
+          setPasteSuccess(true);
+          setTimeout(() => setPasteSuccess(false), 3000);
+        }
+      };
+      reader.onerror = () => {
+        setUploadError('Failed to read image file');
+      };
+      reader.readAsDataURL(file);
+    };
+
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch('/api/admin/content/upload-icon', {
-        method: 'POST',
-        body: fd,
-      });
-      const data = await res.json();
-      if (data.success && data.url) {
-        onChange(data.url);
-        setPasteSuccess(true);
-        setTimeout(() => setPasteSuccess(false), 3000);
-      } else {
-        setUploadError(data.error || 'Upload failed');
+      fd.append('target', 'icon');
+
+      let res: Response | null = null;
+      try {
+        res = await fetch('/api/admin/content/upload-icon', {
+          method: 'POST',
+          body: fd,
+        });
+      } catch (e) {
+        // network fetch error
       }
+
+      if (!res || !res.ok) {
+        try {
+          const fallbackRes = await fetch('/api/admin/content/upload', {
+            method: 'POST',
+            body: fd,
+          });
+          if (fallbackRes.ok) {
+            res = fallbackRes;
+          }
+        } catch (e) {
+          // ignore fallback error
+        }
+      }
+
+      if (res && res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data.success && data.url) {
+            onChange(data.url);
+            setPasteSuccess(true);
+            setTimeout(() => setPasteSuccess(false), 3000);
+            return;
+          }
+        }
+      }
+
+      // If server returned non-JSON/error page, seamlessly fallback to local Data URL
+      useLocalDataUrl();
     } catch (err: any) {
-      setUploadError(err.message || 'Upload failed');
+      useLocalDataUrl();
     } finally {
       setIsUploading(false);
     }

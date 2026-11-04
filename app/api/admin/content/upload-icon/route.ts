@@ -32,8 +32,9 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Determine extension
-      let ext = path.extname(file.name).toLowerCase();
+      // Determine extension safely
+      const fileName = file.name || 'icon.png';
+      let ext = path.extname(fileName).toLowerCase();
       if (!ext) {
         if (file.type === 'image/svg+xml') ext = '.svg';
         else if (file.type === 'image/png') ext = '.png';
@@ -91,4 +92,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: error.message || 'Upload failed' }, { status: 500 });
   }
 }
-
