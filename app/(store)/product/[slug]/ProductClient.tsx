@@ -752,7 +752,7 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                   </Link>
                 </MagneticButton>
               </ScrollReveal>
-              <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
                 {relatedProducts.map((related, index) => (
                   <StaggerItem key={related.id} delay={index * 0.08} variant="scale">
                     <ProductCard

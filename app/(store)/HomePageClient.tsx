@@ -13,6 +13,7 @@ import { MagneticButton, MagneticCard, MagneticIcon } from '@/components/animati
 import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { ScrollReveal as ScrollRevealAnim } from '@/components/animations/ScrollReveal';
 import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
+import { ExploreCollections } from '@/components/composite/ExploreCollections';
 import { useCart } from '@/lib/hooks/useCart';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage';
 import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
@@ -192,7 +193,7 @@ export default function HomePageClient({
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="bg-[var(--color-sand)] text-[var(--color-ink)]">
       {/* Hero Section */}
       <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden">
         <Image
@@ -203,80 +204,49 @@ export default function HomePageClient({
           className="object-cover object-[80%_center] md:object-right lg:object-center z-0"
           sizes="100vw"
         />
-        {/* Deep, rich directional scrim: solid dark contrast on the left, clear and glowing on the right */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 via-45% to-transparent z-[1]" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40 z-[1]" />
+
+        {/* Editorial Cinematic Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent z-1" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 z-1" />
 
         <div className="relative z-10 container-custom px-6 sm:px-10 py-24 md:py-32">
           <div className="max-w-lg lg:max-w-xl">
             {/* Brand Signature - Exact Luxury Editorial Style */}
-            {(heroData?.showBadge ?? true) && (
-              <div className="flex flex-col items-start gap-1 mb-10">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="w-5 h-5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L14.5 9H22L16 13.5L18.5 20.5L12 16L5.5 20.5L8 13.5L2 9H9.5L12 2Z" />
-                  </svg>
-                  <span className="font-display tracking-[0.35em] text-sm sm:text-base uppercase text-[#FAF8F5] font-normal">
-                    {heroData?.badgeText || 'A N G E L I K A'}
-                  </span>
-                </div>
-                <span className="text-[9px] sm:text-[10px] tracking-[0.25em] text-[#C9A84C] uppercase font-medium pl-0.5">
-                  {heroData?.badgeTagline || 'Tradition in Every Thread'}
+            <div className="flex flex-col items-start gap-1 mb-10">
+              <div className="flex items-center gap-2 mb-1">
+                <svg className="w-3.5 h-3.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l2.4 7.4h7.6l-6.2 4.5 2.4 7.4-6.2-4.5-6.2 4.5 2.4-7.4-6.2-4.5h7.6z"/>
+                </svg>
+                <span className="text-[11px] tracking-[0.28em] uppercase font-semibold text-[var(--color-gold)]">
+                  Couture Collection &bull; 2026
                 </span>
               </div>
-            )}
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white font-medium tracking-tight leading-[1.12]">
+                {heroData?.headlinePrimary || heroContent.title || 'Grace in Every Drape'}
+              </h1>
+              <p className="text-white/80 font-serif italic text-base sm:text-lg mt-1 tracking-wide">
+                {heroData?.headlineSecondary || 'Handcrafted Luxury for the Discerning Woman'}
+              </p>
+            </div>
 
-            {/* Headline - Editorial Serif */}
-            <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-normal text-[#FAF8F5] leading-[1.06] tracking-tight drop-shadow-2xl mb-6">
-              {heroData?.headline ? (
-                <>
-                  {heroData.headline} {heroData.headlineHighlight && <br />}
-                  {heroData.headlineHighlight && (
-                    <span className="italic font-light text-[#FAF8F5]">{heroData.headlineHighlight}</span>
-                  )}
-                </>
-              ) : heroContent.title ? (
-                heroContent.title.includes('\n') ? (
-                  heroContent.title.split('\n').map((line, idx) => (
-                    <span key={idx}>
-                      {line}
-                      {idx === 0 && <br />}
-                    </span>
-                  ))
-                ) : (
-                  heroContent.title
-                )
-              ) : (
-                <>
-                  Grace in <br />
-                  <span className="italic font-light text-[#FAF8F5]">Every Drape</span>
-                </>
-              )}
-            </h1>
-
-            {/* Subtitle */}
-            <p className="text-[#E6DFD5]/90 text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-md drop-shadow-md mb-9 whitespace-pre-line">
-              {heroData?.subtitle || heroContent.subtitle || 'Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.'}
+            <p className="text-white/80 text-sm sm:text-base leading-relaxed mb-8 max-w-md font-sans">
+              {heroData?.subheadline || heroContent.subtitle || 'Step into the festive season with exquisite handwoven fabrics, artisanal zardozi embroidery, and timeless silhouettes crafted to perfection.'}
             </p>
 
-            {/* CTA Button - Exact Minimalist Bordered Aesthetic */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-              {(heroData?.primaryCtaText || heroContent.ctaText) && (
-                <Link
-                  href={heroData?.primaryCtaLink || heroContent.ctaLink || '/shop'}
-                  className="inline-flex items-center justify-center gap-3 px-7 py-3.5 border border-white/60 hover:border-[var(--color-gold)] hover:bg-[var(--color-gold)] text-[#FAF8F5] hover:text-[#0D0D0D] bg-black/40 backdrop-blur-md text-xs tracking-[0.22em] uppercase font-medium transition-all duration-300 shadow-xl group"
-                >
-                  <span>{heroData?.primaryCtaText || heroContent.ctaText || 'Explore Collection'}</span>
-                  <span className="text-sm transition-transform duration-300 group-hover:translate-x-1.5" aria-hidden="true">→</span>
-                </Link>
-              )}
-
+            <div className="flex flex-wrap items-center gap-3.5 pt-2">
+              <Link
+                href={heroData?.primaryCtaLink || heroContent.ctaLink || '/shop'}
+                className="group relative inline-flex items-center justify-center px-7 py-3 text-xs uppercase tracking-[0.2em] font-semibold text-[#111111] bg-[#FBF4EC] hover:bg-white transition-all duration-300 shadow-md hover:shadow-xl"
+              >
+                <span>{heroData?.primaryCtaText || heroContent.ctaText || 'Explore Collection'}</span>
+                <span className="ml-2 transform group-hover:translate-x-1 transition-transform duration-300">&rarr;</span>
+              </Link>
               {(heroData?.secondaryCtaText || heroContent.secondaryCtaText) && (
                 <Link
                   href={heroData?.secondaryCtaLink || heroContent.secondaryCtaLink || '/vidhyas-picks'}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/20 hover:border-white/50 text-[#E6DFD5] hover:text-white bg-black/20 backdrop-blur-md text-xs tracking-[0.18em] uppercase font-medium transition-all duration-300"
+                  className="inline-flex items-center justify-center px-7 py-3 text-xs uppercase tracking-[0.2em] font-medium text-white/95 border border-white/40 hover:border-white hover:bg-white/10 transition-all duration-300"
                 >
-                  {heroData?.secondaryCtaText || heroContent.secondaryCtaText || "Vidhya's Picks"}
+                  {heroData?.secondaryCtaText || heroContent.secondaryCtaText}
                 </Link>
               )}
             </div>
@@ -312,173 +282,12 @@ export default function HomePageClient({
         </div>
       </section>
 
-      {/* Shop by Category */}
-      <section className="py-8 sm:py-12 bg-[var(--color-snow)] border-b border-[var(--color-whisper)]">
-        <div className="container-custom px-4 sm:px-6">
-          <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
-            <span className="inline-block text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-gold)] mb-1.5">
-              {siteContent?.categories?.badge || 'Curated Collections'}
-            </span>
-            <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-medium text-[var(--color-ink)] mb-2">
-              {siteContent?.categories?.title || 'Shop by Category'}
-            </h2>
-            <p className="text-[var(--color-slate)] text-xs sm:text-sm leading-relaxed">
-              {siteContent?.categories?.subtitle || 'Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.'}
-            </p>
-          </div>
-
-          {/* Shop by Category: 2 on Left, 1 Centerpiece, 2 on Right */}
-          {(() => {
-            const rawItems = siteContent?.categories?.items;
-            const items = (Array.isArray(rawItems) && rawItems.length >= 5)
-              ? rawItems
-              : featuredCollections.map((fc, idx) => ({
-                  ...fc,
-                  ...(rawItems?.[idx] || {}),
-                }));
-
-            const leftCards = [items[0] || featuredCollections[0], items[1] || featuredCollections[1]];
-            const centerCard = items[2] || featuredCollections[2];
-            const rightCards = [items[3] || featuredCollections[3], items[4] || featuredCollections[4]];
-
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
-                {/* Left Column: 2 Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
-                  {leftCards.map((collection, idx) => {
-                    if (!collection) return null;
-                    return (
-                      <Link
-                        key={collection.title || `left-${idx}`}
-                        href={collection.href || '/shop'}
-                        className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                      >
-                        {/* Background Image */}
-                        <Image
-                          src={collection.image || '/images/collection-kurtis.jpg'}
-                          alt={`Angelika ${collection.title || 'Collection'}`}
-                          fill
-                          unoptimized
-                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                          sizes="(max-width: 768px) 50vw, 25vw"
-                        />
-
-                        {/* Dark Gradient Overlay for Contrast */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
-
-                        {/* Content Overlay */}
-                        <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
-                          <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
-                            {collection.subtitle}
-                          </span>
-                          <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
-                            {collection.title}
-                          </h3>
-                          <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
-                            <span>{collection.cta || 'Shop Now'}</span>
-                            <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-
-                {/* Center Column: 1 Hero Centerpiece (reduced size, matching height) */}
-                <div className="w-full h-full">
-                  {centerCard && (
-                    <Link
-                      key={centerCard.title || 'centerpiece'}
-                      href={centerCard.href || '/shop'}
-                      className="group relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-auto md:h-full min-h-[380px] md:min-h-0 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                    >
-                      {/* Background Image */}
-                      <Image
-                        src={centerCard.image || '/images/collection-lehengas.jpg'}
-                        alt={`Angelika ${centerCard.title || 'Collection'}`}
-                        fill
-                        unoptimized
-                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                        sizes="(max-width: 768px) 100vw, 50vw"
-                        priority
-                      />
-
-                      {/* Dark Gradient Overlay for Contrast */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
-
-                      {/* Content Overlay */}
-                      <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 md:p-6 flex flex-col justify-end z-10">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] bg-[var(--color-gold)]/20 text-[var(--color-gold)] border border-[var(--color-gold)]/40 mb-2.5 w-fit backdrop-blur-xs">
-                          <span>✦</span>
-                          <span>{centerCard.subtitle}</span>
-                        </span>
-                        <h3 className="font-display text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-medium text-white mb-2.5 drop-shadow-lg group-hover:text-[var(--color-gold-light)] transition-colors">
-                          {centerCard.title}
-                        </h3>
-                        <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold uppercase tracking-wider text-white group-hover:text-[var(--color-gold)] transition-colors">
-                          <span>{centerCard.cta || 'Shop Now'}</span>
-                          <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M5 12h14M12 5l7 7-7 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    </Link>
-                  )}
-                </div>
-
-                {/* Right Column: 2 Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
-                  {rightCards.map((collection, idx) => {
-                    if (!collection) return null;
-                    return (
-                      <Link
-                        key={collection.title || `right-${idx}`}
-                        href={collection.href || '/shop'}
-                        className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                      >
-                        {/* Background Image */}
-                        <Image
-                          src={collection.image || '/images/collection-sarees.jpg'}
-                          alt={`Angelika ${collection.title || 'Collection'}`}
-                          fill
-                          unoptimized
-                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                          sizes="(max-width: 768px) 50vw, 25vw"
-                        />
-
-                        {/* Dark Gradient Overlay for Contrast */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
-
-                        {/* Content Overlay */}
-                        <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
-                          <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
-                            {collection.subtitle}
-                          </span>
-                          <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
-                            {collection.title}
-                          </h3>
-                          <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
-                            <span>{collection.cta || 'Shop Now'}</span>
-                            <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                              <path d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-      </section>
+      {/* Explore Collections: Editorial Magazine Grid */}
+      <ExploreCollections />
 
       {/* Vidhya's Picks */}
       <section className="section bg-[var(--color-white)]">
-        <div className="container-custom px-6">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <motion.div
             className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
           >
@@ -491,10 +300,10 @@ export default function HomePageClient({
               </h2>
             </div>
             <Button variant="outline" asChild className="mt-4 md:mt-0">
-              <Link href="/vidhyas-picks">View All Picks <span aria-hidden="true">→</span></Link>
+              <Link href="/vidhyas-picks">View All Picks <span aria-hidden="true">&rarr;</span></Link>
             </Button>
           </motion.div>
-          <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
             {vidhyasPicks.length > 0 ? (
               vidhyasPicks.map((product, index) => (
                 <StaggerItem key={product.id} delay={index * 0.08} variant="scale">
@@ -524,18 +333,18 @@ export default function HomePageClient({
 
       {/* Shop the Look */}
       <section className="section bg-[var(--color-snow)]">
-        <div className="container-custom px-6">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <ShopTheLookClient />
         </div>
       </section>
 
-      {/* New Arrivals: Fresh from the Atelier */}
+      {/* New Arrivals: Reference Style */}
       {(() => {
         const naContent = siteContent?.['new-arrivals'];
-        const badge = naContent?.badge || 'New Arrivals';
-        const headingPrefix = naContent?.heading || 'Fresh from';
-        const headingHighlight = naContent?.headingHighlight || 'the Atelier';
-        const ctaText = naContent?.ctaText || 'View All New';
+        const headingTitle = naContent?.heading 
+          ? `${naContent.heading} ${naContent.headingHighlight || ''}`.trim() 
+          : 'NEW COLLECTION: NEW ARRIVALS';
+        const ctaText = naContent?.ctaText || 'OPEN';
         const ctaLink = naContent?.ctaLink || '/new-arrivals';
 
         // Choose between custom curated items or dynamic database items
@@ -545,27 +354,20 @@ export default function HomePageClient({
           : (newArrivals.length > 0 ? newArrivals : (naContent?.items || []));
 
         return (
-          <section className="section bg-[var(--color-snow)]">
-            <div className="container-custom px-6">
-              <motion.div
-                className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
-              >
-                <div>
-                  <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-3">
-                    {badge}
-                  </span>
-                  <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)]">
-                    {headingPrefix}{' '}
-                    <span className="text-gradient-gold">{headingHighlight}</span>
-                  </h2>
-                </div>
-                <Button variant="outline" asChild className="mt-4 md:mt-0">
-                  <Link href={ctaLink}>
-                    {ctaText} <span aria-hidden="true">→</span>
-                  </Link>
-                </Button>
-              </motion.div>
-              <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <section className="section bg-white">
+            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+              <div className="flex items-center justify-between border-b border-[#EBE6DE] pb-3 mb-8">
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-[0.22em] text-[#111111]">
+                  {headingTitle}
+                </h2>
+                <Link
+                  href={ctaLink}
+                  className="text-xs uppercase tracking-[0.2em] text-[#666666] hover:text-[#111111] font-medium transition-colors"
+                >
+                  {ctaText}
+                </Link>
+              </div>
+              <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
                 {productsToDisplay.length > 0 ? (
                   productsToDisplay.map((product: any, index: number) => {
                     const imgUrl = product.image || product.images?.[0]?.url || '/images/placeholder.jpg';
@@ -574,7 +376,9 @@ export default function HomePageClient({
                       : product.category?.name || '';
                     const origPrice = product.originalPrice ?? product.compare_at_price ?? undefined;
                     const isVPick = product.isVidhyasPick ?? product.is_vidyas_pick ?? false;
-                    const productHref = product.href && !product.href.includes('/undefined') ? product.href : (product.slug ? `/product/${product.slug}` : `/vidhyas-picks?search=${encodeURIComponent(product.name)}`);
+                    const productHref = product.href && !product.href.includes('/undefined')
+                      ? product.href
+                      : (product.slug ? `/product/${product.slug}` : `/new-arrivals?search=${encodeURIComponent(product.name)}`);
 
                     return (
                       <StaggerItem key={product.id || index} delay={index * 0.08} variant="scale">
@@ -630,7 +434,7 @@ export default function HomePageClient({
 
         return (
           <section className="section bg-[var(--color-white)]">
-            <div className="container-custom px-6">
+            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
               <motion.div
                 className="grid lg:grid-cols-2 gap-16 items-center"
                 initial={{ opacity: 0, y: 20 }}
@@ -691,7 +495,7 @@ export default function HomePageClient({
       <section className="section bg-[var(--color-ink)] relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-gold)]/5 via-transparent to-transparent" aria-hidden="true" />
         <div className="absolute inset-0 noise-overlay" aria-hidden="true" />
-        <div className="relative z-10 container-custom px-6">
+        <div className="relative z-10 container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <motion.div
             className="max-w-2xl mx-auto text-center"
             initial={{ opacity: 0, y: 30 }}
@@ -729,7 +533,7 @@ export default function HomePageClient({
 
       {/* Instagram Feed / Social Proof */}
       <section className="section bg-[var(--color-white)]">
-        <div className="container-custom px-6">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <motion.div
             className="text-center mb-12"
             initial={{ opacity: 0, y: 20 }}
@@ -751,7 +555,7 @@ export default function HomePageClient({
                     src={post.image_url}
                     alt="Instagram post"
                     fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="object-cover"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 25vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
@@ -797,16 +601,15 @@ export default function HomePageClient({
 // Skeleton component for placeholder products
 function SkeletonProductCard() {
   return (
-    <Card variant="product" padding="none" hoverable className="group relative">
-      <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-whisper)]">
+    <div className="group relative flex flex-col w-[320px] max-w-full mx-auto bg-white">
+      <div style={{ width: '320px', height: '400px' }} className="relative w-[320px] h-[400px] max-w-full overflow-hidden bg-[#F7F5F0] shrink-0">
         <div className="absolute inset-0 skeleton" />
       </div>
-      <div className="p-4 space-y-2">
-        <div className="h-3 w-24 skeleton rounded" />
-        <div className="h-5 w-3/4 skeleton rounded" />
-        <div className="h-4 w-1/2 skeleton rounded" />
-        <div className="h-10 w-full skeleton rounded-[var(--radius-md)]" />
+      <div style={{ width: '320px', height: '33.8px' }} className="w-[320px] h-[33.8px] bg-[#FBF4EC] skeleton mx-auto shrink-0" />
+      <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center space-y-2">
+        <div className="h-3 w-3/4 skeleton rounded" />
+        <div className="h-3 w-1/2 skeleton rounded" />
       </div>
-    </Card>
+    </div>
   );
 }

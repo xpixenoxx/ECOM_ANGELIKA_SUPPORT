@@ -130,7 +130,7 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
         <motion.article
           ref={ref}
           className={cn(
-            'group bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-lg)] overflow-hidden',
+            'group bg-white overflow-hidden w-[320px] max-w-full mx-auto flex flex-col',
             className
           )}
           initial={{ opacity: 0, y: 20 }}
@@ -138,20 +138,15 @@ export const Skeleton = forwardRef<HTMLDivElement, SkeletonProps>(
           {...props}
         >
           <motion.div
-            className="aspect-[3/4] bg-[var(--color-whisper)]"
+            style={{ width: '320px', height: '400px' }}
+            className="w-[320px] h-[400px] max-w-full bg-[#F7F5F0] shrink-0 relative overflow-hidden"
           >
             <div className={cn('w-full h-full', pulseAnimation, waveAnimation)} />
           </motion.div>
-          <div className="p-4 space-y-3">
-            <motion.div className={cn('h-3 w-1/4 rounded text-[var(--color-gold)]', pulseAnimation, waveAnimation)} />
-            <motion.div className={cn('h-5 w-3/4 rounded', pulseAnimation, waveAnimation)} />
-            <motion.div className={cn('h-4 w-1/2 rounded', pulseAnimation, waveAnimation)} />
-            <div className="flex items-center gap-2">
-              <motion.div className={cn('w-5 h-5 rounded-full', pulseAnimation, waveAnimation)} />
-              <motion.div className={cn('w-5 h-5 rounded-full', pulseAnimation, waveAnimation)} />
-              <motion.div className={cn('w-5 h-5 rounded-full', pulseAnimation, waveAnimation)} />
-            </div>
-            <motion.div className={cn('h-10 w-full rounded', pulseAnimation, waveAnimation)} />
+          <div style={{ width: '320px', height: '33.8px' }} className="w-[320px] h-[33.8px] bg-[#FBF4EC] shrink-0 mx-auto" />
+          <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center space-y-2">
+            <motion.div className={cn('h-3 w-3/4 rounded', pulseAnimation, waveAnimation)} />
+            <motion.div className={cn('h-3 w-1/2 rounded', pulseAnimation, waveAnimation)} />
           </div>
         </motion.article>
       );

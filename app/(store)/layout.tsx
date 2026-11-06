@@ -49,7 +49,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         text={settings?.announcement_bar_text}
         link={settings?.announcement_bar_link}
         bgColor={settings?.announcement_bar_bg_color || '#C9A84C'}
-        textColor={settings?.announcement_bar_text_color || '#ffffff'}
+        textColor={settings?.announcement_bar_text_color || '#F3EEE8'}
       />
       <Header
         navigation={navigation}
