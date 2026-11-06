@@ -265,23 +265,6 @@ export default function HomePageClient({
         </motion.div>
       </section>
 
-      {/* Features Strip */}
-      <section className="bg-[var(--color-white)] border-y border-[var(--color-whisper)] py-4 sm:py-5">
-        <div className="container-custom px-4 sm:px-6">
-          <StaggerContainer variant="default" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            {activeFeatures.map((feature, index) => (
-              <StaggerItem key={feature.title || index} delay={index * 0.08} className="flex flex-col items-center text-center gap-1.5">
-                <MagneticIcon className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] shadow-2xs">
-                  {feature.icon}
-                </MagneticIcon>
-                <h3 className="font-display text-sm font-semibold text-[var(--color-ink)] tracking-wide">{feature.title}</h3>
-                <p className="text-xs text-[var(--color-slate)] leading-tight max-w-[200px]">{feature.description}</p>
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
-        </div>
-      </section>
-
       {/* Explore Collections: Editorial Magazine Grid */}
       <ExploreCollections />
 
