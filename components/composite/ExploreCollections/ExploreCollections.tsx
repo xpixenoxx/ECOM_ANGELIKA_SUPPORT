@@ -159,12 +159,14 @@ function HeroCard({
 
 interface ExploreCollectionsProps {
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function ExploreCollections({ className = '' }: ExploreCollectionsProps) {
+export function ExploreCollections({ className = '', style }: ExploreCollectionsProps) {
   return (
     <section
-      className={cn('relative w-full bg-black overflow-hidden', className)}
+      className={cn('relative w-full bg-black overflow-hidden mt-[10px]', className)}
+      style={{ marginTop: '10px', ...style }}
       aria-label="Explore Our Collections"
     >
 

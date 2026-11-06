@@ -195,7 +195,7 @@ export default function HomePageClient({
   return (
     <div className="bg-[var(--color-sand)] text-[var(--color-ink)]">
       {/* Hero Section */}
-      <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden">
+      <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden mb-[10px]" style={{ marginBottom: '10px' }}>
         <Image
           src={heroData?.backgroundImage || heroContent.backgroundImage || '/images/hero-new-couture.jpg'}
           alt={heroData?.backgroundImageAlt || (heroContent.title ? `Angelika Fashions - ${heroContent.title}` : 'Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya')}
@@ -266,7 +266,7 @@ export default function HomePageClient({
       </section>
 
       {/* Explore Collections: Editorial Magazine Grid */}
-      <ExploreCollections />
+      <ExploreCollections className="mt-[10px]" style={{ marginTop: '10px' }} />
 
       {/* Vidhya's Picks */}
       <section className="section bg-[var(--color-white)]">
