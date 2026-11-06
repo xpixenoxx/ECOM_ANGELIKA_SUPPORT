@@ -6,35 +6,8 @@ async function getSupabaseClient() {
   return createClient();
 }
 
-export interface HomepageProductCard {
-  id: string;
-  slug: string;
-  name: string;
-  variant_id: string | null;
-  price: number;
-  compare_at_price: number | null;
-  images: Array<{ url: string; alt_text: string | null }>;
-  category: { id: string; name: string; slug: string } | null;
-  discount: number;
-  is_vidyas_pick: boolean;
-  is_new: boolean;
-}
-
-export interface LookData {
-  id: string;
-  title: string;
-  description: string | null;
-  cover_image: string | null;
-  products: Array<{
-    id: string;
-    slug: string;
-    name: string;
-    price: number;
-    image: string;
-    x_position: number;
-    y_position: number;
-  }>;
-}
+export type { HomepageProductCard, LookData } from './homepage-types';
+import type { HomepageProductCard, LookData } from './homepage-types';
 
 // ─── helper: cheapest active variant ─────────────────────────────────────────
 function cheapestVariant(variants: any[]): { id: string | null; price: number; compare_at_price: number | null } {
@@ -194,7 +167,16 @@ export async function getLooks(limit = 3): Promise<LookData[]> {
 }
 
 // ─── getInstagramPosts ────────────────────────────────────────────────────────
-export async function getInstagramPosts(limit = 8): Promise<Array<{ id: string; image_url: string }>> {
+export async function getInstagramPosts(limit = 8): Promise<Array<{ id: string; image_url: string; handle?: string; caption?: string; productName?: string; productLink?: string }>> {
+  try {
+    const { getSiteContent } = await import('@/lib/actions/site-content');
+    const siteContent = await getSiteContent();
+    if (siteContent['my-angelika-look']?.posts && siteContent['my-angelika-look'].posts.length > 0) {
+      return siteContent['my-angelika-look'].posts.slice(0, limit);
+    }
+  } catch (err) {
+    // Non-blocking fallback
+  }
   return [
     { id: 'ig-1', image_url: '/images/insta-1.jpg' },
     { id: 'ig-2', image_url: '/images/insta-2.jpg' },

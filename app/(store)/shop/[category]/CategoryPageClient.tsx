@@ -20,6 +20,7 @@ import { MagneticButton } from '@/components/animations/MagneticButton';
 import { MagneticCard } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import type { ShopProductCard, ShopFilters } from '@/lib/actions/shop-types';
+import type { SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent } from '@/lib/actions/site-content-types';
 import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES } from '@/lib/actions/shop-types';
 
 interface CategoryPageClientProps {
@@ -37,6 +38,10 @@ interface CategoryPageClientProps {
   sortBy: string;
   initialFilters: ShopFilters;
   categorySlug: string;
+  salwarsContent?: SalwarsPageContent | null;
+  lehengasContent?: LehengasPageContent | null;
+  sareesContent?: SareesPageContent | null;
+  dupattasContent?: DupattasPageContent | null;
 }
 
 const CATEGORIES_NAVIGATION = [
@@ -57,6 +62,10 @@ export function CategoryPageClient({
   sortBy,
   initialFilters,
   categorySlug,
+  salwarsContent,
+  lehengasContent,
+  sareesContent,
+  dupattasContent,
 }: CategoryPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,6 +76,7 @@ export function CategoryPageClient({
   const [allProducts, setAllProducts] = useState<ShopProductCard[]>(initialProducts);
   const [localSortBy, setLocalSortBy] = useState(sortBy);
   const [isClientLoaded, setIsClientLoaded] = useState(false);
+  const activeCategoryContent = salwarsContent || lehengasContent || sareesContent || dupattasContent;
 
   const handleAddToBag = async (product: any) => {
     try {
@@ -326,7 +336,7 @@ export function CategoryPageClient({
         {/* Subtle background ambient image */}
         <div className="absolute inset-0 opacity-20 mix-blend-overlay">
           <img
-            src={category.image_url || '/images/hero-new-couture.jpg'}
+            src={activeCategoryContent?.hero?.backgroundImage || category.image_url || '/images/hero-new-couture.jpg'}
             alt=""
             className="w-full h-full object-cover"
           />
@@ -345,69 +355,126 @@ export function CategoryPageClient({
               </nav>
 
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-gold)]/20 border border-[var(--color-gold)]/40 text-[var(--color-gold)] text-xs uppercase tracking-widest font-semibold mb-3">
-                <span>Handcrafted Luxury Edit</span>
+                <span>{activeCategoryContent?.hero?.badge || 'Handcrafted Luxury Edit'}</span>
               </div>
 
-              <h1 className="text-[var(--font-display)] text-4xl md:text-5xl lg:text-6xl font-normal text-white mb-3 capitalize">
-                {category.name || 'All Collections'}
+              <h1 className="text-[var(--font-display)] text-4xl md:text-5xl lg:text-6xl font-normal mb-3 capitalize" style={{ color: '#FAF8F5' }}>
+                {activeCategoryContent?.hero ? (
+                  activeCategoryContent.hero.titleHighlight && activeCategoryContent.hero.title.includes(activeCategoryContent.hero.titleHighlight) ? (
+                    <>
+                      {activeCategoryContent.hero.title.split(activeCategoryContent.hero.titleHighlight)[0]}
+                      <span className="italic text-[var(--color-gold)] font-serif">
+                        {activeCategoryContent.hero.titleHighlight}
+                      </span>
+                      {activeCategoryContent.hero.title.split(activeCategoryContent.hero.titleHighlight)[1]}
+                    </>
+                  ) : (
+                    activeCategoryContent.hero.title
+                  )
+                ) : (
+                  category.name || 'All Collections'
+                )}
               </h1>
-              <p className="text-white/80 text-base md:text-lg max-w-xl font-light leading-relaxed">
-                {category.description || 'Discover our curated collection of handcrafted Indian ethnic couture.'}
+              <p className="text-base md:text-lg max-w-xl font-light leading-relaxed" style={{ color: 'rgba(250, 248, 245, 0.88)' }}>
+                {activeCategoryContent?.hero?.description || category.description || 'Discover our curated collection of handcrafted Indian ethnic couture.'}
               </p>
             </ScrollRevealAnim>
 
             {/* Featured category banner card */}
-            <ScrollRevealAnim variant="fadeLeft" delay={0.2} className="hidden md:block w-72 flex-shrink-0">
+            {(activeCategoryContent?.hero?.showFeaturedCard ?? true) && (
+              <ScrollRevealAnim variant="fadeLeft" delay={0.2} className="hidden md:block w-72 flex-shrink-0">
               <div className="relative rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-gold)]/40 shadow-2xl bg-black/40 backdrop-blur-sm group">
                 <div className="aspect-[4/3] overflow-hidden">
                   <img
-                    src={category.image_url || '/images/collection-kurtis.jpg'}
+                    src={activeCategoryContent?.hero?.featuredCardImage || category.image_url || '/images/collection-kurtis.jpg'}
                     alt={category.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 </div>
                 <div className="p-3 bg-black/80 backdrop-blur-md flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-wider text-[var(--color-gold)] font-medium">Curated by Vidhya</span>
-                  <span className="text-xs text-white/70">{totalCount} Pieces</span>
+                  <span className="text-xs uppercase tracking-wider text-[var(--color-gold)] font-medium">
+                    {activeCategoryContent?.hero?.featuredCardTag || 'Curated by Vidhya'}
+                  </span>
+                  <span className="text-xs text-white/70">
+                    {activeCategoryContent?.hero?.featuredCardText || `${totalCount} Pieces`}
+                  </span>
                 </div>
               </div>
             </ScrollRevealAnim>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Visual Category Quick-Browse Strip */}
-      <section className="bg-[var(--color-snow)] border-b border-[var(--color-whisper)] py-4 overflow-x-auto no-scrollbar">
-        <div className="container-custom px-6">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-max">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-slate)] font-semibold mr-2 hidden sm:inline">
-              Collections:
-            </span>
-            {CATEGORIES_NAVIGATION.map((cat) => {
-              const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
-              return (
+      {/* Promotional Announcement Banner if configured for Salwars */}
+      {activeCategoryContent?.announcement?.enabled && (
+        <section className="bg-gradient-to-r from-[#1b1714] via-[#2A231C] to-[#1b1714] text-white py-3 px-4 border-b border-[var(--color-gold)]/30 shadow-inner">
+          <div className="container-custom px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="px-2.5 py-0.5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] font-bold text-[10px] uppercase tracking-wider shadow-xs">
+                {activeCategoryContent?.announcement?.badge || 'Offer'}
+              </span>
+              <span className="text-white/90 font-medium">
+                {activeCategoryContent.announcement.headline}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              {activeCategoryContent.announcement.code && (
+                <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-black/60 border border-[var(--color-gold)]/40 shadow-xs">
+                  <span className="text-white/60 text-[10px] uppercase tracking-wider font-semibold">CODE:</span>
+                  <span className="font-mono font-bold text-[var(--color-gold)] text-xs tracking-wider">
+                    {activeCategoryContent.announcement.code}
+                  </span>
+                </div>
+              )}
+              {activeCategoryContent.announcement.link && (
                 <Link
-                  key={cat.name}
-                  href={cat.href}
-                  className={cn(
-                    "flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border transition-all text-xs font-medium uppercase tracking-wider",
-                    isActive
-                      ? "bg-[var(--color-ink)] text-white border-[var(--color-gold)] shadow-md"
-                      : "bg-white text-[var(--color-slate)] border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:text-[var(--color-ink)]"
-                  )}
+                  href={activeCategoryContent.announcement.link}
+                  className="text-[var(--color-gold)] hover:text-white transition-colors font-medium text-xs flex items-center gap-1"
                 >
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-6 h-6 rounded-full object-cover border border-[var(--color-gold)]/40"
-                  />
-                  <span>{cat.name}</span>
+                  <span>{activeCategoryContent?.announcement?.linkText || 'Shop Offer →'}</span>
+                  <span>→</span>
                 </Link>
-              );
-            })}
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Visual Category Quick-Browse Strip */}
+      {(activeCategoryContent?.navigation?.enabled ?? true) && (
+        <section className="bg-[var(--color-snow)] border-b border-[var(--color-whisper)] py-4 overflow-x-auto no-scrollbar">
+          <div className="container-custom px-6">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-max">
+              <span className="text-xs uppercase tracking-wider text-[var(--color-slate)] font-semibold mr-2 hidden sm:inline">
+                {activeCategoryContent?.navigation?.label || 'Collections:'}
+              </span>
+              {(activeCategoryContent?.navigation?.items && activeCategoryContent.navigation.items.length > 0 ? activeCategoryContent.navigation.items : CATEGORIES_NAVIGATION).map((cat) => {
+                const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
+                return (
+                  <Link
+                    key={cat.name}
+                    href={cat.href}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border transition-all text-xs font-medium uppercase tracking-wider",
+                      isActive
+                        ? "bg-[var(--color-ink)] text-white border-[var(--color-gold)] shadow-md"
+                        : "bg-white text-[var(--color-slate)] border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:text-[var(--color-ink)]"
+                    )}
+                  >
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-6 h-6 rounded-full object-cover border border-[var(--color-gold)]/40"
+                    />
+                    <span>{cat.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Main Content */}
       <section className="py-10">
@@ -444,6 +511,7 @@ export function CategoryPageClient({
                   fabricCounts={fabricCounts}
                   inStockCount={inStockCount}
                   vidhyasCount={vidhyasCount}
+                  sidebarContent={activeCategoryContent?.sidebar}
                 />
               </div>
             </ScrollRevealAnim>
@@ -662,6 +730,7 @@ function CategoryFilterFields({
   fabricCounts,
   inStockCount,
   vidhyasCount,
+  sidebarContent,
 }: {
   filters: ShopFilters;
   onFilterChange: (key: string, value: any) => void;
@@ -673,6 +742,7 @@ function CategoryFilterFields({
   fabricCounts?: Record<string, number>;
   inStockCount?: number;
   vidhyasCount?: number;
+  sidebarContent?: any;
 }) {
   return (
     <div className="space-y-6">
@@ -695,7 +765,7 @@ function CategoryFilterFields({
 
       <div>
         <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] mb-3 flex items-center justify-between">
-          <span>Category</span>
+          <span>{sidebarContent?.categoryTitle || 'Category'}</span>
           {filters.categories && filters.categories.length > 0 && (
             <span className="text-[10px] font-bold text-[var(--color-gold)]">
               {filters.categories.length} selected
@@ -742,7 +812,7 @@ function CategoryFilterFields({
               href="/shop"
               className="inline-flex items-center gap-1 text-xs text-[var(--color-gold)] hover:underline font-medium pt-1"
             >
-              <span>← View All Collections</span>
+              <span>{sidebarContent?.viewAllText || '← View All Collections'}</span>
             </Link>
           </div>
         )}
@@ -895,7 +965,7 @@ function CategoryFilterFields({
           <Checkbox
             checked={Boolean(filters.inStockOnly)}
             onChange={(e) => onFilterChange('inStockOnly', e.target.checked)}
-            label="In Stock Only"
+            label={sidebarContent?.inStockLabel || 'In Stock Only'}
           />
           {typeof inStockCount === 'number' && (
             <span className="text-xs text-[var(--color-slate)]/70 tabular-nums">
@@ -907,7 +977,7 @@ function CategoryFilterFields({
           <Checkbox
             checked={Boolean(filters.vidhyasPicksOnly)}
             onChange={(e) => onFilterChange('vidhyasPicksOnly', e.target.checked)}
-            label="Vidhya's Picks Only"
+            label={sidebarContent?.vidhyasPicksLabel || "Vidhya's Picks Only"}
           />
           {typeof vidhyasCount === 'number' && (
             <span className="text-xs text-[var(--color-slate)]/70 tabular-nums">

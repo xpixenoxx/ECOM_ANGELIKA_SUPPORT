@@ -14,9 +14,9 @@ import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { ScrollReveal as ScrollRevealAnim } from '@/components/animations/ScrollReveal';
 import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
 import { useCart } from '@/lib/hooks/useCart';
-import type { HomepageProductCard, LookData } from '@/lib/actions/homepage';
+import type { HomepageProductCard, LookData } from '@/lib/actions/homepage-types';
 import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
-import type { SiteContent } from '@/lib/actions/site-content';
+import type { SiteContent } from '@/lib/actions/site-content-types';
 
 const navigation = [
   { label: 'Kurtis', href: '/shop/kurtis' },
@@ -117,7 +117,7 @@ interface HomePageClientProps {
   vidhyasPicks: HomepageProductCard[];
   newArrivals: HomepageProductCard[];
   looks: LookData[];
-  instagramPosts: Array<{ id: string; image_url: string }>;
+  instagramPosts: Array<{ id: string; image_url: string; handle?: string; caption?: string; productName?: string; productLink?: string }>;
   heroData?: HomepageHeroData;
   siteContent?: SiteContent;
 }
@@ -141,6 +141,48 @@ export default function HomePageClient({
     secondaryCtaLink: '/vidhyas-picks',
     backgroundImage: '/images/hero-new-couture.jpg',
   };
+
+  const vidhyasPicksSection = siteContent?.['vidhyas-picks'];
+  const activeVidhyasPicks: HomepageProductCard[] = (vidhyasPicksSection?.items && vidhyasPicksSection.items.length > 0)
+    ? vidhyasPicksSection.items.map((item: any, idx: number) => {
+        const priceNum = Number(String(item.price ?? '').replace(/[^0-9.]/g, '')) || 0;
+        const compareNum = item.originalPrice || item.compare_at_price
+          ? Number(String(item.originalPrice || item.compare_at_price).replace(/[^0-9.]/g, ''))
+          : null;
+        const discountVal = item.discount ?? (
+          compareNum && priceNum > 0 && compareNum > priceNum
+            ? Math.round(((compareNum - priceNum) / compareNum) * 100)
+            : 0
+        );
+        return {
+          id: item.id || `vp-${idx + 1}`,
+          slug: item.slug || (item.name ? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `product-${idx + 1}`),
+          name: item.name || '',
+          variant_id: null,
+          price: priceNum,
+          compare_at_price: compareNum,
+          images: [{ url: item.image || '/images/placeholder.jpg', alt_text: item.name || 'Product' }],
+          category: {
+            id: `cat-${idx + 1}`,
+            name: item.category || 'Collection',
+            slug: (item.category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          },
+          discount: discountVal,
+          is_vidyas_pick: item.isVidhyasPick ?? true,
+          is_new: false,
+        };
+      })
+    : vidhyasPicks;
+
+  const brandStorySection = siteContent?.['brand-story'];
+  const myAngelikaLookContent = siteContent?.['my-angelika-look'];
+  const lookTag = myAngelikaLookContent?.tag || '#MyAngelikaLook';
+  const lookSubtitle = myAngelikaLookContent?.subtitle || 'See how our community styles their Angelika favorites. Tag @angelikafashions for a chance to be featured.';
+  const lookInstagramUrl = myAngelikaLookContent?.instagramUrl || 'https://instagram.com/angelikafashions';
+  const lookButtonText = myAngelikaLookContent?.buttonText || 'Follow us on Instagram';
+  const displayPosts = (myAngelikaLookContent?.posts && myAngelikaLookContent.posts.length > 0)
+    ? myAngelikaLookContent.posts
+    : instagramPosts;
 
   const activeFeatures = (siteContent?.features?.items && siteContent.features.items.length > 0)
     ? siteContent.features.items.map((item, index) => {
@@ -477,19 +519,35 @@ export default function HomePageClient({
           >
             <div>
               <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-3">
-                Vidhya's Picks
+                {vidhyasPicksSection?.badge || "Vidhya's Picks"}
               </span>
               <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)]">
-                Handpicked by <span className="text-gradient-gold">Vidhya</span>
+                {vidhyasPicksSection?.title ? (
+                  vidhyasPicksSection.titleHighlight && vidhyasPicksSection.title.includes(vidhyasPicksSection.titleHighlight) ? (
+                    <>
+                      {vidhyasPicksSection.title.split(vidhyasPicksSection.titleHighlight)[0]}
+                      <span className="text-gradient-gold">{vidhyasPicksSection.titleHighlight}</span>
+                      {vidhyasPicksSection.title.split(vidhyasPicksSection.titleHighlight)[1]}
+                    </>
+                  ) : (
+                    vidhyasPicksSection.title
+                  )
+                ) : (
+                  <>
+                    Handpicked by <span className="text-gradient-gold">Vidhya</span>
+                  </>
+                )}
               </h2>
             </div>
             <Button variant="outline" asChild className="mt-4 md:mt-0">
-              <Link href="/vidhyas-picks">View All Picks <span aria-hidden="true">→</span></Link>
+              <Link href={vidhyasPicksSection?.ctaLink || "/vidhyas-picks"}>
+                {vidhyasPicksSection?.ctaText || "View All Picks"} <span aria-hidden="true">→</span>
+              </Link>
             </Button>
           </motion.div>
           <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {vidhyasPicks.length > 0 ? (
-              vidhyasPicks.map((product, index) => (
+            {activeVidhyasPicks.length > 0 ? (
+              activeVidhyasPicks.map((product, index) => (
                 <StaggerItem key={product.id} delay={index * 0.08} variant="scale">
                   <ProductCard
                     image={product.images[0]?.url || '/images/placeholder.jpg'}
@@ -518,7 +576,7 @@ export default function HomePageClient({
       {/* Shop the Look */}
       <section className="section bg-[var(--color-snow)]">
         <div className="container-custom px-6">
-          <ShopTheLookClient />
+          <ShopTheLookClient initialLook={siteContent?.['shop-the-look']} />
         </div>
       </section>
 
@@ -699,7 +757,7 @@ export default function HomePageClient({
       </section>
 
       {/* Instagram Feed / Social Proof */}
-      <section className="section bg-[var(--color-white)]">
+      <section className="section bg-[var(--color-white)]" id="MyAngelikaLook">
         <div className="container-custom px-6">
           <motion.div
             className="text-center mb-12"
@@ -708,29 +766,37 @@ export default function HomePageClient({
             viewport={{ once: true }}
           >
             <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-4">
-              #MyAngelikaLook
+              {lookTag}
             </h2>
             <p className="text-[var(--color-slate)] text-lg max-w-2xl mx-auto">
-              See how our community styles their Angelika favorites. Tag @angelikafashions for a chance to be featured.
+              {lookSubtitle}
             </p>
           </motion.div>
           <StaggerContainer variant="fast" className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {instagramPosts.length > 0 ? (
-              instagramPosts.map((post, i) => (
-                <StaggerItem key={post.id} delay={i * 0.05} variant="scale" className="aspect-square relative overflow-hidden rounded-[var(--radius-lg)] group">
+            {displayPosts.length > 0 ? (
+              displayPosts.map((post: any, i: number) => (
+                <StaggerItem key={post.id || i} delay={i * 0.05} variant="scale" className="aspect-square relative overflow-hidden rounded-[var(--radius-lg)] group">
                   <Image
-                    src={post.image_url}
-                    alt="Instagram post"
+                    src={post.image_url || post.image || '/images/placeholder.jpg'}
+                    alt={post.caption || post.productName || 'Instagram post'}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 25vw"
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex flex-col items-center justify-center p-3 text-center">
+                    {post.handle && (
+                      <span className="text-white/90 text-xs font-semibold mb-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        {post.handle}
+                      </span>
+                    )}
                     <MagneticButton
-                      className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300"
+                      className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[var(--color-gold-light)]"
                       strength={0.3}
+                      asChild
                     >
-                      Shop this look
+                      <Link href={post.productLink || post.link || '/shop'}>
+                        Shop this look
+                      </Link>
                     </MagneticButton>
                   </div>
                 </StaggerItem>
@@ -753,9 +819,9 @@ export default function HomePageClient({
           </StaggerContainer>
           <div className="text-center mt-10">
             <Button variant="outline" asChild>
-              <Link href="https://instagram.com/angelikafashions" target="_blank" rel="noopener noreferrer">
+              <Link href={lookInstagramUrl} target="_blank" rel="noopener noreferrer">
                 <SocialIcon platform="instagram" size="sm" className="mr-2" />
-                Follow us on Instagram
+                {lookButtonText}
               </Link>
             </Button>
           </div>
