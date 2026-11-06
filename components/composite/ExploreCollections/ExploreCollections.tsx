@@ -124,7 +124,7 @@ function HeroCard({
       href={card.href}
       style={style}
       className={cn(
-        'group relative block w-full overflow-hidden bg-black focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2',
+        'group relative block w-full overflow-hidden bg-[#FAF6F0] focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2',
         heightClass,
         className
       )}
@@ -141,14 +141,11 @@ function HeroCard({
         )}
       />
 
-      {/* Lower gradient scrim for contrast and legibility */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 via-40% to-transparent pointer-events-none" />
-
       {/* Bottom Content Overlay: Large Poppins Sans-Serif Uppercase Title (No CTA) */}
       <div className="absolute bottom-0 left-0 w-full p-6 sm:p-8 md:p-10 lg:p-12 z-10 flex flex-col items-start pointer-events-none">
         <h3
           style={{ fontFamily: "'Poppins', sans-serif" }}
-          className="font-poppins font-medium text-2xl sm:text-3xl md:text-4xl lg:text-[38px] uppercase tracking-[0.14em] text-white leading-tight drop-shadow-lg"
+          className="font-poppins font-medium text-2xl sm:text-3xl md:text-4xl lg:text-[38px] uppercase tracking-[0.14em] text-white leading-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]"
         >
           {card.title}
         </h3>
@@ -165,18 +162,18 @@ interface ExploreCollectionsProps {
 export function ExploreCollections({ className = '', style }: ExploreCollectionsProps) {
   return (
     <section
-      className={cn('relative w-full bg-black overflow-hidden mt-[10px]', className)}
+      className={cn('relative w-full bg-[#FAF6F0] overflow-hidden mt-[10px]', className)}
       style={{ marginTop: '10px', ...style }}
       aria-label="Explore Our Collections"
     >
 
       {/* ── 3 + 1 + 2 + 1 + 1 Luxury Editorial Grid ─────────────────────── */}
-      <div className="w-full max-w-[1520.8px] mx-auto flex flex-col gap-0.5 sm:gap-1 bg-black">
+      <div className="w-full max-w-[1520.8px] mx-auto flex flex-col gap-0.5 sm:gap-1 bg-[#FAF6F0]">
         {/* ═════════════════════════════════════════════════════════════════
             ROW 1 (3 items): Party Wear Dresses | Office Wear 3-Piece | Co-ord Sets
             Target Size: 506.93 x 658 each
            ═════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full divide-y md:divide-y-0 md:divide-x divide-black">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full divide-y md:divide-y-0 md:divide-x divide-[#E5E0D8]">
           {ROW_1.map((card) => (
             <HeroCard
               key={card.id}
@@ -204,7 +201,7 @@ export function ExploreCollections({ className = '', style }: ExploreCollections
             ROW 3 (2 items): Daily Wear Sarees | Office Wear Sarees (Matches Reference Exactly)
             Target Size: 760.4 x 658 each
            ═════════════════════════════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 w-full divide-y md:divide-y-0 md:divide-x divide-black">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 w-full divide-y md:divide-y-0 md:divide-x divide-[#E5E0D8]">
           {ROW_3.map((card) => (
             <HeroCard
               key={card.id}

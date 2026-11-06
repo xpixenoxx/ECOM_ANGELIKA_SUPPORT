@@ -485,7 +485,7 @@ export default function HomePageClient({
                     className="object-cover"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 25vw"
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/0 transition-colors duration-300 flex items-center justify-center">
                     <MagneticButton
                       className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300"
                       strength={0.3}
@@ -499,7 +499,7 @@ export default function HomePageClient({
               Array.from({ length: 8 }).map((_, i) => (
                 <StaggerItem key={i} delay={i * 0.05} variant="scale" className="aspect-square relative overflow-hidden rounded-[var(--radius-lg)] group">
                   <div className="absolute inset-0 bg-[var(--color-whisper)] skeleton" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/0 transition-colors duration-300 flex items-center justify-center">
                     <MagneticButton
                       className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300"
                       strength={0.3}
