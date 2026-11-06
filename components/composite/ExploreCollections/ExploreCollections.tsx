@@ -144,14 +144,14 @@ function HeroCard({
       {/* Lower gradient scrim for contrast and legibility */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 via-40% to-transparent pointer-events-none" />
 
-      {/* Bottom Content Overlay: Large Serif Uppercase Title + Crisp White Button (Exact Reference Match) */}
-      <div className="absolute bottom-0 left-0 w-full p-6 sm:p-8 md:p-10 lg:p-12 z-10 flex flex-col items-start">
-        <h3 className="font-serif text-2xl sm:text-3xl md:text-4xl lg:text-[40px] font-normal uppercase tracking-[0.14em] text-white leading-tight mb-4 sm:mb-5 drop-shadow-md">
+      {/* Bottom Content Overlay: Large Poppins Sans-Serif Uppercase Title (No CTA) */}
+      <div className="absolute bottom-0 left-0 w-full p-6 sm:p-8 md:p-10 lg:p-12 z-10 flex flex-col items-start pointer-events-none">
+        <h3
+          style={{ fontFamily: "'Poppins', sans-serif" }}
+          className="font-poppins font-medium text-2xl sm:text-3xl md:text-4xl lg:text-[38px] uppercase tracking-[0.14em] text-white leading-tight drop-shadow-lg"
+        >
           {card.title}
         </h3>
-        <span className="inline-block bg-white text-[#0D0D0D] px-6 sm:px-8 py-2.5 sm:py-3 text-[10px] sm:text-[11px] font-semibold tracking-[0.22em] uppercase hover:bg-[#C9A84C] hover:text-black transition-colors duration-200 shadow-sm">
-          {card.ctaText || 'SHOP NOW'}
-        </span>
       </div>
     </Link>
   );
