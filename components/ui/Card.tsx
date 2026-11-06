@@ -291,12 +291,6 @@ export function ProductCard({
         <div className="absolute bottom-0 left-0 bg-[#A84557] text-white px-2.5 py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider z-10 pointer-events-none">
           {badgeText}
         </div>
-
-        {/* Bottom-Right Badge: 5.0 ★ (Almond Cream #FBF4EC) */}
-        <div className="absolute bottom-2 right-2 bg-[#FBF4EC] text-[#111111] px-2 py-0.5 text-[10px] font-medium flex items-center gap-1 shadow-xs z-10 pointer-events-none">
-          <span className="tabular-nums font-semibold">{(rating || 5.0).toFixed(1)}</span>
-          <span className="text-[10px]">★</span>
-        </div>
       </div>
 
       {/* ── 2. Attached Action Bar: ADD TO CART + (320px × 33.8px, padding: 10px 0px, font: 13px) ── */}
