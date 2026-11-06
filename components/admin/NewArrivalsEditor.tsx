@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
-import type { NewArrivalsContent, NewArrivalProductItem } from '@/lib/actions/site-content';
+import type { NewArrivalsContent, NewArrivalProductItem } from '@/lib/actions/site-content-types';
 
 interface NewArrivalsEditorProps {
   onCancel?: () => void;

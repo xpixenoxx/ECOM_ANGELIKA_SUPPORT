@@ -27,11 +27,48 @@ interface LookWithHotspots {
   }>;
 }
 
-export function ShopTheLookClient() {
-  const [look, setLook] = useState<LookWithHotspots | null>(null);
-  const [loading, setLoading] = useState(true);
+export function ShopTheLookClient({ initialLook }: { initialLook?: any }) {
+  const getLookFromConfig = (config: any): LookWithHotspots | null => {
+    if (!config || !config.lifestyle_image_url) return null;
+    return {
+      id: 'site-look-1',
+      name: config.title || 'Festive Elegance',
+      lifestyle_image_url: config.lifestyle_image_url,
+      lifestyle_image_alt: config.lifestyle_image_alt || config.title || 'Featured Ensemble',
+      look_hotspots: [
+        {
+          id: 'hotspot-1',
+          x_percent: Number(config.pinX ?? 47),
+          y_percent: Number(config.pinY ?? 64),
+          display_order: 1,
+          products: {
+            id: 'prod-look-1',
+            slug: config.productSlug || 'mirror-work-lehenga',
+            name: config.productName || 'Mirror Work Lehenga',
+            price: Number(String(config.productPrice || 18999).replace(/[^0-9.]/g, '')),
+            compare_at_price: config.productOriginalPrice
+              ? Number(String(config.productOriginalPrice).replace(/[^0-9.]/g, ''))
+              : null,
+            images: [config.productImage || '/images/products/lehenga-mirror-1.jpg'],
+            thumbnail_url: config.productImage || '/images/products/lehenga-mirror-1.jpg',
+            default_variant_id: 'var-look-1',
+            variants: [{ id: 'var-look-1', price: Number(config.productPrice || 18999) }],
+          },
+        },
+      ],
+    };
+  };
+
+  const [look, setLook] = useState<LookWithHotspots | null>(() => getLookFromConfig(initialLook));
+  const [loading, setLoading] = useState(!initialLook?.lifestyle_image_url);
 
   useEffect(() => {
+    if (initialLook && initialLook.lifestyle_image_url) {
+      setLook(getLookFromConfig(initialLook));
+      setLoading(false);
+      return;
+    }
+
     async function fetchLook() {
       try {
         const res = await fetch('/api/looks/active');
@@ -46,7 +83,7 @@ export function ShopTheLookClient() {
       }
     }
     fetchLook();
-  }, []);
+  }, [initialLook]);
 
   if (loading) {
     return (

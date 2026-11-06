@@ -68,7 +68,7 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
           const json = await res.json();
           if (json.success && json.content?.['brand-story']) {
             const raw = json.content['brand-story'];
-            let paragraphs = DEFAULT_BRAND_STORY.storyParagraphs;
+            let paragraphs: string[] = DEFAULT_BRAND_STORY.storyParagraphs || [];
 
             if (Array.isArray(raw.storyParagraphs) && raw.storyParagraphs.length > 0) {
               paragraphs = raw.storyParagraphs;
@@ -110,12 +110,12 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
   }, []);
 
   const handleChange = (key: keyof BrandStoryContent, value: any) => {
-    setData((prev) => ({ ...prev, [key]: value }));
+    setData((prev: BrandStoryContent) => ({ ...prev, [key]: value }));
   };
 
   const handleParagraphChange = (index: number, text: string) => {
-    setData((prev) => {
-      const storyParagraphs = [...prev.storyParagraphs];
+    setData((prev: BrandStoryContent) => {
+      const storyParagraphs = [...(prev.storyParagraphs || [])];
       storyParagraphs[index] = text;
       return {
         ...prev,
@@ -126,8 +126,8 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
   };
 
   const handleAddParagraph = () => {
-    setData((prev) => {
-      const storyParagraphs = [...prev.storyParagraphs, 'New paragraph about Vidhya and Angelika atelier...'];
+    setData((prev: BrandStoryContent) => {
+      const storyParagraphs = [...(prev.storyParagraphs || []), 'New paragraph about Vidhya and Angelika atelier...'];
       return {
         ...prev,
         storyParagraphs,
@@ -137,9 +137,9 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
   };
 
   const handleRemoveParagraph = (index: number) => {
-    if (data.storyParagraphs.length <= 1) return;
-    setData((prev) => {
-      const storyParagraphs = prev.storyParagraphs.filter((_, i) => i !== index);
+    if ((data.storyParagraphs || []).length <= 1) return;
+    setData((prev: BrandStoryContent) => {
+      const storyParagraphs = (prev.storyParagraphs || []).filter((_: string, i: number) => i !== index);
       return {
         ...prev,
         storyParagraphs,
@@ -210,7 +210,7 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
       const payload: BrandStoryContent = {
         ...data,
         title: fullTitle,
-        story: data.storyParagraphs.join('\n\n'),
+        story: (data.storyParagraphs || []).join('\n\n'),
       };
 
       const res = await fetch('/api/admin/content', {
@@ -439,7 +439,7 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-xs font-semibold text-[var(--color-ink)] block">
-                  Story Paragraphs ({data.storyParagraphs.length})
+                  Story Paragraphs ({(data.storyParagraphs || []).length})
                 </label>
                 <span className="text-[11px] text-[var(--color-slate)]">
                   Each paragraph appears formatted on the right side of the section
@@ -455,13 +455,13 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
               </button>
             </div>
 
-            {data.storyParagraphs.map((para, idx) => (
+            {(data.storyParagraphs || []).map((para: string, idx: number) => (
               <div key={idx} className="p-4 bg-white rounded-xl border border-[var(--color-whisper)] space-y-2 relative">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-gold)]">
                     Paragraph {idx + 1}
                   </span>
-                  {data.storyParagraphs.length > 1 && (
+                  {(data.storyParagraphs || []).length > 1 && (
                     <button
                       type="button"
                       onClick={() => handleRemoveParagraph(idx)}
@@ -781,7 +781,7 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
               </h2>
 
               <div className="space-y-3 text-[var(--color-slate)] text-sm sm:text-base leading-relaxed">
-                {data.storyParagraphs.map((para, i) => (
+                {(data.storyParagraphs || []).map((para: string, i: number) => (
                   <p key={i}>{para}</p>
                 ))}
               </div>

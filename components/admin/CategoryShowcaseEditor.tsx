@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Input, Textarea } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
-import type { CategoriesContent, CategoryCollectionItem } from '@/lib/actions/site-content';
+import type { CategoriesContent, CategoryCollectionItem } from '@/lib/actions/site-content-types';
 
 interface CategoryShowcaseEditorProps {
   onCancel?: () => void;
