@@ -213,14 +213,6 @@ export default function HomePageClient({
           <div className="max-w-lg lg:max-w-xl">
             {/* Brand Signature - Exact Luxury Editorial Style */}
             <div className="flex flex-col items-start gap-1 mb-10">
-              <div className="flex items-center gap-2 mb-1">
-                <svg className="w-3.5 h-3.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2l2.4 7.4h7.6l-6.2 4.5 2.4 7.4-6.2-4.5-6.2 4.5 2.4-7.4-6.2-4.5h7.6z"/>
-                </svg>
-                <span className="text-[11px] tracking-[0.28em] uppercase font-semibold text-[var(--color-gold)]">
-                  Couture Collection &bull; 2026
-                </span>
-              </div>
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white font-medium tracking-tight leading-[1.12]">
                 {heroData?.headlinePrimary || heroContent.title || 'Grace in Every Drape'}
               </h1>
