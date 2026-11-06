@@ -175,13 +175,19 @@ export default function HomePageClient({
       })
     : features;
 
-  const handleAddToBag = (product: HomepageProductCard) => {
-    if (product.variant_id) {
-      addItem(product.variant_id, 1);
-    } else {
-      // No variant_id — send user to product page to choose size
-      window.location.href = `/product/${product.slug}`;
-    }
+  const handleAddToBag = (product: any) => {
+    const targetId = product.variant_id || product.defaultVariantId || product.id || product.slug || 'na-1';
+    const imgUrl = product.image || product.images?.[0]?.url || '/images/collection-kurtis.jpg';
+    const priceVal = Number(product.price) || 2999;
+    const isVP = Boolean(product.isVidhyasPick || product.is_vidyas_pick);
+    const prodName = product.name || product.title || 'Handcrafted Ethnic Ensemble';
+
+    addItem(targetId, 1, 'Free Size', {
+      product_name: prodName,
+      price: priceVal,
+      image: imgUrl,
+      is_vidyas_pick: isVP,
+    });
   };
 
   return (
@@ -499,7 +505,7 @@ export default function HomePageClient({
                     category={product.category?.name || ''}
                     isVidhyasPick={product.is_vidyas_pick}
                     discount={product.discount}
-                    href={`/product/${product.slug}`}
+                    href={product.slug ? `/product/${product.slug}` : `/vidhyas-picks?search=${encodeURIComponent(product.name)}`}
                     onAddToBag={() => handleAddToBag(product)}
                   />
                 </StaggerItem>
@@ -567,7 +573,7 @@ export default function HomePageClient({
                       : product.category?.name || '';
                     const origPrice = product.originalPrice ?? product.compare_at_price ?? undefined;
                     const isVPick = product.isVidhyasPick ?? product.is_vidyas_pick ?? false;
-                    const productHref = product.href || (product.slug ? `/product/${product.slug}` : '/shop');
+                    const productHref = product.href && !product.href.includes('/undefined') ? product.href : (product.slug ? `/product/${product.slug}` : `/vidhyas-picks?search=${encodeURIComponent(product.name)}`);
 
                     return (
                       <StaggerItem key={product.id || index} delay={index * 0.08} variant="scale">
@@ -599,64 +605,86 @@ export default function HomePageClient({
       })()}
 
       {/* About Vidhya / Brand Story */}
-      <section className="section bg-[var(--color-white)]">
-        <div className="container-custom px-6">
-          <motion.div
-            className="grid lg:grid-cols-2 gap-16 items-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="relative aspect-[4/5] rounded-[var(--radius-2xl)] overflow-hidden">
-              <Image
-                src="/images/vidhya-story.jpg"
-                alt="Vidhya in her atelier"
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
-              <div className="absolute -bottom-6 -right-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
-              <div className="absolute -top-6 -left-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
-            </div>
-            <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-4">
-                Our Story
-              </span>
-              <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-6">
-                Crafted with <span className="text-gradient-gold">Love</span>, Worn with Pride
-              </h2>
-              <div className="space-y-4 text-[var(--color-slate)] text-lg leading-relaxed">
-                <p>
-                  Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.
-                </p>
-                <p>
-                  Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.
-                </p>
-                <p>
-                  When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.
-                </p>
-              </div>
+      {(() => {
+        const bs = siteContent?.['brand-story'];
+        const badge = bs?.badge || 'Our Story';
+        const headingPrefix = bs?.headingPrefix ?? (bs?.title ? '' : 'Crafted with');
+        const headingHighlight = bs?.headingHighlight ?? (bs?.title ? '' : 'Love');
+        const headingSuffix = bs?.headingSuffix ?? (bs?.title || ', Worn with Pride');
+        const imageUrl = bs?.image || '/images/vidhya-story.jpg';
+        const imageAlt = bs?.imageAlt || 'Vidhya in her atelier';
+        const paragraphs = Array.isArray(bs?.storyParagraphs) && bs.storyParagraphs.length > 0
+          ? bs.storyParagraphs
+          : (bs?.story
+              ? bs.story.split('\n\n').filter(Boolean)
+              : [
+                  "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.",
+                  "Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.",
+                  "When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.",
+                ]);
+        const primaryCtaText = bs?.primaryCtaText || 'Read Our Story';
+        const primaryCtaLink = bs?.primaryCtaLink || '/about';
+        const whatsappCtaText = bs?.whatsappCtaText || 'Chat with Vidhya';
+        const whatsappLink = bs?.whatsappLink || "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey";
+
+        return (
+          <section className="section bg-[var(--color-white)]">
+            <div className="container-custom px-6">
               <motion.div
-                className="mt-8 flex flex-wrap gap-4"
+                className="grid lg:grid-cols-2 gap-16 items-center"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.3 }}
               >
-                <Button variant="primary" asChild>
-                  <Link href="/about">Read Our Story</Link>
-                </Button>
-                <Button variant="whatsapp" asChild>
-                  <Link href="https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey" target="_blank" rel="noopener noreferrer">
-                    <SocialIcon platform="whatsapp" size="sm" className="mr-2" />
-                    Chat with Vidhya
-                  </Link>
-                </Button>
+                <div className="relative aspect-[4/5] rounded-[var(--radius-2xl)] overflow-hidden">
+                  <Image
+                    src={imageUrl}
+                    alt={imageAlt}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                  />
+                  <div className="absolute -bottom-6 -right-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
+                  <div className="absolute -top-6 -left-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
+                </div>
+                <div>
+                  <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-4">
+                    {badge}
+                  </span>
+                  <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-6">
+                    {headingPrefix && `${headingPrefix} `}
+                    {headingHighlight && <span className="text-gradient-gold">{headingHighlight}</span>}
+                    {headingSuffix}
+                  </h2>
+                  <div className="space-y-4 text-[var(--color-slate)] text-lg leading-relaxed">
+                    {paragraphs.map((p: string, idx: number) => (
+                      <p key={idx}>{p}</p>
+                    ))}
+                  </div>
+                  <motion.div
+                    className="mt-8 flex flex-wrap gap-4"
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <Button variant="primary" asChild>
+                      <Link href={primaryCtaLink}>{primaryCtaText}</Link>
+                    </Button>
+                    <Button variant="whatsapp" asChild>
+                      <Link href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                        <SocialIcon platform="whatsapp" size="sm" className="mr-2" />
+                        {whatsappCtaText}
+                      </Link>
+                    </Button>
+                  </motion.div>
+                </div>
               </motion.div>
             </div>
-          </motion.div>
-        </div>
-      </section>
+          </section>
+        );
+      })()}
 
       {/* Newsletter Signup */}
       <section className="section bg-[var(--color-ink)] relative overflow-hidden">

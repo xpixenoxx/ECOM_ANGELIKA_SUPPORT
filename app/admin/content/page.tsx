@@ -14,6 +14,9 @@ import { cn } from '@/lib/utils/cn';
 import { HomepageHeroEditor } from '@/components/admin/HomepageHeroEditor';
 import { CategoryShowcaseEditor } from '@/components/admin/CategoryShowcaseEditor';
 import { NewArrivalsEditor } from '@/components/admin/NewArrivalsEditor';
+import { BrandStoryEditor } from '@/components/admin/BrandStoryEditor';
+import { KurtisPageEditor } from '@/components/admin/KurtisPageEditor';
+import { FooterEditor } from '@/components/admin/FooterEditor';
 
 const contentSections = [
   { id: 'hero', label: 'Homepage Hero', type: 'hero' },
@@ -22,6 +25,8 @@ const contentSections = [
   { id: 'new-arrivals', label: 'New Arrivals (Fresh from Atelier)', type: 'products' },
   { id: 'vidhyas-picks', label: "Vidhya's Picks", type: 'editorial' },
   { id: 'brand-story', label: 'Brand Story', type: 'richtext' },
+  { id: 'kurtis-page', label: 'Kurtis Page', type: 'page' },
+  { id: 'footer', label: 'Footer', type: 'footer' },
   { id: 'newsletter', label: 'Newsletter Signup', type: 'form' },
   { id: 'about-hero', label: 'About Page Hero', type: 'hero' },
   { id: 'founder-note', label: "Founder's Note", type: 'richtext' },
@@ -204,9 +209,160 @@ const defaultMockContent: Record<string, any> = {
     products: ['prod-1', 'prod-2', 'prod-3'],
   },
   'brand-story': {
-    title: 'Artisanal Luxury, Rooted in Indian Heritage',
-    story: 'Every piece in the Angelika collection is thoughtfully curated by designer Vidhya, honoring ancient weaving traditions while embracing contemporary silhouettes.',
+    badge: 'Our Story',
+    title: 'Crafted with Love, Worn with Pride',
+    headingPrefix: 'Crafted with',
+    headingHighlight: 'Love',
+    headingSuffix: ', Worn with Pride',
+    image: '/images/vidhya-story.jpg',
+    imageAlt: 'Vidhya in her atelier',
+    storyParagraphs: [
+      "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.",
+      "Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.",
+      "When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.",
+    ],
+    story: "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.\n\nEvery piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.\n\nWhen you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.",
     quote: '"Fashion that honors where you come from while embracing where you are going."',
+    primaryCtaText: 'Read Our Story',
+    primaryCtaLink: '/about',
+    whatsappCtaText: 'Chat with Vidhya',
+    whatsappLink: "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey",
+  },
+  'kurtis-page': {
+    badge: 'HANDCRAFTED LUXURY EDIT',
+    title: 'Kurtis',
+    description: 'Discover our complete range of handcrafted Indian ethnic kurtis, tunics, and anarkalis, thoughtfully made with artisanal perfection and breathable natural textiles.',
+    heroImage: '/images/hero-new-couture.jpg',
+    cardImage: '/images/collection-kurtis.jpg',
+    cardBadge: 'CURATED BY VIDHYA',
+    cardSubtitle: '48 Handcrafted Pieces',
+    showPromoBanner: true,
+    promoBadge: 'FESTIVE OFFER',
+    promoText: 'Enjoy 15% off on all handcrafted Chanderi and Silk Kurtis. Use code: KURTI15',
+    promoCtaText: 'SHOP KURTIS',
+    promoCtaLink: '/shop/kurtis',
+    showStylingGuide: true,
+    stylingBadge: 'ATELIER NOTES & STYLING',
+    stylingTitle: "Vidhya's Styling Guide for Kurtis",
+    stylingNote: 'Our kurtis are cut from pure breathable Chanderi, Mulmul and Tussar silk. For a contemporary festive look, pair straight-cut kurtis with cigarette pants, or flared anarkalis with statement jhumkas.',
+    stylingImage: '/images/vidhya-story.jpg',
+    highlights: [
+      {
+        title: 'Handloom Textiles',
+        description: 'Woven on authentic wooden looms using pure Chanderi silk and combed mulmul cotton.',
+      },
+      {
+        title: 'Artisanal Block Prints',
+        description: 'Hand-block printed by master artisans using organic azo-free earthen dyes.',
+      },
+      {
+        title: 'Tailored Silhouettes',
+        description: 'Comfortable relaxed drapes with thoughtful internal seam allowances for a bespoke fit.',
+      },
+    ],
+    showCategoryStrip: true,
+    showSidebar: true,
+    productsMode: 'custom',
+    products: [
+      {
+        id: 'kp-1',
+        name: 'Kutch Ajrakh Modal Silk Kurti',
+        category: 'KURTIS',
+        price: 4999,
+        originalPrice: 5999,
+        discount: 17,
+        image: '/images/collection-kurtis.jpg',
+        href: '/product/kutch-ajrakh-modal-silk-kurti',
+        isNew: true,
+        isVidhyasPick: true,
+        fabric: 'Silk',
+        rating: 4.8,
+        reviewCount: 12,
+        inStock: true,
+      },
+      {
+        id: 'kp-2',
+        name: 'Pristine White Shadow Work Lucknowi Kurti',
+        category: 'KURTIS',
+        price: 3999,
+        originalPrice: 4799,
+        discount: 17,
+        image: '/images/collection-lehengas.jpg',
+        href: '/product/pristine-white-shadow-work-lucknowi-kurti',
+        isNew: true,
+        isVidhyasPick: false,
+        fabric: 'Cotton',
+        rating: 4.8,
+        reviewCount: 12,
+        inStock: true,
+      },
+      {
+        id: 'kp-3',
+        name: 'Hand Block Printed Kurti',
+        category: 'KURTIS',
+        price: 2499,
+        originalPrice: 3299,
+        discount: 24,
+        image: '/images/collection-kurtis.jpg',
+        href: '/product/hand-block-printed-kurti',
+        isNew: true,
+        isVidhyasPick: false,
+        fabric: 'Cotton',
+        rating: 4.8,
+        reviewCount: 12,
+        inStock: true,
+      },
+      {
+        id: 'kp-4',
+        name: 'Velvet Kurti Set',
+        category: 'KURTIS',
+        price: 6999,
+        originalPrice: 8499,
+        discount: 18,
+        image: '/images/cat-sarees.jpg',
+        href: '/product/velvet-kurti-set',
+        isNew: true,
+        isVidhyasPick: true,
+        fabric: 'Velvet',
+        rating: 4.8,
+        reviewCount: 12,
+        inStock: true,
+      },
+      {
+        id: 'kp-5',
+        name: 'Chanderi Cotton Kurti',
+        category: 'KURTIS',
+        price: 3199,
+        originalPrice: 3999,
+        discount: 20,
+        image: '/images/cat-kurtis.jpg',
+        href: '/product/chanderi-cotton-kurti',
+        isNew: true,
+        isVidhyasPick: false,
+        fabric: 'Chanderi',
+        rating: 4.8,
+        reviewCount: 12,
+        inStock: true,
+      },
+      {
+        id: 'kp-6',
+        name: 'Gota Patti Kurta',
+        category: 'KURTIS',
+        price: 4299,
+        originalPrice: 5299,
+        discount: 19,
+        image: '/images/cat-lehengas.jpg',
+        href: '/product/gota-patti-kurta',
+        isNew: true,
+        isVidhyasPick: false,
+        fabric: 'Cotton',
+        rating: 4.8,
+        reviewCount: 12,
+        inStock: true,
+      },
+    ],
+    metaTitle: 'Designer Kurtis and Tunics Online | Angelika Fashions',
+    metaDescription: 'Shop handcrafted Indian ethnic kurtis, anarkalis and tunics by Vidhya at Angelika Fashions. Pure Chanderi silk and mulmul cotton with express delivery.',
   },
   'newsletter': {
     title: 'Join the Angelika Circle',
@@ -691,6 +847,76 @@ export default function AdminContentPage() {
                       />
                     </CardContent>
                   </Card>
+                ) : editingSection === 'brand-story' ? (
+                  <Card variant="elevated" padding="lg">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
+                      <div>
+                        <Badge variant="outline" className="text-xs mb-2">OUR STORY</Badge>
+                        <CardTitle className="text-[var(--font-display)] text-lg">Our Story · About Vidhya</CardTitle>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setEditingSection(null)}>Close</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <BrandStoryEditor
+                        onCancel={() => setEditingSection(null)}
+                        onSaved={(savedData) => {
+                          setContentState((prev) => ({
+                            ...prev,
+                            'brand-story': savedData,
+                          }));
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                ) : editingSection === 'kurtis-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
+                      <div>
+                        <Badge variant="outline" className="text-xs mb-2">COLLECTION PAGE</Badge>
+                        <CardTitle className="text-[var(--font-display)] text-lg">Kurtis Page (/shop/kurtis)</CardTitle>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setEditingSection(null)}>Close</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <KurtisPageEditor
+                        onCancel={() => setEditingSection(null)}
+                        onSaved={(savedData) => {
+                          setContentState((prev) => ({
+                            ...prev,
+                            'kurtis-page': savedData,
+                          }));
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                ) : editingSection === 'footer' ? (
+                  <Card variant="elevated" padding="lg">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
+                      <div>
+                        <Badge variant="outline" className="text-xs mb-2">GLOBAL COMPONENT</Badge>
+                        <CardTitle className="text-[var(--font-display)] text-lg">Global Site Footer</CardTitle>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setEditingSection(null)}>Close</Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <FooterEditor
+                        initialContent={contentState['footer']}
+                        onCancel={() => setEditingSection(null)}
+                        onSaved={(savedData) => {
+                          setContentState((prev) => ({
+                            ...prev,
+                            footer: savedData,
+                          }));
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
                 ) : editingSection ? (
                   <Card variant="elevated" padding="lg">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
@@ -1075,19 +1301,98 @@ export default function AdminContentPage() {
                     <TableRow>
                       <TableHead>Page</TableHead>
                       <TableHead>Path</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Last Updated</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Kurtis Page</span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
+                          Live Catalog
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/shop/kurtis" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/shop/kurtis</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setActiveTab('sections');
+                            handleEdit('kurtis-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Footer</span>
+                        <Badge variant="outline" className="text-[10px] text-amber-700 bg-amber-50 border-amber-200">
+                          Global Component
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs text-[var(--color-slate)]">Global Site Footer</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on All Pages
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setActiveTab('sections');
+                            handleEdit('footer');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10"
+                        >
+                          Manage Footer
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                     <TableRow>
                       <TableCell className="font-medium">About Us</TableCell>
-                      <TableCell>/about</TableCell>
-                      <TableCell>Jan 10, 2026</TableCell>
+                      <TableCell className="font-mono text-xs text-[var(--color-slate)]">/about</TableCell>
+                      <TableCell><Badge variant="outline" className="text-[10px]">Published</Badge></TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Jan 10, 2026</TableCell>
+                      <TableCell className="text-right">
+                        <Link href="/about" target="_blank" className="text-xs text-[var(--color-slate)] hover:text-[var(--color-ink)]">
+                          View ↗
+                        </Link>
+                      </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell className="font-medium">Shipping Policy</TableCell>
-                      <TableCell>/shipping</TableCell>
-                      <TableCell>Dec 20, 2025</TableCell>
+                      <TableCell className="font-mono text-xs text-[var(--color-slate)]">/shipping</TableCell>
+                      <TableCell><Badge variant="outline" className="text-[10px]">Published</Badge></TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Dec 20, 2025</TableCell>
+                      <TableCell className="text-right">
+                        <Link href="/shipping" target="_blank" className="text-xs text-[var(--color-slate)] hover:text-[var(--color-ink)]">
+                          View ↗
+                        </Link>
+                      </TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>

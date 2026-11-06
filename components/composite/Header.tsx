@@ -11,6 +11,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Dropdown, DropdownMenu, DropdownItem } from '@/components/ui/Dropdown';
 import { CartDrawer, CartItem } from '@/components/ui/Drawer';
 import { SearchDropdown } from '@/components/ui/SearchDropdown';
+import { AuthModal } from '@/components/ui/AuthModal';
 import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { User } from '@supabase/supabase-js';
@@ -441,8 +442,10 @@ export function Header({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const { user, loading: authLoading } = useAuth();
   const cart = useCart();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const effectiveCartItems = cartItems.length > 0 ? cartItems : (cart.items as any);
   const effectiveSubtotal = cartSubtotal > 0 ? cartSubtotal : cart.subtotal;
@@ -450,7 +453,13 @@ export function Header({
   const effectiveItemCount = cart.itemCount ?? 0;
   const handleUpdateQuantity = onCartUpdateQuantity || cart.updateQuantity;
   const handleRemoveItem = onCartRemoveItem || cart.removeItem;
-  const handleProceedToCheckout = onCartProceedToCheckout || (() => { router.push('/checkout'); });
+  const handleProceedToCheckout = onCartProceedToCheckout || (() => {
+    if (!user) {
+      setShowAuthModal(true);
+    } else {
+      router.push('/checkout');
+    }
+  });
   const handleApplyCoupon = onApplyCoupon || (async (code: string) => { await cart.applyCoupon(code); });
   const handleRemoveCoupon = onRemoveCoupon || cart.removeCoupon;
 
@@ -478,10 +487,24 @@ export function Header({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSearchResults(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      onSearch?.(searchQuery.trim());
+      if (onSearch) {
+        onSearch(searchQuery.trim());
+      } else {
+        router.push(`/vidhyas-picks?search=${encodeURIComponent(searchQuery.trim())}`);
+      }
       setShowSearchResults(false);
     }
   };
@@ -547,7 +570,7 @@ export function Header({
             </div>
 
             <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-              <div className="hidden sm:block relative flex-1 max-w-md">
+              <div ref={searchContainerRef} className="hidden sm:block relative flex-1 max-w-md">
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <svg
                     className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-mist)] pointer-events-none"
@@ -567,11 +590,11 @@ export function Header({
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
-                      setShowSearchResults(e.target.value.length > 0);
+                      setShowSearchResults(e.target.value.trim().length > 0);
                     }}
-                    onFocus={() => setShowSearchResults(searchQuery.length > 0)}
-                    onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
-                    className="w-full h-10 pl-10 pr-10 py-2 text-sm bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-md)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-3 focus:ring-[var(--color-gold)]/20 transition-all duration-200 placeholder:text-[var(--color-mist)]"
+                    onFocus={() => { if (searchQuery.trim().length > 0) setShowSearchResults(true); }}
+
+                    className="w-full h-10 pl-10 pr-10 py-2 text-sm bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-md)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-3 focus:ring-[var(--color-gold)]/20 transition-all duration-200 placeholder:text-[var(--color-mist)] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                     aria-label="Search products"
                     aria-autocomplete="list"
                     aria-controls="search-results"
@@ -596,11 +619,15 @@ export function Header({
                   )}
                 </form>
                 <AnimatePresence>
-                  {showSearchResults && searchQuery.length > 0 && (
+                  {showSearchResults && searchQuery.trim().length > 0 && (
                     <SearchDropdown
                       query={searchQuery}
                       onClose={() => setShowSearchResults(false)}
-                      onSearch={onSearch}
+                      onSearch={(q) => {
+                        setShowSearchResults(false);
+                        if (onSearch) onSearch(q);
+                        else router.push(`/vidhyas-picks?search=${encodeURIComponent(q)}`);
+                      }}
                     />
                   )}
                 </AnimatePresence>
@@ -664,6 +691,16 @@ export function Header({
         user={getUserDisplayData(user)}
         cartItemCount={effectiveItemCount}
       />
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            router.push('/checkout');
+          }}
+          defaultTab="signin"
+        />
+      )}
     </>
   );
 }
@@ -1161,6 +1198,7 @@ function MobileMenu({
   cartItemCount,
 }: MobileMenuProps) {
   const { signOut } = useAuth();
+  const router = useRouter();
   return (
     <AnimatePresence>
       {isOpen && (
@@ -1212,7 +1250,7 @@ function MobileMenu({
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               <div className="relative">
-                <form onSubmit={(e) => { e.preventDefault(); if (searchQuery.trim()) { onSearch?.(searchQuery.trim()); onClose(); } }}>
+                <form onSubmit={(e) => { e.preventDefault(); if (searchQuery.trim()) { setShowSearchResults(false); onClose(); if (onSearch) onSearch(searchQuery.trim()); else router.push(`/vidhyas-picks?search=${encodeURIComponent(searchQuery.trim())}`); } }}>
                   <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-mist)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <circle cx="11" cy="11" r="8" />
                     <path d="M21 21l-4.35-4.35" />
@@ -1223,10 +1261,10 @@ function MobileMenu({
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
-                      setShowSearchResults(e.target.value.length > 0);
+                      setShowSearchResults(e.target.value.trim().length > 0);
                     }}
-                    onFocus={() => setShowSearchResults(searchQuery.length > 0)}
-                    className="w-full h-12 pl-10 pr-10 text-base bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-md)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-3 focus:ring-[var(--color-gold)]/20"
+                    onFocus={() => { if (searchQuery.trim().length > 0) setShowSearchResults(true); }}
+                    className="w-full h-12 pl-10 pr-10 text-base bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-md)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-3 focus:ring-[var(--color-gold)]/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                     autoComplete="off"
                   />
                   {searchQuery && (
@@ -1240,8 +1278,8 @@ function MobileMenu({
                   )}
                 </form>
                 <AnimatePresence>
-                  {showSearchResults && searchQuery.length > 0 && (
-                    <SearchDropdown query={searchQuery} onClose={() => setShowSearchResults(false)} onSearch={onSearch} />
+                  {showSearchResults && searchQuery.trim().length > 0 && (
+                    <SearchDropdown query={searchQuery} onClose={() => { setShowSearchResults(false); onClose(); }} onSearch={(q) => { setShowSearchResults(false); onClose(); if (onSearch) onSearch(q); else router.push(`/vidhyas-picks?search=${encodeURIComponent(q)}`); }} />
                   )}
                 </AnimatePresence>
               </div>

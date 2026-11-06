@@ -219,7 +219,7 @@ export function ProductCardPopup({
             <span>{isAdding ? 'Adding...' : 'Add to Bag'}</span>
           </button>
           <Link
-            href={`/product/${product.slug}`}
+            href={product.slug ? `/product/${product.slug}` : '/shop'}
             onClick={onClose}
             className="py-2 px-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] hover:text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-xl hover:bg-[var(--color-snow)] transition-colors"
           >
@@ -319,7 +319,7 @@ export function ProductCardPopup({
             <span>{isAdding ? 'Adding...' : 'Add to Bag'}</span>
           </button>
           <Link
-            href={`/product/${product.slug}`}
+            href={product.slug ? `/product/${product.slug}` : '/shop'}
             onClick={onClose}
             className="py-1.5 px-3 text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] border border-[var(--color-whisper)] rounded-xl hover:bg-[var(--color-snow)] transition-colors"
           >

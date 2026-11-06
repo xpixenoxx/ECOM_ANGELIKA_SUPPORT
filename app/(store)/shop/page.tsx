@@ -25,6 +25,7 @@ export default async function ShopPage({
   const vidhyasPicksOnlyParam = getParam('vidhyasPicksOnly');
   const sortParam = getParam('sort');
   const pageParam = getParam('page');
+  const searchParam = getParam('search') || getParam('q');
 
   const parsePriceRange = (param: string | string[] | undefined): [number, number] | undefined => {
     if (!param) return undefined;
@@ -46,6 +47,7 @@ export default async function ShopPage({
     priceRange: parsePriceRange(priceRangeParam),
     inStockOnly: inStockOnlyParam === 'true',
     vidhyasPicksOnly: vidhyasPicksOnlyParam === 'true',
+    search: searchParam ? (Array.isArray(searchParam) ? searchParam[0] : searchParam) : undefined,
   };
 
   const sortBy = (sortParam as string) || 'newest';

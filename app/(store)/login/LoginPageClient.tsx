@@ -115,9 +115,16 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
         return;
       }
 
+      const targetUrl = redirectTo || '/account';
+
       if (isLogin) {
-        // Sign In Flow
-        const { error } = await signIn(email.trim(), password);
+        // Sign In Flow with timeout protection
+        const signInPromise = signIn(email.trim(), password);
+        const timeoutPromise = new Promise<{ error: Error }>((_, reject) =>
+          setTimeout(() => reject(new Error('Sign-in request timed out. Please check your internet connection and try again.')), 7000)
+        );
+
+        const { error } = await Promise.race([signInPromise, timeoutPromise]);
         if (error) {
           const msg = error.message.toLowerCase();
           if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
@@ -129,12 +136,18 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
         }
 
         toast.success('Welcome Back!', 'Signing you into Angelika Fashions...');
-        window.location.href = redirectTo || '/account';
+        router.refresh();
+        router.push(targetUrl);
       } else {
-        // Sign Up Flow - User is immediately registered and logged in with zero friction
-        const { error: signUpError } = await signUp(email.trim(), password, {
+        // Sign Up Flow with timeout protection
+        const signUpPromise = signUp(email.trim(), password, {
           full_name: fullName.trim(),
         });
+        const timeoutPromise = new Promise<{ error: Error | null }>((_, reject) =>
+          setTimeout(() => reject(new Error('Account creation timed out. Please try again.')), 7000)
+        );
+
+        const { error: signUpError } = await Promise.race([signUpPromise, timeoutPromise]);
 
         if (signUpError) {
           const msg = signUpError.message.toLowerCase();
@@ -149,7 +162,8 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
 
         // Account is immediately created and session established!
         toast.success('Welcome to Angelika Circle!', `Hello ${fullName.trim() || 'there'}, your account is ready.`);
-        window.location.href = redirectTo || '/account';
+        router.refresh();
+        router.push(targetUrl);
       }
     } catch (err: any) {
       toast.error('Unexpected Error', err?.message || 'Please try again later.');
@@ -258,7 +272,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                   size="lg"
                   fullWidth
                   onClick={handleGoogleAuth}
-                  disabled={isSubmitting || authLoading}
+                  disabled={isSubmitting}
                   className="gap-3 border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:bg-[var(--color-snow)] transition-colors"
                 >
                   <svg className="h-5 w-5 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -498,8 +512,8 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                     variant="primary"
                     size="lg"
                     fullWidth
-                    loading={isSubmitting || authLoading}
-                    disabled={isSubmitting || authLoading}
+                    loading={isSubmitting}
+                    disabled={isSubmitting}
                     className="shadow-md hover:shadow-lg transition-all font-semibold tracking-wider uppercase text-xs py-3.5"
                   >
                     {forgotPasswordMode

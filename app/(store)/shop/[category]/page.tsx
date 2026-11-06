@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getProductsByCategory, getCategoryBySlug } from '@/lib/actions/shop';
+import { getSiteContent } from '@/lib/actions/site-content';
 import type { ShopProductCard } from '@/lib/actions/shop-types';
 import { CategoryPageClient } from './CategoryPageClient';
 
@@ -79,6 +80,9 @@ export default async function CategoryPage({
     48
   );
 
+  const siteContent = await getSiteContent();
+  const kurtisContent = (categorySlug || '').toLowerCase() === 'kurtis' ? siteContent?.['kurtis-page'] : undefined;
+
   return (
     <CategoryPageClient
       category={category}
@@ -89,6 +93,7 @@ export default async function CategoryPage({
       sortBy={sortBy}
       initialFilters={filters}
       categorySlug={categorySlug}
+      kurtisContent={kurtisContent}
     />
   );
 }

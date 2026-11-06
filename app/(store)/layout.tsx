@@ -4,15 +4,17 @@ import { WhatsAppFloatButton } from '@/components/composite/WhatsAppFloatButton'
 import { AnnouncementBar } from '@/components/composite/AnnouncementBar';
 import { getStoreSettings, getNavbarItems } from '@/lib/actions/store-settings';
 import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
+import { getSiteContent } from '@/lib/actions/site-content';
 import type { ReactNode } from 'react';
 
 export const dynamic = 'force-dynamic';
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
-  const [settings, navbarItems, heroData] = await Promise.all([
+  const [settings, navbarItems, heroData, siteContent] = await Promise.all([
     getStoreSettings(),
     getNavbarItems(),
     getHomepageHeroData(),
+    getSiteContent(),
   ]);
 
   // Determine navigation: prefer heroData.navigation if configured, fallback to navbarItems or default
@@ -58,6 +60,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
       />
       <main className="flex-1 pt-16 md:pt-20">{children}</main>
       <Footer
+        content={siteContent?.footer}
         contactEmail={settings?.contact_email}
         contactPhone={settings?.contact_phone}
         contactWhatsapp={settings?.contact_whatsapp}

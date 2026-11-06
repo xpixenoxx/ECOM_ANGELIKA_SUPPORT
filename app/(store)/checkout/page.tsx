@@ -17,6 +17,7 @@ import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { MagneticButton } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { AuthModal } from '@/components/ui/AuthModal';
 import { createOrder, getUserAddresses, saveAddress, verifyRazorpayPayment } from '@/lib/actions/checkout';
 import { lookupPincode, type PincodeDetails } from '@/lib/utils/pincode';
 import type { Address } from '@/types/commerce';
@@ -112,6 +113,38 @@ const formatPricePlain = (val: number): string => {
   return Math.round(val).toLocaleString('en-IN');
 };
 
+
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const PHONE_REGEX = /^[6-9]\d{9}$/;
+const PINCODE_REGEX = /^[1-9]\d{5}$/;
+
+const validateEmailValue = (val: string): string => {
+  const clean = (val || '').trim();
+  if (!clean) return 'Email address is required.';
+  if (!EMAIL_REGEX.test(clean)) {
+    return 'Please enter a valid email address.';
+  }
+  return '';
+};
+
+const validatePhoneValue = (val: string): string => {
+  const clean = (val || '').replace(/\D/g, '');
+  if (!clean) return 'Mobile number is required.';
+  if (clean.length !== 10 || !PHONE_REGEX.test(clean)) {
+    return 'Please enter a valid 10-digit mobile number.';
+  }
+  return '';
+};
+
+const validatePincodeValue = (val: string): string => {
+  const clean = (val || '').trim().replace(/\D/g, '');
+  if (!clean) return 'Pincode is required.';
+  if (clean.length !== 6 || !PINCODE_REGEX.test(clean)) {
+    return 'Please enter a valid ZIP or postal code.';
+  }
+  return '';
+};
+
 export default function CheckoutPage() {
   const { user, profile, refreshProfile } = useAuth();
   const {
@@ -155,6 +188,8 @@ export default function CheckoutPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   // World-class luxury additions
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
@@ -173,11 +208,45 @@ export default function CheckoutPage() {
     { code: 'COUTURE15', title: '15% OFF', desc: '15% festive luxury discount on orders above ₹5,999', badge: 'Festive Luxe' },
   ];
 
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    setNewAddress(prev => ({ ...prev, email: val }));
+    if (fieldErrors['email']) {
+      setFieldErrors(prev => ({ ...prev, email: validateEmailValue(val) }));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    const err = validateEmailValue(email || newAddress.email || '');
+    setFieldErrors(prev => ({ ...prev, email: err }));
+  };
+
+  const handlePhoneChange = (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 10);
+    setPhone(digits);
+    setNewAddress(prev => ({ ...prev, phone: digits }));
+    if (fieldErrors['phone']) {
+      setFieldErrors(prev => ({ ...prev, phone: validatePhoneValue(digits) }));
+    }
+  };
+
+  const handlePhoneBlur = () => {
+    const err = validatePhoneValue(phone || newAddress.phone || '');
+    setFieldErrors(prev => ({ ...prev, phone: err }));
+  };
+
   const handlePincodeChange = async (val: string) => {
     const clean = val.replace(/\D/g, '').slice(0, 6);
     setNewAddress(prev => ({ ...prev, postalCode: clean }));
 
+    if (fieldErrors['postalCode']) {
+      setFieldErrors(prev => ({ ...prev, postalCode: validatePincodeValue(clean) }));
+    }
+
     if (clean.length === 6) {
+      if (PINCODE_REGEX.test(clean)) {
+        setFieldErrors(prev => ({ ...prev, postalCode: '' }));
+      }
       setIsResolvingPin(true);
       try {
         const info = await lookupPincode(clean);
@@ -187,6 +256,11 @@ export default function CheckoutPage() {
             ...prev,
             city: info.city || prev.city,
             state: info.state || prev.state,
+          }));
+          setFieldErrors(prev => ({
+            ...prev,
+            city: info.city ? '' : (prev['city'] || ''),
+            state: info.state ? '' : (prev['state'] || ''),
           }));
         } else {
           setPincodeInfo(null);
@@ -199,6 +273,35 @@ export default function CheckoutPage() {
     } else {
       setPincodeInfo(null);
     }
+  };
+
+  const handleFirstNameBlur = () => {
+    if (!newAddress.firstName?.trim()) {
+      setFieldErrors(prev => ({ ...prev, firstName: 'First name is required' }));
+    }
+  };
+
+  const handleLastNameBlur = () => {
+    if (!newAddress.lastName?.trim()) {
+      setFieldErrors(prev => ({ ...prev, lastName: 'Last name is required' }));
+    }
+  };
+
+  const handleAddress1Blur = () => {
+    if (!newAddress.address1?.trim()) {
+      setFieldErrors(prev => ({ ...prev, address1: 'Flat / Street address is required' }));
+    }
+  };
+
+  const handleCityBlur = () => {
+    if (!newAddress.city?.trim()) {
+      setFieldErrors(prev => ({ ...prev, city: 'City is required' }));
+    }
+  };
+
+  const handlePincodeBlur = () => {
+    const err = validatePincodeValue(newAddress.postalCode || '');
+    setFieldErrors(prev => ({ ...prev, postalCode: err }));
   };
 
   const handleApplyCoupon = async (codeToApply?: string) => {
@@ -296,38 +399,42 @@ export default function CheckoutPage() {
 
   const nextStep = () => {
     setError('');
+    const newFieldErrors: Record<string, string> = {};
+
     if (currentStep === 0) {
       if (showNewAddressForm || !selectedAddressId) {
-        if (
-          !newAddress.firstName?.trim() ||
-          !newAddress.lastName?.trim() ||
-          !newAddress.address1?.trim() ||
-          !newAddress.city?.trim() ||
-          !newAddress.state?.trim() ||
-          !newAddress.postalCode?.trim()
-        ) {
-          setError('Please fill in all required address fields');
+        const emailErr = validateEmailValue(email || newAddress.email || user?.email || '');
+        if (emailErr) newFieldErrors['email'] = emailErr;
+
+        const phoneErr = validatePhoneValue(newAddress.phone || phone || '');
+        if (phoneErr) newFieldErrors['phone'] = phoneErr;
+
+        if (!newAddress.firstName?.trim()) {
+          newFieldErrors['firstName'] = 'First name is required';
+        }
+        if (!newAddress.lastName?.trim()) {
+          newFieldErrors['lastName'] = 'Last name is required';
+        }
+        if (!newAddress.address1?.trim()) {
+          newFieldErrors['address1'] = 'Flat / Street address is required';
+        }
+        const pinErr = validatePincodeValue(newAddress.postalCode || '');
+        if (pinErr) newFieldErrors['postalCode'] = pinErr;
+
+        if (!newAddress.city?.trim()) {
+          newFieldErrors['city'] = 'City is required';
+        }
+        if (!newAddress.state?.trim()) {
+          newFieldErrors['state'] = 'Please select a state';
+        }
+
+        if (Object.keys(newFieldErrors).length > 0) {
+          setFieldErrors(newFieldErrors);
+          setError('Please fill in all required fields marked with *');
           return;
         }
 
-        const finalEmail = email?.trim() || newAddress.email?.trim() || user?.email || '';
-        if (!finalEmail || !finalEmail.includes('@')) {
-          setError('Please enter a valid email address for order confirmation');
-          return;
-        }
-
-        const phoneDigits = (newAddress.phone || phone || '').replace(/\D/g, '');
-        if (phoneDigits.length < 10) {
-          setError('Please enter a valid 10-digit mobile number');
-          return;
-        }
-
-        const pin = (newAddress.postalCode || '').trim();
-        if (pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-          setError('Please enter a valid 6-digit delivery pincode');
-          return;
-        }
-
+        setFieldErrors({});
         if (user) {
           handleSaveAddress(newAddress);
         }
@@ -396,14 +503,21 @@ export default function CheckoutPage() {
       const finalEmail = email?.trim() || newAddress.email?.trim() || user?.email || '';
       const finalPhone = phone?.trim() || newAddress.phone?.trim() || '';
 
-      if (!finalEmail) {
-        setError('Please enter your email address for order confirmation');
+      const finalEmailErr = validateEmailValue(finalEmail);
+      if (finalEmailErr) {
+        setError(finalEmailErr);
+        setFieldErrors(prev => ({ ...prev, email: finalEmailErr }));
         setIsProcessing(false);
+        setCurrentStep(0);
         return;
       }
-      if (!finalPhone) {
-        setError('Please enter your phone number');
+
+      const finalPhoneErr = validatePhoneValue(finalPhone);
+      if (finalPhoneErr) {
+        setError(finalPhoneErr);
+        setFieldErrors(prev => ({ ...prev, phone: finalPhoneErr }));
         setIsProcessing(false);
+        setCurrentStep(0);
         return;
       }
 
@@ -498,7 +612,7 @@ export default function CheckoutPage() {
 
   const selectedAddr = savedAddresses.find(a => a.id === selectedAddressId);
 
-  if (cartLoading) {
+  if (cartLoading && items.length === 0) {
     return (
       <div className="min-h-screen bg-[var(--color-white)] flex items-center justify-center">
         <div className="text-center">
@@ -615,9 +729,13 @@ export default function CheckoutPage() {
                                   Checking out as a Guest • No password required
                                 </span>
                               </div>
-                              <Link href="/login?redirect=/checkout" className="text-[var(--color-gold)] font-medium hover:underline flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setShowAuthModal(true)}
+                                className="text-[var(--color-gold)] font-medium hover:underline flex items-center gap-1 cursor-pointer"
+                              >
                                 Already have an account? Sign in
-                              </Link>
+                              </button>
                             </div>
                           )}
 
@@ -693,18 +811,17 @@ export default function CheckoutPage() {
                                         id="email"
                                         type="email"
                                         value={email || newAddress.email || ''}
-                                        onChange={(e) => {
-                                          setEmail(e.target.value);
-                                          setNewAddress({ ...newAddress, email: e.target.value });
-                                        }}
+                                        onChange={(e) => handleEmailChange(e.target.value)}
+                                        onBlur={handleEmailBlur}
                                         placeholder="you@example.com"
+                                        error={fieldErrors['email']}
                                         required
                                       />
                                     </div>
                                     <div>
                                       <label htmlFor="phone" className="input-label">Mobile Number *</label>
-                                      <div className="relative flex items-center">
-                                        <span className="absolute left-3 text-sm font-medium text-[var(--color-slate)] select-none">
+                                      <div className="relative">
+                                        <span className="absolute left-3 top-3.5 text-sm font-medium text-[var(--color-slate)] select-none z-10 pointer-events-none">
                                           🇮🇳 +91
                                         </span>
                                         <Input
@@ -712,12 +829,10 @@ export default function CheckoutPage() {
                                           type="tel"
                                           className="pl-16"
                                           value={phone || newAddress.phone || ''}
-                                          onChange={(e) => {
-                                            const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                            setPhone(val);
-                                            setNewAddress({ ...newAddress, phone: val });
-                                          }}
+                                          onChange={(e) => handlePhoneChange(e.target.value)}
+                                          onBlur={handlePhoneBlur}
                                           placeholder="10-digit number"
+                                          error={fieldErrors['phone']}
                                           required
                                           maxLength={10}
                                         />
@@ -754,8 +869,13 @@ export default function CheckoutPage() {
                                       <Input
                                         id="firstName"
                                         value={newAddress.firstName || ''}
-                                        onChange={(e) => setNewAddress({ ...newAddress, firstName: e.target.value })}
+                                        onChange={(e) => {
+                                          setNewAddress({ ...newAddress, firstName: e.target.value });
+                                          if (fieldErrors['firstName']) setFieldErrors(prev => ({ ...prev, firstName: '' }));
+                                        }}
+                                        onBlur={handleFirstNameBlur}
                                         placeholder="e.g. Priya"
+                                        error={fieldErrors['firstName']}
                                         required
                                       />
                                     </div>
@@ -764,8 +884,13 @@ export default function CheckoutPage() {
                                       <Input
                                         id="lastName"
                                         value={newAddress.lastName || ''}
-                                        onChange={(e) => setNewAddress({ ...newAddress, lastName: e.target.value })}
+                                        onChange={(e) => {
+                                          setNewAddress({ ...newAddress, lastName: e.target.value });
+                                          if (fieldErrors['lastName']) setFieldErrors(prev => ({ ...prev, lastName: '' }));
+                                        }}
+                                        onBlur={handleLastNameBlur}
                                         placeholder="e.g. Sharma"
+                                        error={fieldErrors['lastName']}
                                         required
                                       />
                                     </div>
@@ -776,8 +901,13 @@ export default function CheckoutPage() {
                                     <Input
                                       id="address1"
                                       value={newAddress.address1 || ''}
-                                      onChange={(e) => setNewAddress({ ...newAddress, address1: e.target.value })}
+                                      onChange={(e) => {
+                                        setNewAddress({ ...newAddress, address1: e.target.value });
+                                        if (fieldErrors['address1']) setFieldErrors(prev => ({ ...prev, address1: '' }));
+                                      }}
+                                      onBlur={handleAddress1Blur}
                                       placeholder="e.g. Flat 402, Lotus Residency, MG Road"
+                                      error={fieldErrors['address1']}
                                       required
                                     />
                                   </div>
@@ -808,7 +938,9 @@ export default function CheckoutPage() {
                                         type="text"
                                         value={newAddress.postalCode || ''}
                                         onChange={(e) => handlePincodeChange(e.target.value)}
+                                        onBlur={handlePincodeBlur}
                                         placeholder="6-digit pincode"
+                                        error={fieldErrors['postalCode']}
                                         required
                                         maxLength={6}
                                       />
@@ -818,8 +950,13 @@ export default function CheckoutPage() {
                                       <Input
                                         id="city"
                                         value={newAddress.city || ''}
-                                        onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })}
+                                        onChange={(e) => {
+                                          setNewAddress({ ...newAddress, city: e.target.value });
+                                          if (fieldErrors['city']) setFieldErrors(prev => ({ ...prev, city: '' }));
+                                        }}
+                                        onBlur={handleCityBlur}
                                         placeholder="City"
+                                        error={fieldErrors['city']}
                                         required
                                       />
                                     </div>
@@ -833,6 +970,14 @@ export default function CheckoutPage() {
                                           ))}
                                         </SelectContent>
                                       </Select>
+                                      {fieldErrors['state'] && (
+                                        <p className="mt-1.5 text-xs text-[var(--color-error,#DC2626)] font-normal flex items-start gap-1.5 leading-tight">
+                                          <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--color-error,#DC2626)]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                          </svg>
+                                          <span>{fieldErrors['state']}</span>
+                                        </p>
+                                      )}
                                     </div>
                                   </div>
 
@@ -1305,6 +1450,15 @@ export default function CheckoutPage() {
                 )}
                 </AnimatePresence>
 
+                {error && (
+                  <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-[var(--radius-lg)] text-red-700 text-xs flex items-center gap-2" role="alert">
+                    <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 8v4M12 16h.01" />
+                    </svg>
+                    <span>{error}</span>
+                  </div>
+                )}
                 {/* Navigation Buttons */}
                 <div className="flex justify-between">
                   <MagneticButton variant="secondary" strength={0.3} onClick={prevStep} disabled={currentStep === 0}>
@@ -1376,6 +1530,12 @@ export default function CheckoutPage() {
                             <Input
                               value={couponCodeInput}
                               onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleApplyCoupon();
+                                }
+                              }}
                               placeholder="Enter coupon code"
                               className="text-xs uppercase tracking-wider h-9"
                             />
@@ -1509,7 +1669,18 @@ export default function CheckoutPage() {
             </ScrollReveal>
           </div>
         </div>
-      </main>
-    </div>
+            {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            refreshProfile();
+            loadAddresses();
+          }}
+          defaultTab="signin"
+        />
+      )}
+    </main>
+  </div>
   );
 }
