@@ -267,9 +267,6 @@ export default function HomePageClient({
             className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
           >
             <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-3">
-                Vidhya's Picks
-              </span>
               <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)]">
                 Handpicked by <span className="text-gradient-gold">Vidhya</span>
               </h2>
