@@ -80,7 +80,7 @@ export const SHOP_COLORS = [
   { value: 'pink', label: 'Pink', color: '#D4A574' },
   { value: 'purple', label: 'Purple', color: '#A890C8' },
   { value: 'black', label: 'Black', color: '#0D0D0D' },
-  { value: 'white', label: 'White', color: '#FFFFFF' },
+  { value: 'white', label: 'White', color: '#F3EEE8' },
   { value: 'gold', label: 'Gold', color: '#C9A84C' },
   { value: 'multi', label: 'Multicolor', color: 'linear-gradient(45deg, #C02B2B, #1A73E8, #1B7A3D)' },
 ];

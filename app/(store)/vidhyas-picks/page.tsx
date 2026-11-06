@@ -241,12 +241,10 @@ function ProductCardGrid({
             src={product.image}
             alt={product.name}
             fill
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+            className="object-cover"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             priority={index < 3}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-ink)]/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
           {/* Top Badges */}
           <div className="absolute top-3.5 left-3.5 flex flex-wrap gap-2 z-10">
             <Badge variant="gold" className="shadow-sm font-semibold tracking-wide">
@@ -268,7 +266,7 @@ function ProductCardGrid({
               onToggleWishlist(product.id);
             }}
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className="absolute top-3.5 right-3.5 z-10 w-9 h-9 rounded-full bg-[var(--color-white)]/90 backdrop-blur-md flex items-center justify-center text-[var(--color-ink)] shadow-md hover:bg-[var(--color-white)] hover:scale-110 active:scale-95 transition-all duration-200"
+            className="absolute top-3.5 right-3.5 z-10 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[var(--color-ink)] shadow-md transition-colors duration-200"
           >
             <svg
               className={cn('w-5 h-5 transition-colors', isWishlisted ? 'text-[var(--color-error)] fill-current' : 'text-[var(--color-ink)]')}
@@ -389,7 +387,7 @@ function ProductCardList({
             src={product.image}
             alt={product.name}
             fill
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+            className="object-cover"
             sizes="(max-width: 640px) 100vw, 320px"
             priority={index === 0}
           />

@@ -85,7 +85,7 @@ export const CONTENT_BLOCK_DEFAULT_CONTENT: Record<ContentBlockType, any> = {
     link_text: 'Shop Now',
     link_url: '/shop',
     background_color: '#1a1a2e',
-    text_color: '#ffffff',
+    text_color: '#F3EEE8',
   },
   featured_collection: {
     collection_id: '',

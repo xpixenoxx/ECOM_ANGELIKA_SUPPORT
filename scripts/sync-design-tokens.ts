@@ -187,7 +187,7 @@ const DEFAULT_TOKENS: TokenGroups = {
     'mist': { light: '#737373', dark: '#A3A3A3' },
     'whisper': { light: '#E5E5E5', dark: '#2A2A2A' },
     'snow': { light: '#FAFAFA', dark: '#1A1A1A' },
-    'white': { light: '#FFFFFF', dark: '#0D0D0D' },
+    'white': { light: '#F3EEE8', dark: '#0D0D0D' },
     'gold': { light: '#C9A84C', dark: '#D4B85C' },
     'gold-hover': { light: '#B8963D', dark: '#E0C870' },
     'gold-light': { light: '#F5EBCC', dark: '#3D351A' },

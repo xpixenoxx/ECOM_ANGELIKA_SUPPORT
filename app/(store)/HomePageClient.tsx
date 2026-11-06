@@ -13,6 +13,7 @@ import { MagneticButton, MagneticCard, MagneticIcon } from '@/components/animati
 import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { ScrollReveal as ScrollRevealAnim } from '@/components/animations/ScrollReveal';
 import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
+import { ExploreCollections } from '@/components/composite/ExploreCollections';
 import { useCart } from '@/lib/hooks/useCart';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage';
 
@@ -212,175 +213,12 @@ export default function HomePageClient({
         </motion.div>
       </section>
 
-      {/* Features Strip */}
-      <section className="bg-[var(--color-white)] border-y border-[var(--color-whisper)] py-4 sm:py-5">
-        <div className="container-custom px-4 sm:px-6">
-          <StaggerContainer variant="default" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-            {features.map((feature, index) => (
-              <StaggerItem key={feature.title} delay={index * 0.08} className="flex flex-col items-center text-center gap-1.5">
-                <MagneticIcon className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] shadow-2xs">
-                  {feature.icon}
-                </MagneticIcon>
-                <h3 className="font-display text-sm font-semibold text-[var(--color-ink)] tracking-wide">{feature.title}</h3>
-                <p className="text-xs text-[var(--color-slate)] leading-tight max-w-[200px]">{feature.description}</p>
-              </StaggerItem>
-            ))}
-          </StaggerContainer>
-        </div>
-      </section>
-
-      {/* Shop by Category */}
-      <section className="py-8 sm:py-12 bg-[var(--color-snow)] border-b border-[var(--color-whisper)]">
-        <div className="container-custom px-4 sm:px-6">
-          <div className="text-center max-w-xl mx-auto mb-6 sm:mb-8">
-            <span className="inline-block text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-gold)] mb-1.5">
-              Curated Collections
-            </span>
-            <h2 className="font-display text-2xl sm:text-3xl md:text-4xl font-medium text-[var(--color-ink)] mb-2">
-              Shop by Category
-            </h2>
-            <p className="text-[var(--color-slate)] text-xs sm:text-sm leading-relaxed">
-              Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.
-            </p>
-          </div>
-
-          {/* Shop by Category: 2 on Left, 1 Centerpiece, 2 on Right */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
-            {/* Left Column: 2 Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
-              {[featuredCollections[0], featuredCollections[1]].map((collection) => {
-                if (!collection) return null;
-                return (
-                  <Link
-                    key={collection.title}
-                    href={collection.href}
-                    className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                  >
-                    {/* Background Image */}
-                    <Image
-                      src={collection.image}
-                      alt={`Angelika ${collection.title} Collection`}
-                      fill
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                    />
-
-                    {/* Dark Gradient Overlay for Contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
-
-                    {/* Content Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
-                      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
-                        {collection.subtitle}
-                      </span>
-                      <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
-                        {collection.title}
-                      </h3>
-                      <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
-                        <span>{collection.cta}</span>
-                        <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {/* Center Column: 1 Hero Centerpiece (reduced size, matching height) */}
-            <div className="w-full h-full">
-              {(() => {
-                const collection = featuredCollections[2];
-                if (!collection) return null;
-                return (
-                  <Link
-                    key={collection.title}
-                    href={collection.href}
-                    className="group relative w-full aspect-[4/3] sm:aspect-[16/10] md:aspect-auto md:h-full min-h-[380px] md:min-h-0 rounded-2xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                  >
-                    {/* Background Image */}
-                    <Image
-                      src={collection.image}
-                      alt={`Angelika ${collection.title} Collection`}
-                      fill
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      priority
-                    />
-
-                    {/* Dark Gradient Overlay for Contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
-
-                    {/* Content Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 md:p-6 flex flex-col justify-end z-10">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] bg-[var(--color-gold)]/20 text-[var(--color-gold)] border border-[var(--color-gold)]/40 mb-2.5 w-fit backdrop-blur-xs">
-                        <span>✦</span>
-                        <span>{collection.subtitle}</span>
-                      </span>
-                      <h3 className="font-display text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-medium text-white mb-2.5 drop-shadow-lg group-hover:text-[var(--color-gold-light)] transition-colors">
-                        {collection.title}
-                      </h3>
-                      <div className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold uppercase tracking-wider text-white group-hover:text-[var(--color-gold)] transition-colors">
-                        <span>{collection.cta}</span>
-                        <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })()}
-            </div>
-
-            {/* Right Column: 2 Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 sm:gap-6">
-              {[featuredCollections[3], featuredCollections[4]].map((collection) => {
-                if (!collection) return null;
-                return (
-                  <Link
-                    key={collection.title}
-                    href={collection.href}
-                    className="group relative aspect-[4/3] w-full rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 bg-[var(--color-whisper)] block"
-                  >
-                    {/* Background Image */}
-                    <Image
-                      src={collection.image}
-                      alt={`Angelika ${collection.title} Collection`}
-                      fill
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-108"
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                    />
-
-                    {/* Dark Gradient Overlay for Contrast */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent transition-opacity duration-300 group-hover:opacity-95" />
-
-                    {/* Content Overlay */}
-                    <div className="absolute inset-x-0 bottom-0 p-3.5 sm:p-4 md:p-5 flex flex-col justify-end z-10">
-                      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-gold)] mb-1 block drop-shadow-sm line-clamp-1">
-                        {collection.subtitle}
-                      </span>
-                      <h3 className="font-display text-xl sm:text-2xl md:text-2xl font-medium text-white mb-2 drop-shadow-md group-hover:text-[var(--color-gold-light)] transition-colors">
-                        {collection.title}
-                      </h3>
-                      <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-white/90 group-hover:text-[var(--color-gold)] transition-colors">
-                        <span>{collection.cta}</span>
-                        <svg className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Explore Collections: Editorial Magazine Grid */}
+      <ExploreCollections />
 
       {/* Vidhya's Picks */}
       <section className="section bg-[var(--color-white)]">
-        <div className="container-custom px-6">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <motion.div
             className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
           >
@@ -396,7 +234,7 @@ export default function HomePageClient({
               <Link href="/vidhyas-picks">View All Picks <span aria-hidden="true">→</span></Link>
             </Button>
           </motion.div>
-          <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
             {vidhyasPicks.length > 0 ? (
               vidhyasPicks.map((product, index) => (
                 <StaggerItem key={product.id} delay={index * 0.08} variant="scale">
@@ -426,30 +264,26 @@ export default function HomePageClient({
 
       {/* Shop the Look */}
       <section className="section bg-[var(--color-snow)]">
-        <div className="container-custom px-6">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <ShopTheLookClient />
         </div>
       </section>
 
-      {/* New Arrivals */}
-      <section className="section bg-[var(--color-snow)]">
-        <div className="container-custom px-6">
-          <motion.div
-            className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
-          >
-            <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-3">
-                New Arrivals
-              </span>
-              <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)]">
-                Fresh from <span className="text-gradient-gold">the Atelier</span>
-              </h2>
-            </div>
-            <Button variant="outline" asChild className="mt-4 md:mt-0">
-              <Link href="/new-arrivals">View All New <span aria-hidden="true">→</span></Link>
-            </Button>
-          </motion.div>
-          <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* New Arrivals: Reference Style */}
+      <section className="section bg-white">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+          <div className="flex items-center justify-between border-b border-[#EBE6DE] pb-3 mb-8">
+            <h2 className="text-xs sm:text-sm font-bold uppercase tracking-[0.22em] text-[#111111]">
+              NEW COLLECTION: NEW ARRIVALS
+            </h2>
+            <Link
+              href="/new-arrivals"
+              className="text-xs uppercase tracking-[0.2em] text-[#666666] hover:text-[#111111] font-medium transition-colors"
+            >
+              OPEN
+            </Link>
+          </div>
+          <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
             {newArrivals.length > 0 ? (
               newArrivals.map((product, index) => (
                 <StaggerItem key={product.id} delay={index * 0.08} variant="scale">
@@ -479,7 +313,7 @@ export default function HomePageClient({
 
       {/* About Vidhya / Brand Story */}
       <section className="section bg-[var(--color-white)]">
-        <div className="container-custom px-6">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <motion.div
             className="grid lg:grid-cols-2 gap-16 items-center"
             initial={{ opacity: 0, y: 20 }}
@@ -541,7 +375,7 @@ export default function HomePageClient({
       <section className="section bg-[var(--color-ink)] relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-gold)]/5 via-transparent to-transparent" aria-hidden="true" />
         <div className="absolute inset-0 noise-overlay" aria-hidden="true" />
-        <div className="relative z-10 container-custom px-6">
+        <div className="relative z-10 container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <motion.div
             className="max-w-2xl mx-auto text-center"
             initial={{ opacity: 0, y: 30 }}
@@ -579,7 +413,7 @@ export default function HomePageClient({
 
       {/* Instagram Feed / Social Proof */}
       <section className="section bg-[var(--color-white)]">
-        <div className="container-custom px-6">
+        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
           <motion.div
             className="text-center mb-12"
             initial={{ opacity: 0, y: 20 }}
@@ -601,7 +435,7 @@ export default function HomePageClient({
                     src={post.image_url}
                     alt="Instagram post"
                     fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="object-cover"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 25vw"
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300 flex items-center justify-center">
@@ -647,16 +481,17 @@ export default function HomePageClient({
 // Skeleton component for placeholder products
 function SkeletonProductCard() {
   return (
-    <Card variant="product" padding="none" hoverable className="group relative">
-      <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-whisper)]">
+    <div className="group relative flex flex-col w-[320px] max-w-full mx-auto bg-white">
+      <div style={{ width: '320px', height: '400px' }} className="relative w-[320px] h-[400px] max-w-full overflow-hidden bg-[#F7F5F0] shrink-0">
         <div className="absolute inset-0 skeleton" />
       </div>
-      <div className="p-4 space-y-2">
-        <div className="h-3 w-24 skeleton rounded" />
-        <div className="h-5 w-3/4 skeleton rounded" />
-        <div className="h-4 w-1/2 skeleton rounded" />
-        <div className="h-10 w-full skeleton rounded-[var(--radius-md)]" />
+      <div style={{ width: '320px', height: '33.8px' }} className="w-[320px] h-[33.8px] bg-[#FBF4EC] skeleton mx-auto shrink-0" />
+      <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center space-y-2">
+        <div className="h-3 w-3/4 skeleton rounded" />
+        <div className="h-3 w-1/2 skeleton rounded" />
+
+
       </div>
-    </Card>
+    </div>
   );
 }

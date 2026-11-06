@@ -28,7 +28,7 @@ metadata:
 | `--color-mist` | `#737373` | `#A3A3A3` | Disabled, subtle labels |
 | `--color-whisper` | `#E5E5E5` | `#2A2A2A` | Borders, dividers, inputs |
 | `--color-snow` | `#FAFAFA` | `#1A1A1A` | Surface backgrounds |
-| `--color-white` | `#FFFFFF` | `#0D0D0D` | Card backgrounds, modals |
+| `--color-white` | `#F3EEE8` | `#0D0D0D` | Card backgrounds, modals |
 
 ### Brand Gold (Signature)
 | Token | Light | Dark | Usage |

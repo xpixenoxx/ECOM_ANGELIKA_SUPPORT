@@ -1,6 +1,5 @@
 import { Header } from '@/components/composite/Header';
 import { Footer } from '@/components/composite/Footer';
-import { WhatsAppFloatButton } from '@/components/composite/WhatsAppFloatButton';
 import { AnnouncementBar } from '@/components/composite/AnnouncementBar';
 import { getStoreSettings, getNavbarItems } from '@/lib/actions/store-settings';
 import type { ReactNode } from 'react';
@@ -17,9 +16,9 @@ export default async function StoreLayout({ children }: { children: ReactNode })
   const activeNav = (navbarItems || []).filter((item) => item.is_active);
   const navigation = activeNav.length > 0
     ? activeNav.map((item) => ({
-        label: item.label,
-        href: item.href,
-      }))
+      label: item.label,
+      href: item.href,
+    }))
     : undefined;
 
   return (
@@ -29,7 +28,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         text={settings?.announcement_bar_text}
         link={settings?.announcement_bar_link}
         bgColor={settings?.announcement_bar_bg_color || '#C9A84C'}
-        textColor={settings?.announcement_bar_text_color || '#ffffff'}
+        textColor={settings?.announcement_bar_text_color || '#F3EEE8'}
       />
       <Header navigation={navigation} />
       <main className="flex-1 pt-16 md:pt-20">{children}</main>
@@ -44,7 +43,6 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         socialWhatsapp={settings?.social_whatsapp || undefined}
         socialYoutube={settings?.social_youtube || undefined}
       />
-      <WhatsAppFloatButton phoneNumber={settings?.contact_whatsapp?.replace(/[^0-9]/g, '') || '919876543210'} />
     </div>
   );
 }

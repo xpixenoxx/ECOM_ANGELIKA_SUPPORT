@@ -75,7 +75,7 @@ export function ProductGrid({
   if (loading) {
     return (
       <motion.div
-        className={cn('grid', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl, className)}
+        className={cn('grid justify-items-center', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl, className)}
         role="list"
         aria-label="Products loading"
         initial={{ opacity: 0 }}
@@ -122,7 +122,7 @@ export function ProductGrid({
   return (
     <div className={cn('space-y-8', className)}>
       <motion.div
-        className={cn('grid', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl)}
+        className={cn('grid justify-items-center', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl)}
         role="list"
         aria-label="Product grid"
       >

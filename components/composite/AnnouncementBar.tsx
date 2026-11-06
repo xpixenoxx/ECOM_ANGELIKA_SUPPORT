@@ -17,7 +17,7 @@ export function AnnouncementBar({
   text,
   link,
   bgColor = '#C9A84C',
-  textColor = '#ffffff',
+  textColor = '#F3EEE8',
 }: Props) {
   const [dismissed, setDismissed] = useState(false);
 

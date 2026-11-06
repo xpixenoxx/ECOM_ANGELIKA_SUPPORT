@@ -160,7 +160,7 @@ function ProductCardGrid({ product }: { product: SaleProduct }) {
           src={product.image}
           alt={product.name}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          className="object-cover"
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
         />
         <div className="absolute top-3 left-3 flex flex-col gap-2">
@@ -178,7 +178,7 @@ function ProductCardGrid({ product }: { product: SaleProduct }) {
           </div>
         )}
         <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
+          <Button variant="ghost" size="sm" className="bg-white rounded-full px-3 shadow-sm" asChild>
             <Link href={`/product/${product.slug || product.id}`} className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" />
@@ -187,7 +187,7 @@ function ProductCardGrid({ product }: { product: SaleProduct }) {
               <span className="hidden sm:inline">View</span>
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
+          <Button variant="ghost" size="sm" className="bg-white rounded-full px-3 shadow-sm" asChild>
             <Link href="/wishlist" className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -227,7 +227,7 @@ function ProductCardList({ product }: { product: any }) {
           src={product.image}
           alt={product.name}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          className="object-cover"
           sizes="224px"
         />
         <div className="absolute top-3 left-3 flex flex-col gap-2">
@@ -245,7 +245,7 @@ function ProductCardList({ product }: { product: any }) {
           </div>
         )}
         <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
+          <Button variant="ghost" size="sm" className="bg-white rounded-full px-3 shadow-sm" asChild>
             <Link href={`/product/${product.slug || product.id}`} className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <circle cx="12" cy="12" r="10" />
@@ -254,7 +254,7 @@ function ProductCardList({ product }: { product: any }) {
               <span className="hidden sm:inline">View</span>
             </Link>
           </Button>
-          <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
+          <Button variant="ghost" size="sm" className="bg-white rounded-full px-3 shadow-sm" asChild>
             <Link href="/wishlist" className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
