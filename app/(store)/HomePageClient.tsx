@@ -205,45 +205,7 @@ export default function HomePageClient({
           sizes="100vw"
         />
 
-        {/* Editorial Cinematic Overlays */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent z-1" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 z-1" />
-
-        <div className="relative z-10 container-custom px-6 sm:px-10 py-24 md:py-32">
-          <div className="max-w-lg lg:max-w-xl">
-            {/* Brand Signature - Exact Luxury Editorial Style */}
-            <div className="flex flex-col items-start gap-1 mb-10">
-              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white font-medium tracking-tight leading-[1.12]">
-                {heroData?.headlinePrimary || heroContent.title || 'Grace in Every Drape'}
-              </h1>
-              <p className="text-white/80 font-serif italic text-base sm:text-lg mt-1 tracking-wide">
-                {heroData?.headlineSecondary || 'Handcrafted Luxury for the Discerning Woman'}
-              </p>
-            </div>
-
-            <p className="text-white/80 text-sm sm:text-base leading-relaxed mb-8 max-w-md font-sans">
-              {heroData?.subheadline || heroContent.subtitle || 'Step into the festive season with exquisite handwoven fabrics, artisanal zardozi embroidery, and timeless silhouettes crafted to perfection.'}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-3.5 pt-2">
-              <Link
-                href={heroData?.primaryCtaLink || heroContent.ctaLink || '/shop'}
-                className="group relative inline-flex items-center justify-center px-7 py-3 text-xs uppercase tracking-[0.2em] font-semibold text-[#111111] bg-[#FBF4EC] hover:bg-white transition-all duration-300 shadow-md hover:shadow-xl"
-              >
-                <span>{heroData?.primaryCtaText || heroContent.ctaText || 'Explore Collection'}</span>
-                <span className="ml-2 transform group-hover:translate-x-1 transition-transform duration-300">&rarr;</span>
-              </Link>
-              {(heroData?.secondaryCtaText || heroContent.secondaryCtaText) && (
-                <Link
-                  href={heroData?.secondaryCtaLink || heroContent.secondaryCtaLink || '/vidhyas-picks'}
-                  className="inline-flex items-center justify-center px-7 py-3 text-xs uppercase tracking-[0.2em] font-medium text-white/95 border border-white/40 hover:border-white hover:bg-white/10 transition-all duration-300"
-                >
-                  {heroData?.secondaryCtaText || heroContent.secondaryCtaText}
-                </Link>
-              )}
-            </div>
-          </div>
-        </div>
+        
 
         <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce-subtle z-10"
