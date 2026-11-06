@@ -314,13 +314,6 @@ export default function HomePageClient({
         </div>
       </section>
 
-      {/* Shop the Look */}
-      <section className="section bg-[var(--color-snow)]">
-        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
-          <ShopTheLookClient />
-        </div>
-      </section>
-
       {/* New Arrivals: Reference Style */}
       {(() => {
         const naContent = siteContent?.['new-arrivals'];
