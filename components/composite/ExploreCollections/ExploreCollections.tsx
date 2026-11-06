@@ -167,24 +167,6 @@ export function ExploreCollections({ className = '' }: ExploreCollectionsProps) 
       className={cn('relative w-full bg-black overflow-hidden', className)}
       aria-label="Explore Our Collections"
     >
-      {/* ── Minimalist Section Header ────────────────────────────────────── */}
-      <div className="bg-[#FAF6F0] py-14 sm:py-20 px-4 sm:px-6 lg:px-8 text-center border-b border-[#E5E0D8]">
-        <div className="max-w-2xl mx-auto flex flex-col items-center">
-          <div className="flex items-center justify-center gap-3 mb-2.5">
-            <span className="h-px w-8 bg-[#C9A84C]" />
-            <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.3em] text-[#C9A84C] uppercase font-sans">
-              The Collections
-            </span>
-            <span className="h-px w-8 bg-[#C9A84C]" />
-          </div>
-          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl font-normal text-[#1A1A1A] tracking-tight mb-3">
-            Explore Our Collections
-          </h2>
-          <p className="text-[#6B5E4E] text-xs sm:text-sm tracking-wide uppercase font-sans">
-            Eight Curated Edits for Celebrations, Work and Everyday Elegance
-          </p>
-        </div>
-      </div>
 
       {/* ── 3 + 1 + 2 + 1 + 1 Luxury Editorial Grid ─────────────────────── */}
       <div className="w-full max-w-[1520.8px] mx-auto flex flex-col gap-0.5 sm:gap-1 bg-black">
