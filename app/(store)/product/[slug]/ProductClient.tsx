@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/Button';
 import { Card, ProductCard } from '@/components/ui/Card';
 import { SizeSelector } from '@/components/composite/SizeSelector';
 import { ImageGallery } from '@/components/composite/ImageGallery';
-import { WhatsAppFloatButton } from '@/components/composite/WhatsAppFloatButton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Accordion } from '@/components/ui/Accordion';
 import { SocialIcon } from '@/components/ui/SocialIcon';
@@ -778,9 +777,6 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
           )}
         </div>
       </section>
-
-      {/* WhatsApp Float Button */}
-      <WhatsAppFloatButton phoneNumber="91XXXXXXXXXX" />
     </div>
   );
 }

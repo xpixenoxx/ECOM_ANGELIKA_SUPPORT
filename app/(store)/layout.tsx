@@ -1,6 +1,5 @@
 import { Header } from '@/components/composite/Header';
 import { Footer } from '@/components/composite/Footer';
-import { WhatsAppFloatButton } from '@/components/composite/WhatsAppFloatButton';
 import { AnnouncementBar } from '@/components/composite/AnnouncementBar';
 import { getStoreSettings, getNavbarItems } from '@/lib/actions/store-settings';
 import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
@@ -70,11 +69,6 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         socialFacebook={settings?.social_facebook || undefined}
         socialWhatsapp={settings?.social_whatsapp || undefined}
         socialYoutube={settings?.social_youtube || undefined}
-      />
-      <WhatsAppFloatButton
-        phoneNumber={whatsappNumber}
-        conciergeTitle={heroData?.conciergeTitle || "Vidhya's Concierge"}
-        conciergeSubtitle={heroData?.conciergeSubtitle || "Bespoke Styling Chat"}
       />
     </div>
   );
