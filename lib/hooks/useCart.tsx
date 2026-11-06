@@ -123,11 +123,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (user) {
         // Query Supabase with a fast 1.5s timeout to prevent freezing the checkout screen
         const fetchRemoteCart = async (): Promise<CartItem[] | null> => {
-          const { data: cart } = await supabase
+          const { data: carts } = await supabase
             .from('carts')
             .select('items')
             .eq('user_id', user.id)
-            .maybeSingle();
+            .order('updated_at', { ascending: false })
+            .limit(1);
+
+          const cart = carts?.[0];
 
           if (cart?.items && Array.isArray(cart.items) && cart.items.length > 0) {
             const variantIds = cart.items.map((i: any) => i.variant_id);
@@ -216,65 +219,148 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const totals = calculateTotals(newItems, state.appliedCoupon);
     setState(prev => ({ ...prev, items: newItems, ...totals }));
 
-    // Save to localStorage immediately for guest
-    localStorage.setItem('guest_cart', JSON.stringify(newItems));
-    localStorage.setItem('cart_count', String(totals.itemCount));
-    localStorage.setItem('cart_updated', Date.now().toString());
+    // Save to localStorage immediately for instant UI update
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('guest_cart', JSON.stringify(newItems));
+      localStorage.setItem('cart_count', String(totals.itemCount));
+      localStorage.setItem('cart_updated', Date.now().toString());
 
-    // Sync to Supabase if user logged in
-    if (user) {
-      try {
-        await supabase.from('carts').upsert({
-          user_id: user.id,
-          items: newItems.map(item => ({
-            id: item.id,
-            variant_id: item.variant_id,
-            quantity: item.quantity,
-            size: item.size,
-          })),
-        });
-      } catch (error) {
-        console.error('Cart sync failed:', error);
-      }
+      // Notify other components immediately
+      window.dispatchEvent(new CustomEvent('cart:updated', { detail: { items: newItems, totals } }));
+      window.dispatchEvent(new CustomEvent('cart:peek', { detail: { count: totals.itemCount } }));
+      window.dispatchEvent(new CustomEvent('cart:open', { detail: { count: totals.itemCount } }));
     }
 
-    // Notify other components
-    window.dispatchEvent(new CustomEvent('cart:updated', { detail: { items: newItems, totals } }));
+    // Sync to Supabase in background without blocking UI
+    if (user) {
+      (async () => {
+        try {
+          const { data: existingCarts } = await supabase
+            .from('carts')
+            .select('id')
+            .eq('user_id', user.id)
+            .order('updated_at', { ascending: false })
+            .limit(1);
+
+          const existingId = existingCarts?.[0]?.id;
+
+          const cartPayload = {
+            user_id: user.id,
+            items: newItems.map(item => ({
+              id: item.id,
+              variant_id: item.variant_id,
+              quantity: item.quantity,
+              size: item.size,
+            })),
+            updated_at: new Date().toISOString(),
+          };
+
+          if (existingId) {
+            await supabase.from('carts').update(cartPayload).eq('id', existingId);
+          } else {
+            await supabase.from('carts').insert(cartPayload);
+          }
+        } catch (error) {
+          console.warn('Background cart sync notice:', error);
+        }
+      })();
+    }
   };
 
   const addItem = async (variantId: string, quantity: number = 1, size?: string, productData?: Partial<CartItem>) => {
-    // Optimistic update
+    // 1. Check if item is already in cart
     const existingIndex = state.items.findIndex(
-      i => i.variant_id === variantId || (productData?.product_name && i.product_name === productData.product_name)
+      i => i.variant_id === variantId || (productData?.product_name && i.product_name.toLowerCase() === productData.product_name.toLowerCase())
     );
+
     let newItems: CartItem[];
 
     if (existingIndex >= 0) {
       newItems = state.items.map((item, index) =>
         index === existingIndex
-          ? { ...item, quantity: Math.min(item.quantity + quantity, item.max_quantity) }
+          ? { ...item, quantity: Math.min(item.quantity + quantity, item.max_quantity || 10) }
           : item
       );
-    } else {
-      // Fetch variant details
-      let variant: any = null;
-      try {
-        const { data: vById } = await supabase
-          .from('product_variants')
-          .select(`
-            id, price, inventory_quantity, size,
-            product:products!product_variants_product_id_fkey(
-              id, name, slug, is_vidyas_pick,
-              product_images!product_images_product_id_fkey(url, is_primary)
-            )
-          `)
-          .eq('id', variantId)
-          .maybeSingle();
+      await persistCart(newItems);
+      toast.success('Added to bag!', { icon: '🛍️' });
+      return;
+    }
 
-        if (vById) {
-          variant = vById;
-        } else {
-          // Try finding by product_id
+    // 2. If productData has name & price, add immediately (zero network latency)
+    if (productData?.product_name && typeof productData.price === 'number' && productData.price > 0) {
+      const newItem: CartItem = {
+        id: crypto.randomUUID(),
+        product_id: productData.product_id || variantId,
+        variant_id: variantId,
+        quantity,
+        product_name: productData.product_name,
+        size: size || productData.size || 'Free Size',
+        color: productData.color || 'Default',
+        color_hex: productData.color_hex || '#C9A84C',
+        price: productData.price,
+        image: productData.image || '/images/collection-kurtis.jpg',
+        is_vidyas_pick: Boolean(productData.is_vidyas_pick),
+        inventory_quantity: 10,
+        max_quantity: 10,
+      };
+
+      newItems = [...state.items, newItem];
+      await persistCart(newItems);
+      toast.success('Added to bag!', { icon: '🛍️' });
+      return;
+    }
+
+    // 3. Fast lookup from static catalog (zero latency)
+    const catalogueMatch = (typeof STORE_CATALOGUE !== 'undefined' ? STORE_CATALOGUE : []).find(
+      p => p.id === variantId || (productData?.product_name && p.title.toLowerCase() === productData.product_name.toLowerCase())
+    ) || (typeof VIDHYAS_PICKS_LIST !== 'undefined' ? VIDHYAS_PICKS_LIST : []).find(
+      p => p.id === variantId || (productData?.product_name && p.title.toLowerCase() === productData.product_name.toLowerCase())
+    );
+
+    if (catalogueMatch) {
+      const newItem: CartItem = {
+        id: crypto.randomUUID(),
+        product_id: catalogueMatch.id,
+        variant_id: variantId,
+        quantity,
+        product_name: catalogueMatch.title,
+        size: size || 'Free Size',
+        color: catalogueMatch.color || 'Default',
+        color_hex: '#C9A84C',
+        price: catalogueMatch.price,
+        image: catalogueMatch.image || '/images/collection-kurtis.jpg',
+        is_vidyas_pick: Boolean(catalogueMatch.isVidhyasPick),
+        inventory_quantity: 10,
+        max_quantity: 10,
+      };
+
+      newItems = [...state.items, newItem];
+      await persistCart(newItems);
+      toast.success('Added to bag!', { icon: '🛍️' });
+      return;
+    }
+
+    // 4. Remote lookup for valid UUIDs only (guarded with fast timeout)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variantId);
+    let variant: any = null;
+
+    if (isUuid) {
+      try {
+        const fetchVariantPromise = async () => {
+          const { data: vById } = await supabase
+            .from('product_variants')
+            .select(`
+              id, price, inventory_quantity, size,
+              product:products!product_variants_product_id_fkey(
+                id, name, slug, is_vidyas_pick,
+                product_images!product_images_product_id_fkey(url, is_primary)
+              )
+            `)
+            .eq('id', variantId)
+            .maybeSingle();
+
+          if (vById) return vById;
+
           const { data: vByProd } = await supabase
             .from('product_variants')
             .select(`
@@ -288,66 +374,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
             .limit(1)
             .maybeSingle();
 
-          if (vByProd) {
-            variant = vByProd;
-          }
-        }
+          return vByProd || null;
+        };
+
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000));
+        variant = await Promise.race([fetchVariantPromise(), timeoutPromise]);
       } catch (err) {
         console.warn('Supabase variant lookup error:', err);
       }
+    }
 
-      if (!variant) {
-        // Fallback: fetch product directly or check catalogue / productData
-        let prod: any = null;
-        try {
-          const { data } = await supabase
-            .from('products')
-            .select(`
-              id, name, slug, is_vidyas_pick,
-              product_images!product_images_product_id_fkey(url, is_primary)
-            `)
-            .eq('id', variantId)
-            .maybeSingle();
-          prod = data;
-        } catch (err) {
-          console.warn('Supabase product lookup error:', err);
-        }
-
-        const catalogueMatch = (typeof STORE_CATALOGUE !== 'undefined' ? STORE_CATALOGUE : []).find(
-          p => p.id === variantId || (productData?.product_name && p.title.toLowerCase() === productData.product_name.toLowerCase())
-        ) || (typeof VIDHYAS_PICKS_LIST !== 'undefined' ? VIDHYAS_PICKS_LIST : []).find(
-          p => p.id === variantId || (productData?.product_name && p.title.toLowerCase() === productData.product_name.toLowerCase())
-        );
-
-        const primaryImg = productData?.image ||
-          catalogueMatch?.image ||
-          prod?.product_images?.find((img: any) => img.is_primary)?.url ||
-          prod?.product_images?.[0]?.url ||
-          '/images/collection-kurtis.jpg';
-
-        const fallbackItem: CartItem = {
-          id: crypto.randomUUID(),
-          product_id: prod?.id || catalogueMatch?.id || variantId || crypto.randomUUID(),
-          variant_id: variantId || catalogueMatch?.id || crypto.randomUUID(),
-          quantity,
-          product_name: productData?.product_name || catalogueMatch?.title || prod?.name || 'Handcrafted Luxury Couture',
-          size: size || productData?.size || 'Free Size',
-          color: productData?.color || catalogueMatch?.color || 'Default',
-          color_hex: productData?.color_hex || '#C9A84C',
-          price: productData?.price || catalogueMatch?.price || prod?.price || 2999,
-          image: primaryImg,
-          is_vidyas_pick: productData?.is_vidyas_pick ?? catalogueMatch?.isVidhyasPick ?? prod?.is_vidyas_pick ?? false,
-          inventory_quantity: 10,
-          max_quantity: 10,
-        };
-
-        newItems = [...state.items, fallbackItem];
-        await persistCart(newItems);
-        toast.success('Added to bag!', { icon: '🛍️' });
-        window.dispatchEvent(new CustomEvent('cart:peek', { detail: { variantId } }));
-        return;
-      }
-
+    if (variant) {
       const primaryImg = variant.product?.product_images?.find((img: any) => img.is_primary)?.url ||
         variant.product?.product_images?.[0]?.url ||
         '/images/collection-kurtis.jpg';
@@ -357,11 +394,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         product_id: variant.product?.id || variant.product_id,
         variant_id: variant.id,
         quantity,
-        product_name: variant.product?.name || productData?.product_name || 'Product',
+        product_name: variant.product?.name || productData?.product_name || 'Handcrafted Luxury Couture',
         size: size || variant.size || productData?.size || 'Free Size',
         color: productData?.color || 'Default',
         color_hex: productData?.color_hex || '#C9A84C',
-        price: variant.price || productData?.price || 0,
+        price: variant.price || productData?.price || 2999,
         image: primaryImg,
         is_vidyas_pick: variant.product?.is_vidyas_pick || productData?.is_vidyas_pick || false,
         inventory_quantity: variant.inventory_quantity || 10,
@@ -369,13 +406,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
       };
 
       newItems = [...state.items, newItem];
+    } else {
+      const fallbackItem: CartItem = {
+        id: crypto.randomUUID(),
+        product_id: variantId,
+        variant_id: variantId,
+        quantity,
+        product_name: productData?.product_name || 'Handcrafted Luxury Couture',
+        size: size || productData?.size || 'Free Size',
+        color: productData?.color || 'Default',
+        color_hex: productData?.color_hex || '#C9A84C',
+        price: productData?.price || 2999,
+        image: productData?.image || '/images/collection-kurtis.jpg',
+        is_vidyas_pick: Boolean(productData?.is_vidyas_pick),
+        inventory_quantity: 10,
+        max_quantity: 10,
+      };
+
+      newItems = [...state.items, fallbackItem];
     }
 
     await persistCart(newItems);
     toast.success('Added to bag!', { icon: '🛍️' });
-
-    // Trigger mini cart peek
-    window.dispatchEvent(new CustomEvent('cart:peek', { detail: { variantId } }));
   };
 
   const updateQuantity = async (itemId: string, quantity: number) => {
@@ -447,10 +499,79 @@ export function CartProvider({ children }: { children: ReactNode }) {
       0
     ) || state.subtotal;
 
-    // 1. Instant check for official privilege vouchers (FIRST10, ROYAL500, COUTURE15)
+    // 1. Check Supabase database first so admin creations, edits, and status toggles take immediate effect
+    try {
+      const fetchCoupon = async () => {
+        const { data: coupon, error } = await supabase
+          .from('coupons')
+          .select('*')
+          .eq('code', cleanCode)
+          .maybeSingle();
+
+        if (error || !coupon) return null;
+        return coupon;
+      };
+
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
+      const coupon: any = await Promise.race([fetchCoupon(), timeoutPromise]);
+
+      if (coupon) {
+        if (!coupon.is_active) {
+          return { valid: false, error: `Coupon ${coupon.code} is currently inactive` };
+        }
+
+        if (coupon.valid_from && new Date(coupon.valid_from) > new Date()) {
+          return { valid: false, error: `Coupon ${coupon.code} is not active yet` };
+        }
+
+        if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+          return { valid: false, error: `Coupon ${coupon.code} has expired` };
+        }
+
+        if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+          return { valid: false, error: `Coupon ${coupon.code} usage limit reached` };
+        }
+
+        const minOrderAmount = coupon.min_order_amount
+          ? (coupon.min_order_amount > 50000 ? Math.round(coupon.min_order_amount / 100) : coupon.min_order_amount)
+          : 0;
+        if (minOrderAmount && currentSubtotal < minOrderAmount) {
+          return { valid: false, error: `Minimum order of ₹${minOrderAmount.toLocaleString('en-IN')} required for ${coupon.code}` };
+        }
+
+        let discountAmount = 0;
+        if (coupon.type === 'percentage') {
+          discountAmount = Math.round((currentSubtotal * Number(coupon.value)) / 100);
+          if (coupon.max_discount_amount) {
+            discountAmount = Math.min(discountAmount, Number(coupon.max_discount_amount));
+          }
+        } else if (coupon.type === 'fixed') {
+          discountAmount = Math.min(Number(coupon.value), currentSubtotal);
+        } else if (coupon.type === 'free_shipping') {
+          discountAmount = state.shippingCost;
+        }
+
+        const appliedCoupon: AppliedCoupon = {
+          code: coupon.code,
+          type: coupon.type,
+          value: Number(coupon.value),
+          discountAmount,
+        };
+
+        const totals = calculateTotals(state.items, appliedCoupon);
+        setState(prev => ({ ...prev, appliedCoupon, ...totals }));
+        try {
+          toast.success(`Coupon ${coupon.code} applied!`);
+        } catch {}
+        return { valid: true };
+      }
+    } catch (e) {
+      console.warn('Supabase coupon check failed, checking fallback offers', e);
+    }
+
+    // 2. Fallback to default privilege vouchers if not in DB or Supabase query timed out
     const offer = PRIVILEGE_OFFERS[cleanCode];
     if (offer) {
-
       if (offer.min_order_amount && currentSubtotal < offer.min_order_amount) {
         return {
           valid: false,
@@ -485,68 +606,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return { valid: true };
     }
 
-    // 2. Fallback to Supabase for custom created coupons with fast timeout
-    try {
-      const fetchCoupon = async () => {
-        const { data: coupon, error } = await supabase
-          .from('coupons')
-          .select('*')
-          .eq('code', cleanCode)
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (error || !coupon) return null;
-        return coupon;
-      };
-
-      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
-      const coupon: any = await Promise.race([fetchCoupon(), timeoutPromise]);
-
-      if (!coupon) {
-        return { valid: false, error: 'Invalid or expired coupon code' };
-      }
-
-      // Check usage limits
-      if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
-        return { valid: false, error: 'Coupon usage limit reached' };
-      }
-
-      const minOrderAmount = coupon.min_order_amount
-        ? (coupon.min_order_amount > 50000 ? Math.round(coupon.min_order_amount / 100) : coupon.min_order_amount)
-        : 0;
-      if (minOrderAmount && currentSubtotal < minOrderAmount) {
-        return { valid: false, error: `Minimum order ₹${minOrderAmount.toLocaleString('en-IN')}` };
-      }
-
-      // Calculate discount
-      let discountAmount = 0;
-      if (coupon.type === 'percentage') {
-        discountAmount = Math.round((currentSubtotal * coupon.value) / 100);
-        if (coupon.max_discount_amount) {
-          discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
-        }
-      } else if (coupon.type === 'fixed') {
-        discountAmount = coupon.value;
-      } else if (coupon.type === 'free_shipping') {
-        discountAmount = state.shippingCost;
-      }
-
-      const appliedCoupon: AppliedCoupon = {
-        code: coupon.code,
-        type: coupon.type,
-        value: coupon.value,
-        discountAmount,
-      };
-
-      const totals = calculateTotals(state.items, appliedCoupon);
-      setState(prev => ({ ...prev, appliedCoupon, ...totals }));
-      try {
-        toast.success(`Coupon ${coupon.code} applied!`);
-      } catch {}
-      return { valid: true };
-    } catch {
-      return { valid: false, error: 'Failed to apply coupon. Please try again.' };
-    }
+    return { valid: false, error: 'Invalid or expired coupon code' };
   };
 
   const removeCoupon = async () => {

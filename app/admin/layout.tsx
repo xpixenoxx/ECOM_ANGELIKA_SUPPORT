@@ -48,6 +48,7 @@ import {
   MoreVertical,
   Home,
   ArrowRight,
+  Star,
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTheme } from '@/lib/hooks/useTheme';
@@ -71,6 +72,7 @@ const navigation = [
     group: 'Commerce',
     items: [
       { href: '/admin/products', label: 'Products', icon: Package, badge: null },
+      { href: '/admin/products/reviews', label: 'Reviews', icon: Star, badge: null },
       { href: '/admin/products/categories', label: 'Categories', icon: Tag, badge: null },
       { href: '/admin/products/collections', label: 'Collections', icon: ShoppingBag, badge: null },
       { href: '/admin/products/coupons', label: 'Coupons', icon: Ticket, badge: null },
@@ -80,8 +82,8 @@ const navigation = [
   {
     group: 'Orders',
     items: [
-      { href: '/admin/orders', label: 'All Orders', icon: ShoppingBag, badge: '5' },
-      { href: '/admin/orders/returns', label: 'Returns', icon: RotateCcw, badge: '2' },
+      { href: '/admin/orders', label: 'All Orders', icon: ShoppingBag, badge: null },
+      { href: '/admin/orders/returns', label: 'Returns', icon: RotateCcw, badge: null },
       { href: '/admin/orders/shipments', label: 'Shipments', icon: Truck, badge: null },
     ],
   },

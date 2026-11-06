@@ -19,6 +19,7 @@ import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { createOrder, getUserAddresses, saveAddress, verifyRazorpayPayment } from '@/lib/actions/checkout';
+import { createClient } from '@/lib/supabase/client';
 import { lookupPincode, type PincodeDetails } from '@/lib/utils/pincode';
 import type { Address } from '@/types/commerce';
 
@@ -39,7 +40,8 @@ interface AddressFormData {
   isDefault?: boolean;
 }
 
-const toAddressForm = (addr: Address): AddressFormData => ({
+const toAddressForm = (addr: Address & { id?: string; is_default?: boolean; isDefault?: boolean }): AddressFormData => ({
+  id: addr.id,
   firstName: addr.firstName,
   lastName: addr.lastName,
   address1: addr.address1,
@@ -50,6 +52,7 @@ const toAddressForm = (addr: Address): AddressFormData => ({
   country: addr.country,
   phone: addr.phone,
   email: addr.email,
+  isDefault: addr.is_default || addr.isDefault,
 });
 
 const toAddress = (form: AddressFormData): Address => ({
@@ -202,11 +205,39 @@ export default function CheckoutPage() {
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponNotice, setCouponNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const availableOffers = [
+  const DEFAULT_OFFERS = [
     { code: 'FIRST10', title: '10% OFF', desc: 'Welcome privilege on your couture order (min ₹1,999)', badge: 'VIP Welcome' },
     { code: 'ROYAL500', title: '₹500 OFF', desc: 'Flat ₹500 off on heritage sets above ₹4,999', badge: 'Royal Edition' },
     { code: 'COUTURE15', title: '15% OFF', desc: '15% festive luxury discount on orders above ₹5,999', badge: 'Festive Luxe' },
   ];
+
+  const [availableOffers, setAvailableOffers] = useState(DEFAULT_OFFERS);
+
+  useEffect(() => {
+    async function loadOffers() {
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('coupons')
+          .select('code, name, type, value, min_order_amount, is_active')
+          .eq('is_active', true)
+          .order('value', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const mapped = data.map((c: any) => ({
+            code: c.code,
+            title: c.type === 'percentage' ? `${c.value}% OFF` : `₹${Number(c.value).toLocaleString('en-IN')} OFF`,
+            desc: c.name + (c.min_order_amount ? ` (min ₹${Number(c.min_order_amount).toLocaleString('en-IN')})` : ''),
+            badge: c.type === 'percentage' ? `${c.value}% Privilege` : 'Voucher',
+          }));
+          setAvailableOffers(mapped);
+        }
+      } catch (err) {
+        console.warn('Active coupons fetch notice:', err);
+      }
+    }
+    loadOffers();
+  }, []);
 
   const handleEmailChange = (val: string) => {
     setEmail(val);
@@ -348,9 +379,10 @@ export default function CheckoutPage() {
     }
     try {
       const addresses = await getUserAddresses(user.id);
-      setSavedAddresses(addresses.map(toAddressForm));
-      if (addresses.length > 0) {
-        setSelectedAddressId(addresses[0].id || '');
+      const mapped = addresses.map(toAddressForm);
+      setSavedAddresses(mapped);
+      if (mapped.length > 0 && mapped[0]) {
+        setSelectedAddressId(mapped[0].id || '');
         setShowNewAddressForm(false);
       } else {
         setShowNewAddressForm(true);
@@ -370,18 +402,15 @@ export default function CheckoutPage() {
       const result = await saveAddress(user.id, toAddress(addressData));
       if (result.success && result.address) {
         const newAddr = toAddressForm(result.address);
-        setSavedAddresses(prev => [newAddr, ...prev]);
+        setSavedAddresses(prev => [newAddr, ...prev.filter(a => a.id !== newAddr.id)]);
         setSelectedAddressId(newAddr.id || '');
         setShowNewAddressForm(false);
         if (result.address.is_default) {
           await refreshProfile();
         }
-      } else {
-        setError(result.error || 'Failed to save address');
       }
     } catch (err) {
-      console.error('Failed to save address:', err);
-      setError('Failed to save address');
+      console.warn('Address save notice:', err);
     }
   };
 

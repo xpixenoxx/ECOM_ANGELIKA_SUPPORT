@@ -617,14 +617,16 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                                     <Image src={review.user.avatar_url} alt={review.user.full_name || 'User'} fill className="rounded-full object-cover" sizes="48px" />
                                   ) : (
                                     <span className="text-[var(--color-gold)] font-medium text-xl">
-                                      {review.user?.full_name?.charAt(0).toUpperCase() || 'U'}
+                                      {(review.user?.full_name || (review as any).user_measurements?.reviewer_name || 'V').charAt(0).toUpperCase()}
                                     </span>
                                   )}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between gap-4 mb-2">
                                     <div>
-                                      <p className="font-medium text-[var(--color-ink)]">{review.user?.full_name || 'Anonymous'}</p>
+                                      <p className="font-medium text-[var(--color-ink)]">
+                                        {review.user?.full_name || (review as any).user_measurements?.reviewer_name || 'Verified Customer'}
+                                      </p>
                                       <div className="flex items-center gap-2 mt-1">
                                         {[...Array(5)].map((_, i) => (
                                           <svg

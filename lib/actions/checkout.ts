@@ -332,43 +332,65 @@ export async function getOrderById(orderId: string) {
   }
 }
 
-export async function getUserAddresses(userId: string) {
-  const supabase = await getSupabaseClient();
+export async function getUserAddresses(userId: string): Promise<(Address & { id: string; is_default?: boolean })[]> {
+  try {
+    const supabase = supabaseAdmin;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('preferences')
+      .eq('id', userId)
+      .maybeSingle();
 
-  const { data: addresses } = await supabase
-    .from('addresses')
-    .select('*')
-    .eq('user_id', userId)
-    .order('is_default', { ascending: false });
+    const prefs = (profile?.preferences && typeof profile.preferences === 'object')
+      ? (profile.preferences as Record<string, any>)
+      : {};
 
-  return addresses || [];
+    const addresses = Array.isArray(prefs['addresses']) ? prefs['addresses'] : [];
+    return addresses;
+  } catch (err) {
+    console.error('Failed to get user addresses:', err);
+    return [];
+  }
 }
 
-export async function saveAddress(userId: string, address: Omit<Address, 'id'> & { is_default?: boolean }) {
-  const supabase = await getSupabaseClient();
+export async function saveAddress(userId: string, address: Omit<Address, 'id'> & { id?: string; is_default?: boolean }) {
+  try {
+    const supabase = supabaseAdmin;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('preferences')
+      .eq('id', userId)
+      .maybeSingle();
 
-  // If this is default, unset other defaults
-  if (address.is_default) {
-    await supabase
-      .from('addresses')
-      .update({ is_default: false })
-      .eq('user_id', userId);
-  }
+    const prefs = (profile?.preferences && typeof profile.preferences === 'object')
+      ? (profile.preferences as Record<string, any>)
+      : {};
 
-  const { data, error } = await supabase
-    .from('addresses')
-    .insert({
-      user_id: userId,
+    const existing: any[] = Array.isArray(prefs['addresses']) ? prefs['addresses'] : [];
+    const newAddressId = address.id || `addr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newAddr = {
       ...address,
-    })
-    .select()
-    .single();
+      id: newAddressId,
+      is_default: address.is_default ?? (existing.length === 0),
+    };
 
-  if (error) {
-    return { success: false, error: error.message };
+    const updated = [newAddr, ...existing.filter(a => a.id !== newAddressId).map(a => address.is_default ? { ...a, is_default: false } : a)];
+
+    await supabase
+      .from('profiles')
+      .update({
+        preferences: {
+          ...prefs,
+          addresses: updated,
+        },
+      })
+      .eq('id', userId);
+
+    return { success: true, address: newAddr };
+  } catch (err: any) {
+    console.error('Failed to save address:', err);
+    return { success: false, error: err?.message || 'Failed to save address' };
   }
-
-  return { success: true, address: data };
 }
 
 export async function convertGuestToAccount({

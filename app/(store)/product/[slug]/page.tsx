@@ -2,6 +2,8 @@ import { notFound, redirect } from 'next/navigation';
 import { getProductWithReviews, getRelatedProducts } from '@/lib/actions/products';
 import { ProductClient } from './ProductClient';
 
+export const dynamic = 'force-dynamic';
+
 export async function generateStaticParams() {
   // This is optional - for static generation of popular products
   return [];

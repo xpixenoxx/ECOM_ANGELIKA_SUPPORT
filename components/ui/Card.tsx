@@ -1,7 +1,8 @@
 'use client';
 
-import { forwardRef, HTMLAttributes, ReactNode } from 'react';
+import { useState, forwardRef, HTMLAttributes, ReactNode } from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
+import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -160,7 +161,7 @@ export interface ProductCardProps {
   rating?: number;
   reviewCount?: number;
   onQuickView?: () => void;
-  onAddToBag?: () => void;
+  onAddToBag?: () => void | Promise<void>;
   onAddToWishlist?: () => void;
   href?: string;
   badge?: 'new' | 'sale' | 'limited' | 'exclusive';
@@ -189,13 +190,28 @@ export function ProductCard({
   discount,
   isWishlisted,
 }: ProductCardProps) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+
   const calculatedDiscount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : discount;
   const isValidHref = Boolean(href && !href.includes('/undefined') && href !== '#');
 
-  const handleAddToBag = (e: React.MouseEvent) => {
+  const handleAddToBag = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onAddToBag?.();
+    if (isAdding) return;
+    setIsAdding(true);
+    try {
+      if (onAddToBag) {
+        await onAddToBag();
+      }
+      setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 2000);
+    } catch (err) {
+      console.error('Failed to add to bag:', err);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const handleQuickView = (e: React.MouseEvent) => {
@@ -217,14 +233,26 @@ export function ProductCard({
   const cardContent = (
     <Card variant="product" padding="none" hoverable className="group relative">
       <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-whisper)]">
-        <motion.img
-          src={image}
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-[var(--ease-slow)] group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          style={{ contentVisibility: 'auto' }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {isValidHref && href ? (
+          <Link href={href} className="block w-full h-full cursor-pointer">
+            <motion.img
+              src={image}
+              alt={name}
+              className="w-full h-full object-cover transition-transform duration-700 ease-[var(--ease-slow)] group-hover:scale-105"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              style={{ contentVisibility: 'auto' }}
+            />
+          </Link>
+        ) : (
+          <motion.img
+            src={image}
+            alt={name}
+            className="w-full h-full object-cover transition-transform duration-700 ease-[var(--ease-slow)] group-hover:scale-105"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            style={{ contentVisibility: 'auto' }}
+          />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
           {(isNew || isSale || isVidhyasPick || badge) && (
@@ -313,9 +341,17 @@ export function ProductCard({
           )}
         </div>
 
-        <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)] line-clamp-2 group-hover:text-[var(--color-gold)] transition-colors duration-200">
-          {name}
-        </h3>
+        {isValidHref && href ? (
+          <Link href={href} className="block group/title">
+            <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)] line-clamp-2 group-hover/title:text-[var(--color-gold)] transition-colors duration-200">
+              {name}
+            </h3>
+          </Link>
+        ) : (
+          <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)] line-clamp-2 group-hover:text-[var(--color-gold)] transition-colors duration-200">
+            {name}
+          </h3>
+        )}
 
         <div className="flex items-baseline gap-2">
           <span className="text-xl font-bold text-[var(--color-ink)] tabular-nums">₹{price.toLocaleString()}</span>
@@ -342,25 +378,42 @@ export function ProductCard({
           </div>
         )}
 
-        <motion.button
-          className="w-full px-4 py-2.5 text-sm font-semibold uppercase tracking-wider bg-[var(--color-ink)] text-[var(--color-gold)] rounded-[var(--radius-md)] border border-[var(--color-gold)] hover:bg-[var(--color-charcoal)] transition-all duration-200"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleAddToBag}
-        >
-          Add to Bag
-        </motion.button>
+        <div className="pt-2">
+          <motion.button
+            type="button"
+            className={cn(
+              "w-full px-4 py-2.5 text-sm font-semibold uppercase tracking-wider rounded-[var(--radius-md)] border transition-all duration-200 cursor-pointer flex items-center justify-center gap-2",
+              isAdded
+                ? "bg-emerald-700 text-white border-emerald-600 shadow-sm"
+                : isAdding
+                ? "bg-[var(--color-charcoal)] text-[var(--color-gold)] border-[var(--color-gold)] opacity-85"
+                : "bg-[var(--color-ink)] text-[var(--color-gold)] border-[var(--color-gold)] hover:bg-[var(--color-charcoal)]"
+            )}
+            whileHover={{ scale: isAdding ? 1 : 1.02 }}
+            whileTap={{ scale: isAdding ? 1 : 0.98 }}
+            onClick={handleAddToBag}
+            disabled={isAdding}
+          >
+            {isAdded ? (
+              <>
+                <svg className="w-4 h-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span>Added to Bag</span>
+              </>
+            ) : isAdding ? (
+              <>
+                <span className="w-4 h-4 border-2 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin" />
+                <span>Adding...</span>
+              </>
+            ) : (
+              <span>Add to Bag</span>
+            )}
+          </motion.button>
+        </div>
       </div>
     </Card>
   );
-
-  if (isValidHref && href) {
-    return (
-      <a href={href} className="block" aria-label={`View ${name}`}>
-        {cardContent}
-      </a>
-    );
-  }
 
   return cardContent;
 }
