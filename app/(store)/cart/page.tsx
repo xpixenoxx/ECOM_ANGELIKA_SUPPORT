@@ -13,6 +13,8 @@ import { ScrollReveal } from '@/components/animations/ScrollReveal';
 import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { MagneticLinkButton } from '@/components/animations/MagneticLinkButton';
 import { useCart } from '@/lib/hooks/useCart';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { AuthModal } from '@/components/ui/AuthModal';
 import { useWishlist } from '@/lib/hooks/useWishlist';
 import { getCartRecommendations, type ProductCardData } from '@/lib/actions/recommendations';
 import toast from 'react-hot-toast';
@@ -27,6 +29,8 @@ const formatPricePlain = (val: number): string => {
 
 export default function CartPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const {
     items,
     subtotal,
@@ -38,6 +42,7 @@ export default function CartPage() {
     appliedCoupon,
     isLoading,
     error,
+    addItem,
     updateQuantity,
     removeItem,
     applyCoupon,
@@ -93,7 +98,11 @@ export default function CartPage() {
 
   const proceedToCheckout = () => {
     if (items.length === 0) return;
-    router.push('/checkout');
+    if (!user) {
+      setShowAuthModal(true);
+    } else {
+      router.push('/checkout');
+    }
   };
 
   if (isLoading) {
@@ -517,6 +526,17 @@ export default function CartPage() {
           )}
         </div>
       </section>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            router.push('/checkout');
+          }}
+          defaultTab="signin"
+        />
+      )}
     </div>
   );
 }

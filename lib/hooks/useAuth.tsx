@@ -61,8 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (data) setProfile(data);
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      if (data) setProfile(data);
+    } catch (err) {
+      console.warn('Profile fetch warning:', err);
+    }
   };
 
   const signUp = async (email: string, password: string, data?: Record<string, any>) => {
@@ -95,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser) {
       setUser(currentUser);
       setSession(currentSession);
-      await fetchProfile(currentUser.id);
+      fetchProfile(currentUser.id).catch(() => {});
     }
 
     return { error: null };
@@ -109,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (data.user) {
       setUser(data.user);
       setSession(data.session);
-      await fetchProfile(data.user.id);
+      fetchProfile(data.user.id).catch(() => {});
     }
     return { error: null };
   };

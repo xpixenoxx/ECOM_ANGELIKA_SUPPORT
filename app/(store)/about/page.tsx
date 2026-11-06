@@ -95,25 +95,25 @@ export default function AboutPage() {
             <span className="inline-block px-4 py-2 bg-[var(--color-gold)] text-[var(--color-ink)] text-sm font-semibold rounded-[var(--radius-full)] mb-6 tracking-wide">
               OUR STORY
             </span>
-            <h1 className="text-[var(--font-display)] text-5xl md:text-7xl font-medium text-[var(--color-white)] leading-tight mb-6">
-              Crafted with <span className="text-[var(--color-gold)]">Intention</span>, Worn with <span className="text-[var(--color-gold)]">Pride</span>
+            <h1 className="font-display text-5xl md:text-7xl font-medium text-white leading-tight mb-6 drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">
+              Crafted with <span className="text-[var(--color-gold)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">Intention</span>, Worn with <span className="text-[var(--color-gold)] drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">Pride</span>
             </h1>
-            <p className="text-[var(--color-white)]/80 text-lg md:text-xl mb-8 max-w-2xl leading-relaxed">
+            <p className="text-white text-lg md:text-xl mb-8 max-w-2xl leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] font-normal">
               Angelika Fashions began with a simple belief: ethnic wear should make you feel like the best version of yourself - rooted, radiant, and entirely you.
             </p>
             <div className="flex flex-wrap gap-4">
               <MagneticButton variant="primary" size="lg" strength={0.3} asChild>
-                <Link href="/shop">Explore Collection</Link>
+                <Link href="/shop" className="inline-flex items-center justify-center px-8 py-3.5 rounded-full font-medium text-sm tracking-wide bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-hover)] text-[var(--color-ink)] shadow-[var(--shadow-gold)] hover:shadow-lg transition-all">Explore Collection</Link>
               </MagneticButton>
               <MagneticButton variant="outline" size="lg" strength={0.3} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)] hover:text-[var(--color-ink)]" asChild>
-                <Link href="/vidhyas-picks">View Vidhya's Picks</Link>
+                <Link href="/vidhyas-picks" className="inline-flex items-center justify-center px-8 py-3.5 rounded-full font-medium text-sm tracking-wide border-2 border-[var(--color-gold)] text-white hover:bg-[var(--color-gold)] hover:text-[var(--color-ink)] transition-all drop-shadow-md bg-black/20 backdrop-blur-sm">View Vidhya's Picks</Link>
               </MagneticButton>
             </div>
           </ScrollReveal>
         </div>
         <div className="absolute bottom-10 left-6 right-6 z-10 flex justify-center">
-          <ScrollReveal variant="fadeUp" delay={1} className="px-6 py-3 bg-[var(--color-white)]/10 backdrop-blur-sm border border-[var(--color-white)]/20 rounded-[var(--radius-full)]">
-            <p className="text-[var(--color-white)]/80 text-sm font-medium">
+          <ScrollReveal variant="fadeUp" delay={1} className="px-6 py-3 bg-black/40 backdrop-blur-md border border-white/20 rounded-[var(--radius-full)] shadow-lg">
+            <p className="text-white text-sm font-medium drop-shadow-sm">
               Scroll to discover our journey →
             </p>
           </ScrollReveal>

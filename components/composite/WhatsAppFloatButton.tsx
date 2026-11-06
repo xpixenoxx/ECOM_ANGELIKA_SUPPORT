@@ -26,6 +26,8 @@ export interface WhatsAppFloatButtonProps {
   showOnDesktop?: boolean;
   pulseInterval?: number;
   initialDelay?: number;
+  conciergeTitle?: string;
+  conciergeSubtitle?: string;
 }
 
 function getDefaultActions(phone: string): WhatsAppAction[] {
@@ -96,6 +98,8 @@ export function WhatsAppFloatButton({
   showOnDesktop = true,
   pulseInterval = 8000,
   initialDelay = 3000,
+  conciergeTitle = "Vidhya's Concierge",
+  conciergeSubtitle = "Bespoke Styling Chat",
 }: WhatsAppFloatButtonProps) {
   const [mounted, setMounted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -305,10 +309,10 @@ export function WhatsAppFloatButton({
                 {/* Desktop Text Details */}
                 <div className="hidden md:flex flex-col items-start text-left pr-1">
                   <span className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[var(--color-gold)] leading-tight">
-                    Vidhya's Concierge
+                    {conciergeTitle}
                   </span>
                   <span className="text-[11px] text-[var(--color-whisper)] font-light leading-tight">
-                    Bespoke Styling Chat
+                    {conciergeSubtitle}
                   </span>
                 </div>
 

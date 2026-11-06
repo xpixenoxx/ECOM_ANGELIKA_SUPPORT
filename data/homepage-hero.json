@@ -1,0 +1,58 @@
+{
+  "brandName": "Angelika",
+  "brandTagline": "Fashions",
+  "logoUrl": " /images/logo.png",
+  "logoHref": "/",
+  "navigation": [
+    {
+      "href": "/shop/kurtis",
+      "label": "KURTIS",
+      "is_active": true
+    },
+    {
+      "href": "/shop/salwars",
+      "label": "SALWARS",
+      "is_active": true
+    },
+    {
+      "href": "/shop/lehengas",
+      "label": "LEHENGAS",
+      "is_active": true
+    },
+    {
+      "href": "/shop/sarees",
+      "label": "SAREES",
+      "is_active": true
+    },
+    {
+      "href": "/shop/dupattas",
+      "label": "DUPATTAS",
+      "is_active": true
+    },
+    {
+      "href": "/new-arrivals",
+      "label": "NEW ARRIVALS",
+      "is_active": true
+    },
+    {
+      "href": "/sale",
+      "label": "SALE",
+      "is_active": true
+    }
+  ],
+  "badgeText": "A N G E L I K A ",
+  "badgeTagline": "Tradition in Every Thread",
+  "showBadge": true,
+  "headline": "Grace in",
+  "headlineHighlight": "Every Drape",
+  "subtitle": "Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.",
+  "primaryCtaText": "Explore Collection",
+  "primaryCtaLink": "/shop",
+  "secondaryCtaText": "Vidhya's Picks",
+  "secondaryCtaLink": "/vidhyas-picks",
+  "backgroundImage": "/images/hero-new-couture.jpg",
+  "backgroundImageAlt": "Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya",
+  "conciergeTitle": "Vidhya's Concierge",
+  "conciergeSubtitle": "Bespoke Styling Chat",
+  "conciergeWhatsApp": "919876543210"
+}

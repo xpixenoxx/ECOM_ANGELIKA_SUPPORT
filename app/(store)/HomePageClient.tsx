@@ -16,6 +16,8 @@ import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
 import { ExploreCollections } from '@/components/composite/ExploreCollections';
 import { useCart } from '@/lib/hooks/useCart';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage';
+import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
+import type { SiteContent } from '@/lib/actions/site-content';
 
 const navigation = [
   { label: 'Kurtis', href: '/shop/kurtis' },
@@ -117,6 +119,8 @@ interface HomePageClientProps {
   newArrivals: HomepageProductCard[];
   looks: LookData[];
   instagramPosts: Array<{ id: string; image_url: string }>;
+  heroData?: HomepageHeroData;
+  siteContent?: SiteContent;
 }
 
 export default function HomePageClient({
@@ -124,79 +128,126 @@ export default function HomePageClient({
   newArrivals,
   looks,
   instagramPosts,
+  heroData,
+  siteContent,
 }: HomePageClientProps) {
   const { addItem } = useCart();
 
-  const handleAddToBag = (product: HomepageProductCard) => {
-    if (product.variant_id) {
-      addItem(product.variant_id, 1);
-    } else {
-      // No variant_id — send user to product page to choose size
-      window.location.href = `/product/${product.slug}`;
-    }
+  const heroContent = siteContent?.hero || {
+    title: 'Grace in Every Drape',
+    subtitle: 'Timeless traditional wear for the modern woman. Rooted in heritage, designed for your today.',
+    ctaText: 'Explore Collection',
+    ctaLink: '/shop',
+    secondaryCtaText: "Vidhya's Picks",
+    secondaryCtaLink: '/vidhyas-picks',
+    backgroundImage: '/images/hero-new-couture.jpg',
+  };
+
+  const activeFeatures = (siteContent?.features?.items && siteContent.features.items.length > 0)
+    ? siteContent.features.items.map((item, index) => {
+        let iconNode: React.ReactNode = features[index % features.length]?.icon;
+        if (typeof item.icon === 'string' && item.icon.trim()) {
+          const isImageUrl =
+            item.icon.startsWith('/') ||
+            item.icon.startsWith('http') ||
+            item.icon.startsWith('data:image');
+
+          if (isImageUrl) {
+            iconNode = (
+              <img
+                src={item.icon}
+                alt={item.title || 'Feature icon'}
+                className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
+              />
+            );
+          } else {
+            iconNode = (
+              <span className="text-base sm:text-lg leading-none select-none inline-flex items-center justify-center" aria-hidden="true">
+                {item.icon}
+              </span>
+            );
+          }
+        }
+        return {
+          icon: iconNode,
+          title: item.title,
+          description: item.desc || item.description || '',
+        };
+      })
+    : features;
+
+  const handleAddToBag = (product: any) => {
+    const targetId = product.variant_id || product.defaultVariantId || product.id || product.slug || 'na-1';
+    const imgUrl = product.image || product.images?.[0]?.url || '/images/collection-kurtis.jpg';
+    const priceVal = Number(product.price) || 2999;
+    const isVP = Boolean(product.isVidhyasPick || product.is_vidyas_pick);
+    const prodName = product.name || product.title || 'Handcrafted Ethnic Ensemble';
+
+    addItem(targetId, 1, 'Free Size', {
+      product_name: prodName,
+      price: priceVal,
+      image: imgUrl,
+      is_vidyas_pick: isVP,
+    });
   };
 
   return (
-    <div className="flex flex-col">
+    <div className="bg-[var(--color-sand)] text-[var(--color-ink)]">
       {/* Hero Section */}
       <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden">
         <Image
-          src="/images/hero-new-couture.jpg"
-          alt="Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya"
+          src={heroData?.backgroundImage || heroContent.backgroundImage || '/images/hero-new-couture.jpg'}
+          alt={heroData?.backgroundImageAlt || (heroContent.title ? `Angelika Fashions - ${heroContent.title}` : 'Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya')}
           fill
           priority
           className="object-cover object-[80%_center] md:object-right lg:object-center z-0"
           sizes="100vw"
         />
-        {/* Deep, rich directional scrim: solid dark contrast on the left, clear and glowing on the right */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 via-45% to-transparent z-[1]" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/40 z-[1]" />
+
+        {/* Editorial Cinematic Overlays */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent z-1" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 z-1" />
 
         <div className="relative z-10 container-custom px-6 sm:px-10 py-24 md:py-32">
           <div className="max-w-lg lg:max-w-xl">
             {/* Brand Signature - Exact Luxury Editorial Style */}
             <div className="flex flex-col items-start gap-1 mb-10">
               <div className="flex items-center gap-2 mb-1">
-                <svg className="w-5 h-5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2L14.5 9H22L16 13.5L18.5 20.5L12 16L5.5 20.5L8 13.5L2 9H9.5L12 2Z" />
+                <svg className="w-3.5 h-3.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2l2.4 7.4h7.6l-6.2 4.5 2.4 7.4-6.2-4.5-6.2 4.5 2.4-7.4-6.2-4.5h7.6z"/>
                 </svg>
-                <span className="font-display tracking-[0.35em] text-sm sm:text-base uppercase text-[#FAF8F5] font-normal">
-                  A N G E L I K A
+                <span className="text-[11px] tracking-[0.28em] uppercase font-semibold text-[var(--color-gold)]">
+                  Couture Collection &bull; 2026
                 </span>
               </div>
-              <span className="text-[9px] sm:text-[10px] tracking-[0.25em] text-[#C9A84C] uppercase font-medium pl-0.5">
-                Tradition in Every Thread
-              </span>
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white font-medium tracking-tight leading-[1.12]">
+                {heroData?.headlinePrimary || heroContent.title || 'Grace in Every Drape'}
+              </h1>
+              <p className="text-white/80 font-serif italic text-base sm:text-lg mt-1 tracking-wide">
+                {heroData?.headlineSecondary || 'Handcrafted Luxury for the Discerning Woman'}
+              </p>
             </div>
 
-            {/* Headline - Editorial Serif */}
-            <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-normal text-[#FAF8F5] leading-[1.06] tracking-tight drop-shadow-2xl mb-6">
-              Grace in <br />
-              <span className="italic font-light text-[#FAF8F5]">Every Drape</span>
-            </h1>
-
-            {/* Subtitle */}
-            <p className="text-[#E6DFD5]/90 text-sm sm:text-base md:text-lg font-normal leading-relaxed max-w-md drop-shadow-md mb-9">
-              Timeless traditional wear for the modern woman. <br className="hidden sm:inline" />
-              Rooted in heritage, designed for your today.
+            <p className="text-white/80 text-sm sm:text-base leading-relaxed mb-8 max-w-md font-sans">
+              {heroData?.subheadline || heroContent.subtitle || 'Step into the festive season with exquisite handwoven fabrics, artisanal zardozi embroidery, and timeless silhouettes crafted to perfection.'}
             </p>
 
-            {/* CTA Button - Exact Minimalist Bordered Aesthetic */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3.5 pt-2">
               <Link
-                href="/shop"
-                className="inline-flex items-center justify-center gap-3 px-7 py-3.5 border border-white/60 hover:border-[var(--color-gold)] hover:bg-[var(--color-gold)] text-[#FAF8F5] hover:text-[#0D0D0D] bg-black/40 backdrop-blur-md text-xs tracking-[0.22em] uppercase font-medium transition-all duration-300 shadow-xl group"
+                href={heroData?.primaryCtaLink || heroContent.ctaLink || '/shop'}
+                className="group relative inline-flex items-center justify-center px-7 py-3 text-xs uppercase tracking-[0.2em] font-semibold text-[#111111] bg-[#FBF4EC] hover:bg-white transition-all duration-300 shadow-md hover:shadow-xl"
               >
-                <span>Explore Collection</span>
-                <span className="text-sm transition-transform duration-300 group-hover:translate-x-1.5" aria-hidden="true">→</span>
+                <span>{heroData?.primaryCtaText || heroContent.ctaText || 'Explore Collection'}</span>
+                <span className="ml-2 transform group-hover:translate-x-1 transition-transform duration-300">&rarr;</span>
               </Link>
-
-              <Link
-                href="/vidhyas-picks"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/20 hover:border-white/50 text-[#E6DFD5] hover:text-white bg-black/20 backdrop-blur-md text-xs tracking-[0.18em] uppercase font-medium transition-all duration-300"
-              >
-                Vidhya's Picks
-              </Link>
+              {(heroData?.secondaryCtaText || heroContent.secondaryCtaText) && (
+                <Link
+                  href={heroData?.secondaryCtaLink || heroContent.secondaryCtaLink || '/vidhyas-picks'}
+                  className="inline-flex items-center justify-center px-7 py-3 text-xs uppercase tracking-[0.2em] font-medium text-white/95 border border-white/40 hover:border-white hover:bg-white/10 transition-all duration-300"
+                >
+                  {heroData?.secondaryCtaText || heroContent.secondaryCtaText}
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -211,6 +262,23 @@ export default function HomePageClient({
             <path d="M12 5v14M19 12l-7 7-7-7" />
           </svg>
         </motion.div>
+      </section>
+
+      {/* Features Strip */}
+      <section className="bg-[var(--color-white)] border-y border-[var(--color-whisper)] py-4 sm:py-5">
+        <div className="container-custom px-4 sm:px-6">
+          <StaggerContainer variant="default" className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            {activeFeatures.map((feature, index) => (
+              <StaggerItem key={feature.title || index} delay={index * 0.08} className="flex flex-col items-center text-center gap-1.5">
+                <MagneticIcon className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] shadow-2xs">
+                  {feature.icon}
+                </MagneticIcon>
+                <h3 className="font-display text-sm font-semibold text-[var(--color-ink)] tracking-wide">{feature.title}</h3>
+                <p className="text-xs text-[var(--color-slate)] leading-tight max-w-[200px]">{feature.description}</p>
+              </StaggerItem>
+            ))}
+          </StaggerContainer>
+        </div>
       </section>
 
       {/* Explore Collections: Editorial Magazine Grid */}
@@ -231,7 +299,7 @@ export default function HomePageClient({
               </h2>
             </div>
             <Button variant="outline" asChild className="mt-4 md:mt-0">
-              <Link href="/vidhyas-picks">View All Picks <span aria-hidden="true">→</span></Link>
+              <Link href="/vidhyas-picks">View All Picks <span aria-hidden="true">&rarr;</span></Link>
             </Button>
           </motion.div>
           <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
@@ -246,7 +314,7 @@ export default function HomePageClient({
                     category={product.category?.name || ''}
                     isVidhyasPick={product.is_vidyas_pick}
                     discount={product.discount}
-                    href={`/product/${product.slug}`}
+                    href={product.slug ? `/product/${product.slug}` : `/vidhyas-picks?search=${encodeURIComponent(product.name)}`}
                     onAddToBag={() => handleAddToBag(product)}
                   />
                 </StaggerItem>
@@ -270,106 +338,157 @@ export default function HomePageClient({
       </section>
 
       {/* New Arrivals: Reference Style */}
-      <section className="section bg-white">
-        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
-          <div className="flex items-center justify-between border-b border-[#EBE6DE] pb-3 mb-8">
-            <h2 className="text-xs sm:text-sm font-bold uppercase tracking-[0.22em] text-[#111111]">
-              NEW COLLECTION: NEW ARRIVALS
-            </h2>
-            <Link
-              href="/new-arrivals"
-              className="text-xs uppercase tracking-[0.2em] text-[#666666] hover:text-[#111111] font-medium transition-colors"
-            >
-              OPEN
-            </Link>
-          </div>
-          <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
-            {newArrivals.length > 0 ? (
-              newArrivals.map((product, index) => (
-                <StaggerItem key={product.id} delay={index * 0.08} variant="scale">
-                  <ProductCard
-                    image={product.images[0]?.url || '/images/placeholder.jpg'}
-                    name={product.name}
-                    price={product.price}
-                    originalPrice={product.compare_at_price || undefined}
-                    category={product.category?.name || ''}
-                    isVidhyasPick={product.is_vidyas_pick}
-                    discount={product.discount}
-                    href={`/product/${product.slug}`}
-                    onAddToBag={() => handleAddToBag(product)}
-                  />
-                </StaggerItem>
-              ))
-            ) : (
-              Array.from({ length: 4 }).map((_, i) => (
-                <StaggerItem key={`skeleton-na-${i}`} delay={i * 0.08} variant="scale">
-                  <SkeletonProductCard />
-                </StaggerItem>
-              ))
-            )}
-          </StaggerContainer>
-        </div>
-      </section>
+      {(() => {
+        const naContent = siteContent?.['new-arrivals'];
+        const headingTitle = naContent?.heading 
+          ? `${naContent.heading} ${naContent.headingHighlight || ''}`.trim() 
+          : 'NEW COLLECTION: NEW ARRIVALS';
+        const ctaText = naContent?.ctaText || 'OPEN';
+        const ctaLink = naContent?.ctaLink || '/new-arrivals';
+
+        // Choose between custom curated items or dynamic database items
+        const isCustomMode = naContent?.mode === 'custom' && Array.isArray(naContent?.items) && naContent.items.length > 0;
+        const productsToDisplay = isCustomMode
+          ? naContent.items
+          : (newArrivals.length > 0 ? newArrivals : (naContent?.items || []));
+
+        return (
+          <section className="section bg-white">
+            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+              <div className="flex items-center justify-between border-b border-[#EBE6DE] pb-3 mb-8">
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-[0.22em] text-[#111111]">
+                  {headingTitle}
+                </h2>
+                <Link
+                  href={ctaLink}
+                  className="text-xs uppercase tracking-[0.2em] text-[#666666] hover:text-[#111111] font-medium transition-colors"
+                >
+                  {ctaText}
+                </Link>
+              </div>
+              <StaggerContainer variant="fast" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
+                {productsToDisplay.length > 0 ? (
+                  productsToDisplay.map((product: any, index: number) => {
+                    const imgUrl = product.image || product.images?.[0]?.url || '/images/placeholder.jpg';
+                    const categoryName = typeof product.category === 'string'
+                      ? product.category
+                      : product.category?.name || '';
+                    const origPrice = product.originalPrice ?? product.compare_at_price ?? undefined;
+                    const isVPick = product.isVidhyasPick ?? product.is_vidyas_pick ?? false;
+                    const productHref = product.href && !product.href.includes('/undefined')
+                      ? product.href
+                      : (product.slug ? `/product/${product.slug}` : `/new-arrivals?search=${encodeURIComponent(product.name)}`);
+
+                    return (
+                      <StaggerItem key={product.id || index} delay={index * 0.08} variant="scale">
+                        <ProductCard
+                          image={imgUrl}
+                          name={product.name}
+                          price={Number(product.price)}
+                          originalPrice={origPrice ? Number(origPrice) : undefined}
+                          category={categoryName}
+                          isVidhyasPick={isVPick}
+                          discount={product.discount}
+                          href={productHref}
+                          onAddToBag={() => handleAddToBag(product)}
+                        />
+                      </StaggerItem>
+                    );
+                  })
+                ) : (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <StaggerItem key={`skeleton-na-${i}`} delay={i * 0.08} variant="scale">
+                      <SkeletonProductCard />
+                    </StaggerItem>
+                  ))
+                )}
+              </StaggerContainer>
+            </div>
+          </section>
+        );
+      })()}
 
       {/* About Vidhya / Brand Story */}
-      <section className="section bg-[var(--color-white)]">
-        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
-          <motion.div
-            className="grid lg:grid-cols-2 gap-16 items-center"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="relative aspect-[4/5] rounded-[var(--radius-2xl)] overflow-hidden">
-              <Image
-                src="/images/vidhya-story.jpg"
-                alt="Vidhya in her atelier"
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 50vw"
-              />
-              <div className="absolute -bottom-6 -right-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
-              <div className="absolute -top-6 -left-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
-            </div>
-            <div>
-              <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-4">
-                Our Story
-              </span>
-              <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-6">
-                Crafted with <span className="text-gradient-gold">Love</span>, Worn with Pride
-              </h2>
-              <div className="space-y-4 text-[var(--color-slate)] text-lg leading-relaxed">
-                <p>
-                  Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.
-                </p>
-                <p>
-                  Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.
-                </p>
-                <p>
-                  When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.
-                </p>
-              </div>
+      {(() => {
+        const bs = siteContent?.['brand-story'];
+        const badge = bs?.badge || 'Our Story';
+        const headingPrefix = bs?.headingPrefix ?? (bs?.title ? '' : 'Crafted with');
+        const headingHighlight = bs?.headingHighlight ?? (bs?.title ? '' : 'Love');
+        const headingSuffix = bs?.headingSuffix ?? (bs?.title || ', Worn with Pride');
+        const imageUrl = bs?.image || '/images/vidhya-story.jpg';
+        const imageAlt = bs?.imageAlt || 'Vidhya in her atelier';
+        const paragraphs = Array.isArray(bs?.storyParagraphs) && bs.storyParagraphs.length > 0
+          ? bs.storyParagraphs
+          : (bs?.story
+              ? bs.story.split('\n\n').filter(Boolean)
+              : [
+                  "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.",
+                  "Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.",
+                  "When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.",
+                ]);
+        const primaryCtaText = bs?.primaryCtaText || 'Read Our Story';
+        const primaryCtaLink = bs?.primaryCtaLink || '/about';
+        const whatsappCtaText = bs?.whatsappCtaText || 'Chat with Vidhya';
+        const whatsappLink = bs?.whatsappLink || "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey";
+
+        return (
+          <section className="section bg-[var(--color-white)]">
+            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
               <motion.div
-                className="mt-8 flex flex-wrap gap-4"
+                className="grid lg:grid-cols-2 gap-16 items-center"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: 0.3 }}
               >
-                <Button variant="primary" asChild>
-                  <Link href="/about">Read Our Story</Link>
-                </Button>
-                <Button variant="whatsapp" asChild>
-                  <Link href="https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey" target="_blank" rel="noopener noreferrer">
-                    <SocialIcon platform="whatsapp" size="sm" className="mr-2" />
-                    Chat with Vidhya
-                  </Link>
-                </Button>
+                <div className="relative aspect-[4/5] rounded-[var(--radius-2xl)] overflow-hidden">
+                  <Image
+                    src={imageUrl}
+                    alt={imageAlt}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                  />
+                  <div className="absolute -bottom-6 -right-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
+                  <div className="absolute -top-6 -left-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
+                </div>
+                <div>
+                  <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-4">
+                    {badge}
+                  </span>
+                  <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-6">
+                    {headingPrefix && `${headingPrefix} `}
+                    {headingHighlight && <span className="text-gradient-gold">{headingHighlight}</span>}
+                    {headingSuffix}
+                  </h2>
+                  <div className="space-y-4 text-[var(--color-slate)] text-lg leading-relaxed">
+                    {paragraphs.map((p: string, idx: number) => (
+                      <p key={idx}>{p}</p>
+                    ))}
+                  </div>
+                  <motion.div
+                    className="mt-8 flex flex-wrap gap-4"
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    <Button variant="primary" asChild>
+                      <Link href={primaryCtaLink}>{primaryCtaText}</Link>
+                    </Button>
+                    <Button variant="whatsapp" asChild>
+                      <Link href={whatsappLink} target="_blank" rel="noopener noreferrer">
+                        <SocialIcon platform="whatsapp" size="sm" className="mr-2" />
+                        {whatsappCtaText}
+                      </Link>
+                    </Button>
+                  </motion.div>
+                </div>
               </motion.div>
             </div>
-          </motion.div>
-        </div>
-      </section>
+          </section>
+        );
+      })()}
 
       {/* Newsletter Signup */}
       <section className="section bg-[var(--color-ink)] relative overflow-hidden">
@@ -489,8 +608,6 @@ function SkeletonProductCard() {
       <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center space-y-2">
         <div className="h-3 w-3/4 skeleton rounded" />
         <div className="h-3 w-1/2 skeleton rounded" />
-
-
       </div>
     </div>
   );

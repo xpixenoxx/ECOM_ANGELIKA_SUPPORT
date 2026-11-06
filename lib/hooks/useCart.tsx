@@ -4,10 +4,11 @@ import { createContext, useContext, useEffect, useState, useCallback, ReactNode 
 import { createClient } from '@/lib/supabase/client';
 import { CartItem, CartState, AppliedCoupon } from '@/types/commerce';
 import { useAuth } from './useAuth';
+import { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } from '@/lib/data/store-catalogue';
 import toast from 'react-hot-toast';
 
 interface CartContextType extends CartState {
-  addItem: (variantId: string, quantity: number, size?: string) => Promise<void>;
+  addItem: (variantId: string, quantity: number, size?: string, productData?: Partial<CartItem>) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -90,65 +91,107 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadCart = async () => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
-    try {
-      let items: CartItem[] = [];
-
-      if (user) {
-        // Load from Supabase
-        const { data: cart } = await supabase
-          .from('carts')
-          .select('items')
-          .eq('user_id', user.id)
-          .single();
-
-        if (cart?.items) {
-          // Hydrate with product details
-          const variantIds = cart.items.map((i: any) => i.variant_id);
-
-          const { data: variants } = await supabase
-            .from('product_variants')
-            .select(`
-              id, price, inventory_quantity, size,
-              product:products!product_variants_product_id_fkey(
-                id, name, slug, is_vidyas_pick,
-                product_images!product_images_product_id_fkey(url, is_primary)
-              )
-            `)
-            .in('id', variantIds);
-
-          items = cart.items.map((item: any) => {
-            const variant: any = variants?.find((v: any) => v.id === item.variant_id);
-            const primaryImg = variant?.product?.product_images?.find((img: any) => img.is_primary)?.url ||
-              variant?.product?.product_images?.[0]?.url ||
-              '/images/collection-kurtis.jpg';
-
-            return {
-              id: item.id || crypto.randomUUID(),
-              product_id: variant?.product?.id || item.product_id,
-              variant_id: item.variant_id,
-              quantity: item.quantity,
-              product_name: variant?.product?.name || item.product_name || 'Product',
-              size: item.size || variant?.size || 'Free Size',
-              color: 'Default',
-              color_hex: '#C9A84C',
-              price: variant?.price || item.price || 0,
-              image: primaryImg,
-              is_vidyas_pick: variant?.product?.is_vidyas_pick || false,
-              inventory_quantity: variant?.inventory_quantity || 10,
-              max_quantity: variant?.inventory_quantity || 10,
-            };
-          }).filter((i: CartItem) => i.price > 0);
-        }
-      } else {
-        // Load from localStorage
+    // 1. Immediately read localStorage so cart & order load instantly with zero delay
+    let localItems: CartItem[] = [];
+    if (typeof window !== 'undefined') {
+      try {
         const guestCart = localStorage.getItem('guest_cart');
         if (guestCart) {
-          try {
-            items = JSON.parse(guestCart);
-          } catch {
-            items = [];
+          localItems = JSON.parse(guestCart);
+        }
+      } catch {
+        localItems = [];
+      }
+    }
+
+    // If local items exist, display them immediately
+    if (localItems.length > 0) {
+      const totals = calculateTotals(localItems, state.appliedCoupon);
+      setState(prev => ({
+        ...prev,
+        items: localItems,
+        ...totals,
+        isLoading: false,
+      }));
+    } else {
+      setState(prev => ({ ...prev, isLoading: true, error: null }));
+    }
+
+    try {
+      let items: CartItem[] = localItems;
+
+      if (user) {
+        // Query Supabase with a fast 1.5s timeout to prevent freezing the checkout screen
+        const fetchRemoteCart = async (): Promise<CartItem[] | null> => {
+          const { data: cart } = await supabase
+            .from('carts')
+            .select('items')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (cart?.items && Array.isArray(cart.items) && cart.items.length > 0) {
+            const variantIds = cart.items.map((i: any) => i.variant_id);
+
+            const { data: variants } = await supabase
+              .from('product_variants')
+              .select(`
+                id, price, inventory_quantity, size,
+                product:products!product_variants_product_id_fkey(
+                  id, name, slug, is_vidyas_pick,
+                  product_images!product_images_product_id_fkey(url, is_primary)
+                )
+              `)
+              .in('id', variantIds);
+
+            const hydrated = cart.items.map((item: any) => {
+              const variant: any = variants?.find((v: any) => v.id === item.variant_id);
+              const primaryImg = variant?.product?.product_images?.find((img: any) => img.is_primary)?.url ||
+                variant?.product?.product_images?.[0]?.url ||
+                '/images/collection-kurtis.jpg';
+
+              return {
+                id: item.id || crypto.randomUUID(),
+                product_id: variant?.product?.id || item.product_id,
+                variant_id: item.variant_id,
+                quantity: item.quantity,
+                product_name: variant?.product?.name || item.product_name || 'Product',
+                size: item.size || variant?.size || 'Free Size',
+                color: 'Default',
+                color_hex: '#C9A84C',
+                price: variant?.price || item.price || 0,
+                image: primaryImg,
+                is_vidyas_pick: variant?.product?.is_vidyas_pick || false,
+                inventory_quantity: variant?.inventory_quantity || 10,
+                max_quantity: variant?.inventory_quantity || 10,
+              };
+            }).filter((i: CartItem) => i.price > 0);
+
+            if (hydrated.length > 0) {
+              return hydrated;
+            }
           }
+          return null;
+        };
+
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+        const remoteItems = await Promise.race([fetchRemoteCart(), timeoutPromise]);
+
+        if (remoteItems && remoteItems.length > 0) {
+          items = remoteItems;
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('guest_cart', JSON.stringify(remoteItems));
+          }
+        } else if (localItems.length > 0) {
+          // Sync guest cart items to the user's Supabase cart in background
+          supabase.from('carts').upsert({
+            user_id: user.id,
+            items: localItems.map(item => ({
+              id: item.id,
+              variant_id: item.variant_id,
+              quantity: item.quantity,
+              size: item.size,
+            })),
+          }).then(() => {}, () => {});
         }
       }
 
@@ -163,8 +206,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.error('Cart load failed:', error);
       setState(prev => ({
         ...prev,
+        items: localItems,
         isLoading: false,
-        error: 'Failed to load cart',
       }));
     }
   };
@@ -199,9 +242,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     window.dispatchEvent(new CustomEvent('cart:updated', { detail: { items: newItems, totals } }));
   };
 
-  const addItem = async (variantId: string, quantity: number, size?: string) => {
+  const addItem = async (variantId: string, quantity: number = 1, size?: string, productData?: Partial<CartItem>) => {
     // Optimistic update
-    const existingIndex = state.items.findIndex(i => i.variant_id === variantId);
+    const existingIndex = state.items.findIndex(
+      i => i.variant_id === variantId || (productData?.product_name && i.product_name === productData.product_name)
+    );
     let newItems: CartItem[];
 
     if (existingIndex >= 0) {
@@ -213,23 +258,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } else {
       // Fetch variant details
       let variant: any = null;
-      const { data: vById } = await supabase
-        .from('product_variants')
-        .select(`
-          id, price, inventory_quantity, size,
-          product:products!product_variants_product_id_fkey(
-            id, name, slug, is_vidyas_pick,
-            product_images!product_images_product_id_fkey(url, is_primary)
-          )
-        `)
-        .eq('id', variantId)
-        .maybeSingle();
-
-      if (vById) {
-        variant = vById;
-      } else {
-        // Try finding by product_id
-        const { data: vByProd } = await supabase
+      try {
+        const { data: vById } = await supabase
           .from('product_variants')
           .select(`
             id, price, inventory_quantity, size,
@@ -238,53 +268,83 @@ export function CartProvider({ children }: { children: ReactNode }) {
               product_images!product_images_product_id_fkey(url, is_primary)
             )
           `)
-          .eq('product_id', variantId)
-          .limit(1)
-          .maybeSingle();
-
-        if (vByProd) {
-          variant = vByProd;
-        }
-      }
-
-      if (!variant) {
-        // Fallback: fetch product directly if it was a product id without variants
-        const { data: prod } = await supabase
-          .from('products')
-          .select(`
-            id, name, slug, is_vidyas_pick,
-            product_images!product_images_product_id_fkey(url, is_primary)
-          `)
           .eq('id', variantId)
           .maybeSingle();
 
-        if (prod) {
-          const primaryImg = (prod as any)?.product_images?.find((img: any) => img.is_primary)?.url ||
-            (prod as any)?.product_images?.[0]?.url ||
-            '/images/collection-kurtis.jpg';
+        if (vById) {
+          variant = vById;
+        } else {
+          // Try finding by product_id
+          const { data: vByProd } = await supabase
+            .from('product_variants')
+            .select(`
+              id, price, inventory_quantity, size,
+              product:products!product_variants_product_id_fkey(
+                id, name, slug, is_vidyas_pick,
+                product_images!product_images_product_id_fkey(url, is_primary)
+              )
+            `)
+            .eq('product_id', variantId)
+            .limit(1)
+            .maybeSingle();
 
-          const fallbackItem: CartItem = {
-            id: crypto.randomUUID(),
-            product_id: prod.id,
-            variant_id: prod.id,
-            quantity,
-            product_name: prod.name,
-            size: size || 'Free Size',
-            color: 'Default',
-            color_hex: '#C9A84C',
-            price: 2999,
-            image: primaryImg,
-            is_vidyas_pick: prod.is_vidyas_pick || false,
-            inventory_quantity: 10,
-            max_quantity: 10,
-          };
-          newItems = [...state.items, fallbackItem];
-          await persistCart(newItems);
-          toast.success('Added to bag!', { icon: '🛍️' });
-          return;
+          if (vByProd) {
+            variant = vByProd;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase variant lookup error:', err);
+      }
+
+      if (!variant) {
+        // Fallback: fetch product directly or check catalogue / productData
+        let prod: any = null;
+        try {
+          const { data } = await supabase
+            .from('products')
+            .select(`
+              id, name, slug, is_vidyas_pick,
+              product_images!product_images_product_id_fkey(url, is_primary)
+            `)
+            .eq('id', variantId)
+            .maybeSingle();
+          prod = data;
+        } catch (err) {
+          console.warn('Supabase product lookup error:', err);
         }
 
-        toast.error('Product could not be added');
+        const catalogueMatch = (typeof STORE_CATALOGUE !== 'undefined' ? STORE_CATALOGUE : []).find(
+          p => p.id === variantId || (productData?.product_name && p.title.toLowerCase() === productData.product_name.toLowerCase())
+        ) || (typeof VIDHYAS_PICKS_LIST !== 'undefined' ? VIDHYAS_PICKS_LIST : []).find(
+          p => p.id === variantId || (productData?.product_name && p.title.toLowerCase() === productData.product_name.toLowerCase())
+        );
+
+        const primaryImg = productData?.image ||
+          catalogueMatch?.image ||
+          prod?.product_images?.find((img: any) => img.is_primary)?.url ||
+          prod?.product_images?.[0]?.url ||
+          '/images/collection-kurtis.jpg';
+
+        const fallbackItem: CartItem = {
+          id: crypto.randomUUID(),
+          product_id: prod?.id || catalogueMatch?.id || variantId || crypto.randomUUID(),
+          variant_id: variantId || catalogueMatch?.id || crypto.randomUUID(),
+          quantity,
+          product_name: productData?.product_name || catalogueMatch?.title || prod?.name || 'Handcrafted Luxury Couture',
+          size: size || productData?.size || 'Free Size',
+          color: productData?.color || catalogueMatch?.color || 'Default',
+          color_hex: productData?.color_hex || '#C9A84C',
+          price: productData?.price || catalogueMatch?.price || prod?.price || 2999,
+          image: primaryImg,
+          is_vidyas_pick: productData?.is_vidyas_pick ?? catalogueMatch?.isVidhyasPick ?? prod?.is_vidyas_pick ?? false,
+          inventory_quantity: 10,
+          max_quantity: 10,
+        };
+
+        newItems = [...state.items, fallbackItem];
+        await persistCart(newItems);
+        toast.success('Added to bag!', { icon: '🛍️' });
+        window.dispatchEvent(new CustomEvent('cart:peek', { detail: { variantId } }));
         return;
       }
 
@@ -297,13 +357,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         product_id: variant.product?.id || variant.product_id,
         variant_id: variant.id,
         quantity,
-        product_name: variant.product?.name || 'Product',
-        size: size || variant.size || 'Free Size',
-        color: 'Default',
-        color_hex: '#C9A84C',
-        price: variant.price || 0,
+        product_name: variant.product?.name || productData?.product_name || 'Product',
+        size: size || variant.size || productData?.size || 'Free Size',
+        color: productData?.color || 'Default',
+        color_hex: productData?.color_hex || '#C9A84C',
+        price: variant.price || productData?.price || 0,
         image: primaryImg,
-        is_vidyas_pick: variant.product?.is_vidyas_pick || false,
+        is_vidyas_pick: variant.product?.is_vidyas_pick || productData?.is_vidyas_pick || false,
         inventory_quantity: variant.inventory_quantity || 10,
         max_quantity: variant.inventory_quantity || 10,
       };
@@ -347,79 +407,146 @@ export function CartProvider({ children }: { children: ReactNode }) {
     await loadCart();
   };
 
-  const applyCoupon = async (code: string) => {
-    const { data: coupon, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('code', code.toUpperCase())
-      .eq('is_active', true)
-      .lte('valid_from', new Date().toISOString())
-      .or(`valid_until.is.null,valid_until.gte.${new Date().toISOString()}`)
-      .single();
+  const PRIVILEGE_OFFERS: Record<string, {
+    code: string;
+    type: 'percentage' | 'fixed' | 'free_shipping';
+    value: number;
+    min_order_amount: number;
+    max_discount_amount?: number;
+  }> = {
+    FIRST10: {
+      code: 'FIRST10',
+      type: 'percentage',
+      value: 10,
+      min_order_amount: 1999,
+      max_discount_amount: 1500,
+    },
+    ROYAL500: {
+      code: 'ROYAL500',
+      type: 'fixed',
+      value: 500,
+      min_order_amount: 4999,
+    },
+    COUTURE15: {
+      code: 'COUTURE15',
+      type: 'percentage',
+      value: 15,
+      min_order_amount: 5999,
+      max_discount_amount: 2000,
+    },
+  };
 
-    if (error || !coupon) {
-      return { valid: false, error: 'Invalid or expired coupon code' };
+  const applyCoupon = async (code: string): Promise<{ valid: boolean; error?: string }> => {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      return { valid: false, error: 'Please enter a coupon code' };
     }
 
-    // Check usage limits
-    if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
-      return { valid: false, error: 'Coupon usage limit reached' };
-    }
+    const currentSubtotal = state.items.reduce(
+      (sum, item) => sum + (item.price || 0) * (item.quantity || 1),
+      0
+    ) || state.subtotal;
 
-    const minOrderAmount = coupon.min_order_amount
-      ? (coupon.min_order_amount > 50000 ? Math.round(coupon.min_order_amount / 100) : coupon.min_order_amount)
-      : 0;
-    if (minOrderAmount && state.subtotal < minOrderAmount) {
-      return { valid: false, error: `Minimum order ₹${minOrderAmount.toLocaleString('en-IN')}` };
-    }
+    // 1. Instant check for official privilege vouchers (FIRST10, ROYAL500, COUTURE15)
+    const offer = PRIVILEGE_OFFERS[cleanCode];
+    if (offer) {
 
-    // Check user limit
-    if (user) {
-      const { count } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('coupon_code', coupon.code);
-      if (count && count >= coupon.user_limit) {
-        return { valid: false, error: 'You have already used this coupon' };
+      if (offer.min_order_amount && currentSubtotal < offer.min_order_amount) {
+        return {
+          valid: false,
+          error: `Minimum order of ₹${offer.min_order_amount.toLocaleString('en-IN')} required for ${offer.code}`,
+        };
       }
-    }
 
-    // Check first order only
-    if (coupon.first_order_only && user) {
-      const { count } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      if (count && count > 0) {
-        return { valid: false, error: 'Coupon valid for first order only' };
+      let discountAmount = 0;
+      if (offer.type === 'percentage') {
+        discountAmount = Math.round((currentSubtotal * offer.value) / 100);
+        if (offer.max_discount_amount) {
+          discountAmount = Math.min(discountAmount, offer.max_discount_amount);
+        }
+      } else if (offer.type === 'fixed') {
+        discountAmount = offer.value;
+      } else if (offer.type === 'free_shipping') {
+        discountAmount = state.shippingCost;
       }
+
+      const appliedCoupon: AppliedCoupon = {
+        code: offer.code,
+        type: offer.type,
+        value: offer.value,
+        discountAmount,
+      };
+
+      const totals = calculateTotals(state.items, appliedCoupon);
+      setState(prev => ({ ...prev, appliedCoupon, ...totals }));
+      try {
+        toast.success(`Privilege voucher ${offer.code} applied!`);
+      } catch {}
+      return { valid: true };
     }
 
-    // Calculate discount
-    let discountAmount = 0;
-    if (coupon.type === 'percentage') {
-      discountAmount = Math.round(state.subtotal * coupon.value / 100);
-      if (coupon.max_discount_amount) {
-        discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
+    // 2. Fallback to Supabase for custom created coupons with fast timeout
+    try {
+      const fetchCoupon = async () => {
+        const { data: coupon, error } = await supabase
+          .from('coupons')
+          .select('*')
+          .eq('code', cleanCode)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (error || !coupon) return null;
+        return coupon;
+      };
+
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500));
+      const coupon: any = await Promise.race([fetchCoupon(), timeoutPromise]);
+
+      if (!coupon) {
+        return { valid: false, error: 'Invalid or expired coupon code' };
       }
-    } else if (coupon.type === 'fixed') {
-      discountAmount = coupon.value;
-    } else if (coupon.type === 'free_shipping') {
-      discountAmount = state.shippingCost;
+
+      // Check usage limits
+      if (coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+        return { valid: false, error: 'Coupon usage limit reached' };
+      }
+
+      const minOrderAmount = coupon.min_order_amount
+        ? (coupon.min_order_amount > 50000 ? Math.round(coupon.min_order_amount / 100) : coupon.min_order_amount)
+        : 0;
+      if (minOrderAmount && currentSubtotal < minOrderAmount) {
+        return { valid: false, error: `Minimum order ₹${minOrderAmount.toLocaleString('en-IN')}` };
+      }
+
+      // Calculate discount
+      let discountAmount = 0;
+      if (coupon.type === 'percentage') {
+        discountAmount = Math.round((currentSubtotal * coupon.value) / 100);
+        if (coupon.max_discount_amount) {
+          discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
+        }
+      } else if (coupon.type === 'fixed') {
+        discountAmount = coupon.value;
+      } else if (coupon.type === 'free_shipping') {
+        discountAmount = state.shippingCost;
+      }
+
+      const appliedCoupon: AppliedCoupon = {
+        code: coupon.code,
+        type: coupon.type,
+        value: coupon.value,
+        discountAmount,
+      };
+
+      const totals = calculateTotals(state.items, appliedCoupon);
+      setState(prev => ({ ...prev, appliedCoupon, ...totals }));
+      try {
+        toast.success(`Coupon ${coupon.code} applied!`);
+      } catch {}
+      return { valid: true };
+    } catch {
+      return { valid: false, error: 'Failed to apply coupon. Please try again.' };
     }
-
-    const appliedCoupon: AppliedCoupon = {
-      code: coupon.code,
-      type: coupon.type,
-      value: coupon.value,
-      discountAmount,
-    };
-
-    const totals = calculateTotals(state.items, appliedCoupon);
-    setState(prev => ({ ...prev, appliedCoupon, ...totals }));
-    toast.success('Coupon applied!');
-    return { valid: true };
   };
 
   const removeCoupon = async () => {

@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getProductWithReviews, getRelatedProducts } from '@/lib/actions/products';
 import { ProductClient } from './ProductClient';
 
@@ -9,6 +9,10 @@ export async function generateStaticParams() {
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
+  if (!slug || slug === 'undefined' || slug === 'null') {
+    redirect('/shop');
+  }
 
   const { product: clientProduct, reviews, reviewSummary } = await getProductWithReviews(slug);
 

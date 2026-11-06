@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { SocialIcon } from '@/components/ui/SocialIcon';
+import type { FooterContent } from '@/lib/actions/site-content';
 
 export interface FooterLink {
   label: string;
@@ -25,6 +26,7 @@ export interface SocialLink {
 }
 
 export interface FooterProps {
+  content?: FooterContent;
   logo?: React.ReactNode;
   tagline?: string;
   columns?: FooterColumn[];
@@ -190,19 +192,19 @@ const defaultPaymentMethods = [
    AUTHENTIC ARTISANAL TRUST BADGES (Bespoke SVGs, No Hallucinations or Emojis)
    ========================================================================= */
 
-function SilkMarkBadge() {
+function SilkMarkBadge({ text }: { text?: string } = {}) {
   return (
     <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
       <svg className="w-4 h-4 text-[var(--color-gold)] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
         <path d="M12 2C8 6 4 9 4 14a8 8 0 0016 0c0-5-4-8-8-12z" />
         <path d="M12 8c-2 2.5-3 5-3 7a3 3 0 006 0c0-2-1-4.5-3-7z" fill="currentColor" fillOpacity="0.2" />
       </svg>
-      <span>100% Certified Authentic Handloom</span>
+      <span>{text || "100% Certified Authentic Handloom"}</span>
     </div>
   );
 }
 
-function ExpressDispatchBadge() {
+function ExpressDispatchBadge({ text }: { text?: string } = {}) {
   return (
     <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
       <svg className="w-4 h-4 text-[var(--color-gold)] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -211,24 +213,24 @@ function ExpressDispatchBadge() {
         <circle cx="5.5" cy="18.5" r="2.5" />
         <circle cx="18.5" cy="18.5" r="2.5" />
       </svg>
-      <span>Pan-India Express & Global Shipping</span>
+      <span>{text || "Pan-India Express & Global Shipping"}</span>
     </div>
   );
 }
 
-function SecureCheckoutBadge() {
+function SecureCheckoutBadge({ text }: { text?: string } = {}) {
   return (
     <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
       <svg className="w-4 h-4 text-[#16A34A] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
         <path d="M7 11V7a5 5 0 0110 0v4" />
       </svg>
-      <span>256-Bit SSL Encrypted Checkout</span>
+      <span>{text || "256-Bit SSL Encrypted Checkout"}</span>
     </div>
   );
 }
 
-function ExchangeGuaranteeBadge() {
+function ExchangeGuaranteeBadge({ text }: { text?: string } = {}) {
   return (
     <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
       <svg className="w-4 h-4 text-[var(--color-gold)] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -236,7 +238,7 @@ function ExchangeGuaranteeBadge() {
         <polyline points="1 20 1 14 7 14" />
         <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
       </svg>
-      <span>7-Day Complimentary Size Exchange</span>
+      <span>{text || "7-Day Complimentary Size Exchange"}</span>
     </div>
   );
 }
@@ -246,6 +248,7 @@ function ExchangeGuaranteeBadge() {
    ========================================================================= */
 
 export function Footer({
+  content,
   logo,
   tagline = 'Modern Indian luxury — rooted in craft, elevated for today.',
   columns = defaultColumns,
@@ -315,6 +318,40 @@ export function Footer({
     },
   ];
 
+  const effectiveBrand = content?.brandName || siteName;
+  const effectiveBrandSub = content?.brandTagline || 'Fashions';
+  const effectiveTagline = content?.tagline || tagline;
+  const effectiveLogoUrl = content?.logoUrl || '/images/logo.png';
+  const showAtelierCard = content ? content.showAtelierDesk !== false : true;
+  const effectiveAtelierBadge = content?.atelierBadge || "Vidhya's Styling Atelier";
+  const effectiveAtelierStatus = content?.atelierStatusText || 'Concierge Active';
+  const effectiveAtelierTitle = content?.atelierTitle || 'Personal Styling & Drape Consultation';
+  const effectiveAtelierDesc = content?.atelierDescription || 'Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.';
+  const effectiveAtelierCta = content?.atelierWhatsappCta || 'Connect with Vidhya on WhatsApp';
+  const effectiveAtelierPhone = content?.atelierPhone || activePhone;
+  const effectiveAtelierEmail = content?.atelierEmail || activeEmail;
+  const effectiveAtelierSchedule = content?.atelierSchedule || 'Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response';
+  const effectiveWhatsappUrl = content?.atelierWhatsappNumber
+    ? ('https://wa.me/' + content.atelierWhatsappNumber.replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(content.atelierWhatsappMessage || 'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.'))
+    : activeWhatsappLink;
+  const effectiveSocialTitle = content?.socialTitle || 'Connect With Us';
+  const effectiveSocialLinks = content?.socialLinks && content.socialLinks.length > 0
+    ? content.socialLinks.filter((s) => s.enabled !== false)
+    : resolvedSocialLinks;
+  const effectiveColumns = content?.columns && content.columns.length > 0 ? content.columns : columns;
+  const effectivePaymentLabel = content?.paymentLabel || 'Payment Options:';
+  const effectiveCopyright = content?.copyright || displayCopyright;
+  const effectiveBottomLinks = content?.bottomLinks && content.bottomLinks.length > 0
+    ? content.bottomLinks
+    : [
+        { label: 'Privacy', href: '/privacy' },
+        { label: 'Terms', href: '/terms' },
+        { label: 'Cookies', href: '/cookies' },
+        { label: 'Accessibility', href: '/accessibility' },
+      ];
+  const effectiveShowTop = content ? content.showScrollTop !== false : true;
+  const effectiveTopText = content?.scrollTopText || 'Top';
+
   return (
     <footer
       className={cn(
@@ -361,13 +398,14 @@ export function Footer({
             </Link>
 
             <p className="text-[var(--color-slate)] text-sm leading-relaxed max-w-md font-light">
-              {tagline}
+              {effectiveTagline}
             </p>
 
             {/* =========================================================
                 BESPOKE ATELIER STYLING DESK (Vidhya's Personal Styling Concierge)
                 Elevated luxury consultation module
                 ========================================================= */}
+            {showAtelierCard && (
             <div className="relative rounded-xl bg-[#FCFAF7] border border-[#E5DECF] p-5 shadow-[0_4px_20px_rgba(201,168,76,0.06)] hover:border-[var(--color-gold)]/50 transition-all duration-300 max-w-md overflow-hidden">
               {/* Gold hairline highlight */}
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--color-gold)] to-transparent" />
@@ -381,29 +419,29 @@ export function Footer({
                     <path d="M12 11c-3-2-6-3-9-2 2 3 5 5 9 5s7-2 9-5c-3-1-6 0-9 2z" />
                   </svg>
                   <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold)]">
-                    Vidhya's Styling Atelier
+                    {effectiveAtelierBadge}
                   </span>
                 </div>
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--color-slate)] font-medium bg-[#F3EEE8] px-2.5 py-0.5 rounded-full border border-[#EAE4D9]">
                   <span className="w-2 h-2 rounded-full bg-[#16A34A]" />
-                  <span>Concierge Active</span>
+                  <span>{effectiveAtelierStatus}</span>
                 </span>
               </div>
 
               {/* Atelier Title & Editorial Microcopy */}
               <div className="mt-3.5 space-y-1.5">
                 <h4 className="font-serif text-base text-[var(--color-ink)] font-normal tracking-wide">
-                  Personal Styling & Drape Consultation
+                  {effectiveAtelierTitle}
                 </h4>
                 <p className="text-xs text-[var(--color-slate)] leading-relaxed">
-                  Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.
+                  {effectiveAtelierDesc}
                 </p>
               </div>
 
               {/* Direct WhatsApp Concierge CTA */}
               <div className="mt-4 pt-1">
                 <a
-                  href={activeWhatsappLink}
+                  href={effectiveWhatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--color-ink)] hover:bg-[#25221E] text-white text-xs font-medium tracking-wide border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] transition-all duration-200 shadow-sm group"
@@ -411,7 +449,7 @@ export function Footer({
                   <span className="text-[#25D366] group-hover:scale-110 transition-transform">
                     <SocialIcon platform="whatsapp" size="sm" />
                   </span>
-                  <span>Connect with Vidhya on WhatsApp</span>
+                  <span>{effectiveAtelierCta}</span>
                   <svg className="w-3.5 h-3.5 text-[var(--color-gold)] transition-transform group-hover:translate-x-0.5 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                     <path d="M5 12h14M12 5l7 7-7 7" />
                   </svg>
@@ -429,7 +467,7 @@ export function Footer({
                       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                     </svg>
                   </span>
-                  <span className="truncate">{activePhone}</span>
+                  <span className="truncate">{effectiveAtelierPhone}</span>
                 </a>
 
                 <a
@@ -442,7 +480,7 @@ export function Footer({
                       <polyline points="22,6 12,13 2,6" />
                     </svg>
                   </span>
-                  <span className="truncate">{activeEmail}</span>
+                  <span className="truncate">{effectiveAtelierEmail}</span>
                 </a>
               </div>
 
@@ -452,17 +490,18 @@ export function Footer({
                   <circle cx="12" cy="12" r="10" />
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
-                <span>Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response</span>
+                <span>{effectiveAtelierSchedule}</span>
               </div>
             </div>
+            )}
 
             {/* Social Media Channels */}
             <div className="space-y-2.5 pt-1">
               <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold)] block">
-                Connect With Us
+                {effectiveSocialTitle}
               </span>
               <div className="flex items-center gap-2.5" role="list" aria-label="Social media channels">
-                {resolvedSocialLinks.map((social) => (
+                {effectiveSocialLinks.map((social) => (
                   <a
                     key={social.platform}
                     href={social.href}
@@ -485,7 +524,7 @@ export function Footer({
               ============================================================= */}
           <div className="lg:col-span-7">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 xl:gap-10">
-              {columns.map((column) => (
+              {effectiveColumns.map((column) => (
                 <nav
                   key={column.title}
                   className="space-y-4"

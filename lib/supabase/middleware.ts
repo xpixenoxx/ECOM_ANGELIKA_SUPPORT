@@ -33,10 +33,17 @@ export async function createMiddlewareClient(request: NextRequest) {
 }
 
 export async function updateSession(request: NextRequest) {
-  const { supabase, response } = await createMiddlewareClient(request);
+  try {
+    const { supabase, response } = await createMiddlewareClient(request);
 
-  // Refresh session if expired - required for Server Components
-  const { data: { user } } = await supabase.auth.getUser();
+    // Refresh session if expired - required for Server Components
+    let user = null;
+    try {
+      const userRes = await supabase.auth.getUser();
+      user = userRes.data?.user || null;
+    } catch {
+      // Supabase credentials or network unavailable - continue gracefully
+    }
 
   // Geo-based redirect
   const country = request.headers.get('x-vercel-ip-country') || 'IN';
@@ -93,6 +100,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   return response;
+  } catch {
+    return NextResponse.next();
+  }
 }
 
 // Role-based access control

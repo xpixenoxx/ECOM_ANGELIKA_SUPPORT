@@ -187,6 +187,7 @@ export function ProductCard({
   className = '',
 }: ProductCardProps) {
   const calculatedDiscount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : discount;
+  const isValidHref = Boolean(href && !href.includes('/undefined') && href !== '#');
 
   const handleAddToBag = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -199,7 +200,7 @@ export function ProductCard({
     e.stopPropagation();
     if (onQuickView) {
       onQuickView();
-    } else if (href) {
+    } else if (isValidHref && href) {
       window.location.href = href;
     }
   };
@@ -310,7 +311,7 @@ export function ProductCard({
     </div>
   );
 
-  if (href) {
+  if (isValidHref && href) {
     return (
       <a href={href} className="block w-[320px] max-w-full mx-auto" aria-label={`View ${name}`}>
         {cardContent}

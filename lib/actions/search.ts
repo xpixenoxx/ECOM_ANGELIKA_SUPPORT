@@ -127,7 +127,45 @@ export async function searchProductsFullText(
     // Get suggestions
     const suggestions = await getSearchSuggestions(query, 5);
 
-    return {
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
       products,
       totalCount,
       totalPages,
@@ -156,7 +194,45 @@ export async function searchProductsSemantic(
 
   // Validate embedding dimension
   if (!embedding || embedding.length !== 1536) {
-    return {
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
       products: [],
       totalCount: 0,
       totalPages: 0,
@@ -182,7 +258,45 @@ export async function searchProductsSemantic(
 
     if (error) {
       console.error('Semantic search error:', error);
+      if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
       return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
         products: [],
         totalCount: 0,
         totalPages: 0,
@@ -205,7 +319,45 @@ export async function searchProductsSemantic(
       discount: p.compare_at_price ? Math.round(((p.compare_at_price - p.price) / p.compare_at_price) * 100) : 0,
     }));
 
-    return {
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
       products,
       totalCount: products.length,
       totalPages: 1,
@@ -216,7 +368,45 @@ export async function searchProductsSemantic(
     };
   } catch (error) {
     console.error('Semantic search exception:', error);
-    return {
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
       products: [],
       totalCount: 0,
       totalPages: 0,
@@ -303,7 +493,45 @@ export async function searchProductsHybrid(
 
     const suggestions = await getSearchSuggestions(query, 5);
 
-    return {
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
       products,
       totalCount,
       totalPages,
@@ -328,7 +556,45 @@ export async function searchProducts(
 ): Promise<SearchResult> {
   // If query is empty, return empty results
   if (!query || query.trim().length === 0) {
-    return {
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
       products: [],
       totalCount: 0,
       totalPages: 0,
@@ -463,7 +729,117 @@ async function fallbackSearch(
 
   if (error) {
     console.error('Fallback search error:', error);
-    return {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    const catalogueProducts = localMatches.map((p) => ({
+      id: p.id,
+      name: p.title,
+      slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+      description: p.subtitle || null,
+      price: p.price,
+      compare_at_price: p.originalPrice || null,
+      images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+      category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+      discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+    }));
+
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
+      products: catalogueProducts,
+      totalCount: catalogueProducts.length,
+      totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+      currentPage: page,
+      query,
+      suggestions: [],
+      took: Date.now() - startTime,
+      vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+    };
+    /* original return */
+    if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
+  return {
       products: [],
       totalCount: 0,
       totalPages: 0,
@@ -488,6 +864,44 @@ async function fallbackSearch(
 
   const totalCount = count || 0;
   const totalPages = Math.ceil(totalCount / pageSize);
+
+  if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
 
   return {
     products: formattedProducts,
@@ -517,6 +931,44 @@ export async function generateProductEmbeddings(
   // This would typically call an Edge Function or external API
   // to generate OpenAI embeddings for products
   // For now, return not implemented
+  if (formattedProducts.length === 0) {
+    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+    const q = query.trim().toLowerCase();
+    const localMatches = q
+      ? STORE_CATALOGUE.filter((item) => {
+          const titleLower = item.title.toLowerCase();
+          const catLower = (item.category || '').toLowerCase();
+          const subLower = (item.subtitle || '').toLowerCase();
+          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+        })
+      : [];
+
+    if (localMatches.length > 0) {
+      const catalogueProducts = localMatches.map((p) => ({
+        id: p.id,
+        name: p.title,
+        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+        description: p.subtitle || null,
+        price: p.price,
+        compare_at_price: p.originalPrice || null,
+        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+      }));
+
+      return {
+        products: catalogueProducts,
+        totalCount: catalogueProducts.length,
+        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+        currentPage: page,
+        query,
+        suggestions: [],
+        took: Date.now() - startTime,
+        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+      };
+    }
+  }
+
   return {
     success: false,
     processed: 0,

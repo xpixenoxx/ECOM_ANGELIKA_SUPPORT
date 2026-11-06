@@ -184,7 +184,7 @@ export function ShopTheLook({ look, className = '' }: ShopTheLookProps) {
                           {isSelected ? 'Viewing on Look' : 'Quick Shop'}
                         </button>
                         <Link
-                          href={`/product/${prod.slug}`}
+                          href={prod.slug ? `/product/${prod.slug}` : '/shop'}
                           className="text-xs text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors"
                         >
                           Details &rarr;

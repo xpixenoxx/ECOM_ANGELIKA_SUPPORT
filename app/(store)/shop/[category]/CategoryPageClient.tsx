@@ -21,6 +21,7 @@ import { MagneticCard } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import type { ShopProductCard, ShopFilters } from '@/lib/actions/shop-types';
 import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES } from '@/lib/actions/shop-types';
+import type { KurtisPageContent } from '@/lib/actions/site-content';
 
 interface CategoryPageClientProps {
   category: {
@@ -37,6 +38,7 @@ interface CategoryPageClientProps {
   sortBy: string;
   initialFilters: ShopFilters;
   categorySlug: string;
+  kurtisContent?: KurtisPageContent;
 }
 
 const CATEGORIES_NAVIGATION = [
@@ -57,6 +59,7 @@ export function CategoryPageClient({
   sortBy,
   initialFilters,
   categorySlug,
+  kurtisContent,
 }: CategoryPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -64,9 +67,57 @@ export function CategoryPageClient({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filters, setFilters] = useState<ShopFilters>(initialFilters);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [allProducts, setAllProducts] = useState<ShopProductCard[]>(initialProducts);
   const [localSortBy, setLocalSortBy] = useState(sortBy);
   const [isClientLoaded, setIsClientLoaded] = useState(false);
+
+  // Dynamic Kurtis Page configurations from admin panel
+  const isKurtis = (categorySlug || '').toLowerCase() === 'kurtis';
+  const pageBadge = isKurtis && kurtisContent?.badge ? kurtisContent.badge : 'Handcrafted Luxury Edit';
+  const pageTitle = isKurtis && kurtisContent?.title ? kurtisContent.title : (category.name || 'All Collections');
+  const pageDesc = isKurtis && kurtisContent?.description ? kurtisContent.description : (category.description || 'Discover our curated collection of handcrafted Indian ethnic couture.');
+  const heroBg = isKurtis && kurtisContent?.heroImage ? kurtisContent.heroImage : (category.image_url || '/images/hero-new-couture.jpg');
+  const cardImg = isKurtis && kurtisContent?.cardImage ? kurtisContent.cardImage : (category.image_url || '/images/collection-kurtis.jpg');
+  const cardBadgeText = isKurtis && kurtisContent?.cardBadge ? kurtisContent.cardBadge : 'Curated by Vidhya';
+  const cardSubtitleText = isKurtis && kurtisContent?.cardSubtitle ? kurtisContent.cardSubtitle : `${totalCount} Pieces`;
+  const showPromo = isKurtis && kurtisContent?.showPromoBanner !== false && Boolean(kurtisContent?.promoText);
+  const showCategoryNav = isKurtis ? kurtisContent?.showCategoryStrip !== false : true;
+  const showSidebar = isKurtis ? kurtisContent?.showSidebar !== false : true;
+  const showStyling = isKurtis && kurtisContent?.showStylingGuide !== false;
+  const stylingBadge = isKurtis && kurtisContent?.stylingBadge ? kurtisContent.stylingBadge : 'ATELIER NOTES & STYLING';
+
+  // Convert custom Kurtis products from admin panel into ShopProductCard format
+  const resolvedInitialProducts: ShopProductCard[] = useMemo(() => {
+    if (isKurtis && Array.isArray(kurtisContent?.products) && kurtisContent.products.length > 0 && kurtisContent?.productsMode !== 'database') {
+      return kurtisContent.products.map((p) => ({
+        id: p.id,
+        slug: p.href ? p.href.replace('/product/', '') : p.id,
+        name: p.name,
+        price: p.price,
+        compare_at_price: p.originalPrice ?? null,
+        image: p.image || '/images/collection-kurtis.jpg',
+        images: [{ id: `img-${p.id}`, product_id: p.id, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.name, sort_order: 0, is_primary: true, created_at: '' }] as any,
+        category: { id: 'cat-kurtis', name: p.category || 'Kurtis', slug: 'kurtis', description: null, image_url: null, parent_id: null, sort_order: 1, is_active: true, created_at: '', updated_at: '' },
+        discount: p.discount || (p.originalPrice && p.originalPrice > p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0),
+        is_featured: Boolean(p.isNew),
+        is_vidyas_pick: Boolean(p.isVidhyasPick),
+        created_at: p.isNew ? new Date().toISOString() : '2026-01-01T00:00:00Z',
+        rating: p.rating || 4.8,
+        review_count: p.reviewCount || 12,
+        variants: [
+          { id: `var-${p.id}-s`, size: 'S', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 5 : 0 },
+          { id: `var-${p.id}-m`, size: 'M', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 8 : 0 },
+          { id: `var-${p.id}-l`, size: 'L', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 4 : 0 },
+        ],
+        defaultVariantId: `var-${p.id}-m`,
+        fabric: p.fabric || 'Cotton',
+        tags: [p.fabric || 'Cotton', p.isVidhyasPick ? "Vidhya's Pick" : '', p.isNew ? 'New' : ''].filter(Boolean),
+        occasion: ['Festive', 'Casual'],
+      } as ShopProductCard));
+    }
+    return initialProducts;
+  }, [isKurtis, kurtisContent?.products, kurtisContent?.productsMode, initialProducts]);
+
+  const [allProducts, setAllProducts] = useState<ShopProductCard[]>(resolvedInitialProducts);
 
   const handleAddToBag = async (product: any) => {
     try {
@@ -80,8 +131,8 @@ export function CategoryPageClient({
   useEffect(() => {
     setIsClientLoaded(true);
     setFilters(initialFilters);
-    setAllProducts(initialProducts);
-  }, [initialFilters, initialProducts]);
+    setAllProducts(resolvedInitialProducts);
+  }, [initialFilters, resolvedInitialProducts]);
 
   // Real-time instant filtering across the loaded catalog
   const filteredProducts = useMemo(() => {
@@ -326,7 +377,7 @@ export function CategoryPageClient({
         {/* Subtle background ambient image */}
         <div className="absolute inset-0 opacity-20 mix-blend-overlay">
           <img
-            src={category.image_url || '/images/hero-new-couture.jpg'}
+            src={heroBg}
             alt=""
             className="w-full h-full object-cover"
           />
@@ -341,18 +392,18 @@ export function CategoryPageClient({
                 <span aria-hidden="true">/</span>
                 <Link href="/shop" className="hover:text-[var(--color-gold)] transition-colors">Shop</Link>
                 <span aria-hidden="true">/</span>
-                <span className="text-[var(--color-gold)] font-medium capitalize">{category.name || 'All Collections'}</span>
+                <span className="text-[var(--color-gold)] font-medium capitalize">{pageTitle}</span>
               </nav>
 
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-gold)]/20 border border-[var(--color-gold)]/40 text-[var(--color-gold)] text-xs uppercase tracking-widest font-semibold mb-3">
-                <span>Handcrafted Luxury Edit</span>
+                <span>{pageBadge}</span>
               </div>
 
               <h1 className="text-[var(--font-display)] text-4xl md:text-5xl lg:text-6xl font-normal text-white mb-3 capitalize">
-                {category.name || 'All Collections'}
+                {pageTitle}
               </h1>
               <p className="text-white/80 text-base md:text-lg max-w-xl font-light leading-relaxed">
-                {category.description || 'Discover our curated collection of handcrafted Indian ethnic couture.'}
+                {pageDesc}
               </p>
             </ScrollRevealAnim>
 
@@ -361,14 +412,14 @@ export function CategoryPageClient({
               <div className="relative rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-gold)]/40 shadow-2xl bg-black/40 backdrop-blur-sm group">
                 <div className="aspect-[4/3] overflow-hidden">
                   <img
-                    src={category.image_url || '/images/collection-kurtis.jpg'}
-                    alt={category.name}
+                    src={cardImg}
+                    alt={pageTitle}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 </div>
                 <div className="p-3 bg-black/80 backdrop-blur-md flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-wider text-[var(--color-gold)] font-medium">Curated by Vidhya</span>
-                  <span className="text-xs text-white/70">{totalCount} Pieces</span>
+                  <span className="text-xs uppercase tracking-wider text-[var(--color-gold)] font-medium">{cardBadgeText}</span>
+                  <span className="text-xs text-white/70">{cardSubtitleText}</span>
                 </div>
               </div>
             </ScrollRevealAnim>
@@ -376,77 +427,110 @@ export function CategoryPageClient({
         </div>
       </section>
 
-      {/* Visual Category Quick-Browse Strip */}
-      <section className="bg-[var(--color-snow)] border-b border-[var(--color-whisper)] py-4 overflow-x-auto no-scrollbar">
-        <div className="container-custom px-6">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-max">
-            <span className="text-xs uppercase tracking-wider text-[var(--color-slate)] font-semibold mr-2 hidden sm:inline">
-              Collections:
-            </span>
-            {CATEGORIES_NAVIGATION.map((cat) => {
-              const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
-              return (
-                <Link
-                  key={cat.name}
-                  href={cat.href}
-                  className={cn(
-                    "flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border transition-all text-xs font-medium uppercase tracking-wider",
-                    isActive
-                      ? "bg-[var(--color-ink)] text-white border-[var(--color-gold)] shadow-md"
-                      : "bg-white text-[var(--color-slate)] border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:text-[var(--color-ink)]"
-                  )}
-                >
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="w-6 h-6 rounded-full object-cover border border-[var(--color-gold)]/40"
-                  />
-                  <span>{cat.name}</span>
-                </Link>
-              );
-            })}
+      {/* Promotional Announcement Banner */}
+      {showPromo && (
+        <section className="bg-gradient-to-r from-[var(--color-ink)] via-[#2b241c] to-[var(--color-ink)] text-white border-b border-[var(--color-gold)]/40 py-3 px-6 shadow-md">
+          <div className="container-custom flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {kurtisContent?.promoBadge && (
+                <span className="px-2.5 py-0.5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold uppercase tracking-wider">
+                  {kurtisContent.promoBadge}
+                </span>
+              )}
+              <p className="text-xs sm:text-sm text-white/95 font-medium">
+                {kurtisContent?.promoText}
+              </p>
+            </div>
+            {kurtisContent?.promoCtaText && (
+              <Link
+                href={kurtisContent.promoCtaLink || '/shop/kurtis'}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-gold)] hover:text-white uppercase tracking-wider transition-colors shrink-0"
+              >
+                <span>{kurtisContent.promoCtaText}</span>
+                <span>→</span>
+              </Link>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Visual Category Quick-Browse Strip */}
+      {showCategoryNav && (
+        <section className="bg-[var(--color-snow)] border-b border-[var(--color-whisper)] py-4 overflow-x-auto no-scrollbar">
+          <div className="container-custom px-6">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-max">
+              <span className="text-xs uppercase tracking-wider text-[var(--color-slate)] font-semibold mr-2 hidden sm:inline">
+                Collections:
+              </span>
+              {CATEGORIES_NAVIGATION.map((cat) => {
+                const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
+                return (
+                  <Link
+                    key={cat.name}
+                    href={cat.href}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border transition-all text-xs font-medium uppercase tracking-wider",
+                      isActive
+                        ? "bg-[var(--color-ink)] text-white border-[var(--color-gold)] shadow-md"
+                        : "bg-white text-[var(--color-slate)] border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:text-[var(--color-ink)]"
+                    )}
+                  >
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="w-6 h-6 rounded-full object-cover border border-[var(--color-gold)]/40"
+                    />
+                    <span>{cat.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Main Content */}
       <section className="py-10">
         <div className="container-custom px-6">
           <div className="flex flex-col lg:flex-row gap-8">
             {/* Mobile Filter Button */}
-            <MagneticButton variant="outline" className="lg:hidden w-full justify-between" strength={0.3} onClick={() => setSidebarOpen(true)}>
-              <span className="flex items-center gap-2">
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <line x1="4" y1="6" x2="20" y2="6" />
-                  <line x1="4" y1="12" x2="20" y2="12" />
-                  <line x1="4" y1="18" x2="20" y2="18" />
-                </svg>
-                Filters
-              </span>
-              {activeFilterCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold flex items-center justify-center">
-                  {activeFilterCount}
+            {showSidebar && (
+              <MagneticButton variant="outline" className="lg:hidden w-full justify-between" strength={0.3} onClick={() => setSidebarOpen(true)}>
+                <span className="flex items-center gap-2">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <line x1="4" y1="6" x2="20" y2="6" />
+                    <line x1="4" y1="12" x2="20" y2="12" />
+                    <line x1="4" y1="18" x2="20" y2="18" />
+                  </svg>
+                  Filters
                 </span>
-              )}
-            </MagneticButton>
+                {activeFilterCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </MagneticButton>
+            )}
 
             {/* Desktop Sidebar */}
-            <ScrollRevealAnim variant="fadeUp" delay={0.2} className="lg:block hidden w-full lg:w-64 flex-shrink-0">
-              <div className="bg-[var(--color-snow)]/70 rounded-[var(--radius-lg)] p-5 border border-[var(--color-whisper)] sticky top-28 shadow-sm">
-                <CategoryFilterFields
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  activeFilterCount={activeFilterCount}
-                  onClearFilters={handleClearFilters}
-                  categorySlug={categorySlug}
-                  categoryName={category.name}
-                  categoryCounts={categoryCounts}
-                  fabricCounts={fabricCounts}
-                  inStockCount={inStockCount}
-                  vidhyasCount={vidhyasCount}
-                />
-              </div>
-            </ScrollRevealAnim>
+            {showSidebar && (
+              <ScrollRevealAnim variant="fadeUp" delay={0.2} className="lg:block hidden w-full lg:w-64 flex-shrink-0">
+                <div className="bg-[var(--color-snow)]/70 rounded-[var(--radius-lg)] p-5 border border-[var(--color-whisper)] sticky top-28 shadow-sm">
+                  <CategoryFilterFields
+                    filters={filters}
+                    onFilterChange={handleFilterChange}
+                    activeFilterCount={activeFilterCount}
+                    onClearFilters={handleClearFilters}
+                    categorySlug={categorySlug}
+                    categoryName={category.name}
+                    categoryCounts={categoryCounts}
+                    fabricCounts={fabricCounts}
+                    inStockCount={inStockCount}
+                    vidhyasCount={vidhyasCount}
+                  />
+                </div>
+              </ScrollRevealAnim>
+            )}
 
             {/* Mobile Sidebar Drawer */}
             <Drawer
@@ -646,6 +730,45 @@ export function CategoryPageClient({
           </div>
         </div>
       </section>
+
+      {/* Vidhya's Styling Guide & Story (Kurtis Editorial Section) */}
+      {showStyling && (
+        <section className="bg-[var(--color-snow)]/80 border-t border-[var(--color-whisper)] py-14 md:py-20">
+          <div className="container-custom px-6">
+            <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+              <div className="lg:col-span-5 relative aspect-[4/3] rounded-[var(--radius-xl)] overflow-hidden border border-[var(--color-whisper)] shadow-lg bg-black/10">
+                <img
+                  src={kurtisContent?.stylingImage || '/images/vidhya-story.jpg'}
+                  alt={kurtisContent?.stylingTitle || "Vidhya's Styling Guide"}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute -bottom-6 -right-6 w-36 h-36 rounded-full bg-[var(--color-gold)]/10 blur-2xl" aria-hidden="true" />
+              </div>
+              <div className="lg:col-span-7 space-y-4">
+                <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold)]/15 text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider">
+                  {stylingBadge}
+                </span>
+                <h2 className="text-[var(--font-display)] text-2xl md:text-3xl font-medium text-[var(--color-ink)]">
+                  {kurtisContent?.stylingTitle || "Vidhya's Styling Guide for Kurtis"}
+                </h2>
+                <p className="text-[var(--color-slate)] text-sm md:text-base leading-relaxed">
+                  {kurtisContent?.stylingNote || "Our kurtis are cut from pure breathable Chanderi, Mulmul and Tussar silk. For a contemporary festive look, pair straight-cut kurtis with cigarette pants, or flared anarkalis with statement jhumkas."}
+                </p>
+                {Array.isArray(kurtisContent?.highlights) && kurtisContent.highlights.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3">
+                    {kurtisContent.highlights.map((h, i) => (
+                      <div key={i} className="p-3.5 bg-white rounded-xl border border-[var(--color-whisper)] shadow-sm space-y-1">
+                        <h4 className="text-xs font-bold text-[var(--color-ink)]">{h.title}</h4>
+                        <p className="text-xs text-[var(--color-slate)] leading-snug">{h.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -997,7 +1120,7 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
                     discount={product.discount}
                     rating={product.rating || 4.8}
                     reviewCount={product.reviewCount || 12}
-                    href={`/product/${product.slug}`}
+                    href={product.slug ? `/product/${product.slug}` : '/shop'}
                     onAddToBag={() => onAddToBag(product)}
                   />
                 </div>
