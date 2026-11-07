@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
 export interface DashboardData {
@@ -36,7 +37,7 @@ export interface DashboardData {
 }
 
 export async function getDashboardData(): Promise<DashboardData> {
-  const supabase = createClient();
+  const supabase = supabaseAdmin;
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
@@ -75,9 +76,9 @@ export async function getDashboardData(): Promise<DashboardData> {
   const revenueByDay: Array<{ date: string; revenue: number }> = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = d.toISOString().split('T')[0] || '';
     const dayRevenue = orders
-      .filter(o => o.created_at.startsWith(dateStr))
+      .filter(o => o.created_at && o.created_at.startsWith(dateStr))
       .reduce((sum, o) => sum + Number(o.total_amount), 0);
     revenueByDay.push({ date: dateStr, revenue: dayRevenue });
   }
@@ -129,41 +130,145 @@ export interface Coupon {
 }
 
 export async function getCoupons(): Promise<Coupon[]> {
-  const supabase = createClient();
-  const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
-  return data || [];
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('coupons')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('getCoupons error:', error);
+      return [];
+    }
+    return (data as Coupon[]) || [];
+  } catch (err) {
+    console.error('getCoupons error:', err);
+    return [];
+  }
 }
 
 export async function createCoupon(data: Omit<Coupon, 'id' | 'usage_count' | 'created_at'>): Promise<{ success: boolean; error?: string; data?: Coupon }> {
-  const supabase = createClient();
-  const { data: created, error } = await supabase.from('coupons').insert({ ...data, usage_count: 0 }).select().single();
-  if (error) return { success: false, error: error.message };
-  revalidatePath('/admin/products/coupons');
-  return { success: true, data: created };
+  try {
+    const code = (data.code || '').trim().toUpperCase();
+    if (!code) {
+      return { success: false, error: 'Coupon code is required' };
+    }
+
+    // Check if code already exists
+    const { data: existing, error: checkErr } = await supabaseAdmin
+      .from('coupons')
+      .select('id')
+      .eq('code', code)
+      .maybeSingle();
+
+    if (checkErr) {
+      console.warn('Check coupon existence error:', checkErr);
+    }
+
+    if (existing) {
+      return { success: false, error: `Coupon code "${code}" already exists` };
+    }
+
+    const { data: created, error } = await supabaseAdmin
+      .from('coupons')
+      .insert({
+        ...data,
+        code,
+        usage_count: 0,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('createCoupon error:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/products/coupons');
+    return { success: true, data: created as Coupon };
+  } catch (err: any) {
+    console.error('createCoupon unexpected error:', err);
+    return { success: false, error: err?.message || 'Failed to create coupon' };
+  }
 }
 
-export async function updateCoupon(id: string, updates: Partial<Coupon>): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient();
-  const { error } = await supabase.from('coupons').update(updates).eq('id', id);
-  if (error) return { success: false, error: error.message };
-  revalidatePath('/admin/products/coupons');
-  return { success: true };
+export async function updateCoupon(id: string, updates: Partial<Coupon>): Promise<{ success: boolean; error?: string; data?: Coupon }> {
+  try {
+    if (updates.code) {
+      const code = updates.code.trim().toUpperCase();
+      updates.code = code;
+
+      // Check if code conflicts with another coupon
+      const { data: existing } = await supabaseAdmin
+        .from('coupons')
+        .select('id')
+        .eq('code', code)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (existing) {
+        return { success: false, error: `Coupon code "${code}" already exists` };
+      }
+    }
+
+    const { data: updated, error } = await supabaseAdmin
+      .from('coupons')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('updateCoupon error:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/products/coupons');
+    return { success: true, data: updated as Coupon };
+  } catch (err: any) {
+    console.error('updateCoupon unexpected error:', err);
+    return { success: false, error: err?.message || 'Failed to update coupon' };
+  }
 }
 
 export async function deleteCoupon(id: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient();
-  const { error } = await supabase.from('coupons').delete().eq('id', id);
-  if (error) return { success: false, error: error.message };
-  revalidatePath('/admin/products/coupons');
-  return { success: true };
+  try {
+    const { error } = await supabaseAdmin
+      .from('coupons')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('deleteCoupon error:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/products/coupons');
+    return { success: true };
+  } catch (err: any) {
+    console.error('deleteCoupon unexpected error:', err);
+    return { success: false, error: err?.message || 'Failed to delete coupon' };
+  }
 }
 
 export async function toggleCouponActive(id: string, is_active: boolean): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient();
-  const { error } = await supabase.from('coupons').update({ is_active }).eq('id', id);
-  if (error) return { success: false, error: error.message };
-  revalidatePath('/admin/products/coupons');
-  return { success: true };
+  try {
+    const { error } = await supabaseAdmin
+      .from('coupons')
+      .update({ is_active })
+      .eq('id', id);
+
+    if (error) {
+      console.error('toggleCouponActive error:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/products/coupons');
+    return { success: true };
+  } catch (err: any) {
+    console.error('toggleCouponActive unexpected error:', err);
+    return { success: false, error: err?.message || 'Failed to toggle coupon status' };
+  }
 }
 
 // Keep old functions for backward compat

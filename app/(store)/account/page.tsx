@@ -17,6 +17,7 @@ import { MagneticButton } from '@/components/animations/MagneticButton';
 import { Counter } from '@/components/animations/MicroInteractions';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useWishlist } from '@/lib/hooks/useWishlist';
+import { getCustomerOrders } from '@/lib/actions/customer-orders';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/Toast';
 
@@ -80,30 +81,37 @@ export default function AccountPage() {
     }
   }, [profile, user]);
 
-  // Fetch real orders from Supabase for this logged-in user
+  // Fetch real orders from database for this logged-in user
   useEffect(() => {
     async function fetchOrders() {
-      if (!user?.id) {
+      if (!user?.id && !user?.email) {
         setOrders([]);
         setOrdersLoading(false);
         return;
       }
 
       try {
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase
-          .from('orders')
-          .select('id, order_number, status, total_amount, created_at')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
+        const res = await getCustomerOrders({
+          userId: user?.id,
+          userEmail: user?.email,
+        });
 
-        if (error) {
-          console.warn('Orders fetch note:', error.message);
+        if (res.success && res.orders) {
+          setOrders(
+            res.orders.map((o) => ({
+              id: o.id,
+              order_number: o.order_number,
+              created_at: o.created_at,
+              status: o.status,
+              total_amount: o.total_amount,
+              items_count: o.items_count,
+            }))
+          );
+        } else {
           setOrders([]);
-        } else if (data) {
-          setOrders(data as RealOrder[]);
         }
       } catch (err) {
+        console.warn('Orders fetch note:', err);
         setOrders([]);
       } finally {
         setOrdersLoading(false);
@@ -111,7 +119,7 @@ export default function AccountPage() {
     }
 
     fetchOrders();
-  }, [user?.id]);
+  }, [user?.id, user?.email]);
 
   // Handle Profile Update
   const handleProfileSave = async (e: React.FormEvent) => {

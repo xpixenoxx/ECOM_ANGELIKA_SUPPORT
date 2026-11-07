@@ -1207,7 +1207,7 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
             items={products}
             renderItem={(product, index) => (
               <StaggerItem variant="scale" style={{ transitionDelay: `${index * 0.05}s` }}>
-                <MagneticCard strength={0.08} className="group">
+                <div className="group">
                   <ProductCard
                     {...product}
                     image={product.image || product.images?.[0]?.url || '/images/collection-kurtis.jpg'}
@@ -1224,12 +1224,12 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
                     href={product.slug ? `/product/${product.slug}` : '/shop'}
                     onAddToBag={() => onAddToBag(product)}
                   />
-                </MagneticCard>
+                </div>
               </StaggerItem>
             )}
             columns={4}
             gap={6}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center"
           />
         ) : (
           <StaggerContainer key="list" variant="default" className="space-y-4">

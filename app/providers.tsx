@@ -24,7 +24,7 @@ export function Providers({ children }: { children: ReactNode }) {
                     duration: 3500,
                     style: {
                       background: '#1A1A1A',
-                      color: '#FFFFFF',
+                      color: '#F3EEE8',
                       border: '1px solid #C9A84C',
                       padding: '12px 18px',
                       borderRadius: '8px',

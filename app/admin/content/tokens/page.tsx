@@ -80,7 +80,7 @@ const mockTokens: MockTokens = {
       { name: '--color-mist', value: '#737373', darkValue: '#A3A3A3', description: 'Placeholder/disabled text' },
       { name: '--color-whisper', value: '#E5E5E5', darkValue: '#2A2A2A', description: 'Borders, dividers' },
       { name: '--color-snow', value: '#FAFAFA', darkValue: '#1A1A1A', description: 'Subtle backgrounds' },
-      { name: '--color-white', value: '#FFFFFF', darkValue: '#0D0D0D', description: 'Pure white backgrounds' },
+      { name: '--color-white', value: '#F3EEE8', darkValue: '#0D0D0D', description: 'Pure white backgrounds' },
     ],
     brand: [
       { name: '--color-gold', value: '#C9A84C', darkValue: '#D4B85C', description: 'Primary brand color' },
@@ -519,16 +519,16 @@ export default function AdminDesignTokensPage() {
                             {editingToken?.name === token.name ? (
                               <>
                                 <Button variant="primary" size="sm" className="p-1.5 h-8" onClick={handleSaveEdit} aria-label="Save">
-                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5"/></svg>
+                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
                                 </Button>
                                 <Button variant="ghost" size="sm" className="p-1.5 h-8" onClick={() => setEditingToken(null)} aria-label="Cancel">
-                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                 </Button>
                               </>
                             ) : (
                               <>
                                 <Button variant="ghost" size="sm" className="p-1.5" onClick={() => handleEditToken(token)} aria-label={`Edit ${token.name}`}>
-                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                 </Button>
                                 <Button variant="ghost" size="sm" className="p-1.5" onClick={() => { navigator.clipboard.writeText(token.name); }} aria-label={`Copy ${token.name}`}>
                                   <Copy className="h-4 w-4" />
@@ -562,7 +562,7 @@ export default function AdminDesignTokensPage() {
                         {editingToken.name ? `Edit ${editingToken.name}` : 'Add New Token'}
                       </h3>
                       <button onClick={() => setEditingToken(null)} className="p-1 text-[var(--color-slate)] hover:text-[var(--color-ink)]" aria-label="Close">
-                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                       </button>
                     </div>
                     <div className="space-y-4">
@@ -577,7 +577,7 @@ export default function AdminDesignTokensPage() {
                           <label className="input-label">Token Name *</label>
                           <Input
                             value={editingToken.name}
-                            onChange={e => setEditingToken({...editingToken!, name: e.target.value})}
+                            onChange={e => setEditingToken({ ...editingToken!, name: e.target.value })}
                             placeholder="--color-custom"
                           />
                         </div>

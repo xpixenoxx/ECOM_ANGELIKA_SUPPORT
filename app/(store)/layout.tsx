@@ -1,6 +1,5 @@
 import { Header } from '@/components/composite/Header';
 import { Footer } from '@/components/composite/Footer';
-import { WhatsAppFloatButton } from '@/components/composite/WhatsAppFloatButton';
 import { AnnouncementBar } from '@/components/composite/AnnouncementBar';
 import { getStoreSettings, getNavbarItems } from '@/lib/actions/store-settings';
 import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
@@ -49,7 +48,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         text={settings?.announcement_bar_text}
         link={settings?.announcement_bar_link}
         bgColor={settings?.announcement_bar_bg_color || '#C9A84C'}
-        textColor={settings?.announcement_bar_text_color || '#ffffff'}
+        textColor={settings?.announcement_bar_text_color || '#F3EEE8'}
       />
       <Header
         navigation={navigation}
@@ -70,11 +69,6 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         socialFacebook={settings?.social_facebook || undefined}
         socialWhatsapp={settings?.social_whatsapp || undefined}
         socialYoutube={settings?.social_youtube || undefined}
-      />
-      <WhatsAppFloatButton
-        phoneNumber={whatsappNumber}
-        conciergeTitle={heroData?.conciergeTitle || "Vidhya's Concierge"}
-        conciergeSubtitle={heroData?.conciergeSubtitle || "Bespoke Styling Chat"}
       />
     </div>
   );

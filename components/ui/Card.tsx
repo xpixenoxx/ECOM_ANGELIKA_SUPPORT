@@ -1,7 +1,8 @@
 'use client';
 
-import { forwardRef, HTMLAttributes, ReactNode } from 'react';
+import { useState, forwardRef, HTMLAttributes, ReactNode } from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
+import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
@@ -45,19 +46,14 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
 
     const motionProps = {
       className: cn(
-        'rounded-[var(--radius-lg)] transition-all duration-300 ease-[var(--ease-standard)]',
+        'rounded-[var(--radius-lg)]',
         variantStyles[variant],
         paddingStyles[padding],
         isInteractive && 'cursor-pointer',
         className
       ),
-      whileHover: isInteractive && !['default', 'outlined', 'editorial'].includes(variant) ? {
-        y: -4,
-        boxShadow: 'var(--shadow-elevated)',
-        borderColor: 'var(--color-gold)',
-        transition: { duration: 0.3, ease: 'easeOut' }
-      } : undefined,
-      whileTap: isInteractive ? { scale: 0.98 } : undefined,
+      whileHover: undefined,
+      whileTap: undefined,
     };
 
     const motionComponentMap = {
@@ -151,7 +147,7 @@ export interface ProductCardProps {
   name: string;
   price: number;
   originalPrice?: number;
-  category: string;
+  category?: string;
   colors?: string[];
   sizes?: string[];
   isNew?: boolean;
@@ -160,12 +156,13 @@ export interface ProductCardProps {
   rating?: number;
   reviewCount?: number;
   onQuickView?: () => void;
-  onAddToBag?: () => void;
+  onAddToBag?: () => void | Promise<void>;
   onAddToWishlist?: () => void;
   href?: string;
   badge?: 'new' | 'sale' | 'limited' | 'exclusive';
   discount?: number;
   isWishlisted?: boolean;
+  className?: string;
 }
 
 export function ProductCard({
@@ -179,7 +176,7 @@ export function ProductCard({
   isNew,
   isSale,
   isVidhyasPick,
-  rating,
+  rating = 5.0,
   reviewCount,
   onQuickView,
   onAddToBag,
@@ -188,14 +185,30 @@ export function ProductCard({
   badge,
   discount,
   isWishlisted,
+  className = '',
 }: ProductCardProps) {
+  const [isAdding, setIsAdding] = useState(false);
+  const [isAdded, setIsAdded] = useState(false);
+
   const calculatedDiscount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : discount;
   const isValidHref = Boolean(href && !href.includes('/undefined') && href !== '#');
 
-  const handleAddToBag = (e: React.MouseEvent) => {
+  const handleAddToBag = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    onAddToBag?.();
+    if (isAdding) return;
+    setIsAdding(true);
+    try {
+      if (onAddToBag) {
+        await onAddToBag();
+      }
+      setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 2000);
+    } catch (err) {
+      console.error('Failed to add to bag:', err);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const handleQuickView = (e: React.MouseEvent) => {
@@ -214,153 +227,144 @@ export function ProductCard({
     onAddToWishlist?.();
   };
 
-  const cardContent = (
-    <Card variant="product" padding="none" hoverable className="group relative">
-      <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-whisper)]">
-        <motion.img
-          src={image}
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-700 ease-[var(--ease-slow)] group-hover:scale-105"
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          style={{ contentVisibility: 'auto' }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+  const badgeText = badge
+    ? badge.toUpperCase()
+    : isNew || isVidhyasPick
+    ? 'NEW ARRIVAL'
+    : isSale && calculatedDiscount
+    ? `SALE ${calculatedDiscount}%`
+    : 'NEW ARRIVAL';
 
-        <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-          {(isNew || isSale || isVidhyasPick || badge) && (
-            <div className="flex flex-col gap-1.5">
-              {isNew && (
-                <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-sm)]">
-                  New
-                </span>
-              )}
-              {isSale && calculatedDiscount && (
-                <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-error)] text-white rounded-[var(--radius-sm)]">
-                  -{calculatedDiscount}%
-                </span>
-              )}
-              {isVidhyasPick && (
-                <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-ink)] text-[var(--color-gold)] rounded-[var(--radius-sm)]">
-                  Vidhya's Pick
-                </span>
-              )}
-              {badge === 'limited' && (
-                <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-warning)] text-white rounded-[var(--radius-sm)]">
-                  Limited
-                </span>
-              )}
-              {badge === 'exclusive' && (
-                <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-saree)] text-white rounded-[var(--radius-sm)]">
-                  Exclusive
-                </span>
-              )}
-            </div>
-          )}
-          <motion.button
-            className={cn(
-              "p-2 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 hover:shadow-[var(--shadow-md)]",
-              isWishlisted
-                ? "bg-[var(--color-ink)] text-[var(--color-error)] opacity-100"
-                : "bg-white/90 text-[var(--color-ink)] hover:bg-white"
-            )}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
+  const cardContent = (
+    <div className={cn("group relative flex flex-col w-[320px] max-w-full mx-auto bg-white", className)}>
+      {/* ── 1. Image Viewport with Inset Badges (Explicit 320x400, No Zoom on Hover) ── */}
+      <div 
+        style={{ width: '320px', height: '400px' }}
+        className="relative w-[320px] h-[400px] max-w-full overflow-hidden bg-[#F7F5F0] mx-auto shrink-0"
+      >
+        {isValidHref && href ? (
+          <Link href={href} className="block w-full h-full cursor-pointer" aria-label={`View ${name}`}>
+            <img
+              src={image}
+              alt={name}
+              width={320}
+              height={400}
+              className="w-[320px] h-[400px] max-w-full object-cover object-top"
+              sizes="320px"
+              style={{ width: '320px', height: '400px', contentVisibility: 'auto' }}
+            />
+          </Link>
+        ) : (
+          <img
+            src={image}
+            alt={name}
+            width={320}
+            height={400}
+            className="w-[320px] h-[400px] max-w-full object-cover object-top"
+            sizes="320px"
+            style={{ width: '320px', height: '400px', contentVisibility: 'auto' }}
+          />
+        )}
+
+        {/* Floating Wishlist Button */}
+        {isWishlisted && (
+          <button
+            type="button"
             onClick={handleWishlist}
-            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white text-[#A84557] shadow-xs z-10 cursor-pointer"
+            aria-label="Remove from wishlist"
           >
             <svg
-              className={cn("h-5 w-5", isWishlisted && "fill-current text-[var(--color-error)]")}
+              className="h-4 w-4 fill-current text-[#A84557]"
               viewBox="0 0 24 24"
-              fill={isWishlisted ? "currentColor" : "none"}
+              fill="currentColor"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.8"
               aria-hidden="true"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
-          </motion.button>
-        </div>
-
-        <motion.div
-          className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <motion.button
-            className="flex-1 px-3 py-2 text-sm font-semibold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-gold-hover)] shadow-[var(--shadow-gold)]"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleQuickView}
-          >
-            Quick View
-          </motion.button>
-        </motion.div>
-      </div>
-
-      <div className="p-4 space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium uppercase tracking-wider text-[var(--color-gold)]">
-            {category}
-          </span>
-          {rating && (
-            <div className="flex items-center gap-1 text-sm text-[var(--color-slate)]">
-              <svg className="h-4 w-4 text-[var(--color-gold)] fill-current" viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-              <span>{rating}</span>
-              {reviewCount && <span className="text-xs">({reviewCount})</span>}
-            </div>
-          )}
-        </div>
-
-        <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)] line-clamp-2 group-hover:text-[var(--color-gold)] transition-colors duration-200">
-          {name}
-        </h3>
-
-        <div className="flex items-baseline gap-2">
-          <span className="text-xl font-bold text-[var(--color-ink)] tabular-nums">₹{price.toLocaleString()}</span>
-          {originalPrice && (
-            <span className="text-base text-[var(--color-mist)] line-through tabular-nums">₹{originalPrice.toLocaleString()}</span>
-          )}
-        </div>
-
-        {(colors && colors.length > 0) && (
-          <div className="flex items-center gap-1.5" role="group" aria-label="Available colors">
-            {colors.slice(0, 5).map((color, i) => (
-              <span
-                key={color}
-                className="w-5 h-5 rounded-full border border-[var(--color-whisper)] transition-transform duration-200 hover:scale-125"
-                style={{ backgroundColor: color }}
-                aria-hidden="true"
-              />
-            ))}
-            {colors.length > 5 && (
-              <span className="w-5 h-5 rounded-full border border-[var(--color-whisper)] flex items-center justify-center text-xs text-[var(--color-slate)]">
-                +{colors.length - 5}
-              </span>
-            )}
-          </div>
+          </button>
         )}
 
-        <motion.button
-          className="w-full px-4 py-2.5 text-sm font-semibold uppercase tracking-wider bg-[var(--color-ink)] text-[var(--color-gold)] rounded-[var(--radius-md)] border border-[var(--color-gold)] hover:bg-[var(--color-charcoal)] transition-all duration-200"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleAddToBag}
-        >
-          Add to Bag
-        </motion.button>
+        {/* Bottom-Left Badge: NEW ARRIVAL (Wine-Red #A84557) */}
+        <div className="absolute bottom-0 left-0 bg-[#A84557] text-white px-2.5 py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider z-10 pointer-events-none">
+          {badgeText}
+        </div>
       </div>
-    </Card>
-  );
 
-  if (isValidHref && href) {
-    return (
-      <a href={href} className="block" aria-label={`View ${name}`}>
-        {cardContent}
-      </a>
-    );
-  }
+      {/* ── 2. Attached Action Bar: ADD TO CART + (320px × 33.8px, padding: 10px 0px, font: 13px) ── */}
+      <button
+        type="button"
+        onClick={handleAddToBag}
+        disabled={isAdding}
+        style={{
+          width: '320px',
+          height: '33.8px',
+          padding: '10px 0px',
+          fontSize: '13px',
+          lineHeight: '13.8px',
+          boxSizing: 'border-box',
+        }}
+        className={cn(
+          "btn-add-to-cart group/btn relative w-[320px] max-w-full h-[33.8px] py-[10px] px-0 text-[13px] font-bold uppercase tracking-[0.18em] flex items-center justify-center gap-1.5 focus:outline-hidden shrink-0 mx-auto leading-[13.8px] overflow-hidden cursor-pointer transition-colors duration-200",
+          isAdded
+            ? "bg-emerald-700 text-white"
+            : isAdding
+            ? "bg-[#111111] text-[#FBF4EC] opacity-85"
+            : "bg-[#FBF4EC] text-[#111111]"
+        )}
+      >
+        {isAdded ? (
+          <span className="relative z-10 leading-none text-[12px] flex items-center gap-1 text-white">
+            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            ADDED TO BAG
+          </span>
+        ) : isAdding ? (
+          <span className="relative z-10 leading-none text-[12px] flex items-center gap-1.5 text-[var(--color-gold)]">
+            <span className="w-3 h-3 border-2 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin" />
+            ADDING...
+          </span>
+        ) : (
+          <>
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 bg-white transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-350 ease-[cubic-bezier(0.25,1,0.5,1)] pointer-events-none z-[1]"
+            />
+            <span className="relative z-10 leading-none text-[13px]">ADD TO CART</span>
+            <span className="relative z-10 leading-none text-[13px] font-normal">+</span>
+          </>
+        )}
+      </button>
+
+      {/* ── 3. Centered Title & Price Section ────────────────────────────── */}
+      <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center">
+        {isValidHref && href ? (
+          <Link href={href} className="block hover:underline" aria-label={`View ${name}`}>
+            <h3 className="text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#111111] line-clamp-1">
+              {name}
+            </h3>
+          </Link>
+        ) : (
+          <h3 className="text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#111111] line-clamp-1">
+            {name}
+          </h3>
+        )}
+        <div className="flex items-center justify-center gap-2 mt-1">
+          <span className="text-[11px] sm:text-[12px] font-bold text-[#111111] tabular-nums">
+            ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          {originalPrice && originalPrice > price && (
+            <span className="text-[10px] sm:text-[11px] text-[#888888] line-through tabular-nums">
+              ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return cardContent;
 }

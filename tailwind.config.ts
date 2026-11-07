@@ -14,6 +14,7 @@ const config: Config = {
         display: ['var(--font-cormorant)', 'Georgia', 'serif'],
         sans: ['var(--font-dm-sans)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-dm-sans-mono)', 'monospace'],
+        poppins: ["'Poppins'", 'sans-serif'],
       },
       colors: {
         ink: 'var(--color-ink)',

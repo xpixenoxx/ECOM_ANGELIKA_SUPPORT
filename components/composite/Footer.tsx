@@ -108,7 +108,7 @@ const defaultColumns: FooterColumn[] = [
 
 function UpiEmblem() {
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <svg className="w-3.5 h-3.5 text-[#0F753A]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 2L2 19.5h20L12 2zm0 4.2l6.5 11.3H5.5L12 6.2z" />
       </svg>
@@ -119,7 +119,7 @@ function UpiEmblem() {
 
 function VisaEmblem() {
   return (
-    <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <span className="text-xs font-serif font-black italic tracking-wide text-[#1A3F8B]">VISA</span>
     </div>
   );
@@ -127,7 +127,7 @@ function VisaEmblem() {
 
 function MastercardEmblem() {
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <span className="flex -space-x-1 items-center" aria-hidden="true">
         <span className="w-2.5 h-2.5 rounded-full bg-[#EB001B] inline-block" />
         <span className="w-2.5 h-2.5 rounded-full bg-[#F79E1B] inline-block" />
@@ -139,7 +139,7 @@ function MastercardEmblem() {
 
 function RuPayEmblem() {
   return (
-    <div className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <span className="text-xs font-bold text-[#097938]">Ru</span>
       <span className="text-xs font-bold text-[#F37021]">Pay</span>
     </div>
@@ -148,7 +148,7 @@ function RuPayEmblem() {
 
 function NetBankingEmblem() {
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <svg className="w-3.5 h-3.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 2L2 7h20L12 2z" />
       </svg>
@@ -159,7 +159,7 @@ function NetBankingEmblem() {
 
 function CodEmblem() {
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <svg className="w-3.5 h-3.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
         <rect x="2" y="6" width="20" height="12" rx="2" />
         <circle cx="12" cy="12" r="2.5" />
@@ -172,7 +172,7 @@ function CodEmblem() {
 
 function AmexEmblem() {
   return (
-    <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#FFFFFF] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <span className="text-xs font-black tracking-wider text-[#006FCF]">AMEX</span>
     </div>
   );
@@ -367,7 +367,7 @@ export function Footer({
       {/* Main Container */}
       <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 xl:gap-14">
-          
+
           {/* =============================================================
               COLUMN 1: BRAND IDENTITY & BESPOKE STYLING DESK
               Spans 5 columns on desktop for balanced breathing room
@@ -422,7 +422,7 @@ export function Footer({
                     {effectiveAtelierBadge}
                   </span>
                 </div>
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--color-slate)] font-medium bg-[#FFFFFF] px-2.5 py-0.5 rounded-full border border-[#EAE4D9]">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--color-slate)] font-medium bg-[#F3EEE8] px-2.5 py-0.5 rounded-full border border-[#EAE4D9]">
                   <span className="w-2 h-2 rounded-full bg-[#16A34A]" />
                   <span>{effectiveAtelierStatus}</span>
                 </span>
@@ -552,8 +552,8 @@ export function Footer({
                                 link.badge === 'New'
                                   ? 'bg-[var(--color-gold-light)]/50 text-[var(--color-gold-hover)] border-[var(--color-gold)]/30'
                                   : link.badge === 'Sale'
-                                  ? 'bg-[#FEE2E2]/60 text-[#B91C1C] border-[#FCA5A5]/40'
-                                  : 'bg-[#F3F4F6] text-[var(--color-slate)] border-[#E5E7EB]'
+                                    ? 'bg-[#FEE2E2]/60 text-[#B91C1C] border-[#FCA5A5]/40'
+                                    : 'bg-[#F3F4F6] text-[var(--color-slate)] border-[#E5E7EB]'
                               )}
                             >
                               {link.badge}

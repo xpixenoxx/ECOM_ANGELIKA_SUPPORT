@@ -34,30 +34,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => getSupabaseClient(), []);
 
   useEffect(() => {
+    let isMounted = true;
+
+    // Safety timeout: ensure loading never hangs past 2 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 2000);
+
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!isMounted) return;
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id).catch(() => {});
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.warn('Initial auth session check notice:', err);
+        if (isMounted) setLoading(false);
+      });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        fetchProfile(session.user.id).catch(() => {});
       } else {
         setProfile(null);
       }
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, [supabase]);
 
   const fetchProfile = async (userId: string) => {

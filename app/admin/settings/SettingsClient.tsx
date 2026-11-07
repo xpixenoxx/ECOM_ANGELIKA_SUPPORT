@@ -28,11 +28,10 @@ function SaveStatus({ status }: { status: 'idle' | 'saving' | 'saved' | 'error' 
         initial={{ opacity: 0, x: 10 }}
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0 }}
-        className={`flex items-center gap-1.5 text-sm font-medium ${
-          status === 'saved' ? 'text-green-600' :
-          status === 'error' ? 'text-red-500' :
-          'text-[var(--color-slate)]'
-        }`}
+        className={`flex items-center gap-1.5 text-sm font-medium ${status === 'saved' ? 'text-green-600' :
+            status === 'error' ? 'text-red-500' :
+              'text-[var(--color-slate)]'
+          }`}
       >
         {status === 'saving' && <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />}
         {status === 'saved' && <Check className="w-4 h-4" />}
@@ -161,11 +160,10 @@ export default function SettingsClient({ initialSettings, initialNavbarItems }: 
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
-              activeTab === tab.id
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id
                 ? 'bg-white text-[var(--color-gold)] shadow-sm border border-[var(--color-whisper)]'
                 : 'text-[var(--color-slate)] hover:text-[var(--color-ink)]'
-            }`}
+              }`}
           >
             {tab.icon}
             {tab.label}
@@ -259,13 +257,11 @@ export default function SettingsClient({ initialSettings, initialNavbarItems }: 
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setSettings(s => s ? { ...s, announcement_bar_enabled: !s.announcement_bar_enabled } : s)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      settings.announcement_bar_enabled ? 'bg-[var(--color-gold)]' : 'bg-gray-200'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settings.announcement_bar_enabled ? 'bg-[var(--color-gold)]' : 'bg-gray-200'
+                      }`}
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                      settings.announcement_bar_enabled ? 'translate-x-6' : 'translate-x-1'
-                    }`} />
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${settings.announcement_bar_enabled ? 'translate-x-6' : 'translate-x-1'
+                      }`} />
                   </button>
                   <span className="text-sm font-medium text-[var(--color-ink)]">
                     {settings.announcement_bar_enabled ? 'Announcement bar is visible' : 'Announcement bar is hidden'}
@@ -329,7 +325,7 @@ export default function SettingsClient({ initialSettings, initialNavbarItems }: 
                       <div>
                         <label className={labelClass}>Text Color</label>
                         <div className="flex gap-2">
-                          {['#ffffff', '#1a1a1a'].map(c => (
+                          {['#F3EEE8', '#1a1a1a'].map(c => (
                             <button
                               key={c}
                               onClick={() => setSettings(s => s ? { ...s, announcement_bar_text_color: c } : s)}
@@ -568,9 +564,8 @@ export default function SettingsClient({ initialSettings, initialNavbarItems }: 
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.04 }}
-                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                      item.is_active ? 'border-[var(--color-whisper)] bg-white' : 'border-dashed border-gray-200 bg-gray-50 opacity-60'
-                    }`}
+                    className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${item.is_active ? 'border-[var(--color-whisper)] bg-white' : 'border-dashed border-gray-200 bg-gray-50 opacity-60'
+                      }`}
                   >
                     <GripVertical className="w-4 h-4 text-gray-300 cursor-grab flex-shrink-0" />
                     <div className="flex-1 grid grid-cols-2 gap-2">

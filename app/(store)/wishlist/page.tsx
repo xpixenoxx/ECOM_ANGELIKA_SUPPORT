@@ -202,7 +202,7 @@ export default function WishlistPage() {
                           src={product.image}
                           alt={product.name}
                           fill
-                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          className="object-cover"
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         />
                         {product.discount > 0 && (
@@ -418,7 +418,7 @@ export default function WishlistPage() {
                         src={product.image}
                         alt={product.name}
                         fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="object-cover"
                         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                       />
                       {product.discount > 0 && (
