@@ -1,0 +1,22 @@
+{
+  "name": "Angelika Fashions",
+  "short_name": "Angelika",
+  "description": "Handcrafted Luxury Ethnic Wear · Curated by Designer Vidhya",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#1C1B1A",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48 32x32 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
