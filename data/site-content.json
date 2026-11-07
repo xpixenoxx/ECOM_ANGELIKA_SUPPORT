@@ -103,44 +103,76 @@
     "subtitle": "Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.",
     "items": [
       {
-        "title": "Kurtis",
-        "subtitle": "Hand-block printed cotton",
-        "image": "/images/collection-kurtis.jpg",
-        "href": "/shop/kurtis",
-        "cta": "Shop Kurtis",
-        "color": "from-[var(--color-kurti)] to-[var(--color-gold-hover)]"
+        "id": "party-wear-dresses",
+        "title": "Party Wear Dresses",
+        "subtitle": "Festive & Evening Ensembles",
+        "image": "/images/category-showcase/showcase-party-wear-dresses.jpg",
+        "href": "/shop?occasion=party",
+        "cta": "Explore Dresses",
+        "row": 1
       },
       {
-        "title": "Salwars",
-        "subtitle": "Elegant palazzo & churidar sets",
-        "image": "/images/collection-salwars.jpg",
-        "href": "/shop/salwars",
-        "cta": "Shop Salwars",
-        "color": "from-[var(--color-salwar)] to-[var(--color-gold-hover)]"
+        "id": "office-wear-3piece",
+        "title": "Office Wear 3-Piece",
+        "subtitle": "Contemporary Formal Sets",
+        "image": "/images/category-showcase/showcase-office-wear-3piece.jpg",
+        "href": "/shop/salwars?occasion=office",
+        "cta": "Shop 3-Piece",
+        "row": 1
       },
       {
+        "id": "coord-sets",
+        "title": "Co-ord Sets",
+        "subtitle": "Modern Matching Ensembles",
+        "image": "/images/category-showcase/showcase-coord-sets.jpg",
+        "href": "/shop/kurtis?type=coord-sets",
+        "cta": "Shop Co-ords",
+        "row": 1
+      },
+      {
+        "id": "lehengas",
         "title": "Lehengas",
-        "subtitle": "Bridal & festive wear",
-        "image": "/images/collection-lehengas.jpg",
+        "subtitle": "Bridal & Royal Celebrations",
+        "image": "/images/category-showcase/showcase-lehengas.jpg",
         "href": "/shop/lehengas",
-        "cta": "Shop Lehengas",
-        "color": "from-[var(--color-lehenga)] to-[var(--color-gold-hover)]"
+        "cta": "Explore Lehengas",
+        "row": 2
       },
       {
-        "title": "Sarees",
-        "subtitle": "Silk, cotton & chiffon drapes",
-        "image": "/images/collection-sarees.jpg",
-        "href": "/shop/sarees",
-        "cta": "Shop Sarees",
-        "color": "from-[var(--color-saree)] to-[var(--color-gold-hover)]"
+        "id": "daily-wear-sarees",
+        "title": "Daily Wear Sarees",
+        "subtitle": "Lightweight Tissue & Cotton",
+        "image": "/images/category-showcase/showcase-daily-wear-sarees.jpg",
+        "href": "/shop/sarees?occasion=casual",
+        "cta": "Shop Daily Sarees",
+        "row": 3
       },
       {
-        "title": "Dupattas",
-        "subtitle": "Embroidered & printed accents",
-        "image": "/images/collection-dupattas.jpg",
-        "href": "/shop/dupattas",
-        "cta": "Shop Dupattas",
-        "color": "from-[var(--color-dupatta)] to-[var(--color-gold-hover)]"
+        "id": "office-wear-sarees",
+        "title": "Office Wear Sarees",
+        "subtitle": "Sophisticated Silk Drapes",
+        "image": "/images/category-showcase/showcase-office-wear-sarees.jpg",
+        "href": "/shop/sarees?occasion=office",
+        "cta": "Shop Office Sarees",
+        "row": 3
+      },
+      {
+        "id": "party-wear-sarees",
+        "title": "Party Wear Sarees",
+        "subtitle": "Pure Kanjivaram & Banarasi",
+        "image": "/images/category-showcase/showcase-party-wear-sarees.jpg",
+        "href": "/shop/sarees?occasion=party",
+        "cta": "Explore Party Sarees",
+        "row": 4
+      },
+      {
+        "id": "womens-frocks",
+        "title": "Women's Frocks",
+        "subtitle": "Flared Anarkalis & Gowns",
+        "image": "/images/category-showcase/showcase-womens-frocks.jpg",
+        "href": "/shop/salwars?type=anarkali",
+        "cta": "Shop Frocks",
+        "row": 5
       }
     ]
   },

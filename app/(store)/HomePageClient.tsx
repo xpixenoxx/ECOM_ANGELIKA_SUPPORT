@@ -262,7 +262,11 @@ export default function HomePageClient({
       </section>
 
       {/* Explore Collections: Editorial Magazine Grid */}
-      <ExploreCollections className="mt-[10px]" style={{ marginTop: '10px' }} />
+      <ExploreCollections
+        categoriesContent={siteContent?.categories}
+        className="mt-[10px]"
+        style={{ marginTop: '10px' }}
+      />
 
       {/* Vidhya's Picks */}
       <section className="section bg-[var(--color-white)]">
