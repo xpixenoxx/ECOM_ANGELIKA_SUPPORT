@@ -502,6 +502,552 @@ export interface BrandStoryContent {
   [key: string]: any;
 }
 
+export interface ShopPageContent {
+  hero: {
+    badge: string;
+    title: string;
+    titleHighlight?: string;
+    description: string;
+    backgroundImage?: string;
+    showFeaturedCard?: boolean;
+    featuredCardImage?: string;
+    featuredCardTag?: string;
+    featuredCardText?: string;
+  };
+  announcement?: {
+    enabled?: boolean;
+    badge?: string;
+    headline?: string;
+    code?: string;
+    link?: string;
+    linkText?: string;
+    text?: string;
+  };
+  navigation: {
+    enabled?: boolean;
+    label?: string;
+    title?: string;
+    items: SalwarsCollectionNavItem[];
+  };
+  sidebar: {
+    title: string;
+    categoryTitle?: string;
+    activeTag?: string;
+    viewAllText?: string;
+    viewAllHref?: string;
+    inStockLabel?: string;
+    vidhyasPicksLabel?: string;
+    showCategories?: boolean;
+    showFabrics?: boolean;
+    showColors?: boolean;
+    showPrices?: boolean;
+    showOccasions?: boolean;
+  };
+  concierge: {
+    enabled?: boolean;
+    badge?: string;
+    title: string;
+    subtitle?: string;
+    description?: string;
+    link?: string;
+    whatsappText?: string;
+    whatsappLink?: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+  productsMode: 'custom' | 'database';
+  products: SalwarProductItem[];
+}
+
+export interface AboutValueItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface AboutMilestoneItem {
+  year: string;
+  title: string;
+  description: string;
+  icon?: string;
+}
+
+export interface AboutTeamMember {
+  name: string;
+  role: string;
+  image: string;
+  bio?: string;
+}
+
+export interface AboutPageContent {
+  hero: {
+    badge: string;
+    title: string;
+    titleHighlight1?: string;
+    titleHighlight2?: string;
+    description: string;
+    backgroundImage: string;
+    primaryCtaText?: string;
+    primaryCtaLink?: string;
+    secondaryCtaText?: string;
+    secondaryCtaLink?: string;
+    scrollText?: string;
+  };
+  founderNote: {
+    badge: string;
+    title: string;
+    image: string;
+    quotePart1?: string;
+    quotePart2?: string;
+    quotePart3?: string;
+    quoteAuthor?: string;
+    storyParagraphs: string[];
+    ctaText?: string;
+    ctaLink?: string;
+  };
+  values: {
+    badge: string;
+    title: string;
+    items: AboutValueItem[];
+  };
+  journey: {
+    badge: string;
+    title: string;
+    milestones: AboutMilestoneItem[];
+  };
+  team: {
+    badge: string;
+    title: string;
+    description?: string;
+    members: AboutTeamMember[];
+  };
+  artisanSpotlight: {
+    badge: string;
+    title: string;
+    image: string;
+    paragraphs: string[];
+    statNumber?: string;
+    statLabel?: string;
+    ctaText?: string;
+    ctaLink?: string;
+  };
+  bottomCta: {
+    title: string;
+    subtitle?: string;
+    description?: string;
+    primaryCtaText?: string;
+    primaryCtaLink?: string;
+    secondaryCtaText?: string;
+    secondaryCtaLink?: string;
+    whatsappText?: string;
+    whatsappLink?: string;
+    ctaText?: string;
+    ctaLink?: string;
+    chatWhatsappText?: string;
+    chatWhatsappLink?: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface ShippingHighlightCard {
+  label: string;
+  value: string;
+  subtext: string;
+}
+
+export interface ShippingTierBox {
+  title: string;
+  description: string;
+}
+
+export interface ShippingPolicySection {
+  id: string;
+  title: string;
+  content: string;
+  tierBoxes?: ShippingTierBox[];
+}
+
+export interface ShippingPageContent {
+  header: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
+  highlights: ShippingHighlightCard[];
+  sections: ShippingPolicySection[];
+  concierge: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    whatsappText: string;
+    whatsappLink: string;
+    trackOrderText: string;
+    trackOrderLink: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface ReturnsExchangeStep {
+  stepNumber: number;
+  title: string;
+  description: string;
+}
+
+export interface ReturnsPolicySection {
+  id: string;
+  title: string;
+  content: string;
+  bulletPoints?: string[];
+}
+
+export interface ReturnsPageContent {
+  header: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
+  process: {
+    title: string;
+    steps: ReturnsExchangeStep[];
+  };
+  sections: ReturnsPolicySection[];
+  concierge: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    whatsappText: string;
+    whatsappLink: string;
+    secondaryCtaText: string;
+    secondaryCtaLink: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface SizeFinderSizeSpec {
+  size: string;
+  bust: number;
+  waist: number;
+  hips: number;
+  length: number;
+  shoulder: number;
+  label: string;
+}
+
+export interface SizeFinderSilhouette {
+  id: string;
+  name: string;
+  tagline: string;
+  image: string;
+  isFreeSize?: boolean;
+  freeSizeNote?: string;
+  defaultLengthInches?: number;
+  sizes: SizeFinderSizeSpec[];
+}
+
+export interface SizeFinderGuidePrinciple {
+  step: string;
+  title: string;
+  description: string;
+}
+
+export interface SizeFinderPageContent {
+  header: {
+    badge: string;
+    title: string;
+    description: string;
+  };
+  studio: {
+    step1Title: string;
+    step1Subtitle: string;
+    step2Title: string;
+  };
+  silhouettes: SizeFinderSilhouette[];
+  virtualCall: {
+    badge: string;
+    description: string;
+    ctaText: string;
+    whatsappLink: string;
+  };
+  guide: {
+    title: string;
+    principles: SizeFinderGuidePrinciple[];
+    whatsappTitle: string;
+    whatsappDescription: string;
+    whatsappButtonText: string;
+    whatsappLink: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface SizeGuideKurtiRow {
+  size: string;
+  bust: string;
+  waist: string;
+  hip: string;
+  shoulder: string;
+  kurtiLength: string;
+}
+
+export interface SizeGuideLehengaRow {
+  size: string;
+  waist: string;
+  hip: string;
+  skirtLength: string;
+  flare: string;
+}
+
+export interface SizeGuideMeasurementStep {
+  title: string;
+  description: string;
+}
+
+export interface SizeGuidePageContent {
+  header: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
+  promoBanner: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    buttonText: string;
+    buttonLink: string;
+  };
+  kurtis: {
+    title: string;
+    subtitle: string;
+    rows: SizeGuideKurtiRow[];
+  };
+  lehengas: {
+    title: string;
+    subtitle: string;
+    rows: SizeGuideLehengaRow[];
+  };
+  blouses: {
+    title: string;
+    description: string;
+    paddingNote: string;
+    seamNote: string;
+  };
+  howToMeasure: {
+    title: string;
+    steps: SizeGuideMeasurementStep[];
+  };
+  stylingDesk: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    buttonText: string;
+    whatsappLink: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface FAQItem {
+  id: string;
+  q: string;
+  a: string;
+}
+
+export interface FAQCategory {
+  id: string;
+  label: string;
+  icon: string;
+  items: FAQItem[];
+}
+
+export interface FAQPageContent {
+  header: {
+    badge: string;
+    title: string;
+    description: string;
+  };
+  searchPlaceholder: string;
+  categories: FAQCategory[];
+  stillNeedHelp: {
+    title: string;
+    description: string;
+    whatsappButtonText: string;
+    whatsappLink: string;
+    emailButtonText: string;
+    emailLink: string;
+    contactButtonText: string;
+    contactLink: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface ContactOptionItem {
+  id: string;
+  icon: 'studio' | 'email' | 'whatsapp' | 'phone';
+  title: string;
+  description: string;
+  detail: string;
+  cta: string;
+  href: string;
+  isWhatsApp?: boolean;
+}
+
+export interface ContactSubjectOption {
+  value: string;
+  label: string;
+}
+
+export interface ContactFaqItem {
+  q: string;
+  a: string;
+}
+
+export interface ContactReviewItem {
+  text: string;
+  author: string;
+}
+
+export interface ContactPageContent {
+  header: {
+    badge: string;
+    title: string;
+    description: string;
+  };
+  contactOptions: ContactOptionItem[];
+  form: {
+    title: string;
+    description: string;
+    subjects: ContactSubjectOption[];
+    newsletterLabel: string;
+    submitButtonText: string;
+    successTitle: string;
+    successDescription: string;
+  };
+  quickAnswers: {
+    title: string;
+    faqs: ContactFaqItem[];
+    viewAllText: string;
+    viewAllLink: string;
+  };
+  socialProof: {
+    title: string;
+    reviews: ContactReviewItem[];
+  };
+  newsletter: {
+    title: string;
+    description: string;
+    buttonText: string;
+    placeholder: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface WholesaleBenefitItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface WholesaleTierOption {
+  value: string;
+  label: string;
+}
+
+export interface WholesalePageContent {
+  header: {
+    eyebrow: string;
+    title: string;
+    description: string;
+  };
+  benefits: WholesaleBenefitItem[];
+  form: {
+    title: string;
+    moqNote: string;
+    submitButtonText: string;
+    tiers: WholesaleTierOption[];
+    successTitle: string;
+    successDescription: string;
+    whatsappDeskButtonText: string;
+    whatsappDeskLink: string;
+  };
+  footerSupport: {
+    prefixText: string;
+    linkText: string;
+    whatsappLink: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
+export interface DesignerVidhyaMetric {
+  value: string;
+  label: string;
+}
+
+export interface DesignerVidhyaTenet {
+  number: string;
+  title: string;
+  description: string;
+}
+
+export interface DesignerVidhyaPageContent {
+  header: {
+    breadcrumbHome: string;
+    breadcrumbAbout: string;
+    breadcrumbCurrent: string;
+    eyebrow: string;
+    title: string;
+    quote: string;
+  };
+  story: {
+    eyebrow: string;
+    title: string;
+    paragraphs: string[];
+    image: string;
+    imageAlt: string;
+    designerName: string;
+    designerRole: string;
+    metrics: DesignerVidhyaMetric[];
+  };
+  tenets: {
+    title: string;
+    items: DesignerVidhyaTenet[];
+  };
+  consultation: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    buttonText: string;
+    whatsappUrl: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
 export interface SiteContent {
   hero: HeroContent;
   features: {
@@ -522,6 +1068,16 @@ export interface SiteContent {
   'terms-page'?: TermsOfServicePageContent;
   'cookies-page'?: CookiePolicyPageContent;
   'accessibility-page'?: AccessibilityPageContent;
+  'shop-page'?: ShopPageContent;
+  'about-page'?: AboutPageContent;
+  'shipping-page'?: ShippingPageContent;
+  'returns-page'?: ReturnsPageContent;
+  'size-finder-page'?: SizeFinderPageContent;
+  'size-guide-page'?: SizeGuidePageContent;
+  'faq-page'?: FAQPageContent;
+  'contact-page'?: ContactPageContent;
+  'wholesale-page'?: WholesalePageContent;
+  'designer-vidhya-page'?: DesignerVidhyaPageContent;
   'kurtis-page'?: KurtisPageContent;
   footer?: FooterContent;
   'brand-story'?: BrandStoryContent;

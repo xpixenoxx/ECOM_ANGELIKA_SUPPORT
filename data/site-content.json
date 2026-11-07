@@ -2700,5 +2700,1383 @@
         "href": "/accessibility"
       }
     ]
+  },
+  "shop-page": {
+    "hero": {
+      "badge": "HANDCRAFTED LUXURY EDIT",
+      "title": "All Collections",
+      "titleHighlight": "Collections",
+      "description": "Explore our complete collection of handcrafted kurtis, sarees, salwars, lehengas, and dupattas.",
+      "backgroundImage": "/images/hero-bg.jpg",
+      "showFeaturedCard": true,
+      "featuredCardImage": "/images/collection-kurtis.jpg",
+      "featuredCardTag": "CURATED BY VIDHYA",
+      "featuredCardText": "27 Pieces • Pure Handloom"
+    },
+    "announcement": {
+      "enabled": true,
+      "badge": "SPECIAL OFFER",
+      "headline": "Complimentary Bespoke Consultation on orders above ₹15,000 | Use Code: ATELIER",
+      "code": "ATELIER",
+      "link": "/shop",
+      "linkText": "Explore Atelier →"
+    },
+    "navigation": {
+      "enabled": true,
+      "label": "COLLECTIONS:",
+      "items": [
+        {
+          "slug": "",
+          "name": "All Collections",
+          "image": "/images/hero-new-couture.jpg",
+          "href": "/shop"
+        },
+        {
+          "slug": "kurtis",
+          "name": "Kurtis",
+          "image": "/images/collection-kurtis.jpg",
+          "href": "/shop/kurtis"
+        },
+        {
+          "slug": "salwars",
+          "name": "Salwars",
+          "image": "/images/collection-salwars.jpg",
+          "href": "/shop/salwars"
+        },
+        {
+          "slug": "lehengas",
+          "name": "Lehengas",
+          "image": "/images/collection-lehengas.jpg",
+          "href": "/shop/lehengas"
+        },
+        {
+          "slug": "sarees",
+          "name": "Sarees",
+          "image": "/images/collection-sarees.jpg",
+          "href": "/shop/sarees"
+        },
+        {
+          "slug": "dupattas",
+          "name": "Dupattas",
+          "image": "/images/collection-dupattas.jpg",
+          "href": "/shop/dupattas"
+        }
+      ]
+    },
+    "sidebar": {
+      "title": "FILTER COLLECTION",
+      "categoryTitle": "CATEGORY",
+      "activeTag": "ACTIVE FILTERS",
+      "viewAllText": "Clear All Filters",
+      "viewAllHref": "/shop",
+      "inStockLabel": "In Stock Only",
+      "vidhyasPicksLabel": "Vidhya's Picks Only"
+    },
+    "concierge": {
+      "enabled": true,
+      "title": "Need Bespoke Sizing or Styling?",
+      "subtitle": "Connect with Vidhya on WhatsApp for custom measurements, fabric swatches, and heirloom bridal consultations.",
+      "link": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20for%20the%20All%20Collections%20catalogue."
+    },
+    "seo": {
+      "metaTitle": "Shop All Collections | Handcrafted Ethnic Luxury | Angelika Fashions",
+      "metaDescription": "Explore the complete Angelika collection of handcrafted luxury ethnic wear, kurtis, sarees, lehengas, and dupattas."
+    },
+    "productsMode": "database",
+    "products": []
+  },
+  "about-page": {
+    "hero": {
+      "badge": "OUR STORY",
+      "title": "Crafted with Intention, Worn with Pride",
+      "titleHighlight1": "Intention",
+      "titleHighlight2": "Pride",
+      "description": "Angelika Fashions began with a simple belief: ethnic wear should make you feel like the best version of yourself - rooted, radiant, and entirely you.",
+      "backgroundImage": "/images/about-hero.jpg",
+      "primaryCtaText": "Explore Collection",
+      "primaryCtaLink": "/shop",
+      "secondaryCtaText": "View Vidhya's Picks",
+      "secondaryCtaLink": "/vidhyas-picks",
+      "scrollText": "Scroll to discover our journey →"
+    },
+    "founderNote": {
+      "badge": "A Note from Vidhya",
+      "title": "Why Angelika Exists",
+      "image": "/images/vidhya-founder.jpg",
+      "quotePart1": "\"I started Angelika\"",
+      "quotePart2": "because I couldn't find",
+      "quotePart3": "ethnic wear that felt like me.\"",
+      "quoteAuthor": "— Vidhya R., Founder",
+      "storyParagraphs": [
+        "Growing up in a family where textiles were dinner table conversation, I learned early that fabric carries memory. My grandmother's Banarasi sarees, my mother's hand-block printed kurtas - each piece held a story.",
+        "But when I started shopping for myself, I found a gap. Mass-market ethnic wear felt impersonal - synthetic fabrics, generic prints, sizing that never quite worked. The luxury boutiques were beautiful but intimidating, with price tags that didn't reflect the craft.",
+        "Angelika was born from that gap. We work directly with artisan clusters - no middlemen, no markup games. I personally approve every design, every colorway, every stitch. When you wear Angelika, you're wearing something I'd proudly wear to my own cousin's wedding.",
+        "This isn't just a brand. It's a promise: authentic craftsmanship, honest pricing, and a personal relationship with every woman who chooses us. Welcome to the family."
+      ],
+      "ctaText": "Chat with Vidhya",
+      "ctaLink": "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya"
+    },
+    "values": {
+      "badge": "OUR VALUES",
+      "title": "What We Stand For",
+      "items": [
+        {
+          "icon": "shield",
+          "title": "Authentic Craftsmanship",
+          "description": "Every piece is sourced directly from artisan clusters across India - Banaras, Chanderi, Jaipur, and beyond. We honor generations of handloom weaving, block printing, and embroidery traditions."
+        },
+        {
+          "icon": "heart",
+          "title": "Personal Curation",
+          "description": "Vidhya personally selects every design, fabric, and color. No mass-produced trends - only pieces she would wear herself and gift to the women in her life."
+        },
+        {
+          "icon": "clock",
+          "title": "Timeless Over Trendy",
+          "description": "We create heirlooms, not fast fashion. Our silhouettes transcend seasons - a Banarasi saree today will be just as beautiful twenty years from now."
+        },
+        {
+          "icon": "users",
+          "title": "Community First",
+          "description": "Every purchase supports artisan livelihoods. We work on fair-trade principles, ensuring craftspeople receive recognition and fair compensation for their mastery."
+        }
+      ]
+    },
+    "journey": {
+      "badge": "OUR JOURNEY",
+      "title": "Milestones Along the Way",
+      "milestones": [
+        {
+          "year": "2019",
+          "title": "The Beginning",
+          "description": "Vidhya starts curating ethnic wear for friends and family from her living room in Bangalore.",
+          "icon": "🏠"
+        },
+        {
+          "year": "2020",
+          "title": "First Pop-Up",
+          "description": "First physical pop-up at a Bangalore boutique - 200 pieces sold in 3 days.",
+          "icon": "🛍️"
+        },
+        {
+          "year": "2021",
+          "title": "Artisan Partnerships",
+          "description": "Direct partnerships established with 12 weaving clusters across Banaras, Chanderi, and Maheshwar.",
+          "icon": "🤝"
+        },
+        {
+          "year": "2022",
+          "title": "Online Launch",
+          "description": "Angelika Fashions website goes live. First order shipped to Chennai within 4 hours.",
+          "icon": "💻"
+        },
+        {
+          "year": "2023",
+          "title": "Vidhya's Picks",
+          "description": "Monthly curated edit launches - personal styling notes from Vidhya for each piece.",
+          "icon": "✨"
+        },
+        {
+          "year": "2024",
+          "title": "10,000+ Customers",
+          "description": "Community grows to 10,000+ women across India and 15 countries. Angelika Circle loyalty program launches.",
+          "icon": "👑"
+        },
+        {
+          "year": "2025",
+          "title": "Flagship Studio",
+          "description": "First experience studio opens in Indiranagar, Bangalore - by appointment only.",
+          "icon": "🏪"
+        },
+        {
+          "year": "2026",
+          "title": "Today",
+          "description": "Continuing the journey - new collections, deeper artisan relationships, and more ways to serve our community.",
+          "icon": "🌟"
+        }
+      ]
+    },
+    "team": {
+      "badge": "MEET THE TEAM",
+      "title": "The People Behind Angelika",
+      "members": [
+        {
+          "name": "Vidhya R.",
+          "role": "Founder & Creative Director",
+          "bio": "Former textile designer turned entrepreneur. Believes every woman deserves to feel like royalty in her ethnic wear.",
+          "image": "/images/team-vidhya.jpg"
+        },
+        {
+          "name": "Priya S.",
+          "role": "Head of Artisan Relations",
+          "bio": "Travels to weaving villages monthly. Speaks 4 languages. Ensures every artisan feels valued and heard.",
+          "image": "/images/team-priya.jpg"
+        },
+        {
+          "name": "Meera K.",
+          "role": "Customer Experience Lead",
+          "bio": "Knows 500+ customers by name. Your styling questions, size doubts, gift dilemmas - she solves them all.",
+          "image": "/images/team-meera.jpg"
+        },
+        {
+          "name": "Arjun M.",
+          "role": "Operations & Logistics",
+          "bio": "Makes sure your order reaches you before the occasion. 99.2% on-time delivery rate. Obsessed with packaging.",
+          "image": "/images/team-arjun.jpg"
+        }
+      ]
+    },
+    "artisanSpotlight": {
+      "badge": "ARTISAN STORIES",
+      "title": "Hands That Create Magic",
+      "image": "/images/artisan-workshop.jpg",
+      "paragraphs": [
+        "Behind every Angelika piece are hands that have inherited generations of knowledge. In the narrow lanes of Banaras, master weavers like Ramesh-ji spend 14 days on a single saree, each thread placed with intention.",
+        "In Chanderi, Meera-behen leads a collective of 40 women who hand-block print our cotton kurtis using natural dyes - a skill passed from mother to daughter for three centuries.",
+        "These aren't suppliers. They're partners. We visit their workshops, share chai with their families, and celebrate their festivals. When you wear Angelika, you carry their stories, their patience, and their pride."
+      ],
+      "ctaText": "Read More Artisan Stories",
+      "ctaLink": "/artisan-stories"
+    },
+    "bottomCta": {
+      "title": "Ready to Find Your Perfect Piece?",
+      "description": "Whether it's for a wedding, a festival, or simply because you deserve beauty in your everyday - we're here to help you discover it.",
+      "primaryCtaText": "Shop Collection",
+      "primaryCtaLink": "/shop",
+      "secondaryCtaText": "Find My Size",
+      "secondaryCtaLink": "/size-finder",
+      "whatsappText": "Chat with Vidhya",
+      "whatsappLink": "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I%20need%20styling%20help"
+    },
+    "seo": {
+      "metaTitle": "Our Story | Angelika Fashions",
+      "metaDescription": "Discover the story behind Angelika Fashions - founded by Vidhya, bringing premium ethnic wear with a personal touch."
+    }
+  },
+  "shipping-page": {
+    "header": {
+      "eyebrow": "COMPLIMENTARY & EXPRESS COURIER",
+      "title": "Shipping & Delivery Policy",
+      "description": "Every Angelika creation is handcrafted with reverence by master weavers and individually inspected before dispatch. Here is how we ensure seamless, insured delivery to your doorstep."
+    },
+    "highlights": [
+      {
+        "label": "PAN-INDIA SHIPPING",
+        "value": "Free on ₹999+",
+        "subtext": "Standard ₹99 under ₹999"
+      },
+      {
+        "label": "DISPATCH TIME",
+        "value": "24 – 48 Hours",
+        "subtext": "Ready-to-wear collections"
+      },
+      {
+        "label": "GLOBAL COURIER",
+        "value": "Worldwide Delivery",
+        "subtext": "Express via DHL / FedEx"
+      }
+    ],
+    "sections": [
+      {
+        "id": "domestic-timelines",
+        "title": "1. Domestic Shipping Timelines (India)",
+        "content": "We partner with India's premier air express carriers (Bluedart, Delhivery, and DTDC) to deliver your heirlooms securely:",
+        "tierBoxes": [
+          {
+            "title": "METRO CITIES (TIER 1)",
+            "description": "Mumbai, Delhi NCR, Bengaluru, Chennai, Hyderabad, Kolkata: 2 to 4 business days."
+          },
+          {
+            "title": "NON-METRO & REGIONAL TOWNS",
+            "description": "Tier 2 & Tier 3 locations across India: 4 to 7 business days."
+          }
+        ]
+      },
+      {
+        "id": "made-to-order",
+        "title": "2. Made-to-Order & Bridal Trousseau Orders",
+        "content": "Custom-tailored ensembles, custom blouses, and bridal lehengas require bespoke hand-embroidery and zari finishing. These pieces have an atelier creation window of 10 to 14 business days before dispatch. You will receive progress photographs and status updates via WhatsApp from designer Vidhya's concierge team."
+      },
+      {
+        "id": "cod-guidelines",
+        "title": "3. Cash on Delivery (COD) Guidelines",
+        "content": "Cash on Delivery is available across 19,000+ Indian pin codes for orders up to ₹10,000. For security and authentic verification, our automated concierge will send an OTP confirmation via SMS/WhatsApp prior to warehouse dispatch."
+      },
+      {
+        "id": "international-shipping",
+        "title": "4. International Worldwide Shipping",
+        "content": "We ship to over 50 countries including the United States, United Kingdom, Canada, UAE, Singapore, and Australia. International orders are dispatched via DHL Express or FedEx International Priority (typically 5 to 8 business days). Customs duties or local import taxes, if applicable in your jurisdiction, are determined by destination customs authorities."
+      },
+      {
+        "id": "packaging-insurance",
+        "title": "5. Tamper-Proof Luxury Packaging & Insurance",
+        "content": "Every garment is packed in breathable cotton muslin dust bags, encased in rigid magnetic keepsake boxes with branded tamper-evident security tape. All parcels are 100% insured until signed by you upon delivery."
+      }
+    ],
+    "concierge": {
+      "eyebrow": "NEED URGENT EVENT DELIVERY?",
+      "title": "Speak with Vidhya's Concierge for Same-Day / Express Priority",
+      "description": "If you need your ensemble delivered urgently for a wedding, pooja, or festive gathering, reach out directly and we will coordinate priority flight dispatch.",
+      "whatsappText": "WhatsApp Priority Dispatch Desk",
+      "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20have%20an%20urgent%20event%20shipping%20query.",
+      "trackOrderText": "Track Your Live Order",
+      "trackOrderLink": "/track-order"
+    },
+    "seo": {
+      "metaTitle": "Shipping & Delivery Policy | Angelika Fashions",
+      "metaDescription": "Learn about our domestic and international shipping policies, dispatch timelines, and complimentary delivery for handcrafted luxury ethnic wear."
+    }
+  },
+  "returns-page": {
+    "header": {
+      "eyebrow": "7-DAY COMPLIMENTARY ASSURANCE",
+      "title": "Returns & Size Exchanges",
+      "description": "We want you to feel extraordinary in every Angelika ensemble. If the fit isn't immaculate, our atelier provides seamless doorstep size exchanges and easy returns."
+    },
+    "process": {
+      "title": "How Our 3-Step Size Exchange Works",
+      "steps": [
+        {
+          "stepNumber": 1,
+          "title": "Initiate in 30 Seconds",
+          "description": "Connect with Vidhya's WhatsApp Concierge or visit your Account orders page within 7 days of delivery."
+        },
+        {
+          "stepNumber": 2,
+          "title": "Complimentary Pickup",
+          "description": "Our courier will collect the unworn garment from your doorstep with original tags and dust bag intact."
+        },
+        {
+          "stepNumber": 3,
+          "title": "Fresh Size Dispatched",
+          "description": "Your replacement size or custom tailored fit is dispatched via express courier with zero additional shipping charges."
+        }
+      ]
+    },
+    "sections": [
+      {
+        "id": "exchange-window",
+        "title": "1. 7-Day Exchange Window",
+        "content": "You may initiate a size exchange or return within 7 calendar days from the date of confirmed delivery. To be eligible, the piece must be in its original pristine condition, unworn, unwashed, unaltered, and accompanied by the original Silk Mark / brand tags and cotton dust bag."
+      },
+      {
+        "id": "custom-stitching",
+        "title": "2. Custom Stitching & Blouse Alterations",
+        "content": "If you ordered custom-stitched blouses or bespoke waist adjustments and require fine-tuning, our master tailors provide one round of complimentary alterations. Simply share your updated measurements or photographs with Vidhya on WhatsApp."
+      },
+      {
+        "id": "refund-options",
+        "title": "3. Refund Options",
+        "content": "If you prefer a return rather than a size exchange:",
+        "bulletPoints": [
+          "Atelier Store Credit (Recommended): Receive 100% of your order value as lifelong store credit plus a bonus 10% styling credit for your next order.",
+          "Original Payment Source: Refunds to original debit/credit cards or net banking are processed within 3 to 5 business days following quality verification at our atelier."
+        ]
+      },
+      {
+        "id": "non-returnable",
+        "title": "4. Non-Returnable Items",
+        "content": "Due to hygiene considerations and authentic artisan uniqueness, customized bridal couture made strictly to custom body measurements and final archive sale items marked as \"Final Sale\" cannot be refunded, though size adjustments can still be arranged."
+      }
+    ],
+    "concierge": {
+      "eyebrow": "READY TO EXCHANGE A SIZE?",
+      "title": "Our Concierge Team Handles the Whole Process For You",
+      "description": "You don't need to fill out complex forms. Just drop a message with your Order ID and preferred size.",
+      "whatsappText": "Start Size Exchange on WhatsApp",
+      "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20like%20to%20request%20a%20size%20exchange%20for%20my%20order.",
+      "secondaryCtaText": "Use Interactive Size Finder",
+      "secondaryCtaLink": "/size-finder"
+    },
+    "seo": {
+      "metaTitle": "Returns & Size Exchanges | Angelika Fashions",
+      "metaDescription": "Our 7-day complimentary size exchange and return policy for handcrafted Indian luxury ethnic wear."
+    }
+  },
+  "size-finder-page": {
+    "header": {
+      "badge": "Vidhya's Bespoke Drape & Silhouette Studio",
+      "title": "Discover Your Signature Drape",
+      "description": "Handcrafted luxury ethnic wear should never feel constrained. Our interactive studio calculates your tailored proportion based on your posture, height, and preferred ease."
+    },
+    "studio": {
+      "step1Title": "Which Ensemble Are You Styling?",
+      "step1Subtitle": "Select a category to calibrate drape measurements",
+      "step2Title": "Calibrate Your Fit Method"
+    },
+    "silhouettes": [
+      {
+        "id": "kurtis",
+        "name": "Kurtis & Tunics",
+        "tagline": "Straight cuts, A-line & kalidar everyday luxury",
+        "image": "/images/cat-kurtis.jpg",
+        "defaultLengthInches": 43,
+        "sizes": [
+          {
+            "size": "XS",
+            "bust": 32,
+            "waist": 26,
+            "hips": 36,
+            "length": 42,
+            "shoulder": 14,
+            "label": "XS (Size 32)"
+          },
+          {
+            "size": "S",
+            "bust": 34,
+            "waist": 28,
+            "hips": 38,
+            "length": 42,
+            "shoulder": 14.5,
+            "label": "S (Size 34)"
+          },
+          {
+            "size": "M",
+            "bust": 36,
+            "waist": 30,
+            "hips": 40,
+            "length": 43,
+            "shoulder": 15,
+            "label": "M (Size 36)"
+          },
+          {
+            "size": "L",
+            "bust": 38,
+            "waist": 32,
+            "hips": 42,
+            "length": 43,
+            "shoulder": 15.5,
+            "label": "L (Size 38)"
+          },
+          {
+            "size": "XL",
+            "bust": 40,
+            "waist": 34,
+            "hips": 44,
+            "length": 44,
+            "shoulder": 16,
+            "label": "XL (Size 40)"
+          },
+          {
+            "size": "XXL",
+            "bust": 42,
+            "waist": 36,
+            "hips": 46,
+            "length": 44,
+            "shoulder": 16.5,
+            "label": "XXL (Size 42)"
+          },
+          {
+            "size": "3XL",
+            "bust": 44,
+            "waist": 38,
+            "hips": 48,
+            "length": 45,
+            "shoulder": 17,
+            "label": "3XL (Size 44)"
+          }
+        ]
+      },
+      {
+        "id": "salwars",
+        "name": "Salwar & Palazzo Suits",
+        "tagline": "Three-piece sets with relaxed palazzo or churidar",
+        "image": "/images/cat-salwars.jpg",
+        "defaultLengthInches": 43,
+        "sizes": [
+          {
+            "size": "XS",
+            "bust": 34,
+            "waist": 28,
+            "hips": 38,
+            "length": 42,
+            "shoulder": 14,
+            "label": "XS (Size 34)"
+          },
+          {
+            "size": "S",
+            "bust": 36,
+            "waist": 30,
+            "hips": 40,
+            "length": 42,
+            "shoulder": 14.5,
+            "label": "S (Size 36)"
+          },
+          {
+            "size": "M",
+            "bust": 38,
+            "waist": 32,
+            "hips": 42,
+            "length": 43,
+            "shoulder": 15,
+            "label": "M (Size 38)"
+          },
+          {
+            "size": "L",
+            "bust": 40,
+            "waist": 34,
+            "hips": 44,
+            "length": 43,
+            "shoulder": 15.5,
+            "label": "L (Size 40)"
+          },
+          {
+            "size": "XL",
+            "bust": 42,
+            "waist": 36,
+            "hips": 46,
+            "length": 44,
+            "shoulder": 16,
+            "label": "XL (Size 42)"
+          },
+          {
+            "size": "XXL",
+            "bust": 44,
+            "waist": 38,
+            "hips": 48,
+            "length": 44,
+            "shoulder": 16.5,
+            "label": "XXL (Size 44)"
+          }
+        ]
+      },
+      {
+        "id": "lehengas",
+        "name": "Bridal & Festive Lehengas",
+        "tagline": "High-waisted flared skirt with tailored padded choli",
+        "image": "/images/cat-lehengas.jpg",
+        "defaultLengthInches": 43,
+        "sizes": [
+          {
+            "size": "XS",
+            "bust": 32,
+            "waist": 26,
+            "hips": 36,
+            "length": 42,
+            "shoulder": 13.5,
+            "label": "XS (Waist 26\")"
+          },
+          {
+            "size": "S",
+            "bust": 34,
+            "waist": 28,
+            "hips": 38,
+            "length": 42,
+            "shoulder": 14,
+            "label": "S (Waist 28\")"
+          },
+          {
+            "size": "M",
+            "bust": 36,
+            "waist": 30,
+            "hips": 40,
+            "length": 43,
+            "shoulder": 14.5,
+            "label": "M (Waist 30\")"
+          },
+          {
+            "size": "L",
+            "bust": 38,
+            "waist": 32,
+            "hips": 42,
+            "length": 43,
+            "shoulder": 15,
+            "label": "L (Waist 32\")"
+          },
+          {
+            "size": "XL",
+            "bust": 40,
+            "waist": 34,
+            "hips": 44,
+            "length": 44,
+            "shoulder": 15.5,
+            "label": "XL (Waist 34\")"
+          },
+          {
+            "size": "XXL",
+            "bust": 42,
+            "waist": 36,
+            "hips": 46,
+            "length": 44,
+            "shoulder": 16,
+            "label": "XXL (Waist 36\")"
+          }
+        ]
+      },
+      {
+        "id": "sarees",
+        "name": "Sarees & Blouse Styling",
+        "tagline": "5.5m unstitched drape with customized silk choli",
+        "image": "/images/cat-sarees.jpg",
+        "defaultLengthInches": 216,
+        "isFreeSize": true,
+        "freeSizeNote": "Sarees are standard 5.5m Free Size drape. Sizing applies to your tailored blouse stitching.",
+        "sizes": [
+          {
+            "size": "XS",
+            "bust": 32,
+            "waist": 26,
+            "hips": 36,
+            "length": 14,
+            "shoulder": 13.5,
+            "label": "Blouse XS (32\")"
+          },
+          {
+            "size": "S",
+            "bust": 34,
+            "waist": 28,
+            "hips": 38,
+            "length": 14.5,
+            "shoulder": 14,
+            "label": "Blouse S (34\")"
+          },
+          {
+            "size": "M",
+            "bust": 36,
+            "waist": 30,
+            "hips": 40,
+            "length": 15,
+            "shoulder": 14.5,
+            "label": "Blouse M (36\")"
+          },
+          {
+            "size": "L",
+            "bust": 38,
+            "waist": 32,
+            "hips": 42,
+            "length": 15.5,
+            "shoulder": 15,
+            "label": "Blouse L (38\")"
+          },
+          {
+            "size": "XL",
+            "bust": 40,
+            "waist": 34,
+            "hips": 44,
+            "length": 16,
+            "shoulder": 15.5,
+            "label": "Blouse XL (40\")"
+          },
+          {
+            "size": "XXL",
+            "bust": 42,
+            "waist": 36,
+            "hips": 46,
+            "length": 16.5,
+            "shoulder": 16,
+            "label": "Blouse XXL (42\")"
+          }
+        ]
+      },
+      {
+        "id": "dupattas",
+        "name": "Artisanal Dupattas",
+        "tagline": "Handwoven 2.5m pure silk & chanderi stoles",
+        "image": "/images/cat-dupattas.jpg",
+        "defaultLengthInches": 98,
+        "isFreeSize": true,
+        "freeSizeNote": "Dupattas are universal Free Size (2.5 Meters x 1 Meter). No sizing required.",
+        "sizes": [
+          {
+            "size": "Free Size",
+            "bust": 0,
+            "waist": 0,
+            "hips": 0,
+            "length": 98,
+            "shoulder": 0,
+            "label": "Universal 2.5m Drape"
+          }
+        ]
+      }
+    ],
+    "virtualCall": {
+      "badge": "Complimentary Virtual Drape Call",
+      "description": "Bridal or festive celebration coming up? Connect directly over a WhatsApp video call to see real drape movement and live fabric falls before confirming.",
+      "ctaText": "Book 1-on-1 Consultation Call",
+      "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20love%20to%20book%20a%20virtual%20drape%20consultation."
+    },
+    "guide": {
+      "title": "Designer Vidhya's Guide to Taking Flawless Body Measurements",
+      "principles": [
+        {
+          "step": "01",
+          "title": "Flexible Vinyl Tape",
+          "description": "Avoid metal tapes. Use a soft tailor tape that hugs natural body contours without stretching."
+        },
+        {
+          "step": "02",
+          "title": "Proper Undergarments",
+          "description": "Measure over the exact style of innerwear you plan to wear with your ethnic ensemble."
+        },
+        {
+          "step": "03",
+          "title": "One-Finger Slack",
+          "description": "Keep one finger between the tape and body so the fabric drapes without uncomfortable pinching."
+        },
+        {
+          "step": "04",
+          "title": "Natural Posture",
+          "description": "Stand naturally with arms relaxed at sides. Do not pull your belly in or hold breath."
+        }
+      ],
+      "whatsappTitle": "Want Our Master Drapers to Review Your Fit?",
+      "whatsappDescription": "Send your measurements or a photo over WhatsApp. Designer Vidhya and our master tailors will confirm your exact size within 15 minutes.",
+      "whatsappButtonText": "Verify Sizing on WhatsApp With Vidhya",
+      "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20can%20you%20review%20my%20measurements%20for%20an%20Angelika%20order?"
+    },
+    "seo": {
+      "metaTitle": "Size Finder & Couture Fit Studio | Angelika Fashions",
+      "metaDescription": "Find your perfect size for handcrafted Indian luxury ethnic wear - sarees, lehengas, kurtis, salwars, and dupattas with personalized fit recommendations."
+    }
+  },
+  "size-guide-page": {
+    "header": {
+      "eyebrow": "TAILORED FIT & MEASUREMENT CHARTS",
+      "title": "Garment Size Guide",
+      "description": "Every body is unique. Angelika silhouettes are designed with generous 2-inch side seams for easy custom alterations, ensuring a bespoke drape that flatters your form."
+    },
+    "promoBanner": {
+      "eyebrow": "AI SILHOUETTE ASSISTANT",
+      "title": "Want instant recommendations based on your height and fit preference?",
+      "description": "Answer 3 simple questions to calculate your exact Angelika sizing.",
+      "buttonText": "Launch Interactive Size Finder →",
+      "buttonLink": "/size-finder"
+    },
+    "kurtis": {
+      "title": "Standard Ready-to-Wear Kurti Measurements (Inches)",
+      "subtitle": "Measurements are garment dimensions",
+      "rows": [
+        {
+          "size": "XS (34)",
+          "bust": "34\"",
+          "waist": "28\"",
+          "hip": "38\"",
+          "shoulder": "14.0\"",
+          "kurtiLength": "44\""
+        },
+        {
+          "size": "S (36)",
+          "bust": "36\"",
+          "waist": "30\"",
+          "hip": "40\"",
+          "shoulder": "14.5\"",
+          "kurtiLength": "45\""
+        },
+        {
+          "size": "M (38)",
+          "bust": "38\"",
+          "waist": "32\"",
+          "hip": "42\"",
+          "shoulder": "15.0\"",
+          "kurtiLength": "45\""
+        },
+        {
+          "size": "L (40)",
+          "bust": "40\"",
+          "waist": "34\"",
+          "hip": "44\"",
+          "shoulder": "15.5\"",
+          "kurtiLength": "46\""
+        },
+        {
+          "size": "XL (42)",
+          "bust": "42\"",
+          "waist": "36\"",
+          "hip": "46\"",
+          "shoulder": "16.0\"",
+          "kurtiLength": "46\""
+        },
+        {
+          "size": "XXL (44)",
+          "bust": "44\"",
+          "waist": "38\"",
+          "hip": "48\"",
+          "shoulder": "16.5\"",
+          "kurtiLength": "47\""
+        },
+        {
+          "size": "3XL (46)",
+          "bust": "46\"",
+          "waist": "40\"",
+          "hip": "50\"",
+          "shoulder": "17.0\"",
+          "kurtiLength": "47\""
+        }
+      ]
+    },
+    "lehengas": {
+      "title": "Bridal & Festive Lehenga Skirt Measurements (Inches)",
+      "subtitle": "With drawstring waist + zipper closure",
+      "rows": [
+        {
+          "size": "XS (26)",
+          "waist": "26\"",
+          "hip": "36\"",
+          "skirtLength": "42\"",
+          "flare": "4.5 Meters"
+        },
+        {
+          "size": "S (28)",
+          "waist": "28\"",
+          "hip": "38\"",
+          "skirtLength": "42\"",
+          "flare": "4.5 Meters"
+        },
+        {
+          "size": "M (30)",
+          "waist": "30\"",
+          "hip": "40\"",
+          "skirtLength": "43\"",
+          "flare": "5.0 Meters"
+        },
+        {
+          "size": "L (32)",
+          "waist": "32\"",
+          "hip": "42\"",
+          "skirtLength": "43\"",
+          "flare": "5.0 Meters"
+        },
+        {
+          "size": "XL (34)",
+          "waist": "34\"",
+          "hip": "44\"",
+          "skirtLength": "44\"",
+          "flare": "5.5 Meters"
+        },
+        {
+          "size": "XXL (36)",
+          "waist": "36\"",
+          "hip": "46\"",
+          "skirtLength": "44\"",
+          "flare": "5.5 Meters"
+        }
+      ]
+    },
+    "blouses": {
+      "title": "Bespoke Blouse Stitching & Measurements",
+      "description": "All sarees and lehengas include unstitched pure silk blouse fabrics with zari borders. If you select our custom stitching service, our master drapers will tailor your choli according to your exact bust, underbust, armhole, and front/back neckline depth.",
+      "paddingNote": "Non-padded, soft contour padded, or double padded with concealed side/back hook placket.",
+      "seamNote": "2.5 inches of extra fabric margin included inside every blouse for future alterations."
+    },
+    "howToMeasure": {
+      "title": "How to Take Accurate Body Measurements",
+      "steps": [
+        {
+          "title": "1. Bust / Chest",
+          "description": "Measure around the fullest part of your bust, keeping the measuring tape parallel to the floor without pulling tight."
+        },
+        {
+          "title": "2. Natural Waist",
+          "description": "Measure around the narrowest part of your waistline, roughly 1 to 2 inches above your navel."
+        },
+        {
+          "title": "3. Hip Circumference",
+          "description": "Stand with feet together and measure around the fullest curve of your hips and buttocks."
+        }
+      ]
+    },
+    "stylingDesk": {
+      "eyebrow": "BETWEEN SIZES OR NEED CUSTOM DRAPE GUIDANCE?",
+      "title": "Designer Vidhya's Personal Styling Desk",
+      "description": "Share your measurements with Vidhya on WhatsApp for custom tailored fit guidance before your order is cut.",
+      "buttonText": "Consult Vidhya on WhatsApp →",
+      "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20like%20sizing%20guidance%20for%20my%20order."
+    },
+    "seo": {
+      "metaTitle": "Garment Size Guide & Measurement Charts | Angelika Fashions",
+      "metaDescription": "Complete sizing guide, bust, waist, and hip measurements for luxury handcrafted kurtis, lehengas, and custom blouses."
+    }
+  },
+  "faq-page": {
+    "header": {
+      "badge": "HELP CENTER",
+      "title": "Frequently Asked Questions",
+      "description": "Quick answers to common questions. Can't find what you need? Chat with Vidhya or Meera on WhatsApp - they respond within hours."
+    },
+    "searchPlaceholder": "Search questions...",
+    "categories": [
+      {
+        "id": "orders",
+        "label": "Orders & Payments",
+        "icon": "📦",
+        "items": [
+          {
+            "id": "ord-1",
+            "q": "What payment methods do you accept?",
+            "a": "We accept all major credit/debit cards, UPI (GPay, PhonePe, Paytm), net banking, wallets, and Cash on Delivery (up to ₹5,000). For international orders, we accept cards via Stripe and PayPal. EMI options available on orders above ₹3,000."
+          },
+          {
+            "id": "ord-2",
+            "q": "Is Cash on Delivery available everywhere?",
+            "a": "COD is available in 25,000+ pincodes across India for orders up to ₹5,000. A COD fee of ₹50 applies. Check availability at checkout by entering your pincode."
+          },
+          {
+            "id": "ord-3",
+            "q": "Can I modify or cancel my order after placing it?",
+            "a": "Yes, within 2 hours of placing the order. After that, it may have already been processed for shipping. Contact us immediately via WhatsApp - we'll do our best to help."
+          },
+          {
+            "id": "ord-4",
+            "q": "Do you offer gift wrapping?",
+            "a": "Yes! Gift wrapping is complimentary on all orders. Add a personal note at checkout. For special occasions, we offer premium gift boxes (₹199) with tissue paper, ribbon, and a handwritten card."
+          },
+          {
+            "id": "ord-5",
+            "q": "My payment failed but money was deducted. What now?",
+            "a": "This is usually a temporary bank hold that releases within 24-48 hours. If not resolved in 2 days, contact us with your order ID and we'll escalate with our payment partner."
+          }
+        ]
+      },
+      {
+        "id": "shipping",
+        "label": "Shipping & Delivery",
+        "icon": "🚚",
+        "items": [
+          {
+            "id": "ship-1",
+            "q": "What are your shipping charges?",
+            "a": "Free shipping on orders ₹2,999+ within India. Below that, it's ₹99. International shipping starts at $15, free on orders $300+. Express delivery (1-2 days) available in major metros for ₹199."
+          },
+          {
+            "id": "ship-2",
+            "q": "How long does delivery take?",
+            "a": "India: 2-5 business days (1-2 days in major metros). International: 5-10 business days via DHL Express. Custom/stitch-to-order items take 2-3 weeks - timeline shown on product page."
+          },
+          {
+            "id": "ship-3",
+            "q": "Can I change my delivery address after ordering?",
+            "a": "Yes, if the order hasn't shipped yet. Contact us immediately on WhatsApp with your order ID and new address. Once shipped, we can't redirect but you can reschedule delivery with the courier."
+          },
+          {
+            "id": "ship-4",
+            "q": "Do you ship to PO Boxes / APO addresses?",
+            "a": "We cannot ship to PO Boxes or APO/FPO addresses as our courier partners require a physical address with a contact number for delivery."
+          },
+          {
+            "id": "ship-5",
+            "q": "What if I'm not home during delivery?",
+            "a": "Our courier partners make 2 delivery attempts. If both fail, the package goes to the local hub for 5 days pickup. You'll receive SMS/email with hub details. Contact us to reschedule."
+          }
+        ]
+      },
+      {
+        "id": "returns",
+        "label": "Returns & Exchanges",
+        "icon": "↩️",
+        "items": [
+          {
+            "id": "ret-1",
+            "q": "What is your return policy?",
+            "a": "15-day hassle-free returns for unworn items with original tags and packaging. Free pickup in India. Refund to original payment method within 5-7 days of receiving the return."
+          },
+          {
+            "id": "ret-2",
+            "q": "Are sale items returnable?",
+            "a": "Items at 50%+ off (marked \"Final Sale\") are non-returnable. Other sale items (under 50% off) follow our standard 15-day return policy."
+          },
+          {
+            "id": "ret-3",
+            "q": "How do I initiate a return?",
+            "a": "Go to your Account → Orders → Select order → Click \"Return\". Choose items, reason, and pickup date. Our courier will collect within 48 hours. Or WhatsApp us - we'll handle it."
+          },
+          {
+            "id": "ret-4",
+            "q": "What about exchanges?",
+            "a": "Exchanges for size/color are free and prioritized. Select \"Exchange\" during return initiation. We'll ship the new item as soon as the return is scanned by the courier."
+          },
+          {
+            "id": "ret-5",
+            "q": "I received a damaged/incorrect item. What should I do?",
+            "a": "We're so sorry! Please WhatsApp us a photo within 24 hours of delivery. We'll arrange immediate replacement (no return needed for damaged items) and a goodwill gesture."
+          }
+        ]
+      },
+      {
+        "id": "sizing",
+        "label": "Sizing & Fit",
+        "icon": "📏",
+        "items": [
+          {
+            "id": "size-1",
+            "q": "How do I find my size?",
+            "a": "Use our Size Finder tool - enter your bust, waist, hips measurements and get personalized recommendations for each category. Or chat with Meera on WhatsApp for a guided session."
+          },
+          {
+            "id": "size-2",
+            "q": "Do your sizes run true to size?",
+            "a": "Our sizing follows standard Indian measurements. However, handcrafted pieces may have 0.5-1\" variation. The Size Finder accounts for this. When in doubt, size up for comfort."
+          },
+          {
+            "id": "size-3",
+            "q": "Can I get a custom size?",
+            "a": "Yes! We offer made-to-measure on most kurtis, salwars, and lehengas. Additional ₹500-1,500 depending on complexity. 2-3 week lead time. Book a consultation via WhatsApp."
+          },
+          {
+            "id": "size-4",
+            "q": "What if the size doesn't fit?",
+            "a": "Free size exchanges within 15 days. We'll ship the new size as soon as the return is picked up. No questions asked - we want you to love the fit."
+          },
+          {
+            "id": "size-5",
+            "q": "Do you have plus sizes?",
+            "a": "Yes, up to 3XL (bust 44\") in most categories. We're expanding to 4XL. Use the Size Finder - it works for all sizes. Custom sizing available beyond 3XL."
+          }
+        ]
+      },
+      {
+        "id": "products",
+        "label": "Products & Care",
+        "icon": "🧵",
+        "items": [
+          {
+            "id": "prod-1",
+            "q": "Are your fabrics authentic?",
+            "a": "Absolutely. We source directly from artisan clusters: Banarasi silk from Varanasi, Chanderi from Madhya Pradesh, Bandhani from Gujarat/Kutch, block prints from Rajasthan. Each piece comes with an artisan story card."
+          },
+          {
+            "id": "prod-2",
+            "q": "How do I care for silk/embroidered pieces?",
+            "a": "Dry clean only for silk, zari, and heavy embroidery. Cotton/linen: gentle machine wash cold, line dry in shade. Avoid direct sunlight for colors. Care label inside each garment."
+          },
+          {
+            "id": "prod-3",
+            "q": "Will the color match the website photos?",
+            "a": "We photograph in natural light with color-calibrated equipment. However, screen calibration varies. For critical color matching (weddings), order a fabric swatch (₹99, refundable on purchase)."
+          },
+          {
+            "id": "prod-4",
+            "q": "Are pieces exactly as shown?",
+            "a": "Handcrafted pieces have slight variations - that's the beauty of artisan work. Motif placement, color intensity, and embroidery density may vary slightly. No two pieces are identical."
+          },
+          {
+            "id": "prod-5",
+            "q": "Do you restock sold-out items?",
+            "a": "Most designs are limited edition. Popular basics (solid kurtis, plain dupattas) are restocked. Sign up for \"Notify Me\" on the product page. Vidhya's Notes subscribers get early restock alerts."
+          }
+        ]
+      },
+      {
+        "id": "account",
+        "label": "Account & Loyalty",
+        "icon": "👤",
+        "items": [
+          {
+            "id": "acc-1",
+            "q": "How do I create an account?",
+            "a": "Click \"Account\" → \"Sign Up\". Use email or phone. No password needed - we send a magic link/OTP. Accounts unlock: order tracking, wishlist, size profile, loyalty points, early sale access."
+          },
+          {
+            "id": "acc-2",
+            "q": "What is Angelika Circle loyalty program?",
+            "a": "Free to join. Earn 5 points per ₹100 spent. Tiers: Silver (0 pts), Gold (1,000 pts), Platinum (5,000 pts). Benefits: cashback, free shipping, early access, birthday gifts, personal styling. Points never expire."
+          },
+          {
+            "id": "acc-3",
+            "q": "How do I redeem loyalty points?",
+            "a": "Go to Account → Loyalty. Redeem 500 pts = ₹100 off, 1,000 pts = ₹250 off, 2,500 pts = free express shipping (1 year), 5,000 pts = personal styling session with Vidhya."
+          },
+          {
+            "id": "acc-4",
+            "q": "Can I delete my account?",
+            "a": "Yes, in Account → Profile → Danger Zone. This permanently removes your data. Order history is retained for legal compliance but anonymized. Contact us if you need assistance."
+          }
+        ]
+      },
+      {
+        "id": "custom",
+        "label": "Custom & Wholesale",
+        "icon": "✨",
+        "items": [
+          {
+            "id": "cust-1",
+            "q": "Do you offer custom designs?",
+            "a": "Yes! Two options: Semi-custom (color/fabric changes on existing designs, +₹500-2,000, 2 weeks) and Fully custom (from your sketch/inspiration, +₹3,000+, 3-4 weeks). Book a WhatsApp consultation."
+          },
+          {
+            "id": "cust-2",
+            "q": "Can you replicate a design I saw elsewhere?",
+            "a": "We can create inspired-by pieces but don't copy other designers' work. Share your inspiration photos - Vidhya will design something unique incorporating those elements."
+          },
+          {
+            "id": "cust-3",
+            "q": "Do you accept wholesale/bulk orders?",
+            "a": "Yes, for boutiques, stylists, and corporate gifting. Minimum 10 pieces. 20-30% off MRP depending on volume. 4-6 week lead time. Email wholesale@angelikafashions.com with requirements."
+          },
+          {
+            "id": "cust-4",
+            "q": "Can I order matching outfits for a group?",
+            "a": "Absolutely! Popular for bridesmaid lehengas, family function coordination. We ensure color consistency across sizes. Group discount: 10% off 5+ pieces, 15% off 10+. WhatsApp us to coordinate."
+          }
+        ]
+      }
+    ],
+    "stillNeedHelp": {
+      "title": "Still Need Help?",
+      "description": "Couldn't find your answer? Our team is here for you. No bots, no tickets - just real people who care.",
+      "whatsappButtonText": "WhatsApp Us",
+      "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20have%20a%20question",
+      "emailButtonText": "Email Us",
+      "emailLink": "mailto:hello@angelikafashions.com",
+      "contactButtonText": "Contact Form",
+      "contactLink": "/contact"
+    },
+    "seo": {
+      "metaTitle": "FAQ & Help Center | Angelika Fashions",
+      "metaDescription": "Find answers to common questions about orders, payments, shipping, returns, custom sizing, artisan fabrics, and bulk orders at Angelika Fashions."
+    }
+  },
+  "contact-page": {
+    "header": {
+      "badge": "GET IN TOUCH",
+      "title": "We'd Love to Hear from You",
+      "description": "Whether you need styling advice, have a question about an order, or just want to say hello - Vidhya, Meera, and the team are here for you. No bots, no ticket numbers, just real people."
+    },
+    "contactOptions": [
+      {
+        "id": "studio",
+        "icon": "studio",
+        "title": "Visit Our Studio",
+        "description": "By appointment only",
+        "detail": "Indiranagar, Bangalore\nMon-Sat: 11 AM - 7 PM",
+        "cta": "Book Appointment",
+        "href": "/book-appointment",
+        "isWhatsApp": false
+      },
+      {
+        "id": "email",
+        "icon": "email",
+        "title": "Email Us",
+        "description": "Response within 24 hours",
+        "detail": "hello@angelikafashions.com\nstyling@angelikafashions.com",
+        "cta": "Write Email",
+        "href": "mailto:hello@angelikafashions.com",
+        "isWhatsApp": false
+      },
+      {
+        "id": "whatsapp",
+        "icon": "whatsapp",
+        "title": "Call / WhatsApp",
+        "description": "Mon-Sat: 10 AM - 8 PM",
+        "detail": "+91 98765 43210\n+91 87654 32109",
+        "cta": "Chat on WhatsApp",
+        "href": "https://wa.me/919876543210",
+        "isWhatsApp": true
+      }
+    ],
+    "form": {
+      "title": "Send Us a Message",
+      "description": "We typically respond within 4 hours during business hours.",
+      "subjects": [
+        {
+          "value": "styling",
+          "label": "Styling Advice"
+        },
+        {
+          "value": "sizing",
+          "label": "Size & Fit Guidance"
+        },
+        {
+          "value": "order",
+          "label": "Order Inquiry"
+        },
+        {
+          "value": "return",
+          "label": "Returns & Exchange"
+        },
+        {
+          "value": "wholesale",
+          "label": "Wholesale / Bulk Orders"
+        },
+        {
+          "value": "artisan",
+          "label": "Artisan Collaboration"
+        },
+        {
+          "value": "media",
+          "label": "Press & Media"
+        },
+        {
+          "value": "career",
+          "label": "Careers"
+        },
+        {
+          "value": "other",
+          "label": "Other"
+        }
+      ],
+      "newsletterLabel": "Subscribe to Vidhya's monthly style notes & early access invites",
+      "submitButtonText": "Send Message",
+      "successTitle": "Message Sent!",
+      "successDescription": "Thank you for reaching out. We'll get back to you within 24 hours."
+    },
+    "quickAnswers": {
+      "title": "Quick Answers",
+      "faqs": [
+        {
+          "q": "How can I get styling advice for an upcoming event?",
+          "a": "You can book a free virtual styling session with Vidhya or Meera via WhatsApp. Share your event details, photos of the venue/outfit inspiration, and we'll curate 3-5 complete looks for you within 24 hours."
+        },
+        {
+          "q": "Do you ship internationally?",
+          "a": "Yes, we ship to 25+ countries via DHL Express. International orders typically arrive in 5-7 business days. Duties and taxes are calculated at checkout. Free shipping on orders above $300 USD."
+        },
+        {
+          "q": "What is your return policy?",
+          "a": "15-day hassle-free returns for unworn items with original tags. Free pickup in India. For international returns, we provide a prepaid label and refund minus a $15 restocking fee. Custom/stitch-to-order items are non-returnable."
+        }
+      ],
+      "viewAllText": "View All FAQs (6 questions)",
+      "viewAllLink": "/faq"
+    },
+    "socialProof": {
+      "title": "Why Customers Love Us",
+      "reviews": [
+        {
+          "text": "Meera helped me find the perfect lehenga for my sister's wedding over WhatsApp. Felt like shopping with a friend.",
+          "author": "Priya K., Delhi"
+        },
+        {
+          "text": "The styling session was a game-changer. Vidhya curated 3 looks for my engagement - I wore one, gifted the others!",
+          "author": "Ananya S., Mumbai"
+        },
+        {
+          "text": "Return process was seamless. Pickup arranged next day, refund in 48 hours. No questions asked.",
+          "author": "Rashmi T., Bangalore"
+        }
+      ]
+    },
+    "newsletter": {
+      "title": "Join Vidhya's Inner Circle",
+      "description": "Monthly style edits, early access to new collections, artisan stories, and exclusive offers. No spam, just love. 15,000+ women already subscribed.",
+      "buttonText": "Subscribe",
+      "placeholder": "Enter your email"
+    },
+    "seo": {
+      "metaTitle": "Contact Us | Concierge & Styling Studio | Angelika Fashions",
+      "metaDescription": "Get in touch with Angelika Fashions - styling advice, order support, wholesale inquiries, or just say hello. Real people, real responses."
+    }
+  },
+  "wholesale-page": {
+    "header": {
+      "eyebrow": "GLOBAL BOUTIQUE & RETAIL PARTNERSHIPS",
+      "title": "Wholesale & B2B Inquiries",
+      "description": "Partner with Angelika Fashions to curate handcrafted Indian haute couture, pure silk handloom sarees, and bridal lehengas for your luxury boutique, overseas salon, or festive corporate curation."
+    },
+    "benefits": [
+      {
+        "icon": "⚜",
+        "title": "Artisan Direct Pricing",
+        "description": "Wholesale tiers with direct weaving loom margins, eliminating intermediaries."
+      },
+      {
+        "icon": "✈",
+        "title": "Worldwide Doorstep Delivery",
+        "description": "Express air cargo with full customs clearance and insured tracking across US, UK, UAE & Australia."
+      },
+      {
+        "icon": "✂",
+        "title": "Custom Label & Sizing",
+        "description": "Bespoke color palettes, customized blouse patterns, and private label tags for retail partners."
+      }
+    ],
+    "form": {
+      "title": "Wholesale Partner Registration",
+      "moqNote": "MOQ starts from 15 pieces per order across assorted styles.",
+      "submitButtonText": "Submit Wholesale Request",
+      "tiers": [
+        {
+          "value": "15 – 30 pieces",
+          "label": "15 – 30 pieces (Starter Boutique Tier)"
+        },
+        {
+          "value": "30 – 75 pieces",
+          "label": "30 – 75 pieces (Seasonal Collection Tier)"
+        },
+        {
+          "value": "75+ pieces",
+          "label": "75+ pieces (Full Retail & Salon Tier)"
+        }
+      ],
+      "successTitle": "Thank You for Your Wholesale Inquiry",
+      "successDescription": "Our wholesale director and designer Vidhya's team will review your boutique requirements and reach out with our seasonal lookbook and B2B line sheets within 24 hours.",
+      "whatsappDeskButtonText": "Expedite Inquiry via WhatsApp B2B Desk →",
+      "whatsappDeskLink": "https://wa.me/919876543210"
+    },
+    "footerSupport": {
+      "prefixText": "Prefer direct communication?",
+      "linkText": "Connect directly with our B2B Director on WhatsApp →",
+      "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20like%20to%20discuss%20a%20wholesale%20partnership."
+    },
+    "seo": {
+      "metaTitle": "Wholesale & B2B Inquiries | Boutique Partnerships | Angelika Fashions",
+      "metaDescription": "Partner with Angelika Fashions for wholesale handcrafted Indian couture, silk sarees, and bridal lehengas with direct loom pricing and worldwide delivery."
+    }
+  },
+  "designer-vidhya-page": {
+    "header": {
+      "breadcrumbHome": "Home",
+      "breadcrumbAbout": "About Us",
+      "breadcrumbCurrent": "Meet Designer Vidhya",
+      "eyebrow": "THE CREATIVE SOUL BEHIND ANGELIKA",
+      "title": "Meet Designer Vidhya",
+      "quote": "\"Ethnic wear shouldn't just be worn for an occasion; it should feel like an heirloom that holds the memory of the celebration and honors the hands that wove it.\""
+    },
+    "story": {
+      "eyebrow": "HERITAGE & ATELIER PHILOSOPHY",
+      "title": "Reinventing Handloom Couture for the Contemporary Woman",
+      "paragraphs": [
+        "Trained in the historic weaving heartlands of Varanasi, Chanderi, and Kanchipuram, Vidhya established Angelika Fashions to bridge the generational divide between timeless Indian textiles and effortless modern silhouettes.",
+        "Every drape is conceived around comfort, movement, and genuine pure silk authenticity. Rejecting synthetic polyester copies and mass production, Vidhya works directly with over 40 artisan master weaving families across India."
+      ],
+      "image": "/images/categories/sarees.jpg",
+      "imageAlt": "Designer Vidhya draping handloom silk",
+      "designerName": "Vidhya",
+      "designerRole": "Founder & Creative Director",
+      "metrics": [
+        {
+          "value": "100%",
+          "label": "Certified Pure Handloom"
+        },
+        {
+          "value": "40+",
+          "label": "Weaving Families Supported"
+        },
+        {
+          "value": "12k+",
+          "label": "Global Drapes Styled"
+        }
+      ]
+    },
+    "tenets": {
+      "title": "The Three Tenets of Vidhya's Atelier",
+      "items": [
+        {
+          "number": "1.",
+          "title": "Ethical Loom Direct",
+          "description": "Fair living wages and direct artisan profit sharing without distributor commissions."
+        },
+        {
+          "number": "2.",
+          "title": "Weightless Grandeur",
+          "description": "Re-engineering traditional heavy zari into breathable, feather-light drapes you can dance in."
+        },
+        {
+          "number": "3.",
+          "title": "Private Client Styling",
+          "description": "Complimentary direct consultation with Vidhya to personalize blouse cuts, dupatta styling, and trousseau curation."
+        }
+      ]
+    },
+    "consultation": {
+      "eyebrow": "CONSULT DIRECTLY WITH VIDHYA",
+      "title": "Book a Personal WhatsApp Styling Session",
+      "description": "Need advice on which silhouette suits your body type or which color palette matches your bridal celebration? Designer Vidhya is available for complimentary styling consultations.",
+      "buttonText": "Chat with Designer Vidhya on WhatsApp →",
+      "whatsappUrl": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20love%20a%20personal%20styling%20session%20with%20you."
+    },
+    "seo": {
+      "metaTitle": "Meet Designer Vidhya | Angelika Fashions Atelier",
+      "metaDescription": "Discover the artisanal journey, design philosophy, and master craft heritage of Designer Vidhya at Angelika Fashions."
+    }
   }
 }

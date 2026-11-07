@@ -28,6 +28,16 @@ import { PrivacyPolicyPageEditor } from '@/components/admin/PrivacyPolicyPageEdi
 import { TermsPageEditor } from '@/components/admin/TermsPageEditor';
 import { CookiesPageEditor } from '@/components/admin/CookiesPageEditor';
 import { AccessibilityPageEditor } from '@/components/admin/AccessibilityPageEditor';
+import { ShopPageEditor } from '@/components/admin/ShopPageEditor';
+import { AboutPageEditor } from '@/components/admin/AboutPageEditor';
+import { ShippingPageEditor } from '@/components/admin/ShippingPageEditor';
+import { ReturnsPageEditor } from '@/components/admin/ReturnsPageEditor';
+import { SizeFinderPageEditor } from '@/components/admin/SizeFinderPageEditor';
+import { SizeGuidePageEditor } from '@/components/admin/SizeGuidePageEditor';
+import { FAQPageEditor } from '@/components/admin/FAQPageEditor';
+import { ContactPageEditor } from '@/components/admin/ContactPageEditor';
+import { WholesalePageEditor } from '@/components/admin/WholesalePageEditor';
+import { DesignerVidhyaPageEditor } from '@/components/admin/DesignerVidhyaPageEditor';
 
 const contentSections = [
   { id: 'hero', label: 'Homepage Hero', type: 'hero' },
@@ -89,6 +99,56 @@ const contentSections = [
   {
     id: 'accessibility-page',
     label: 'Accessibility Statement',
+    type: 'page'
+  },
+  {
+    id: 'shop-page',
+    label: 'Shop Page (All Collections)',
+    type: 'page'
+  },
+  {
+    id: 'about-page',
+    label: 'About Us Page',
+    type: 'page'
+  },
+  {
+    id: 'shipping-page',
+    label: 'Shipping Policy Page',
+    type: 'page'
+  },
+  {
+    id: 'returns-page',
+    label: 'Returns & Size Exchanges',
+    type: 'page'
+  },
+  {
+    id: 'size-finder-page',
+    label: 'Couture Fit Studio (Size Finder)',
+    type: 'page'
+  },
+  {
+    id: 'size-guide-page',
+    label: 'Garment Size Guide',
+    type: 'page'
+  },
+  {
+    id: 'faq-page',
+    label: 'FAQ & Help Center',
+    type: 'page'
+  },
+  {
+    id: 'contact-page',
+    label: 'Contact Us & Concierge Studio',
+    type: 'page'
+  },
+  {
+    id: 'wholesale-page',
+    label: 'Wholesale & B2B Inquiries',
+    type: 'page'
+  },
+  {
+    id: 'designer-vidhya-page',
+    label: 'Meet Designer Vidhya',
     type: 'page'
   },
   { id: 'brand-story', label: 'Brand Story', type: 'richtext' },
@@ -871,95 +931,10 @@ export default function AdminContentPage() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <motion.div
-        className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div>
-          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">Content Management</h1>
-          <p className="text-[var(--color-slate)] mt-1">Zero-code editing for Vidhya - update text, icons, and layout with instant homepage sync</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            target="_blank"
-            className="inline-flex items-center gap-2 px-4 py-2 border border-[var(--color-whisper)] rounded-lg text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors bg-[var(--color-white)] shadow-2xs"
-          >
-            <span>View Live Homepage</span>
-            <span className="text-sm">↗</span>
-          </Link>
-        </div>
-        <Link
-          href="/"
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--color-snow)] hover:bg-[var(--color-whisper)] text-xs font-semibold text-[var(--color-ink)] border border-[var(--color-whisper)] transition-colors self-start sm:self-auto"
-        >
-          <span>View Live Storefront</span>
-          <span>↗</span>
-        </Link>
-      </motion.div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="sections" onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex gap-2 mb-6">
-          <TabsTrigger value="sections">Sections</TabsTrigger>
-          <TabsTrigger value="media">Media Library</TabsTrigger>
-          <TabsTrigger value="blog">Blog Posts</TabsTrigger>
-          <TabsTrigger value="pages">Static Pages</TabsTrigger>
-        </TabsList>
-
-        {/* Sections Tab */}
-        <TabsContent value="sections">
-          <motion.div
-            className="grid lg:grid-cols-3 gap-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            {/* Sections List */}
-            <div className="lg:col-span-1">
-              <Card variant="elevated" padding="none">
-                <CardHeader className="p-4 border-b border-[var(--color-whisper)]">
-                  <CardTitle className="text-[var(--font-display)] text-base">Editable Sections</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="divide-y divide-[var(--color-whisper)]">
-                    {contentSections.map((section) => (
-                      <motion.div
-                        key={section.id}
-                        className={cn(
-                          'p-4 hover:bg-[var(--color-snow)] transition-colors cursor-pointer border-l-4',
-                          editingSection === section.id ? 'bg-[var(--color-gold-light)] border-[var(--color-gold)]' : 'border-transparent'
-                        )}
-                        onClick={() => handleEdit(section.id)}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.05 }}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <h4 className="font-medium text-[var(--color-ink)] text-sm">{section.label}</h4>
-                          <Badge variant="outline" className="text-[10px] capitalize">{section.type}</Badge>
-                        </div>
-                        <p className="text-xs text-[var(--color-slate)]">Click to edit</p>
-                      </motion.div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Editor Panel */}
-            <div className="lg:col-span-2">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-              >
-                {editingSection === 'hero' ? (
+  const renderEditorPanel = () => {
+    return (
+      <>
+        {editingSection === 'hero' ? (
                   <Card variant="elevated" padding="lg">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
                       <div>
@@ -1223,6 +1198,126 @@ export default function AdminContentPage() {
                         setStatusMessage({
                           type: 'success',
                           text: '"Accessibility Statement" updated successfully! Your changes are now live on /accessibility.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'shop-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <ShopPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Shop Page (All Collections)" updated successfully! Your changes are now live on /shop.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'about-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <AboutPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"About Us Page" updated successfully! Your changes are now live on /about.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'shipping-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <ShippingPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Shipping Policy Page" updated successfully! Your changes are now live on /shipping.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'returns-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <ReturnsPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Returns & Size Exchanges" updated successfully! Your changes are now live on /returns.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'size-finder-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <SizeFinderPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Couture Fit Studio (Size Finder)" updated successfully! Your changes are now live on /size-finder.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'size-guide-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <SizeGuidePageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Garment Size Guide" updated successfully! Your changes are now live on /size-guide.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'faq-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <FAQPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"FAQ & Help Center" updated successfully! Your changes are now live on /faq.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'contact-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <ContactPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Contact Us & Concierge Studio" updated successfully! Your changes are now live on /contact.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'wholesale-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <WholesalePageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Wholesale & B2B Inquiries" updated successfully! Your changes are now live on /wholesale.',
+                        });
+                      }}
+                    />
+                  </Card>
+                ) : editingSection === 'designer-vidhya-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <DesignerVidhyaPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Meet Designer Vidhya" updated successfully! Your changes are now live on /about/vidhya.',
                         });
                       }}
                     />
@@ -1934,6 +2029,99 @@ export default function AdminContentPage() {
                     <p className="text-[var(--color-slate)]">Choose from the sidebar to edit homepage sections, about page content, or other site content.</p>
                   </Card>
                 )}
+      </>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <motion.div
+        className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div>
+          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">Content Management</h1>
+          <p className="text-[var(--color-slate)] mt-1">Zero-code editing for Vidhya - update text, icons, and layout with instant homepage sync</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            target="_blank"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-[var(--color-whisper)] rounded-lg text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-gold)] hover:text-[var(--color-gold)] transition-colors bg-[var(--color-white)] shadow-2xs"
+          >
+            <span>View Live Homepage</span>
+            <span className="text-sm">↗</span>
+          </Link>
+        </div>
+        <Link
+          href="/"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[var(--color-snow)] hover:bg-[var(--color-whisper)] text-xs font-semibold text-[var(--color-ink)] border border-[var(--color-whisper)] transition-colors self-start sm:self-auto"
+        >
+          <span>View Live Storefront</span>
+          <span>↗</span>
+        </Link>
+      </motion.div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="flex gap-2 mb-6">
+          <TabsTrigger value="sections">Sections</TabsTrigger>
+          <TabsTrigger value="media">Media Library</TabsTrigger>
+          <TabsTrigger value="blog">Blog Posts</TabsTrigger>
+          <TabsTrigger value="pages">Static Pages</TabsTrigger>
+        </TabsList>
+
+        {/* Sections Tab */}
+        <TabsContent value="sections">
+          <motion.div
+            className="grid lg:grid-cols-3 gap-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            {/* Sections List */}
+            <div className="lg:col-span-1">
+              <Card variant="elevated" padding="none">
+                <CardHeader className="p-4 border-b border-[var(--color-whisper)]">
+                  <CardTitle className="text-[var(--font-display)] text-base">Editable Sections</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-[var(--color-whisper)]">
+                    {contentSections.map((section) => (
+                      <motion.div
+                        key={section.id}
+                        className={cn(
+                          'p-4 hover:bg-[var(--color-snow)] transition-colors cursor-pointer border-l-4',
+                          editingSection === section.id ? 'bg-[var(--color-gold-light)] border-[var(--color-gold)]' : 'border-transparent'
+                        )}
+                        onClick={() => handleEdit(section.id)}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.05 }}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="font-medium text-[var(--color-ink)] text-sm">{section.label}</h4>
+                          <Badge variant="outline" className="text-[10px] capitalize">{section.type}</Badge>
+                        </div>
+                        <p className="text-xs text-[var(--color-slate)]">Click to edit</p>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Editor Panel */}
+            <div className="lg:col-span-2">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                {renderEditorPanel()}
               </motion.div>
             </div>
           </motion.div>
@@ -2032,7 +2220,33 @@ export default function AdminContentPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            {editingSection ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-4 border-b border-[var(--color-whisper)]">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingSection(null);
+                      setStatusMessage(null);
+                    }}
+                    className="text-xs flex items-center gap-1.5 border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                  >
+                    <span>←</span>
+                    <span>Back to Static Pages List</span>
+                  </Button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[var(--color-slate)]">Currently Editing:</span>
+                    <Badge variant="outline" className="text-xs text-amber-700 bg-amber-50 border-amber-200 font-semibold">
+                      {contentSections.find((s) => s.id === editingSection)?.label || editingSection}
+                    </Badge>
+                  </div>
+                </div>
+                {renderEditorPanel()}
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
                 <h2 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)]">Static Pages</h2>
                 <p className="text-[var(--color-slate)]">Manage legal pages, contact info, and policies</p>
@@ -2052,6 +2266,39 @@ export default function AdminContentPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Shop Page (All Collections)</span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
+                          Main Catalog
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/shop" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/shop</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('shop-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                     <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
                       <TableCell className="font-medium flex items-center gap-2">
                         <span>Kurtis Page</span>
@@ -2077,7 +2324,6 @@ export default function AdminContentPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setActiveTab('sections');
                             handleEdit('kurtis-page');
                           }}
                           className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10"
@@ -2108,7 +2354,6 @@ export default function AdminContentPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setActiveTab('sections');
                             handleEdit('footer');
                           }}
                           className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10"
@@ -2117,26 +2362,301 @@ export default function AdminContentPage() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">About Us</TableCell>
-                      <TableCell className="font-mono text-xs text-[var(--color-slate)]">/about</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">Published</Badge></TableCell>
-                      <TableCell className="text-xs text-[var(--color-slate)]">Jan 10, 2026</TableCell>
-                      <TableCell className="text-right">
-                        <Link href="/about" target="_blank" className="text-xs text-[var(--color-slate)] hover:text-[var(--color-ink)]">
-                          View ↗
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>About Us Page</span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
+                          Brand Story
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/about" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/about</span>
+                          <span className="text-[10px]">↗</span>
                         </Link>
                       </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Shipping Policy</TableCell>
-                      <TableCell className="font-mono text-xs text-[var(--color-slate)]">/shipping</TableCell>
-                      <TableCell><Badge variant="outline" className="text-[10px]">Published</Badge></TableCell>
-                      <TableCell className="text-xs text-[var(--color-slate)]">Dec 20, 2025</TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
                       <TableCell className="text-right">
-                        <Link href="/shipping" target="_blank" className="text-xs text-[var(--color-slate)] hover:text-[var(--color-ink)]">
-                          View ↗
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('about-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Shipping Policy Page</span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
+                          Customer Care
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/shipping" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/shipping</span>
+                          <span className="text-[10px]">↗</span>
                         </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('shipping-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Returns & Size Exchanges</span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
+                          Customer Care
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/returns" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/returns</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('returns-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Couture Fit Studio</span>
+                        <Badge variant="outline" className="text-[10px] text-amber-700 bg-amber-50 border-amber-200">
+                          Interactive Studio
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/size-finder" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/size-finder</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('size-finder-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Garment Size Guide</span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
+                          Measurement Charts
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/size-guide" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/size-guide</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('size-guide-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>FAQ & Help Center</span>
+                        <Badge variant="outline" className="text-[10px] text-blue-700 bg-blue-50 border-blue-200">
+                          Customer Support
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/faq" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/faq</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('faq-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Contact Us & Concierge Studio</span>
+                        <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-200">
+                          Bespoke Inquiries
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/contact" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/contact</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('contact-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Wholesale & B2B Inquiries</span>
+                        <Badge variant="outline" className="text-[10px] text-amber-700 bg-amber-50 border-amber-200">
+                          B2B Partnerships
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/wholesale" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/wholesale</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('wholesale-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow className="hover:bg-[var(--color-snow)] transition-colors">
+                      <TableCell className="font-medium flex items-center gap-2">
+                        <span>Meet Designer Vidhya</span>
+                        <Badge variant="outline" className="text-[10px] text-amber-700 bg-amber-50 border-amber-200">
+                          Atelier & Heritage
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Link href="/about/vidhya" target="_blank" className="text-[var(--color-gold)] hover:underline flex items-center gap-1 font-mono text-xs">
+                          <span>/about/vidhya</span>
+                          <span className="text-[10px]">↗</span>
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Live on Storefront
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[var(--color-slate)]">Active</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingSection('designer-vidhya-page');
+                          }}
+                          className="text-xs border-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold)]/10 font-semibold"
+                        >
+                          Manage Page
+                        </Button>
                       </TableCell>
                     </TableRow>
                     <TableRow>
@@ -2146,7 +2666,6 @@ export default function AdminContentPage() {
                           <span>/shop/salwars</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('salwars-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2164,7 +2683,6 @@ export default function AdminContentPage() {
                           <span>/shop/lehengas</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('lehengas-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2182,7 +2700,6 @@ export default function AdminContentPage() {
                           <span>/shop/sarees</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('sarees-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2200,7 +2717,6 @@ export default function AdminContentPage() {
                           <span>/shop/dupattas</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('dupattas-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2218,7 +2734,6 @@ export default function AdminContentPage() {
                           <span>/new-arrivals</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('new-arrivals-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2236,7 +2751,6 @@ export default function AdminContentPage() {
                           <span>/sale</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('sale-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2254,7 +2768,6 @@ export default function AdminContentPage() {
                           <span>/#MyAngelikaLook</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('my-angelika-look');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2272,7 +2785,6 @@ export default function AdminContentPage() {
                           <span>/privacy</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('privacy-policy-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2290,7 +2802,6 @@ export default function AdminContentPage() {
                           <span>/terms</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('terms-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2308,7 +2819,6 @@ export default function AdminContentPage() {
                           <span>/cookies</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('cookies-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2326,7 +2836,6 @@ export default function AdminContentPage() {
                           <span>/accessibility</span>
                           <button
                             onClick={() => {
-                              setActiveTab('sections');
                               setEditingSection('accessibility-page');
                             }}
                             className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
@@ -2341,6 +2850,8 @@ export default function AdminContentPage() {
                 </Table>
               </CardContent>
             </Card>
+              </>
+            )}
           </motion.div>
         </TabsContent>
       </Tabs>

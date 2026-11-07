@@ -20,7 +20,7 @@ import { MagneticButton } from '@/components/animations/MagneticButton';
 import { MagneticCard } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import type { ShopProductCard, ShopFilters } from '@/lib/actions/shop-types';
-import type { SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent } from '@/lib/actions/site-content-types';
+import type { SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent, ShopPageContent } from '@/lib/actions/site-content-types';
 import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES } from '@/lib/actions/shop-types';
 import type { KurtisPageContent } from '@/lib/actions/site-content';
 
@@ -44,6 +44,7 @@ interface CategoryPageClientProps {
   lehengasContent?: LehengasPageContent | null;
   sareesContent?: SareesPageContent | null;
   dupattasContent?: DupattasPageContent | null;
+  shopContent?: ShopPageContent | null;
 }
 
 const CATEGORIES_NAVIGATION = [
@@ -69,6 +70,7 @@ export function CategoryPageClient({
   lehengasContent,
   sareesContent,
   dupattasContent,
+  shopContent,
 }: CategoryPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -78,7 +80,7 @@ export function CategoryPageClient({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [localSortBy, setLocalSortBy] = useState(sortBy);
   const [isClientLoaded, setIsClientLoaded] = useState(false);
-  const activeCategoryContent = salwarsContent || lehengasContent || sareesContent || dupattasContent;
+  const activeCategoryContent = shopContent || salwarsContent || lehengasContent || sareesContent || dupattasContent;
 
   // Dynamic Kurtis Page configurations from admin panel
   const isKurtis = (categorySlug || '').toLowerCase() === 'kurtis';
@@ -138,8 +140,46 @@ export function CategoryPageClient({
         occasion: ['Festive', 'Casual'],
       } as ShopProductCard));
     }
+
+    if (shopContent?.productsMode === 'custom' && Array.isArray(shopContent.products) && shopContent.products.length > 0) {
+      return shopContent.products.map((p, idx) => {
+        const itemPrice = typeof p.price === 'number' ? p.price : Number(p.price) || 4999;
+        const origPrice = p.originalPrice ? (typeof p.originalPrice === 'number' ? p.originalPrice : Number(p.originalPrice) || null) : null;
+        const discount = p.discount || (origPrice && origPrice > itemPrice ? Math.round(((origPrice - itemPrice) / origPrice) * 100) : 0);
+
+        return ({
+          id: p.id || `shop-item-${idx + 1}`,
+          slug: p.slug || p.id || `shop-item-${idx + 1}`,
+          name: p.name,
+          price: itemPrice,
+          compare_at_price: origPrice,
+          image: p.image || '/images/collection-kurtis.jpg',
+          images: [{ id: `img-${p.id || idx}`, product_id: p.id || `shop-${idx}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.name, sort_order: 0, is_primary: true, created_at: '' }] as any,
+          category: { id: `cat-${p.category?.toLowerCase() || 'shop'}`, name: p.category || 'Collection', slug: p.category?.toLowerCase() || '', description: null, image_url: null, parent_id: null, sort_order: 1, is_active: true, created_at: '', updated_at: '' } as any,
+          discount,
+          is_featured: Boolean(p.badge),
+          is_vidyas_pick: Boolean(p.isVidhyasPick),
+          created_at: new Date(Date.now() - idx * 86400000).toISOString(),
+          rating: p.rating || 4.8,
+          review_count: p.reviewCount || 12,
+          variants: (p.sizes || ['S', 'M', 'L']).map((sz, szIdx) => ({
+            id: `var-${p.id || idx}-${szIdx}`,
+            size: sz,
+            price: itemPrice,
+            compare_at_price: origPrice,
+            inventory_quantity: p.inStock !== false ? 8 : 0,
+          })),
+          defaultVariantId: `var-${p.id || idx}-0`,
+          fabric: p.fabric || 'Silk',
+          color: p.color || 'Ivory',
+          tags: [p.fabric, p.color, p.badge].filter(Boolean) as string[],
+          occasion: ['Festive', 'Celebration'],
+        } as unknown as ShopProductCard);
+      });
+    }
+
     return initialProducts;
-  }, [isKurtis, kurtisContent?.products, kurtisContent?.productsMode, initialProducts]);
+  }, [isKurtis, kurtisContent?.products, kurtisContent?.productsMode, shopContent?.products, shopContent?.productsMode, initialProducts]);
 
   const [allProducts, setAllProducts] = useState<ShopProductCard[]>(resolvedInitialProducts);
 

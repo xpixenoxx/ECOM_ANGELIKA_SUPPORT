@@ -1,11 +1,16 @@
 import { getAllProducts } from '@/lib/actions/shop';
 import { CategoryPageClient } from './[category]/CategoryPageClient';
 import type { Metadata } from 'next';
+import { getSiteContent } from '@/lib/actions/site-content';
 
-export const metadata: Metadata = {
-  title: 'Shop All Collections | Angelika Fashions',
-  description: 'Explore the complete Angelika collection of handcrafted luxury ethnic wear, kurtis, sarees, lehengas, and salwars.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const siteContent = await getSiteContent();
+  const shopContent = siteContent?.['shop-page'];
+  return {
+    title: shopContent?.seo?.metaTitle || 'Shop All Collections | Angelika Fashions',
+    description: shopContent?.seo?.metaDescription || 'Explore the complete Angelika collection of handcrafted luxury ethnic wear, kurtis, sarees, lehengas, and salwars.',
+  };
+}
 
 export default async function ShopPage({
   searchParams,
@@ -60,12 +65,15 @@ export default async function ShopPage({
     48
   );
 
+  const siteContent = await getSiteContent();
+  const shopContent = siteContent?.['shop-page'];
+
   const shopCategory = {
     id: 'all',
-    name: 'All Collections',
+    name: shopContent?.hero?.title || 'All Collections',
     slug: '',
-    description: 'Explore our complete collection of handcrafted kurtis, sarees, salwars, lehengas, and dupattas.',
-    image_url: '/images/hero-bg.jpg',
+    description: shopContent?.hero?.description || 'Explore our complete collection of handcrafted kurtis, sarees, salwars, lehengas, and dupattas.',
+    image_url: shopContent?.hero?.backgroundImage || '/images/hero-bg.jpg',
   };
 
   return (
@@ -78,6 +86,7 @@ export default async function ShopPage({
       sortBy={sortBy}
       initialFilters={filters}
       categorySlug=""
+      shopContent={shopContent}
     />
   );
 }
