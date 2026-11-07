@@ -4,8 +4,9 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/lib/utils/cn';
+import type { CategoriesContent, CategoryCollectionItem } from '@/lib/actions/site-content-types';
 
-interface CollectionCard {
+export interface CollectionCard {
   id: string;
   title: string;
   href: string;
@@ -15,17 +16,17 @@ interface CollectionCard {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3 + 1 + 2 + 1 + 1 (8 Collections Total)
+// 3 + 1 + 2 + 1 + 1 (8 Collections Total) - Default Fallbacks
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Row 1: 3 cards
-const ROW_1: CollectionCard[] = [
+export const DEFAULT_COLLECTIONS: CategoryCollectionItem[] = [
   {
     id: 'party-wear-dresses',
     title: 'Party Wear Dresses',
     href: '/shop?occasion=party',
     image: '/images/category-showcase/showcase-party-wear-dresses.jpg',
     imagePosition: 'object-center',
+    row: 1,
   },
   {
     id: 'office-wear-3piece',
@@ -33,6 +34,7 @@ const ROW_1: CollectionCard[] = [
     href: '/shop/salwars?occasion=office',
     image: '/images/category-showcase/showcase-office-wear-3piece.jpg',
     imagePosition: 'object-center',
+    row: 1,
   },
   {
     id: 'coord-sets',
@@ -40,26 +42,23 @@ const ROW_1: CollectionCard[] = [
     href: '/shop/kurtis?type=coord-sets',
     image: '/images/category-showcase/showcase-coord-sets.jpg',
     imagePosition: 'object-center',
+    row: 1,
   },
-];
-
-// Row 2: 1 card (Full Width)
-const ROW_2: CollectionCard = {
-  id: 'lehengas',
-  title: 'Lehengas',
-  href: '/shop/lehengas',
-  image: '/images/category-showcase/showcase-lehengas.jpg',
-  imagePosition: 'object-center',
-};
-
-// Row 3: 2 cards (Exact match to reference photo)
-const ROW_3: CollectionCard[] = [
+  {
+    id: 'lehengas',
+    title: 'Lehengas',
+    href: '/shop/lehengas',
+    image: '/images/category-showcase/showcase-lehengas.jpg',
+    imagePosition: 'object-center',
+    row: 2,
+  },
   {
     id: 'daily-wear-sarees',
     title: 'Daily Wear Sarees',
     href: '/shop/sarees?occasion=casual',
     image: '/images/category-showcase/showcase-daily-wear-sarees.jpg',
     imagePosition: 'object-center',
+    row: 3,
   },
   {
     id: 'office-wear-sarees',
@@ -67,26 +66,25 @@ const ROW_3: CollectionCard[] = [
     href: '/shop/sarees?occasion=office',
     image: '/images/category-showcase/showcase-office-wear-sarees.jpg',
     imagePosition: 'object-center',
+    row: 3,
+  },
+  {
+    id: 'party-wear-sarees',
+    title: 'Party Wear Sarees',
+    href: '/shop/sarees?occasion=party',
+    image: '/images/category-showcase/showcase-party-wear-sarees.jpg',
+    imagePosition: 'object-center',
+    row: 4,
+  },
+  {
+    id: 'womens-frocks',
+    title: "Women's Frocks",
+    href: '/shop/salwars?type=anarkali',
+    image: '/images/category-showcase/showcase-womens-frocks.jpg',
+    imagePosition: 'object-center',
+    row: 5,
   },
 ];
-
-// Row 4: 1 card (Full Width)
-const ROW_4: CollectionCard = {
-  id: 'party-wear-sarees',
-  title: 'Party Wear Sarees',
-  href: '/shop/sarees?occasion=party',
-  image: '/images/category-showcase/showcase-party-wear-sarees.jpg',
-  imagePosition: 'object-center',
-};
-
-// Row 5: 1 card (Full Width)
-const ROW_5: CollectionCard = {
-  id: 'womens-frocks',
-  title: "Women's Frocks",
-  href: '/shop/salwars?type=anarkali',
-  image: '/images/category-showcase/showcase-womens-frocks.jpg',
-  imagePosition: 'object-center',
-};
 
 // Row 1 Target size: 506.93 x 658 each (1520.8 / 3 x 658)
 const ROW_1_CARD_STYLE: React.CSSProperties = {
@@ -155,18 +153,83 @@ function HeroCard({
 }
 
 interface ExploreCollectionsProps {
+  categoriesContent?: CategoriesContent;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export function ExploreCollections({ className = '', style }: ExploreCollectionsProps) {
+export function ExploreCollections({
+  categoriesContent,
+  className = '',
+  style,
+}: ExploreCollectionsProps) {
+  // Use items from categoriesContent if available, falling back to DEFAULT_COLLECTIONS
+  const rawItems = categoriesContent?.items && categoriesContent.items.length > 0
+    ? categoriesContent.items
+    : DEFAULT_COLLECTIONS;
+
+  // Build 8-element list by merging with defaults
+  const items: CategoryCollectionItem[] = Array.from({ length: 8 }, (_, idx) => {
+    const raw = rawItems[idx];
+    const fallback = DEFAULT_COLLECTIONS[idx] || DEFAULT_COLLECTIONS[0]!;
+    return {
+      id: raw?.id || fallback.id || `card-${idx + 1}`,
+      title: raw?.title || fallback.title,
+      subtitle: raw?.subtitle || fallback.subtitle,
+      href: raw?.href || fallback.href,
+      image: raw?.image || fallback.image,
+      cta: raw?.cta || fallback.cta,
+      imagePosition: raw?.imagePosition || fallback.imagePosition || 'object-center',
+      row: raw?.row || fallback.row,
+    };
+  });
+
+  const row1 = items.slice(0, 3).map((item, idx) => ({
+    id: item.id || `row1-${idx}`,
+    title: item.title,
+    href: item.href,
+    image: item.image,
+    imagePosition: item.imagePosition || 'object-center',
+  }));
+
+  const row2: CollectionCard = {
+    id: items[3]?.id || 'lehengas',
+    title: items[3]?.title || 'Lehengas',
+    href: items[3]?.href || '/shop/lehengas',
+    image: items[3]?.image || '/images/category-showcase/showcase-lehengas.jpg',
+    imagePosition: items[3]?.imagePosition || 'object-center',
+  };
+
+  const row3 = items.slice(4, 6).map((item, idx) => ({
+    id: item.id || `row3-${idx}`,
+    title: item.title,
+    href: item.href,
+    image: item.image,
+    imagePosition: item.imagePosition || 'object-center',
+  }));
+
+  const row4: CollectionCard = {
+    id: items[6]?.id || 'party-wear-sarees',
+    title: items[6]?.title || 'Party Wear Sarees',
+    href: items[6]?.href || '/shop/sarees?occasion=party',
+    image: items[6]?.image || '/images/category-showcase/showcase-party-wear-sarees.jpg',
+    imagePosition: items[6]?.imagePosition || 'object-center',
+  };
+
+  const row5: CollectionCard = {
+    id: items[7]?.id || 'womens-frocks',
+    title: items[7]?.title || "Women's Frocks",
+    href: items[7]?.href || '/shop/salwars?type=anarkali',
+    image: items[7]?.image || '/images/category-showcase/showcase-womens-frocks.jpg',
+    imagePosition: items[7]?.imagePosition || 'object-center',
+  };
+
   return (
     <section
       className={cn('relative w-full bg-[#FAF6F0] overflow-hidden mt-[10px]', className)}
       style={{ marginTop: '10px', ...style }}
       aria-label="Explore Our Collections"
     >
-
       {/* ── 3 + 1 + 2 + 1 + 1 Luxury Editorial Grid ─────────────────────── */}
       <div className="w-full max-w-[1520.8px] mx-auto flex flex-col gap-0.5 sm:gap-1 bg-[#FAF6F0]">
         {/* ═════════════════════════════════════════════════════════════════
@@ -174,7 +237,7 @@ export function ExploreCollections({ className = '', style }: ExploreCollections
             Target Size: 506.93 x 658 each
            ═════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-0 w-full divide-y md:divide-y-0 md:divide-x divide-[#E5E0D8]">
-          {ROW_1.map((card) => (
+          {row1.map((card) => (
             <HeroCard
               key={card.id}
               card={card}
@@ -190,7 +253,7 @@ export function ExploreCollections({ className = '', style }: ExploreCollections
            ═════════════════════════════════════════════════════════════════ */}
         <div className="w-full">
           <HeroCard
-            card={ROW_2}
+            card={row2}
             sizes="100vw"
             style={FULL_WIDTH_CARD_STYLE}
             heightClass={FULL_WIDTH_CARD_HEIGHT}
@@ -202,7 +265,7 @@ export function ExploreCollections({ className = '', style }: ExploreCollections
             Target Size: 760.4 x 658 each
            ═════════════════════════════════════════════════════════════════ */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0 w-full divide-y md:divide-y-0 md:divide-x divide-[#E5E0D8]">
-          {ROW_3.map((card) => (
+          {row3.map((card) => (
             <HeroCard
               key={card.id}
               card={card}
@@ -218,7 +281,7 @@ export function ExploreCollections({ className = '', style }: ExploreCollections
            ═════════════════════════════════════════════════════════════════ */}
         <div className="w-full">
           <HeroCard
-            card={ROW_4}
+            card={row4}
             sizes="100vw"
             style={FULL_WIDTH_CARD_STYLE}
             heightClass={FULL_WIDTH_CARD_HEIGHT}
@@ -230,7 +293,7 @@ export function ExploreCollections({ className = '', style }: ExploreCollections
            ═════════════════════════════════════════════════════════════════ */}
         <div className="w-full">
           <HeroCard
-            card={ROW_5}
+            card={row5}
             sizes="100vw"
             style={FULL_WIDTH_CARD_STYLE}
             heightClass={FULL_WIDTH_CARD_HEIGHT}

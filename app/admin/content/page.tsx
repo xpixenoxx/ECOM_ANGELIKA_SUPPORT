@@ -41,11 +41,9 @@ import { DesignerVidhyaPageEditor } from '@/components/admin/DesignerVidhyaPageE
 
 const contentSections = [
   { id: 'hero', label: 'Homepage Hero', type: 'hero' },
-  { id: 'features', label: 'Features Section', type: 'features' },
   { id: 'categories', label: 'Category Showcase', type: 'categories' },
   { id: 'new-arrivals', label: 'New Arrivals Showcase', type: 'collection' },
   { id: 'vidhyas-picks', label: "Vidhya's Picks", type: 'editorial' },
-  { id: 'shop-the-look', label: 'Shop the Look', type: 'look' },
   {
     id: 'salwars-page',
     label: 'Salwars Page',
@@ -186,11 +184,14 @@ const defaultMockContent: Record<string, any> = {
     title: 'Shop by Category',
     subtitle: 'Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.',
     items: [
-      { title: 'Kurtis', subtitle: 'Hand-block printed cotton', image: '/images/collections/kurtis-hero.jpg', href: '/shop/kurtis', cta: 'Shop Kurtis' },
-      { title: 'Salwars', subtitle: 'Zari embroidery and suits', image: '/images/collections/salwars-hero.jpg', href: '/shop/salwars', cta: 'Shop Salwars' },
-      { title: 'Lehengas', subtitle: 'Festive silks and mirror work', image: '/images/collections/lehengas-hero.jpg', href: '/shop/lehengas', cta: 'Shop Lehengas' },
-      { title: 'Sarees', subtitle: 'Kanjivaram & Banarasi weave', image: '/images/collections/sarees-hero.jpg', href: '/shop/sarees', cta: 'Shop Sarees' },
-      { title: 'Dupattas', subtitle: 'Artisanal silk drapes', image: '/images/collections/dupattas-hero.jpg', href: '/shop/dupattas', cta: 'Shop Dupattas' },
+      { id: 'party-wear-dresses', title: 'Party Wear Dresses', subtitle: 'Festive & Evening Ensembles', image: '/images/category-showcase/showcase-party-wear-dresses.jpg', href: '/shop?occasion=party', cta: 'Explore Dresses', row: 1 },
+      { id: 'office-wear-3piece', title: 'Office Wear 3-Piece', subtitle: 'Contemporary Formal Sets', image: '/images/category-showcase/showcase-office-wear-3piece.jpg', href: '/shop/salwars?occasion=office', cta: 'Shop 3-Piece', row: 1 },
+      { id: 'coord-sets', title: 'Co-ord Sets', subtitle: 'Modern Matching Ensembles', image: '/images/category-showcase/showcase-coord-sets.jpg', href: '/shop/kurtis?type=coord-sets', cta: 'Shop Co-ords', row: 1 },
+      { id: 'lehengas', title: 'Lehengas', subtitle: 'Bridal & Royal Celebrations', image: '/images/category-showcase/showcase-lehengas.jpg', href: '/shop/lehengas', cta: 'Explore Lehengas', row: 2 },
+      { id: 'daily-wear-sarees', title: 'Daily Wear Sarees', subtitle: 'Lightweight Tissue & Cotton', image: '/images/category-showcase/showcase-daily-wear-sarees.jpg', href: '/shop/sarees?occasion=casual', cta: 'Shop Daily Sarees', row: 3 },
+      { id: 'office-wear-sarees', title: 'Office Wear Sarees', subtitle: 'Sophisticated Silk Drapes', image: '/images/category-showcase/showcase-office-wear-sarees.jpg', href: '/shop/sarees?occasion=office', cta: 'Shop Office Sarees', row: 3 },
+      { id: 'party-wear-sarees', title: 'Party Wear Sarees', subtitle: 'Pure Kanjivaram & Banarasi', image: '/images/category-showcase/showcase-party-wear-sarees.jpg', href: '/shop/sarees?occasion=party', cta: 'Explore Party Sarees', row: 4 },
+      { id: 'womens-frocks', title: "Women's Frocks", subtitle: 'Flared Anarkalis & Gowns', image: '/images/category-showcase/showcase-womens-frocks.jpg', href: '/shop/salwars?type=anarkali', cta: 'Shop Frocks', row: 5 },
     ],
   },
   'vidhyas-picks': {
@@ -845,9 +846,9 @@ function ImageUploadField({
 
 export default function AdminContentPage() {
   const [activeTab, setActiveTab] = useState('sections');
-  const [editingSection, setEditingSection] = useState<string | null>('features');
+  const [editingSection, setEditingSection] = useState<string | null>('hero');
   const [contentState, setContentState] = useState<Record<string, any>>(defaultMockContent);
-  const [formData, setFormData] = useState<Record<string, any>>(defaultMockContent['features']);
+  const [formData, setFormData] = useState<Record<string, any>>(defaultMockContent['hero']);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -1381,121 +1382,13 @@ export default function AdminContentPage() {
                       )}
 
                       <div className="space-y-6">
-                        {editingSection === 'features' && (
-                          <div>
-                            <div className="flex items-center justify-between mb-4">
-                              <p className="text-sm text-[var(--color-slate)]">Edit the feature cards shown on homepage</p>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  const items = [...(formData['items'] || [])];
-                                  items.push({ icon: '✨', title: 'New Feature', desc: 'Feature description' });
-                                  setFormData({ ...formData, items });
-                                }}
-                              >
-                                + Add Feature Card
-                              </Button>
-                            </div>
-                            {((formData['items'] as any[]) || []).map((item: any, i: number) => (
-                              <div key={i} className="p-4 border border-[var(--color-whisper)] rounded-[var(--radius-lg)] mb-4 bg-[var(--color-snow)]/40 relative">
-                                <div className="flex items-center justify-between mb-3">
-                                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">Card {i + 1}</span>
-                                  {((formData['items'] as any[]).length > 1) && (
-                                    <button
-                                      type="button"
-                                      className="text-xs text-rose-500 hover:text-rose-700 underline"
-                                      onClick={() => {
-                                        const items = (formData['items'] as any[]).filter((_, idx) => idx !== i);
-                                        setFormData({ ...formData, items });
-                                      }}
-                                    >
-                                      Remove
-                                    </button>
-                                  )}
-                                </div>
-                                <div className="space-y-4">
-                                  {/* Icon Uploader & Paste Area */}
-                                  <div>
-                                    <label className="text-xs font-medium text-[var(--color-slate)] mb-1.5 block">
-                                      Card Icon (Upload, Paste image or Emoji)
-                                    </label>
-                                    <FeatureIconUploader
-                                      icon={item.icon || ''}
-                                      onChange={(newIcon) => {
-                                        const items = [...(formData['items'] as any[])];
-                                        items[i] = { ...items[i], icon: newIcon };
-                                        setFormData({ ...formData, items });
-                                      }}
-                                    />
-                                  </div>
-
-                                  <div className="grid sm:grid-cols-2 gap-4">
-                                    <Input
-                                      label="Title"
-                                      value={item.title || ''}
-                                      placeholder="Free Shipping"
-                                      onChange={(e) => {
-                                        const items = [...(formData['items'] as any[])];
-                                        items[i] = { ...items[i], title: e.target.value };
-                                        setFormData({ ...formData, items });
-                                      }}
-                                    />
-                                    <Textarea
-                                      label="Description"
-                                      value={item.desc || item.description || ''}
-                                      placeholder="On orders above ₹2,999 across India"
-                                      onChange={(e) => {
-                                        const items = [...(formData['items'] as any[])];
-                                        items[i] = {
-                                          ...items[i],
-                                          desc: e.target.value,
-                                          description: e.target.value,
-                                        };
-                                        setFormData({ ...formData, items });
-                                      }}
-                                      rows={2}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
                         {editingSection === 'categories' && (
                           <div className="space-y-6">
-                            <div className="p-4 border border-[var(--color-whisper)] rounded-xl bg-[var(--color-snow)]/30 space-y-4">
-                              <h3 className="font-semibold text-sm text-[var(--color-ink)]">Section Header</h3>
-                              <div className="grid sm:grid-cols-2 gap-4">
-                                <Input
-                                  label="Eyebrow Badge"
-                                  value={formData['badge'] ?? 'Curated Collections'}
-                                  placeholder="Curated Collections"
-                                  onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
-                                />
-                                <Input
-                                  label="Section Title"
-                                  value={formData['title'] ?? 'Shop by Category'}
-                                  placeholder="Shop by Category"
-                                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                />
-                              </div>
-                              <Textarea
-                                label="Description / Subtitle"
-                                value={formData['subtitle'] ?? 'Discover our complete range of premium ethnic wear, each category handcrafted with timeless artisanal detail.'}
-                                placeholder="Discover our complete range of premium ethnic wear..."
-                                onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                                rows={2}
-                              />
-                            </div>
-
                             <div>
                               <div className="flex items-center justify-between mb-4">
                                 <div>
-                                  <h3 className="font-semibold text-sm text-[var(--color-ink)]">Category Cards (5 Collections)</h3>
-                                  <p className="text-xs text-[var(--color-slate)]">Kurtis, Salwars, Lehengas, Sarees, Dupattas</p>
+                                  <h3 className="font-semibold text-sm text-[var(--color-ink)]">Category Cards (8 Categories across 5 Rows)</h3>
+                                  <p className="text-xs text-[var(--color-slate)]">Configure Category Name and Image for each banner</p>
                                 </div>
                               </div>
 
@@ -1507,12 +1400,26 @@ export default function AdminContentPage() {
                                   <div key={i} className="p-4 border border-[var(--color-whisper)] rounded-xl bg-[var(--color-snow)]/40 space-y-4">
                                     <div className="flex items-center justify-between border-b border-[var(--color-whisper)] pb-2">
                                       <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                                        Category {i + 1}: {cat.title || 'Untitled'}
+                                        #{i + 1}. {cat.title || 'Untitled'}
                                       </span>
                                     </div>
                                     <div>
-                                      <label className="text-xs font-medium text-[var(--color-slate)] mb-1 block">
-                                        Collection Image (Upload, Paste or URL)
+                                      <label className="text-xs font-semibold text-[var(--color-ink)] mb-1 block">
+                                        Category Name
+                                      </label>
+                                      <Input
+                                        value={cat.title || ''}
+                                        placeholder="Category Name"
+                                        onChange={(e) => {
+                                          const items = [...(((formData['items'] as any[]) && (formData['items'] as any[]).length > 0) ? (formData['items'] as any[]) : defaultMockContent['categories'].items)];
+                                          items[i] = { ...items[i], title: e.target.value };
+                                          setFormData({ ...formData, items });
+                                        }}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-xs font-semibold text-[var(--color-ink)] mb-1 block">
+                                        Category Image
                                       </label>
                                       <ImageUploadField
                                         aspectRatio="aspect-[4/3]"
@@ -1524,44 +1431,16 @@ export default function AdminContentPage() {
                                         }}
                                       />
                                     </div>
-                                    <div className="grid sm:grid-cols-2 gap-3">
+                                    <div>
+                                      <label className="text-xs font-medium text-[var(--color-slate)] mb-1 block">
+                                        Link URL
+                                      </label>
                                       <Input
-                                        label="Title"
-                                        value={cat.title || ''}
-                                        placeholder="Kurtis"
-                                        onChange={(e) => {
-                                          const items = [...(((formData['items'] as any[]) && (formData['items'] as any[]).length > 0) ? (formData['items'] as any[]) : defaultMockContent['categories'].items)];
-                                          items[i] = { ...items[i], title: e.target.value };
-                                          setFormData({ ...formData, items });
-                                        }}
-                                      />
-                                      <Input
-                                        label="Subtitle / Craft"
-                                        value={cat.subtitle || ''}
-                                        placeholder="Hand-block printed cotton"
-                                        onChange={(e) => {
-                                          const items = [...(((formData['items'] as any[]) && (formData['items'] as any[]).length > 0) ? (formData['items'] as any[]) : defaultMockContent['categories'].items)];
-                                          items[i] = { ...items[i], subtitle: e.target.value };
-                                          setFormData({ ...formData, items });
-                                        }}
-                                      />
-                                      <Input
-                                        label="Link / Path"
                                         value={cat.href || ''}
-                                        placeholder="/shop/kurtis"
+                                        placeholder="/shop/salwars"
                                         onChange={(e) => {
                                           const items = [...(((formData['items'] as any[]) && (formData['items'] as any[]).length > 0) ? (formData['items'] as any[]) : defaultMockContent['categories'].items)];
                                           items[i] = { ...items[i], href: e.target.value };
-                                          setFormData({ ...formData, items });
-                                        }}
-                                      />
-                                      <Input
-                                        label="Button CTA Text"
-                                        value={cat.cta || ''}
-                                        placeholder="Shop Kurtis"
-                                        onChange={(e) => {
-                                          const items = [...(((formData['items'] as any[]) && (formData['items'] as any[]).length > 0) ? (formData['items'] as any[]) : defaultMockContent['categories'].items)];
-                                          items[i] = { ...items[i], cta: e.target.value };
                                           setFormData({ ...formData, items });
                                         }}
                                       />
@@ -1783,159 +1662,6 @@ export default function AdminContentPage() {
                           </div>
                         )}
 
-                        {editingSection === 'shop-the-look' && (
-                          <div className="space-y-6">
-                            <div className="p-4 border border-[var(--color-whisper)] rounded-xl bg-[var(--color-snow)]/30 space-y-4">
-                              <h3 className="font-semibold text-sm text-[var(--color-ink)]">Shop the Look - Section Header</h3>
-                              <div className="grid sm:grid-cols-3 gap-4">
-                                <Input
-                                  label="Eyebrow Badge"
-                                  value={formData['badge'] ?? 'Curated Ensemble'}
-                                  placeholder="Curated Ensemble"
-                                  onChange={(e) => setFormData({ ...formData, badge: e.target.value })}
-                                />
-                                <Input
-                                  label="Section Title"
-                                  value={formData['title'] ?? 'Festive Elegance'}
-                                  placeholder="Festive Elegance"
-                                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                />
-                                <Input
-                                  label="Subtitle / Instructions"
-                                  value={formData['subtitle'] ?? 'Click pins on image to explore'}
-                                  placeholder="Click pins on image to explore"
-                                  onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="p-4 border border-[var(--color-whisper)] rounded-xl bg-[var(--color-snow)]/30 space-y-4">
-                              <h3 className="font-semibold text-sm text-[var(--color-ink)]">Lifestyle Model Image</h3>
-                              <p className="text-xs text-[var(--color-slate)]">Upload or paste the large hero photograph shown in Shop the Look</p>
-                              <ImageUploadField
-                                aspectRatio="aspect-video"
-                                imageUrl={formData['lifestyle_image_url'] || defaultMockContent['shop-the-look'].lifestyle_image_url}
-                                onChange={(newUrl) => setFormData({ ...formData, lifestyle_image_url: newUrl })}
-                              />
-                            </div>
-
-                            <div className="p-4 border border-[var(--color-whisper)] rounded-xl bg-[var(--color-snow)]/30 space-y-4">
-                              <h3 className="font-semibold text-sm text-[var(--color-ink)]">Featured Pinned Product Details</h3>
-                              <div className="grid sm:grid-cols-2 gap-4">
-                                <Input
-                                  label="Product Name"
-                                  value={formData['productName'] ?? defaultMockContent['shop-the-look'].productName}
-                                  placeholder="Mirror Work Lehenga"
-                                  onChange={(e) => setFormData({ ...formData, productName: e.target.value })}
-                                />
-                                <Input
-                                  label="Product Price (₹)"
-                                  value={formData['productPrice'] ?? defaultMockContent['shop-the-look'].productPrice}
-                                  placeholder="18999"
-                                  onChange={(e) => setFormData({ ...formData, productPrice: Number(e.target.value.replace(/[^0-9.]/g, '')) || 0 })}
-                                />
-                                <Input
-                                  label="Original Price / MRP (₹)"
-                                  value={formData['productOriginalPrice'] ?? defaultMockContent['shop-the-look'].productOriginalPrice}
-                                  placeholder="22999"
-                                  onChange={(e) => setFormData({ ...formData, productOriginalPrice: Number(e.target.value.replace(/[^0-9.]/g, '')) || 0 })}
-                                />
-                                <Input
-                                  label="Product Link / Slug"
-                                  value={formData['productSlug'] ?? defaultMockContent['shop-the-look'].productSlug}
-                                  placeholder="mirror-work-lehenga"
-                                  onChange={(e) => setFormData({ ...formData, productSlug: e.target.value })}
-                                />
-                              </div>
-
-                              <div>
-                                <label className="text-xs font-medium text-[var(--color-slate)] mb-1 block">
-                                  Product Thumbnail Image
-                                </label>
-                                <ImageUploadField
-                                  aspectRatio="aspect-[3/4]"
-                                  imageUrl={formData['productImage'] ?? defaultMockContent['shop-the-look'].productImage}
-                                  onChange={(newUrl) => setFormData({ ...formData, productImage: newUrl })}
-                                />
-                              </div>
-
-                              <div className="pt-2 border-t border-[var(--color-whisper)]">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h4 className="font-semibold text-xs text-[var(--color-ink)]">Pin Position (Click Image or Drag Sliders)</h4>
-                                  <span className="text-xs font-mono text-[var(--color-gold)] font-medium">
-                                    X: {formData['pinX'] ?? defaultMockContent['shop-the-look'].pinX}% | Y: {formData['pinY'] ?? defaultMockContent['shop-the-look'].pinY}%
-                                  </span>
-                                </div>
-
-                                {/* Visual Click-to-Pin Box */}
-                                <div
-                                  className="relative w-full max-w-lg aspect-video rounded-xl overflow-hidden border border-[var(--color-whisper)] bg-[var(--color-snow)] mb-4 cursor-crosshair group shadow-sm select-none"
-                                  onClick={(e) => {
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    const x = Math.max(5, Math.min(95, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
-                                    const y = Math.max(5, Math.min(95, Math.round(((e.clientY - rect.top) / rect.height) * 100)));
-                                    setFormData({ ...formData, pinX: x, pinY: y });
-                                  }}
-                                  title="Click anywhere on this image to position the hotspot pin"
-                                >
-                                  <img
-                                    src={formData['lifestyle_image_url'] || defaultMockContent['shop-the-look'].lifestyle_image_url}
-                                    alt="Lifestyle Preview"
-                                    className="w-full h-full object-cover pointer-events-none"
-                                  />
-                                  {/* Pin indicator */}
-                                  <div
-                                    className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-none transition-all duration-150"
-                                    style={{
-                                      left: `${formData['pinX'] ?? defaultMockContent['shop-the-look'].pinX}%`,
-                                      top: `${formData['pinY'] ?? defaultMockContent['shop-the-look'].pinY}%`,
-                                    }}
-                                  >
-                                    <div className="w-6 h-6 rounded-full border-2 border-white bg-[var(--color-gold)] shadow-lg flex items-center justify-center animate-pulse">
-                                      <div className="w-2 h-2 rounded-full bg-white" />
-                                    </div>
-                                    <div className="absolute top-7 left-1/2 -translate-x-1/2 bg-black/85 text-white text-[10px] px-2 py-0.5 rounded whitespace-nowrap shadow font-medium">
-                                      {formData['productName'] || 'Pinned Product'}
-                                    </div>
-                                  </div>
-                                  <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-xs text-white/90 text-[10px] px-2 py-0.5 rounded">
-                                    Click anywhere to place pin
-                                  </div>
-                                </div>
-
-                                <div className="grid sm:grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="text-xs text-[var(--color-slate)] block mb-1">
-                                      Horizontal Position X: {formData['pinX'] ?? defaultMockContent['shop-the-look'].pinX}%
-                                    </label>
-                                    <input
-                                      type="range"
-                                      min="5"
-                                      max="95"
-                                      value={formData['pinX'] ?? defaultMockContent['shop-the-look'].pinX}
-                                      onChange={(e) => setFormData({ ...formData, pinX: Number(e.target.value) })}
-                                      className="w-full accent-[var(--color-gold)]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-[var(--color-slate)] block mb-1">
-                                      Vertical Position Y: {formData['pinY'] ?? defaultMockContent['shop-the-look'].pinY}%
-                                    </label>
-                                    <input
-                                      type="range"
-                                      min="5"
-                                      max="95"
-                                      value={formData['pinY'] ?? defaultMockContent['shop-the-look'].pinY}
-                                      onChange={(e) => setFormData({ ...formData, pinY: Number(e.target.value) })}
-                                      className="w-full accent-[var(--color-gold)]"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
                         {editingSection === 'brand-story' && (
                           <div className="space-y-4">
                             <Input
@@ -2013,7 +1739,7 @@ export default function AdminContentPage() {
                           </div>
                         )}
 
-                        {!['hero', 'features', 'categories', 'vidhyas-picks', 'shop-the-look', 'brand-story', 'newsletter', 'founder-note'].includes(editingSection) && (
+                        {!['hero', 'categories', 'vidhyas-picks', 'brand-story', 'newsletter', 'founder-note'].includes(editingSection) && (
                           <div className="text-center py-8">
                             <p className="text-[var(--color-slate)] mb-4">Editor for "{contentSections.find((s) => s.id === editingSection)?.label}" coming soon.</p>
                             <p className="text-sm text-[var(--color-mist)]">This will include appropriate fields for {contentSections.find((s) => s.id === editingSection)?.type} content type.</p>

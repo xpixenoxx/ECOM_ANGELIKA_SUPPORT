@@ -16,12 +16,15 @@ export interface HeroContent {
 }
 
 export interface CategoryCollectionItem {
+  id?: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   image: string;
   href: string;
-  cta: string;
+  cta?: string;
   color?: string;
+  imagePosition?: string;
+  row?: number;
 }
 
 export interface CategoriesContent {
