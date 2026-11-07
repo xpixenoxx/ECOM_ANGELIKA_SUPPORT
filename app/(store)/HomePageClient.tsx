@@ -234,20 +234,106 @@ export default function HomePageClient({
     });
   };
 
+  // Hero dynamic configuration from Admin Panel (HomepageHeroEditor & siteContent.hero)
+  const heroBg = heroData?.backgroundImage || heroContent.backgroundImage || '/images/hero-new-couture.jpg';
+  const heroBgAlt = heroData?.backgroundImageAlt || (heroContent.title ? `Angelika Fashions - ${heroContent.title}` : 'Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya');
+  const showBadge = heroData?.showBadge ?? true;
+  const badgeText = heroData?.badgeText || 'A N G E L I K A';
+  const badgeTagline = heroData?.badgeTagline || 'Tradition in Every Thread';
+
+  const headlinePrimary = heroData?.headline || (heroContent.title ? heroContent.title.split(' ')[0] : 'Grace in');
+  const headlineHighlight = heroData?.headlineHighlight || (heroContent.title ? heroContent.title.split(' ').slice(1).join(' ') : 'Every Drape');
+
+  const heroSubtitle = heroData?.subtitle || heroContent.subtitle || 'Step into the festive season with exquisite handwoven fabrics, artisanal zardozi embroidery, and timeless silhouettes crafted to perfection.';
+
+  const primaryCtaText = heroData?.primaryCtaText || heroContent.ctaText || 'Explore Collection';
+  const primaryCtaLink = heroData?.primaryCtaLink || heroContent.ctaLink || '/shop';
+  const secondaryCtaText = heroData?.secondaryCtaText || heroContent.secondaryCtaText || "Vidhya's Picks";
+  const secondaryCtaLink = heroData?.secondaryCtaLink || heroContent.secondaryCtaLink || '/vidhyas-picks';
+
   return (
     <div className="bg-[var(--color-sand)] text-[var(--color-ink)]">
       {/* Hero Section */}
       <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden mb-[10px]" style={{ marginBottom: '10px' }}>
         <Image
-          src={heroData?.backgroundImage || heroContent.backgroundImage || '/images/hero-new-couture.jpg'}
-          alt={heroData?.backgroundImageAlt || (heroContent.title ? `Angelika Fashions - ${heroContent.title}` : 'Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya')}
+          src={heroBg}
+          alt={heroBgAlt}
           fill
           priority
           className="object-cover object-[80%_center] md:object-right lg:object-center z-0"
           sizes="100vw"
         />
 
-        
+        {/* Editorial Cinematic Overlays for Text Legibility */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent z-[1]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 z-[1]" />
+
+        <div className="relative z-10 container-custom px-6 sm:px-10 py-24 md:py-32">
+          <motion.div
+            className="max-w-lg lg:max-w-xl text-left"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {/* Top Brand Stamp & Tagline Badge */}
+            {showBadge && (badgeText || badgeTagline) && (
+              <motion.div
+                className="flex flex-col items-start gap-1 mb-6"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold tracking-[0.32em] uppercase text-[#D4AF37]">
+                  <span className="text-[#D4AF37]">★</span>
+                  <span>{badgeText}</span>
+                </div>
+                {badgeTagline && (
+                  <span className="text-[10px] sm:text-xs text-[#E6DFD5]/90 tracking-[0.22em] uppercase font-medium">
+                    {badgeTagline}
+                  </span>
+                )}
+              </motion.div>
+            )}
+
+            {/* Brand Signature Headline - Exact Luxury Editorial Style */}
+            <div className="flex flex-col items-start gap-1 mb-6">
+              <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white font-medium tracking-tight leading-[1.12]">
+                {headlinePrimary}{' '}
+                {headlineHighlight && (
+                  <span className="font-serif italic font-light text-gradient-gold">
+                    {headlineHighlight}
+                  </span>
+                )}
+              </h1>
+            </div>
+
+            {/* Subtitle / Description */}
+            <p className="text-white/85 text-sm sm:text-base leading-relaxed mb-8 max-w-md font-sans whitespace-pre-line">
+              {heroSubtitle}
+            </p>
+
+            {/* Call To Action Buttons */}
+            <div className="flex flex-wrap items-center gap-3.5 pt-2">
+              {primaryCtaText && (
+                <Link
+                  href={primaryCtaLink}
+                  className="group relative inline-flex items-center justify-center px-7 py-3.5 text-xs uppercase tracking-[0.2em] font-semibold text-[#111111] bg-[#FBF4EC] hover:bg-white transition-all duration-300 shadow-md hover:shadow-xl"
+                >
+                  <span>{primaryCtaText}</span>
+                  <span className="ml-2 transform group-hover:translate-x-1 transition-transform duration-300">&rarr;</span>
+                </Link>
+              )}
+              {secondaryCtaText && (
+                <Link
+                  href={secondaryCtaLink}
+                  className="inline-flex items-center justify-center px-7 py-3.5 text-xs uppercase tracking-[0.2em] font-medium text-white/95 border border-white/40 hover:border-white hover:bg-white/10 transition-all duration-300 backdrop-blur-xs"
+                >
+                  {secondaryCtaText}
+                </Link>
+              )}
+            </div>
+          </motion.div>
+        </div>
 
         <motion.div
           className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce-subtle z-10"

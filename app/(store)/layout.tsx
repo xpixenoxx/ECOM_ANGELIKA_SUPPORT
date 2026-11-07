@@ -37,7 +37,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
 
   const brandName = heroData?.brandName || settings?.site_name || 'Angelika';
   const brandTagline = heroData?.brandTagline || settings?.site_tagline || 'Fashions';
-  const logoUrl = heroData?.logoUrl || settings?.logo_url || '/images/logo.png';
+  const logoUrl = heroData?.logoUrl?.trim() || settings?.logo_url || '/images/logo.png';
   const logoHref = heroData?.logoHref || '/';
   const whatsappNumber = heroData?.conciergeWhatsApp?.replace(/[^0-9]/g, '') || settings?.contact_whatsapp?.replace(/[^0-9]/g, '') || '919876543210';
 

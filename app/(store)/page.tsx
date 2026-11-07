@@ -3,7 +3,8 @@ import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import { getSiteContent } from '@/lib/actions/site-content';
 import HomePageClient from './HomePageClient';
 
-export const revalidate = 60;
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const homeJsonLd = {
   '@context': 'https://schema.org',

@@ -1,7 +1,7 @@
 {
   "brandName": "Angelika",
   "brandTagline": "Fashions",
-  "logoUrl": " /images/logo.png",
+  "logoUrl": "/images/logo.png",
   "logoHref": "/",
   "navigation": [
     {
@@ -40,7 +40,7 @@
       "is_active": true
     }
   ],
-  "badgeText": "A N G E L I K A ",
+  "badgeText": "A N G E L I K A",
   "badgeTagline": "Tradition in Every Thread",
   "showBadge": true,
   "headline": "Grace in",

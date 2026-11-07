@@ -50,13 +50,7 @@ export async function getDefaultHeroData(): Promise<HomepageHeroData> {
 export async function getHomepageHeroData(): Promise<HomepageHeroData> {
   let heroData: HomepageHeroData = { ...defaultHeroData };
 
-  // 1. Try to read local file backup first for instant offline/fast load
-  const localBackup = readLocalBackup();
-  if (localBackup) {
-    heroData = { ...heroData, ...localBackup };
-  }
-
-  // 2. Try Supabase content_blocks table
+  // 1. Try Supabase content_blocks table first as base
   try {
     const { data, error } = await supabaseAdmin
       .from('content_blocks')
@@ -69,12 +63,15 @@ export async function getHomepageHeroData(): Promise<HomepageHeroData> {
         ...heroData,
         ...data.content,
       };
-      // Keep local backup updated
-      writeLocalBackup(heroData);
-      return heroData;
     }
   } catch (err) {
     console.warn('Could not fetch homepage_hero from Supabase, using fallback:', err);
+  }
+
+  // 2. Try to read local file backup (contains direct admin edits with guaranteed persistence)
+  const localBackup = readLocalBackup();
+  if (localBackup) {
+    heroData = { ...heroData, ...localBackup };
   }
 
   // 3. Fallback: check store_settings and navbar_items if content_blocks had no record
@@ -115,6 +112,30 @@ export async function saveHomepageHeroData(
   try {
     // 1. Always write to local JSON backup
     writeLocalBackup(data);
+
+    // 1b. Also sync to site-content.json hero block
+    try {
+      const siteContentPath = path.join(process.cwd(), 'data', 'site-content.json');
+      if (fs.existsSync(siteContentPath)) {
+        const scContent = JSON.parse(fs.readFileSync(siteContentPath, 'utf8'));
+        const combinedTitle = data.headline && data.headlineHighlight 
+          ? `${data.headline} ${data.headlineHighlight}`.trim() 
+          : (data.headline || data.headlineHighlight || scContent.hero?.title || 'Grace in Every Drape');
+        scContent.hero = {
+          ...(scContent.hero || {}),
+          title: combinedTitle,
+          subtitle: data.subtitle || scContent.hero?.subtitle || '',
+          ctaText: data.primaryCtaText || scContent.hero?.ctaText || 'Explore Collection',
+          ctaLink: data.primaryCtaLink || scContent.hero?.ctaLink || '/shop',
+          secondaryCtaText: data.secondaryCtaText || scContent.hero?.secondaryCtaText || "Vidhya's Picks",
+          secondaryCtaLink: data.secondaryCtaLink || scContent.hero?.secondaryCtaLink || '/vidhyas-picks',
+          backgroundImage: data.backgroundImage || scContent.hero?.backgroundImage || '/images/hero-new-couture.jpg',
+        };
+        fs.writeFileSync(siteContentPath, JSON.stringify(scContent, null, 2), 'utf8');
+      }
+    } catch (scErr) {
+      console.warn('Failed to sync site-content.json hero block:', scErr);
+    }
 
     // 2. Upsert to Supabase content_blocks table
     try {
