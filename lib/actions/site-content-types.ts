@@ -1051,12 +1051,111 @@ export interface DesignerVidhyaPageContent {
   };
 }
 
+export interface VidhyasPicksPageProduct {
+  id: string;
+  slug: string;
+  name: string;
+  price: number;
+  originalPrice: number;
+  image: string;
+  color: string;
+  colorFamily?: 'red' | 'green' | 'blue' | 'gold' | 'yellow' | 'pink' | 'white' | 'black';
+  category: 'Sarees' | 'Lehengas' | 'Kurtis' | 'Salwars' | 'Dupattas';
+  fabric: string;
+  origin: string;
+  discount: number;
+  vidhyaNote: string;
+  month?: string;
+  theme?: string;
+  tags?: string[];
+}
+
+export interface VidhyasPicksMonthlyEdit {
+  month: string;
+  slug: string;
+  theme: string;
+  subtitle: string;
+  note: string;
+  coverImage: string;
+  heroStory: string;
+  curatorInsight: string;
+  products: VidhyasPicksPageProduct[];
+}
+
+export interface VidhyasPicksStandardItem {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+export interface VidhyasPicksPageContent {
+  header: {
+    eyebrowBadge: string;
+    badgeSubtitle: string;
+    title: string;
+    titleHighlight: string;
+    description: string;
+    founder: {
+      name: string;
+      role: string;
+      experience: string;
+      avatar: string;
+      storyLinkText: string;
+      storyLinkHref: string;
+    };
+    featuredStats: {
+      stat1Value: string;
+      stat1Label: string;
+      stat2Value: string;
+      stat2Label: string;
+      stat3Value: string;
+      stat3Label: string;
+    };
+  };
+  monthlyEdits: VidhyasPicksMonthlyEdit[];
+  additionalPicks: VidhyasPicksPageProduct[];
+  curationStandards: {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    items: VidhyasPicksStandardItem[];
+  };
+  archive: {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    ctaText: string;
+    ctaHref: string;
+  };
+  concierge: {
+    badge: string;
+    title: string;
+    description: string;
+    whatsappNumber: string;
+    whatsappUrl: string;
+    sizeGuideText: string;
+    sizeGuideHref: string;
+  };
+  newsletter: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    buttonText: string;
+    disclaimer: string;
+  };
+  seo: {
+    metaTitle: string;
+    metaDescription: string;
+  };
+}
+
 export interface SiteContent {
   hero: HeroContent;
   features: {
     items: FeatureItem[];
   };
   'vidhyas-picks'?: VidhyasPicksSection;
+  'vidhyas-picks-page'?: VidhyasPicksPageContent;
   categories?: CategoriesContent;
   'new-arrivals'?: NewArrivalsContent;
   'shop-the-look'?: ShopTheLookSection;

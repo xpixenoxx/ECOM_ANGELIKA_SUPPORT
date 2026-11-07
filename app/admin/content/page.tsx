@@ -38,12 +38,13 @@ import { FAQPageEditor } from '@/components/admin/FAQPageEditor';
 import { ContactPageEditor } from '@/components/admin/ContactPageEditor';
 import { WholesalePageEditor } from '@/components/admin/WholesalePageEditor';
 import { DesignerVidhyaPageEditor } from '@/components/admin/DesignerVidhyaPageEditor';
+import { VidhyasPicksPageEditor } from '@/components/admin/VidhyasPicksPageEditor';
 
 const contentSections = [
   { id: 'hero', label: 'Homepage Hero', type: 'hero' },
   { id: 'categories', label: 'Category Showcase', type: 'categories' },
   { id: 'new-arrivals', label: 'New Arrivals Showcase', type: 'collection' },
-  { id: 'vidhyas-picks', label: "Vidhya's Picks", type: 'editorial' },
+  { id: 'vidhyas-picks', label: "Vidhya's Picks Showcase", type: 'editorial' },
   {
     id: 'salwars-page',
     label: 'Salwars Page',
@@ -147,6 +148,11 @@ const contentSections = [
   {
     id: 'designer-vidhya-page',
     label: 'Meet Designer Vidhya',
+    type: 'page'
+  },
+  {
+    id: 'vidhyas-picks-page',
+    label: "Vidhya's Picks Page (/vidhyas-picks)",
     type: 'page'
   },
   { id: 'brand-story', label: 'Brand Story', type: 'richtext' },
@@ -1323,6 +1329,18 @@ export default function AdminContentPage() {
                       }}
                     />
                   </Card>
+                ) : editingSection === 'vidhyas-picks-page' ? (
+                  <Card variant="elevated" padding="lg">
+                    <VidhyasPicksPageEditor
+                      onCancel={() => setEditingSection(null)}
+                      onSaved={() => {
+                        setStatusMessage({
+                          type: 'success',
+                          text: '"Vidhya\'s Picks Page" updated successfully! Your changes are now live on /vidhyas-picks.',
+                        });
+                      }}
+                    />
+                  </Card>
                 ) : editingSection ? (
                   <Card variant="elevated" padding="lg">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--color-whisper)] pb-4 mb-6">
@@ -1496,7 +1514,7 @@ export default function AdminContentPage() {
                               <div className="flex items-center justify-between mb-4">
                                 <div>
                                   <h3 className="font-semibold text-sm text-[var(--color-ink)]">Featured Product Cards</h3>
-                                  <p className="text-xs text-[var(--color-slate)]">Edit images, titles, prices, and badges shown in Vidhya's Picks on homepage</p>
+                                  <p className="text-xs text-[var(--color-slate)]">Edit images, titles, prices, and badges shown in Vidhya's Picks Showcase on homepage</p>
                                 </div>
                                 <Button
                                   type="button"
