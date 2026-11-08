@@ -150,12 +150,54 @@ export async function updateOrderStatus(
     }
 
     revalidatePath('/admin/orders');
+    revalidatePath('/admin/orders/shipments');
     revalidatePath(`/admin/orders/${id}`);
     revalidatePath('/account/orders');
     return { success: true };
   } catch (err: any) {
     console.error('updateOrderStatus error:', err);
     return { success: false, error: err?.message || 'Failed to update order status' };
+  }
+}
+
+export async function updateShipmentFulfillment(
+  orderId: string,
+  data: {
+    courierPartner: string;
+    trackingNumber: string;
+    status?: 'shipped' | 'delivered';
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const targetStatus = data.status || 'shipped';
+    const updates: Record<string, any> = {
+      status: targetStatus,
+      courier_partner: data.courierPartner,
+      tracking_number: data.trackingNumber,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (targetStatus === 'shipped') {
+      updates['shipped_at'] = new Date().toISOString();
+    } else if (targetStatus === 'delivered') {
+      updates['delivered_at'] = new Date().toISOString();
+    }
+
+    const { error } = await supabaseAdmin.from('orders').update(updates).eq('id', orderId);
+
+    if (error) {
+      console.error('updateShipmentFulfillment error:', error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath('/admin/orders/shipments');
+    revalidatePath('/admin/orders');
+    revalidatePath(`/admin/orders/${orderId}`);
+    revalidatePath('/account/orders');
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateShipmentFulfillment error:', err);
+    return { success: false, error: err?.message || 'Failed to update shipment' };
   }
 }
 

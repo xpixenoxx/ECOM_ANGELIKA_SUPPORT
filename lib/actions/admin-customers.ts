@@ -1,7 +1,16 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+
+// Helper to get administrative database client that bypasses RLS
+function getAdminDb() {
+  if (process.env['SUPABASE_SERVICE_ROLE_KEY']) {
+    return supabaseAdmin;
+  }
+  return createClient();
+}
 
 export interface CustomerProfile {
   id: string;
@@ -16,10 +25,14 @@ export interface CustomerProfile {
   updated_at: string;
   order_count?: number;
   total_spent?: number;
+  last_order_at?: string | null;
 }
 
-export async function getCustomers(filters?: { search?: string; role?: string }) {
-  const supabase = createClient();
+export async function getCustomers(filters?: { search?: string; role?: string }): Promise<{
+  customers: CustomerProfile[];
+  error: string | null;
+}> {
+  const supabase = getAdminDb();
 
   let query = supabase
     .from('profiles')
@@ -31,8 +44,9 @@ export async function getCustomers(filters?: { search?: string; role?: string })
   }
 
   if (filters?.search) {
+    const s = filters.search.trim();
     query = query.or(
-      `full_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`
+      `full_name.ilike.%${s}%,email.ilike.%${s}%,phone.ilike.%${s}%`
     );
   }
 
@@ -43,99 +57,190 @@ export async function getCustomers(filters?: { search?: string; role?: string })
     return { customers: [], error: error.message };
   }
 
-  const customerIds = (data || []).map((c) => c.id);
-  let orderStats: Record<string, { count: number; total: number }> = {};
+  const rawProfiles = data || [];
+  const customerIds = rawProfiles.map((c) => c.id);
+  const customerEmails = rawProfiles.map((c) => (c.email || '').toLowerCase()).filter(Boolean);
+
+  let orderStats: Record<string, { count: number; total: number; lastOrderAt: string | null }> = {};
 
   if (customerIds.length > 0) {
-    const { data: orders } = await supabase
+    // Fetch orders to calculate accurate order_count, total_spent, and last_order_at
+    const { data: orders, error: ordersErr } = await supabase
       .from('orders')
-      .select('user_id, total_amount')
-      .in('user_id', customerIds);
+      .select('id, user_id, email, total_amount, payment_status, status, created_at')
+      .order('created_at', { ascending: false });
 
-    if (orders) {
+    if (!ordersErr && orders) {
       for (const o of orders) {
-        if (!o.user_id) continue;
-        if (!orderStats[o.user_id]) orderStats[o.user_id] = { count: 0, total: 0 };
-        orderStats[o.user_id].count++;
-        orderStats[o.user_id].total += Number(o.total_amount || 0);
+        // Match either by user_id or by email address
+        let matchingId = o.user_id;
+        if (!matchingId && o.email) {
+          const matchedProfile = rawProfiles.find(
+            (p) => (p.email || '').toLowerCase() === o.email.toLowerCase()
+          );
+          if (matchedProfile) matchingId = matchedProfile.id;
+        }
+
+        if (!matchingId) continue;
+
+        const stat = orderStats[matchingId] || { count: 0, total: 0, lastOrderAt: null };
+        stat.count++;
+        if (o.status !== 'cancelled') {
+          stat.total += Number(o.total_amount || 0);
+        }
+        if (!stat.lastOrderAt || new Date(o.created_at) > new Date(stat.lastOrderAt)) {
+          stat.lastOrderAt = o.created_at;
+        }
+        orderStats[matchingId] = stat;
       }
     }
   }
 
-  const customers: CustomerProfile[] = (data || []).map((c) => ({
-    ...c,
-    loyalty_points: c.loyalty_points ?? 0,
-    loyalty_tier: c.loyalty_tier ?? 'Bronze',
-    order_count: orderStats[c.id]?.count ?? 0,
-    total_spent: orderStats[c.id]?.total ?? 0,
-  }));
+  const customers: CustomerProfile[] = rawProfiles.map((c) => {
+    const rawTier = c.loyalty_tier || 'Bronze';
+    const normalizedTier =
+      rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase();
+
+    return {
+      ...c,
+      loyalty_points: Number(c.loyalty_points ?? 0),
+      loyalty_tier: normalizedTier,
+      order_count: orderStats[c.id]?.count ?? 0,
+      total_spent: orderStats[c.id]?.total ?? 0,
+      last_order_at: orderStats[c.id]?.lastOrderAt ?? null,
+    };
+  });
 
   return { customers, error: null };
 }
 
-export async function getCustomerById(id: string) {
-  const supabase = createClient();
+export async function getCustomerById(id: string): Promise<{
+  customer: CustomerProfile | null;
+  orders: any[];
+  error: string | null;
+}> {
+  const supabase = getAdminDb();
 
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', id)
-    .single();
+    .maybeSingle();
 
   if (error || !profile) {
-    return { customer: null, orders: [], error: error?.message ?? 'Not found' };
+    console.error('getCustomerById error:', error);
+    return { customer: null, orders: [], error: error?.message ?? 'Customer not found' };
   }
 
-  const { data: orders } = await supabase
+  // Get orders by user_id or email
+  const { data: orders, error: ordersErr } = await supabase
     .from('orders')
-    .select('id, order_number, status, payment_status, total_amount, created_at')
-    .eq('user_id', id)
+    .select('id, order_number, status, payment_status, total_amount, created_at, currency')
+    .or(`user_id.eq.${id},email.eq.${profile.email}`)
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(30);
+
+  const rawTier = profile.loyalty_tier || 'Bronze';
+  const normalizedTier =
+    rawTier.charAt(0).toUpperCase() + rawTier.slice(1).toLowerCase();
+
+  const totalSpent = (orders || [])
+    .filter((o) => o.status !== 'cancelled')
+    .reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
 
   return {
     customer: {
       ...profile,
-      loyalty_points: profile.loyalty_points ?? 0,
-      loyalty_tier: profile.loyalty_tier ?? 'Bronze',
+      loyalty_points: Number(profile.loyalty_points ?? 0),
+      loyalty_tier: normalizedTier,
+      order_count: (orders || []).length,
+      total_spent: totalSpent,
     } as CustomerProfile,
     orders: orders || [],
     error: null,
   };
 }
 
-export async function updateCustomerRole(id: string, role: string) {
-  const supabase = createClient();
+export async function updateCustomerRole(id: string, role: string): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = getAdminDb();
+  const validRoles = ['customer', 'manager', 'designer', 'admin'];
+  if (!validRoles.includes(role)) {
+    return { success: false, error: 'Invalid role specified' };
+  }
+
   const { error } = await supabase
     .from('profiles')
     .update({ role, updated_at: new Date().toISOString() })
     .eq('id', id);
-  if (error) return { error: error.message };
+
+  if (error) {
+    console.error('updateCustomerRole error:', error);
+    return { success: false, error: error.message };
+  }
+
   revalidatePath('/admin/customers');
   revalidatePath(`/admin/customers/${id}`);
-  return { error: null };
+  revalidatePath('/admin');
+  return { success: true, error: null };
 }
 
-export async function updateLoyaltyPoints(id: string, points: number) {
-  const supabase = createClient();
+export async function updateLoyaltyPoints(id: string, points: number): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = getAdminDb();
+  if (typeof points !== 'number' || isNaN(points) || points < 0) {
+    return { success: false, error: 'Points must be a valid non-negative number' };
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update({ loyalty_points: points, updated_at: new Date().toISOString() })
+    .update({
+      loyalty_points: Math.floor(points),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id);
-  if (error) return { error: error.message };
+
+  if (error) {
+    console.error('updateLoyaltyPoints error:', error);
+    return { success: false, error: error.message };
+  }
+
   revalidatePath('/admin/customers');
   revalidatePath(`/admin/customers/${id}`);
-  return { error: null };
+  revalidatePath('/admin/customers/loyalty');
+  return { success: true, error: null };
 }
 
-export async function updateCustomerTier(id: string, tier: string) {
-  const supabase = createClient();
+export async function updateCustomerTier(id: string, tier: string): Promise<{
+  success: boolean;
+  error: string | null;
+}> {
+  const supabase = getAdminDb();
+  const normalized = tier.toLowerCase();
+  const validTiers = ['bronze', 'silver', 'gold', 'platinum'];
+  if (!validTiers.includes(normalized)) {
+    return { success: false, error: 'Invalid tier specified' };
+  }
+
   const { error } = await supabase
     .from('profiles')
-    .update({ loyalty_tier: tier, updated_at: new Date().toISOString() })
+    .update({
+      loyalty_tier: normalized,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id);
-  if (error) return { error: error.message };
+
+  if (error) {
+    console.error('updateCustomerTier error:', error);
+    return { success: false, error: error.message };
+  }
+
   revalidatePath('/admin/customers');
   revalidatePath(`/admin/customers/${id}`);
-  return { error: null };
+  revalidatePath('/admin/customers/loyalty');
+  return { success: true, error: null };
 }

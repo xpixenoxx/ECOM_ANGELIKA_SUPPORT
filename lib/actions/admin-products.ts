@@ -884,30 +884,184 @@ export async function deleteCollection(id: string) {
   return { error: null };
 }
 
-// ---------------- INVENTORY ALERTS ----------------
-export async function getInventoryAlerts() {
-  const supabase = getAdminDb();
-  const { data, error } = await supabase
-    .from('product_variants')
-    .select(`
-      id, inventory_quantity, size,
-      products ( id, name, sku )
-    `)
-    .lte('inventory_quantity', 10)
-    .order('inventory_quantity', { ascending: true })
-    .limit(50);
-
-  if (error) return { variants: [], error: error.message };
-  return { variants: data || [], error: null };
+// ---------------- INVENTORY ALERTS & REALTIME MANAGEMENT ----------------
+export interface AdminInventoryVariant {
+  id: string;
+  product_id: string;
+  sku: string | null;
+  barcode: string | null;
+  inventory_quantity: number;
+  low_stock_threshold: number;
+  size: string | null;
+  color: string | null;
+  color_hex: string | null;
+  price: number | null;
+  updated_at: string | null;
+  products: {
+    id: string;
+    name: string;
+    sku: string | null;
+    slug: string;
+    is_active: boolean;
+    category_name: string | null;
+    images: string[] | null;
+  } | null;
 }
 
-export async function updateVariantInventory(variantId: string, quantity: number) {
+export async function getInventoryAlerts(options?: { scope?: 'alerts' | 'all' }): Promise<{
+  variants: AdminInventoryVariant[];
+  error: string | null;
+}> {
   const supabase = getAdminDb();
-  const { error } = await supabase
+  let query = supabase
     .from('product_variants')
-    .update({ inventory_quantity: quantity, updated_at: new Date().toISOString() })
-    .eq('id', variantId);
-  if (error) return { error: error.message };
+    .select(`
+      id,
+      product_id,
+      inventory_quantity,
+      size,
+      price,
+      barcode,
+      low_stock_threshold,
+      updated_at,
+      colors:colors!product_variants_color_id_fkey ( id, name, hex ),
+      products:products!product_variants_product_id_fkey (
+        id,
+        name,
+        sku,
+        slug,
+        is_active,
+        categories:categories!products_category_id_fkey ( id, name ),
+        product_images:product_images!product_images_product_id_fkey ( url, is_primary, sort_order )
+      )
+    `)
+    .order('inventory_quantity', { ascending: true });
+
+  if (options?.scope === 'alerts') {
+    query = query.lte('inventory_quantity', 10);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('getInventoryAlerts error:', error);
+    return { variants: [], error: error.message };
+  }
+
+  const variants: AdminInventoryVariant[] = (data || []).map((v: any) => {
+    const rawImages = v.products?.product_images || [];
+    const sortedImages = [...rawImages].sort(
+      (a: any, b: any) =>
+        (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) ||
+        (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    );
+    const imageUrls = sortedImages.map((img: any) => img.url).filter(Boolean);
+
+    const productSku = v.products?.sku || null;
+    const variantBarcode = v.barcode || null;
+    const effectiveSku = productSku || variantBarcode || null;
+
+    return {
+      id: v.id,
+      product_id: v.product_id,
+      sku: effectiveSku,
+      barcode: variantBarcode,
+      inventory_quantity: Number(v.inventory_quantity ?? 0),
+      low_stock_threshold: Number(v.low_stock_threshold ?? 10),
+      size: v.size || null,
+      color: v.colors?.name || null,
+      color_hex: v.colors?.hex || null,
+      price: v.price != null ? Number(v.price) : null,
+      updated_at: v.updated_at || null,
+      products: v.products
+        ? {
+            id: v.products.id,
+            name: v.products.name,
+            sku: v.products.sku,
+            slug: v.products.slug,
+            is_active: Boolean(v.products.is_active),
+            category_name: v.products.categories?.name || null,
+            images: imageUrls.length > 0 ? imageUrls : null,
+          }
+        : null,
+    };
+  });
+
+  return { variants, error: null };
+}
+
+export async function updateVariantInventory(variantId: string, quantity: number): Promise<{
+  success: boolean;
+  updated?: { id: string; inventory_quantity: number; updated_at: string } | null;
+  error: string | null;
+}> {
+  const supabase = getAdminDb();
+
+  if (typeof quantity !== 'number' || isNaN(quantity) || quantity < 0) {
+    return { success: false, error: 'Quantity must be a valid non-negative number' };
+  }
+
+  const cleanQuantity = Math.floor(quantity);
+
+  const { data, error } = await supabase
+    .from('product_variants')
+    .update({
+      inventory_quantity: cleanQuantity,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', variantId)
+    .select('id, inventory_quantity, updated_at')
+    .single();
+
+  if (error) {
+    console.error('updateVariantInventory error:', error);
+    return { success: false, error: error.message };
+  }
+
+  // Revalidate paths for instant storefront & admin reflection
   revalidatePath('/admin/products/inventory');
-  return { error: null };
+  revalidatePath('/admin/products');
+  revalidatePath('/admin');
+  revalidatePath('/shop');
+  revalidatePath('/');
+
+  return { success: true, updated: data, error: null };
+}
+
+export async function bulkUpdateVariantInventory(
+  updates: Array<{ id: string; quantity: number }>
+): Promise<{
+  success: boolean;
+  count: number;
+  error: string | null;
+}> {
+  const supabase = getAdminDb();
+  if (!updates || updates.length === 0) return { success: true, count: 0, error: null };
+
+  const validUpdates = updates.filter(
+    (u) => typeof u.quantity === 'number' && !isNaN(u.quantity) && u.quantity >= 0
+  );
+
+  try {
+    for (const item of validUpdates) {
+      await supabase
+        .from('product_variants')
+        .update({
+          inventory_quantity: Math.floor(item.quantity),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', item.id);
+    }
+
+    revalidatePath('/admin/products/inventory');
+    revalidatePath('/admin/products');
+    revalidatePath('/admin');
+    revalidatePath('/shop');
+    revalidatePath('/');
+
+    return { success: true, count: validUpdates.length, error: null };
+  } catch (err: any) {
+    console.error('bulkUpdateVariantInventory error:', err);
+    return { success: false, count: 0, error: err?.message || 'Failed to bulk update inventory' };
+  }
 }
