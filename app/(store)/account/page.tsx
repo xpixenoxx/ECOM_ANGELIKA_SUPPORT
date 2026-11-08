@@ -18,6 +18,8 @@ import { Counter } from '@/components/animations/MicroInteractions';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useWishlist } from '@/lib/hooks/useWishlist';
 import { getCustomerOrders } from '@/lib/actions/customer-orders';
+import { getLatestCircleUpdates } from '@/lib/actions/circle';
+import type { CircleUpdate } from '@/lib/actions/circle-types';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { toast } from '@/components/ui/Toast';
 
@@ -55,6 +57,11 @@ export default function AccountPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [orders, setOrders] = useState<RealOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  const [circleUpdates, setCircleUpdates] = useState<CircleUpdate[]>([]);
+
+  useEffect(() => {
+    getLatestCircleUpdates(2).then(setCircleUpdates).catch(() => {});
+  }, []);
 
   // Profile Form State
   const [profileName, setProfileName] = useState('');
@@ -536,6 +543,45 @@ export default function AccountPage() {
                       View Rewards & Tiers
                     </Button>
                   </Card>
+
+                  {/* Circle Atelier Drops & Broadcasts */}
+                  {circleUpdates.length > 0 && (
+                    <Card variant="elevated" padding="lg" className="border border-[var(--color-whisper)] shadow-sm bg-white rounded-2xl">
+                      <div className="flex items-center justify-between mb-3">
+                        <CardTitle className="text-[var(--font-display)] text-base font-medium text-[var(--color-ink)] flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[var(--color-gold)] animate-pulse" />
+                          <span>Circle Atelier Drops</span>
+                        </CardTitle>
+                        <span className="text-[10px] text-[var(--color-gold)] font-semibold uppercase tracking-wider">
+                          Latest Broadcast
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {circleUpdates.map((u) => (
+                          <div key={u.id} className="p-3.5 rounded-xl bg-[var(--color-snow)] border border-[var(--color-whisper)] text-xs space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-[var(--color-ink)]">{u.title}</span>
+                              <span className="text-[10px] text-[var(--color-slate)]">
+                                {new Date(u.published_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                              </span>
+                            </div>
+                            <p className="text-[var(--color-slate)] leading-relaxed line-clamp-2">
+                              {u.content}
+                            </p>
+                            {u.cta_link && (
+                              <Link
+                                href={u.cta_link}
+                                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--color-gold)] hover:underline pt-1"
+                              >
+                                <span>{u.cta_text || 'Explore Drop'}</span>
+                                <span>&rarr;</span>
+                              </Link>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
 
                   {/* 4. My Size Profile Card */}
                   <Card variant="elevated" padding="lg" className="border border-[var(--color-whisper)] shadow-sm bg-white rounded-2xl">

@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -16,6 +17,8 @@ import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
 import { ExploreCollections } from '@/components/composite/ExploreCollections';
 import { useCart } from '@/lib/hooks/useCart';
 import { useWishlist } from '@/lib/hooks/useWishlist';
+import { subscribeToAngelikaCircle, getLatestCircleUpdates } from '@/lib/actions/circle';
+import type { CircleUpdate } from '@/lib/actions/circle-types';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage-types';
 import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
 import type { SiteContent } from '@/lib/actions/site-content-types';
@@ -134,6 +137,49 @@ export default function HomePageClient({
 }: HomePageClientProps) {
   const { addItem } = useCart();
   const { toggleItem, isInWishlist } = useWishlist();
+
+  // Angelika Circle Newsletter Subscription State
+  const [circleEmail, setCircleEmail] = useState('');
+  const [circleSubmitting, setCircleSubmitting] = useState(false);
+  const [circleSubscribed, setCircleSubscribed] = useState(false);
+  const [circleMessage, setCircleMessage] = useState<string | null>(null);
+  const [circleError, setCircleError] = useState<string | null>(null);
+  const [latestCircleUpdates, setLatestCircleUpdates] = useState<CircleUpdate[]>([]);
+
+  useEffect(() => {
+    getLatestCircleUpdates(2)
+      .then((data) => {
+        if (data && data.length > 0) setLatestCircleUpdates(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleCircleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = circleEmail.trim().toLowerCase();
+    if (!clean || !clean.includes('@')) {
+      setCircleError('Please enter a valid email address.');
+      return;
+    }
+
+    setCircleSubmitting(true);
+    setCircleError(null);
+
+    try {
+      const res = await subscribeToAngelikaCircle(clean);
+      if (res.success) {
+        setCircleSubscribed(true);
+        setCircleMessage(res.message);
+        setCircleEmail('');
+      } else {
+        setCircleError(res.message || 'Unable to subscribe. Please try again.');
+      }
+    } catch (err: any) {
+      setCircleError(err?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setCircleSubmitting(false);
+    }
+  };
 
   const handleToggleWishlist = async (product: any) => {
     try {
@@ -614,25 +660,117 @@ export default function HomePageClient({
             <p className="text-[var(--color-white)]/70 text-lg mb-8 max-w-lg mx-auto">
               Get early access to new collections, exclusive styling tips from Vidhya, and special offers — delivered straight to your inbox.
             </p>
-            <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto" onSubmit={(e) => e.preventDefault()}>
-              <div className="flex-1">
-                <label htmlFor="newsletter-email" className="sr-only">Email address</label>
-                <input
-                  type="email"
-                  id="newsletter-email"
-                  placeholder="Enter your email"
-                  className="input w-full"
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              <Button type="submit" size="lg" variant="gold" className="whitespace-nowrap">
-                Subscribe
-              </Button>
-            </form>
+            {circleSubscribed ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="p-6 rounded-2xl bg-[var(--color-gold)]/10 border border-[var(--color-gold)]/30 text-center max-w-md mx-auto space-y-3"
+              >
+                <div className="w-12 h-12 rounded-full bg-[var(--color-gold)]/20 text-[var(--color-gold)] flex items-center justify-center mx-auto text-xl font-bold">
+                  ✓
+                </div>
+                <h3 className="text-lg font-medium text-[var(--color-white)]">
+                  Welcome to the Angelika Circle
+                </h3>
+                <p className="text-sm text-[var(--color-white)]/80 leading-relaxed">
+                  {circleMessage ||
+                    'You are now registered to receive our latest collections, private couture drops, and styling notes from Vidhya.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCircleSubscribed(false)}
+                  className="text-xs text-[var(--color-gold)] hover:underline mt-2 inline-block cursor-pointer"
+                >
+                  Subscribe another email
+                </button>
+              </motion.div>
+            ) : (
+              <form
+                className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+                onSubmit={handleCircleSubscribe}
+              >
+                <div className="flex-1">
+                  <label htmlFor="newsletter-email" className="sr-only">
+                    Email address
+                  </label>
+                  <input
+                    type="email"
+                    id="newsletter-email"
+                    value={circleEmail}
+                    onChange={(e) => setCircleEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    className="input w-full"
+                    required
+                    autoComplete="email"
+                    disabled={circleSubmitting}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  size="lg"
+                  variant="gold"
+                  className="whitespace-nowrap min-w-[120px]"
+                  disabled={circleSubmitting || !circleEmail.trim()}
+                >
+                  {circleSubmitting ? 'Joining...' : 'Subscribe'}
+                </Button>
+              </form>
+            )}
+
+            {circleError && (
+              <p className="text-xs text-rose-400 mt-2 font-medium">
+                {circleError}
+              </p>
+            )}
             <p className="text-xs text-[var(--color-white)]/50 mt-4">
               By subscribing, you agree to our <a href="/privacy" className="underline hover:text-[var(--color-gold)]">Privacy Policy</a>. Unsubscribe anytime.
             </p>
+
+            {latestCircleUpdates.length > 0 && (
+              <div className="mt-10 pt-8 border-t border-[var(--color-white)]/15 max-w-2xl mx-auto text-left">
+                <div className="flex items-center gap-2 mb-4 justify-center sm:justify-start">
+                  <span className="w-2 h-2 rounded-full bg-[var(--color-gold)] animate-pulse" />
+                  <p className="text-xs uppercase tracking-widest text-[var(--color-gold)] font-semibold">
+                    Latest Atelier Broadcast &amp; Exclusive Drops
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {latestCircleUpdates.map((upd) => (
+                    <div
+                      key={upd.id}
+                      className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--color-gold)]/40 transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between text-[11px] text-[var(--color-gold)] mb-1">
+                          <span className="font-semibold uppercase tracking-wider">Broadcast Update</span>
+                          <span className="text-[var(--color-white)]/50">
+                            {new Date(upd.published_at).toLocaleDateString('en-IN', {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-semibold text-[var(--color-white)] mb-1">
+                          {upd.title}
+                        </h4>
+                        <p className="text-xs text-[var(--color-white)]/70 line-clamp-2 leading-relaxed">
+                          {upd.content}
+                        </p>
+                      </div>
+                      {upd.cta_link && (
+                        <a
+                          href={upd.cta_link}
+                          className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--color-gold)] font-medium hover:underline"
+                        >
+                          <span>{upd.cta_text || 'Explore Drop'}</span>
+                          <span>&rarr;</span>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       </section>

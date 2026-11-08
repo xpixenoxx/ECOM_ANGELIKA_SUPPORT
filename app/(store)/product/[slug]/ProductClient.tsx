@@ -49,7 +49,10 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   const currentColor = product.colors[selectedColor] ?? product.colors[0] ?? { name: '', value: '', hex: '#CCCCCC', images: [] };
-  const discount = product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
+  const activeVariant = product.variants?.find((v) => v.size.toLowerCase() === selectedSize?.toLowerCase()) || product.variants?.[0];
+  const currentPrice = activeVariant?.price ?? product.price;
+  const currentOriginalPrice = activeVariant?.compare_at_price ?? product.originalPrice;
+  const discount = currentOriginalPrice ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100) : 0;
 
   // Convert string arrays to proper types
   const galleryImages = ((currentColor.images?.length ?? 0) > 0 ? currentColor.images : product.images).map((src): { src: string; alt: string } => ({
@@ -121,7 +124,7 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
   const shareOnWhatsApp = () => {
     const url = `https://wa.me/91XXXXXXXXXX?text=${encodeURIComponent(
-      `Hi Vidhya, I'm interested in "${product.name}" (₹${product.price.toLocaleString()}). Product ID: ${product.sku}`
+      `Hi Vidhya, I'm interested in "${product.name}" (${selectedSize ? `Size: ${selectedSize}, ` : ''}₹${currentPrice.toLocaleString()}). Product ID: ${product.sku}`
     )}`;
     window.open(url, '_blank');
   };
@@ -321,9 +324,9 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
               {/* Price */}
               <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="text-3xl md:text-4xl font-bold text-[var(--color-ink)] tabular-nums">₹{product.price.toLocaleString()}</span>
-                {product.originalPrice && (
-                  <span className="text-xl text-[var(--color-mist)] line-through tabular-nums">₹{product.originalPrice.toLocaleString()}</span>
+                <span className="text-3xl md:text-4xl font-bold text-[var(--color-ink)] tabular-nums">₹{currentPrice.toLocaleString()}</span>
+                {currentOriginalPrice && (
+                  <span className="text-xl text-[var(--color-mist)] line-through tabular-nums">₹{currentOriginalPrice.toLocaleString()}</span>
                 )}
                 {discount > 0 && (
                   <span className="px-3 py-1 text-sm font-semibold bg-[var(--color-error)] text-white rounded-[var(--radius-md)]">
