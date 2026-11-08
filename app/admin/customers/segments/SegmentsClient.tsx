@@ -504,7 +504,7 @@ export default function SegmentsClient({ initialCustomers }: Props) {
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-[var(--color-gold)]' : ''}`} />
             <span>Sync</span>
-            <span className="text-[10px] text-[var(--color-mist)] hidden sm:inline">
+            <span suppressHydrationWarning className="text-[10px] text-[var(--color-mist)] hidden sm:inline">
               ({lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })})
             </span>
           </button>

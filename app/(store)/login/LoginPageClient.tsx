@@ -13,6 +13,7 @@ import { ScrollReveal } from '@/components/animations/ScrollReveal';
 import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { toast } from '@/components/ui/Toast';
+import { sendSignupOtp, verifySignupOtp } from '@/lib/actions/auth-otp';
 
 type FormErrors = {
   fullName?: string;
@@ -54,6 +55,22 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+
+  // Signup OTP Verification State
+  const [signupOtpStep, setSignupOtpStep] = useState(false);
+  const [signupOtp, setSignupOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  // Timer for resend cooldown
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const interval = setInterval(() => {
+      setCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cooldown]);
 
   // Safely show toast on signout without violating React render rules
   useEffect(() => {
@@ -139,34 +156,81 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
         router.refresh();
         router.push(targetUrl);
       } else {
-        // Sign Up Flow with timeout protection
-        const signUpPromise = signUp(email.trim(), password, {
-          full_name: fullName.trim(),
-        });
-        const timeoutPromise = new Promise<{ error: Error | null }>((_, reject) =>
-          setTimeout(() => reject(new Error('Account creation timed out. Please try again.')), 7000)
-        );
-
-        const { error: signUpError } = await Promise.race([signUpPromise, timeoutPromise]);
-
-        if (signUpError) {
-          const msg = signUpError.message.toLowerCase();
-          if (msg.includes('already registered') || msg.includes('already exists')) {
-            toast.error('Account Exists', 'An account with this email already exists. Switching to Sign In.');
-            setIsLogin(true);
-          } else {
-            toast.error('Registration Error', signUpError.message);
-          }
+        // Sign Up Flow: Send 6-Digit Verification Code via Resend
+        const otpRes = await sendSignupOtp(email.trim(), fullName.trim());
+        if (!otpRes.success) {
+          toast.error('Registration Notice', otpRes.message);
           return;
         }
 
-        // Account is immediately created and session established!
-        toast.success('Welcome to Angelika Circle!', `Hello ${fullName.trim() || 'there'}, your account is ready.`);
+        setSignupOtpStep(true);
+        setDevCode(otpRes.devCode || null);
+        setCooldown(30);
+        toast.success('Verification Code Dispatched', otpRes.message);
+      }
+    } catch (err: any) {
+      toast.error('Unexpected Error', err?.message || 'Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleVerifySignupOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!signupOtp.trim() || signupOtp.trim().length !== 6) {
+      setOtpError('Please enter the 6-digit verification code.');
+      return;
+    }
+
+    setOtpError('');
+    setIsSubmitting(true);
+    try {
+      const res = await verifySignupOtp({
+        email: email.trim(),
+        otp: signupOtp.trim(),
+        password,
+        fullName: fullName.trim(),
+      });
+
+      if (!res.success) {
+        setOtpError(res.message);
+        toast.error('Verification Error', res.message);
+        return;
+      }
+
+      toast.success('Account Verified!', `Welcome ${fullName.trim() || 'there'}, signing you in...`);
+
+      // Sign user in automatically
+      const { error: signInErr } = await signIn(email.trim(), password);
+      const targetUrl = redirectTo || '/account';
+
+      if (signInErr) {
+        toast.success('Registration Complete', 'Please sign in with your email and password.');
+        setSignupOtpStep(false);
+        setIsLogin(true);
+      } else {
         router.refresh();
         router.push(targetUrl);
       }
     } catch (err: any) {
-      toast.error('Unexpected Error', err?.message || 'Please try again later.');
+      toast.error('Unexpected Error', err?.message || 'Verification failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResendSignupOtp = async () => {
+    if (cooldown > 0 || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const res = await sendSignupOtp(email.trim(), fullName.trim());
+      if (res.success) {
+        setDevCode(res.devCode || null);
+        setCooldown(30);
+        toast.success('New Code Dispatched', res.message);
+      } else {
+        toast.error('Error', res.message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +279,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
         <Card variant="elevated" padding="lg" className="border border-[var(--color-whisper)] shadow-xl bg-[var(--color-white)]">
           <CardHeader className="pb-4">
             {/* Elegant Mode Switcher Tabs */}
-            {!forgotPasswordMode && (
+            {!forgotPasswordMode && !signupOtpStep && (
               <div className="flex border-b border-[var(--color-whisper)] -mx-4 px-4 pb-2">
                 <button
                   type="button"
@@ -248,14 +312,18 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
               </div>
             )}
             <CardTitle className="pt-2 text-xl font-display font-medium text-[var(--color-ink)] text-center">
-              {forgotPasswordMode
+              {signupOtpStep
+                ? 'Verify Your Email'
+                : forgotPasswordMode
                 ? 'Reset Your Password'
                 : isLogin
                 ? 'Welcome Back'
                 : 'Join Angelika Circle'}
             </CardTitle>
             <p className="text-xs text-center text-[var(--color-slate)] mt-1">
-              {forgotPasswordMode
+              {signupOtpStep
+                ? `Enter the 6-digit verification code sent to ${email}`
+                : forgotPasswordMode
                 ? 'Enter your registered email to receive reset instructions'
                 : isLogin
                 ? 'Sign in to access your orders, wishlist, and bespoke styling'
@@ -264,8 +332,75 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
           </CardHeader>
 
           <CardContent className="space-y-5">
-            {/* Social Login: Single Clean Google Button */}
-            {!forgotPasswordMode && (
+            {/* OTP VERIFICATION STEP FOR SIGNUP */}
+            {signupOtpStep ? (
+              <form onSubmit={handleVerifySignupOtp} className="space-y-4" noValidate>
+                {devCode && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                    <span className="font-semibold block mb-0.5">Development Preview:</span>
+                    Your verification code is <strong className="font-mono text-sm tracking-widest text-amber-950">{devCode}</strong>.
+                    <span className="block text-[11px] text-amber-700 mt-1">
+                      (Set <code>RESEND_API_KEY</code> in <code>.env.local</code> to dispatch real emails directly to inboxes).
+                    </span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1 text-center">
+                    6-Digit Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={signupOtp}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+                      setSignupOtp(val);
+                      if (otpError) setOtpError('');
+                    }}
+                    autoFocus
+                    disabled={isSubmitting}
+                    className="w-full text-center tracking-[8px] text-2xl font-bold font-mono py-2.5 px-3 border border-[var(--color-whisper)] rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/40 bg-[var(--color-snow)] focus:bg-white transition-all"
+                  />
+                  {otpError && <p className="text-xs text-rose-500 mt-1 text-center font-medium">{otpError}</p>}
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={isSubmitting}
+                  disabled={isSubmitting || signupOtp.length !== 6}
+                  className="shadow-md font-semibold tracking-wider uppercase text-xs py-3.5"
+                >
+                  {isSubmitting ? 'Verifying...' : 'Verify & Complete Registration'}
+                </Button>
+
+                <div className="flex items-center justify-between text-xs pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSignupOtpStep(false)}
+                    className="text-[var(--color-slate)] hover:text-[var(--color-ink)] underline cursor-pointer"
+                  >
+                    &larr; Back to edit details
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendSignupOtp}
+                    disabled={cooldown > 0 || isSubmitting}
+                    className="text-[var(--color-gold)] hover:text-[var(--color-gold-hover)] font-semibold disabled:opacity-40 cursor-pointer"
+                  >
+                    {cooldown > 0 ? `Resend code in ${cooldown}s` : 'Resend Code'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                {/* Social Login: Single Clean Google Button */}
+                {!forgotPasswordMode && (
               <>
                 <Button
                   variant="outline"
@@ -448,17 +583,12 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                         onChange={(e) => setRememberMe(e.target.checked)}
                         id="remember-me"
                       />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setForgotPasswordMode(true);
-                          setResetSent(false);
-                          setErrors({});
-                        }}
+                      <Link
+                        href={`/auth/reset-password${email ? `?email=${encodeURIComponent(email)}` : ''}`}
                         className="text-[var(--color-gold)] hover:text-[var(--color-gold-hover)] font-medium transition-colors"
                       >
                         Forgot password?
-                      </button>
+                      </Link>
                     </div>
                   </StaggerItem>
                 )}
@@ -560,6 +690,8 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                   </button>
                 </p>
               </div>
+            )}
+              </>
             )}
           </CardContent>
         </Card>

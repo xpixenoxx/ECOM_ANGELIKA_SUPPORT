@@ -37,7 +37,16 @@ interface Props {
   isNew?: boolean;
 }
 
-const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size'];
+export interface SizeVariantFormItem {
+  id?: string;
+  size: string;
+  price: string;
+  compareAtPrice: string;
+  inventory: string;
+  isActive?: boolean;
+}
+
+const COMMON_SIZES = ['Free Size', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
 const PHOTO_PRESETS = [
   { label: 'Lucknowi Kurti', url: '/images/products/kurti-lucknowi-1.jpg' },
@@ -72,14 +81,14 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
   const initialPrice = initialProduct?.product_variants?.[0]?.price
     ? String(initialProduct.product_variants[0].price)
     : initialProduct?.price
-    ? String(initialProduct.price)
-    : '3999';
+      ? String(initialProduct.price)
+      : '3999';
 
   const initialComparePrice = initialProduct?.product_variants?.[0]?.compare_at_price
     ? String(initialProduct.product_variants[0].compare_at_price)
     : initialProduct?.compare_at_price
-    ? String(initialProduct.compare_at_price)
-    : '4999';
+      ? String(initialProduct.compare_at_price)
+      : '4999';
 
   const totalVariantStock = initialProduct?.product_variants?.reduce(
     (sum: number, v: any) => sum + Number(v.inventory_quantity || 0),
@@ -88,20 +97,36 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
   const initialInventory = totalVariantStock !== undefined && totalVariantStock > 0
     ? String(totalVariantStock)
     : initialProduct?.total_inventory !== undefined
-    ? String(initialProduct.total_inventory)
-    : '25';
+      ? String(initialProduct.total_inventory)
+      : '25';
 
   const [price, setPrice] = useState(initialPrice);
   const [compareAtPrice, setCompareAtPrice] = useState(initialComparePrice);
   const [inventory, setInventory] = useState(initialInventory);
 
-  // Sizes selection
-  const existingSizes = (initialProduct?.product_variants || [])
-    .map((v: any) => v.size)
-    .filter(Boolean);
-  const [selectedSizes, setSelectedSizes] = useState<string[]>(
-    existingSizes.length > 0 ? existingSizes : ['S', 'M', 'L', 'XL']
-  );
+  // Size variants with customized pricing per size
+  const [sizeVariants, setSizeVariants] = useState<SizeVariantFormItem[]>(() => {
+    if (initialProduct?.product_variants && initialProduct.product_variants.length > 0) {
+      return initialProduct.product_variants.map((v: any) => ({
+        id: v.id,
+        size: v.size || 'Free Size',
+        price: v.price !== null && v.price !== undefined ? String(v.price) : initialPrice,
+        compareAtPrice: v.compare_at_price !== null && v.compare_at_price !== undefined ? String(v.compare_at_price) : (initialComparePrice || ''),
+        inventory: v.inventory_quantity !== null && v.inventory_quantity !== undefined ? String(v.inventory_quantity) : '10',
+        isActive: v.is_active ?? true,
+      }));
+    }
+    // Default initial variants for new products (including Free Size + standard boutique sizes)
+    return [
+      { size: 'Free Size', price: initialPrice || '3999', compareAtPrice: initialComparePrice || '4999', inventory: '20' },
+      { size: 'S', price: initialPrice || '3999', compareAtPrice: initialComparePrice || '4999', inventory: '15' },
+      { size: 'M', price: initialPrice || '3999', compareAtPrice: initialComparePrice || '4999', inventory: '20' },
+      { size: 'L', price: initialPrice || '3999', compareAtPrice: initialComparePrice || '4999', inventory: '15' },
+      { size: 'XL', price: initialPrice || '4299', compareAtPrice: initialComparePrice || '5499', inventory: '10' },
+    ];
+  });
+
+  const [customSizeInput, setCustomSizeInput] = useState('');
 
   const [isActive, setIsActive] = useState(initialProduct?.is_active ?? true);
   const [isFeatured, setIsFeatured] = useState(initialProduct?.is_featured ?? false);
@@ -161,14 +186,98 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
   }
 
   function toggleSize(sz: string) {
-    if (selectedSizes.includes(sz)) {
-      if (selectedSizes.length > 1) {
-        setSelectedSizes(selectedSizes.filter((s) => s !== sz));
+    const existingIndex = sizeVariants.findIndex(
+      (v) => v.size.toLowerCase().trim() === sz.toLowerCase().trim()
+    );
+    if (existingIndex >= 0) {
+      if (sizeVariants.length <= 1) {
+        setErrorMessage('A product must have at least one size variant configured.');
+        setTimeout(() => setErrorMessage(null), 3000);
+        return;
       }
+      setSizeVariants((prev) => prev.filter((_, i) => i !== existingIndex));
     } else {
-      setSelectedSizes([...selectedSizes, sz]);
+      setSizeVariants((prev) => [
+        ...prev,
+        {
+          size: sz,
+          price: price || '3999',
+          compareAtPrice: compareAtPrice || '',
+          inventory: '10',
+          isActive: true,
+        },
+      ]);
     }
   }
+
+  function addCustomSize() {
+    const trimmed = customSizeInput.trim();
+    if (!trimmed) return;
+    const exists = sizeVariants.some(
+      (v) => v.size.toLowerCase().trim() === trimmed.toLowerCase()
+    );
+    if (exists) {
+      setErrorMessage(`Size "${trimmed}" is already added.`);
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    setSizeVariants((prev) => [
+      ...prev,
+      {
+        size: trimmed,
+        price: price || '3999',
+        compareAtPrice: compareAtPrice || '',
+        inventory: '10',
+        isActive: true,
+      },
+    ]);
+    setCustomSizeInput('');
+  }
+
+  function removeVariant(index: number) {
+    if (sizeVariants.length <= 1) {
+      setErrorMessage('A product must have at least one size variant.');
+      setTimeout(() => setErrorMessage(null), 3000);
+      return;
+    }
+    setSizeVariants((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleVariantFieldChange(
+    index: number,
+    field: 'price' | 'compareAtPrice' | 'inventory',
+    value: string
+  ) {
+    setSizeVariants((prev) => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index]!, [field]: value };
+      }
+      return updated;
+    });
+  }
+
+  function applyBasePriceToAll() {
+    if (!price) return;
+    setSizeVariants((prev) =>
+      prev.map((v) => ({
+        ...v,
+        price: price,
+        compareAtPrice: compareAtPrice || v.compareAtPrice,
+      }))
+    );
+  }
+
+  const totalInventoryCalc = sizeVariants.reduce(
+    (sum, v) => sum + (Number(v.inventory) || 0),
+    0
+  );
+  const minPriceCalc = sizeVariants.length > 0
+    ? Math.min(...sizeVariants.map((v) => Number(v.price) || 0))
+    : Number(price) || 0;
+  const maxPriceCalc = sizeVariants.length > 0
+    ? Math.max(...sizeVariants.map((v) => Number(v.price) || 0))
+    : Number(price) || 0;
 
   function addImage(urlToAdd?: string) {
     const targetUrl = urlToAdd || newImageUrl;
@@ -289,6 +398,24 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
       .map((t: string) => t.trim())
       .filter(Boolean);
 
+    const formattedVariants = sizeVariants.map((v) => ({
+      id: v.id,
+      size: v.size.trim(),
+      price: Number(v.price) || 0,
+      compare_at_price: v.compareAtPrice ? Number(v.compareAtPrice) : null,
+      inventory_quantity: Number(v.inventory) || 0,
+      is_active: v.isActive ?? true,
+    }));
+
+    const minPrice = formattedVariants.length > 0
+      ? Math.min(...formattedVariants.map((v) => v.price))
+      : Number(price) || 0;
+
+    const totalStock = formattedVariants.reduce(
+      (sum, v) => sum + (v.inventory_quantity || 0),
+      0
+    );
+
     startTransition(async () => {
       try {
         if (isNew) {
@@ -298,15 +425,16 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
             sku: sku.trim() || undefined,
             category_id: categoryId,
             description: description.trim(),
-            price: Number(price) || 0,
+            price: minPrice,
             compare_at_price: compareAtPrice ? Number(compareAtPrice) : undefined,
-            inventory_quantity: Number(inventory) || 0,
+            inventory_quantity: totalStock,
             is_active: isActive,
             is_featured: isFeatured,
             is_vidyas_pick: isVidhyasPick,
             images,
             tags: tagList,
-            sizes: selectedSizes,
+            sizes: formattedVariants.map((v) => v.size),
+            variants: formattedVariants,
           });
 
           if (!res.success) {
@@ -326,15 +454,16 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
             sku: sku.trim() || undefined,
             category_id: categoryId,
             description: description.trim(),
-            price: Number(price) || 0,
+            price: minPrice,
             compare_at_price: compareAtPrice ? Number(compareAtPrice) : undefined,
-            inventory_quantity: Number(inventory) || 0,
+            inventory_quantity: totalStock,
             is_active: isActive,
             is_featured: isFeatured,
             is_vidyas_pick: isVidhyasPick,
             images,
             tags: tagList,
-            sizes: selectedSizes,
+            sizes: formattedVariants.map((v) => v.size),
+            variants: formattedVariants,
           });
 
           if (!res.success) {
@@ -527,83 +656,290 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
             </div>
           </div>
 
-          {/* Pricing & Inventory */}
-          <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
-              Pricing, Inventory &amp; Sizes
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Sizes & Customized Pricing Matrix */}
+          <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[var(--color-whisper,#E5E5E5)] pb-4">
               <div>
-                <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                  Selling Price (₹) *
-                </label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="3999"
-                  required
-                  min={0}
-                  className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
-                />
+                <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
+                  Sizes &amp; Customized Pricing Matrix
+                </h2>
+                <p className="text-xs text-[var(--color-slate,#666666)] mt-0.5">
+                  Configure available sizes (including Free Size) and assign customized selling prices, MRP, and stock inventory for each.
+                </p>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                  MRP / Compare at (₹)
-                </label>
-                <input
-                  type="number"
-                  value={compareAtPrice}
-                  onChange={(e) => setCompareAtPrice(e.target.value)}
-                  placeholder="4999"
-                  min={0}
-                  className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                  Total Inventory (Units) *
-                </label>
-                <input
-                  type="number"
-                  value={inventory}
-                  onChange={(e) => setInventory(e.target.value)}
-                  placeholder="25"
-                  min={0}
-                  required
-                  className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
-                />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-gold,#C9A84C)]/10 text-[var(--color-gold,#C9A84C)] border border-[var(--color-gold,#C9A84C)]/25">
+                  <Package className="w-3.5 h-3.5" />
+                  {sizeVariants.length} {sizeVariants.length === 1 ? 'Size Variant' : 'Sizes Configured'}
+                </span>
+                <span className="text-xs text-[var(--color-slate,#666666)] font-mono">
+                  Total Stock: <strong className="text-[var(--color-ink,#111111)]">{totalInventoryCalc}</strong> units
+                </span>
               </div>
             </div>
 
-            {/* Sizes Selection */}
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1.5 flex items-center justify-between">
-                <span>Available Sizes ({selectedSizes.length} selected)</span>
-                <span className="text-[11px] text-[var(--color-mist,#999999)] font-normal">Stock distributes evenly across selected sizes</span>
-              </label>
-              <div className="flex flex-wrap gap-2">
+            {/* Quick Size Selector Chips */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-[var(--color-slate,#666666)]">
+                  Available Sizes (Click to toggle in/out of matrix)
+                </label>
+                <span className="text-[11px] text-[var(--color-mist,#999999)] font-normal">
+                  Standard garments or luxury Free Size
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 {COMMON_SIZES.map((sz) => {
-                  const isSelected = selectedSizes.includes(sz);
+                  const isSelected = sizeVariants.some(
+                    (v) => v.size.toLowerCase().trim() === sz.toLowerCase().trim()
+                  );
+                  const isFreeSize = sz.toLowerCase() === 'free size';
                   return (
                     <button
                       key={sz}
                       type="button"
                       onClick={() => toggleSize(sz)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                        isSelected
-                          ? 'bg-[var(--color-gold,#C9A84C)] text-white border-[var(--color-gold,#C9A84C)]'
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 ${isSelected
+                          ? isFreeSize
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                            : 'bg-[var(--color-gold,#C9A84C)] text-white border-[var(--color-gold,#C9A84C)] shadow-sm'
                           : 'bg-[var(--color-snow,#F9F9F9)] text-[var(--color-slate,#666666)] border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)]/50'
-                      }`}
+                        }`}
                     >
-                      {sz}
+                      {isSelected ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                      <span>{sz}</span>
+                      {isFreeSize && !isSelected && (
+                        <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                          Boutique
+                        </span>
+                      )}
                     </button>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Custom Size Addition */}
+            <div className="p-3 bg-[var(--color-snow,#F9F9F9)] rounded-xl border border-[var(--color-whisper,#E5E5E5)] flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={customSizeInput}
+                  onChange={(e) => setCustomSizeInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      addCustomSize();
+                    }
+                  }}
+                  placeholder="Add custom size (e.g. Semi-Stitched, 4XL, Custom Fit, Petit)..."
+                  className="w-full bg-white border border-[var(--color-whisper,#E5E5E5)] rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addCustomSize}
+                disabled={!customSizeInput.trim()}
+                className="px-4 py-2 rounded-lg bg-[var(--color-ink,#111111)] text-white text-xs font-semibold hover:bg-[var(--color-gold,#C9A84C)] disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Custom Size</span>
+              </button>
+            </div>
+
+            {/* Base Price Template & Bulk Apply Bar */}
+            <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200/60 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-semibold text-amber-950 flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-amber-700" />
+                    Base Price Template &amp; Bulk Sync
+                  </h3>
+                  <p className="text-[11px] text-amber-800/80">
+                    Use these values as default template, or click "Apply to All Sizes" to quickly batch-update all sizes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyBasePriceToAll}
+                  className="px-3 py-1.5 bg-amber-700 text-white rounded-lg text-xs font-medium hover:bg-amber-800 transition-colors flex items-center gap-1.5 self-start sm:self-auto shadow-sm"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Apply Base Price to All Sizes</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-amber-950 mb-1">
+                    Base Selling Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="3999"
+                    min={0}
+                    className="w-full bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-amber-950 mb-1">
+                    Base MRP / Compare at (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={compareAtPrice}
+                    onChange={(e) => setCompareAtPrice(e.target.value)}
+                    placeholder="4999"
+                    min={0}
+                    className="w-full bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Customized Pricing Table */}
+            <div className="overflow-x-auto border border-[var(--color-whisper,#E5E5E5)] rounded-xl">
+              <table className="w-full text-left border-collapse min-w-[620px]">
+                <thead>
+                  <tr className="bg-[var(--color-snow,#F9F9F9)] border-b border-[var(--color-whisper,#E5E5E5)] text-[11px] font-semibold text-[var(--color-slate,#666666)] uppercase tracking-wider">
+                    <th className="py-3 px-4">Size Variant</th>
+                    <th className="py-3 px-4">Selling Price (₹) *</th>
+                    <th className="py-3 px-4">MRP / Compare at (₹)</th>
+                    <th className="py-3 px-4 text-center">Discount</th>
+                    <th className="py-3 px-4">Stock (Units) *</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-whisper,#E5E5E5)] text-xs">
+                  {sizeVariants.map((variant, index) => {
+                    const vPrice = Number(variant.price) || 0;
+                    const vCompare = Number(variant.compareAtPrice) || 0;
+                    const discountPercent =
+                      vCompare > vPrice && vCompare > 0
+                        ? Math.round(((vCompare - vPrice) / vCompare) * 100)
+                        : 0;
+                    const isFree = variant.size.toLowerCase().trim() === 'free size';
+
+                    return (
+                      <tr key={variant.size + '-' + index} className="hover:bg-amber-50/20 transition-colors">
+                        {/* Size Badge */}
+                        <td className="py-3 px-4 font-semibold text-[var(--color-ink,#111111)]">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${isFree
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-xs'
+                                  : 'bg-[var(--color-snow,#F9F9F9)] text-[var(--color-ink,#111111)] border-[var(--color-whisper,#E5E5E5)]'
+                                }`}
+                            >
+                              {variant.size}
+                            </span>
+                            {isFree && (
+                              <span className="text-[10px] text-amber-700 font-medium hidden sm:inline">
+                                (One size fits all)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Customized Price Input */}
+                        <td className="py-3 px-4">
+                          <div className="relative max-w-[140px]">
+                            <span className="absolute left-2.5 top-2 text-[var(--color-mist,#999999)] text-xs">₹</span>
+                            <input
+                              type="number"
+                              value={variant.price}
+                              onChange={(e) => handleVariantFieldChange(index, 'price', e.target.value)}
+                              placeholder="3999"
+                              min={0}
+                              required
+                              className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Customized MRP Input */}
+                        <td className="py-3 px-4">
+                          <div className="relative max-w-[140px]">
+                            <span className="absolute left-2.5 top-2 text-[var(--color-mist,#999999)] text-xs">₹</span>
+                            <input
+                              type="number"
+                              value={variant.compareAtPrice}
+                              onChange={(e) => handleVariantFieldChange(index, 'compareAtPrice', e.target.value)}
+                              placeholder="4999"
+                              min={0}
+                              className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-lg pl-6 pr-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Discount Pill */}
+                        <td className="py-3 px-4 text-center">
+                          {discountPercent > 0 ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {discountPercent}% OFF
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-[var(--color-mist,#999999)] font-mono">—</span>
+                          )}
+                        </td>
+
+                        {/* Stock Input */}
+                        <td className="py-3 px-4">
+                          <div className="max-w-[100px]">
+                            <input
+                              type="number"
+                              value={variant.inventory}
+                              onChange={(e) => handleVariantFieldChange(index, 'inventory', e.target.value)}
+                              placeholder="10"
+                              min={0}
+                              required
+                              className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
+                            />
+                          </div>
+                        </td>
+
+                        {/* Delete Action */}
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => removeVariant(index)}
+                            disabled={sizeVariants.length <= 1}
+                            title={sizeVariants.length <= 1 ? 'Minimum 1 size required' : 'Remove size'}
+                            className="p-1.5 text-[var(--color-slate,#666666)] hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors rounded-lg hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Matrix Summary Stats */}
+            <div className="p-3.5 bg-[var(--color-snow,#F9F9F9)] rounded-xl border border-[var(--color-whisper,#E5E5E5)] flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="text-[var(--color-slate,#666666)]">Storefront Price Display: </span>
+                  <strong className="text-[var(--color-ink,#111111)] font-mono">
+                    {minPriceCalc === maxPriceCalc
+                      ? `₹${minPriceCalc.toLocaleString()}`
+                      : `₹${minPriceCalc.toLocaleString()} – ₹${maxPriceCalc.toLocaleString()}`}
+                  </strong>
+                </div>
+                <div className="hidden sm:block text-[var(--color-whisper,#E5E5E5)]">|</div>
+                <div>
+                  <span className="text-[var(--color-slate,#666666)]">Total Units Available: </span>
+                  <strong className="text-[var(--color-ink,#111111)] font-mono">{totalInventoryCalc}</strong>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                <Check className="w-3.5 h-3.5" />
+                <span>Sizes &amp; customized prices update in real-time</span>
               </div>
             </div>
           </div>
@@ -671,11 +1007,10 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
                   {images.map((url, idx) => (
                     <div
                       key={idx}
-                      className={`p-3 rounded-xl border transition-all ${
-                        idx === 0
+                      className={`p-3 rounded-xl border transition-all ${idx === 0
                           ? 'bg-amber-50/50 border-[var(--color-gold,#C9A84C)] shadow-xs'
                           : 'bg-[var(--color-snow,#F9F9F9)] border-[var(--color-whisper,#E5E5E5)] hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         {/* Thumbnail */}
@@ -892,14 +1227,12 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
               <button
                 type="button"
                 onClick={() => setIsActive(!isActive)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isActive ? 'bg-[var(--color-gold,#C9A84C)]' : 'bg-gray-300'
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isActive ? 'bg-[var(--color-gold,#C9A84C)]' : 'bg-gray-300'
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    isActive ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isActive ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
@@ -915,14 +1248,12 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
               <button
                 type="button"
                 onClick={() => setIsFeatured(!isFeatured)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isFeatured ? 'bg-[var(--color-gold,#C9A84C)]' : 'bg-gray-300'
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isFeatured ? 'bg-[var(--color-gold,#C9A84C)]' : 'bg-gray-300'
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    isFeatured ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isFeatured ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
@@ -938,14 +1269,12 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
               <button
                 type="button"
                 onClick={() => setIsVidhyasPick(!isVidhyasPick)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  isVidhyasPick ? 'bg-[var(--color-gold,#C9A84C)]' : 'bg-gray-300'
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isVidhyasPick ? 'bg-[var(--color-gold,#C9A84C)]' : 'bg-gray-300'
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    isVidhyasPick ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${isVidhyasPick ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>

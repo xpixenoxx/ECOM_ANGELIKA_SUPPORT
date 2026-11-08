@@ -52,6 +52,13 @@ export interface ClientProductData {
   categorySlug?: string;
   tags?: string[];
   rawFabric?: any;
+  variants?: Array<{
+    id: string;
+    size: string;
+    price: number;
+    compare_at_price?: number | null;
+    inventory_quantity?: number;
+  }>;
 }
 
 export function transformProductForClient(
@@ -162,10 +169,17 @@ export function transformProductForClient(
     inStock,
     isVidhyasPick: product.is_vidyas_pick,
     isNew: product.created_at ? new Date(product.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : false,
-    categoryId: product.category_id,
-    categorySlug: product.category?.slug,
+    categoryId: product.category_id || undefined,
+    categorySlug: product.category?.slug || undefined,
     tags: product.tags || [],
     rawFabric: product.fabric,
+    variants: (product.variants || []).map((v) => ({
+      id: v.id,
+      size: v.size,
+      price: Number(v.price) || 0,
+      compare_at_price: v.compare_at_price ? Number(v.compare_at_price) : null,
+      inventory_quantity: Number(v.inventory_quantity) || 0,
+    })),
   };
 }
 

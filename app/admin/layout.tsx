@@ -20,6 +20,7 @@ import {
   UserCog,
   Heart,
   UserPlus,
+  Sparkles,
   MessageSquare,
   Send,
   GitBranch,
@@ -91,6 +92,7 @@ const navigation = [
     group: 'Customers',
     items: [
       { href: '/admin/customers', label: 'All Customers', icon: Users, badge: null },
+      { href: '/admin/customers/circle', label: 'Angelika Circle', icon: Sparkles, badge: null },
       { href: '/admin/customers/segments', label: 'Segments', icon: UserCog, badge: null },
       { href: '/admin/customers/loyalty', label: 'Loyalty', icon: Heart, badge: null },
       { href: '/admin/customers/referrals', label: 'Referrals', icon: UserPlus, badge: null },

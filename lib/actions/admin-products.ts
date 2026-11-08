@@ -200,6 +200,14 @@ export async function createProduct(payload: {
   images?: string[];
   tags?: string[];
   sizes?: string[];
+  variants?: Array<{
+    id?: string;
+    size: string;
+    price: number;
+    compare_at_price?: number | null;
+    inventory_quantity?: number;
+    is_active?: boolean;
+  }>;
 }) {
   const supabase = getAdminDb();
 
@@ -228,20 +236,33 @@ export async function createProduct(payload: {
     return { success: false, error: prodErr.message };
   }
 
-  // 2. Insert variants (support multi-size or standard)
-  const sizes = payload.sizes && payload.sizes.length > 0 ? payload.sizes : ['Standard'];
-  const totalStock = payload.inventory_quantity ?? 25;
-  const stockPerSize = Math.max(1, Math.floor(totalStock / sizes.length));
+  // 2. Insert variants (support customized price per size or fallback to uniform sizes)
+  let variantRecords: any[] = [];
+  if (payload.variants && payload.variants.length > 0) {
+    variantRecords = payload.variants.map((v, idx) => ({
+      product_id: newProd.id,
+      size: v.size.trim(),
+      price: Number(v.price) || payload.price || 0,
+      compare_at_price: v.compare_at_price !== undefined && v.compare_at_price !== null ? Number(v.compare_at_price) : (payload.compare_at_price || null),
+      inventory_quantity: v.inventory_quantity !== undefined ? Number(v.inventory_quantity) : 10,
+      is_active: v.is_active ?? true,
+      sort_order: idx + 1,
+    }));
+  } else {
+    const sizes = payload.sizes && payload.sizes.length > 0 ? payload.sizes : ['Free Size'];
+    const totalStock = payload.inventory_quantity ?? 25;
+    const stockPerSize = Math.max(1, Math.floor(totalStock / sizes.length));
 
-  const variantRecords = sizes.map((size, idx) => ({
-    product_id: newProd.id,
-    size: size,
-    price: payload.price,
-    compare_at_price: payload.compare_at_price || null,
-    inventory_quantity: idx === 0 ? totalStock - stockPerSize * (sizes.length - 1) : stockPerSize,
-    is_active: true,
-    sort_order: idx + 1,
-  }));
+    variantRecords = sizes.map((size, idx) => ({
+      product_id: newProd.id,
+      size: size,
+      price: payload.price,
+      compare_at_price: payload.compare_at_price || null,
+      inventory_quantity: idx === 0 ? totalStock - stockPerSize * (sizes.length - 1) : stockPerSize,
+      is_active: true,
+      sort_order: idx + 1,
+    }));
+  }
 
   const { error: varErr } = await supabase.from('product_variants').insert(variantRecords);
   if (varErr) {
@@ -284,6 +305,14 @@ export async function updateProduct(
     images?: string[];
     tags?: string[];
     sizes?: string[];
+    variants?: Array<{
+      id?: string;
+      size: string;
+      price: number;
+      compare_at_price?: number | null;
+      inventory_quantity?: number;
+      is_active?: boolean;
+    }>;
   }
 ) {
   const supabase = getAdminDb();
@@ -306,8 +335,77 @@ export async function updateProduct(
     return { success: false, error: prodErr.message };
   }
 
-  // 2. Update variants (pricing, inventory, sizes)
-  if (payload.price !== undefined || payload.compare_at_price !== undefined || payload.inventory_quantity !== undefined) {
+  // 2. Update variants (customized prices per size or fallback)
+  if (payload.variants && payload.variants.length > 0) {
+    const { data: existingVariants } = await supabase
+      .from('product_variants')
+      .select('*')
+      .eq('product_id', id);
+
+    const existingMap = new Map((existingVariants || []).map((ev) => [ev.id, ev]));
+    const existingSizeMap = new Map((existingVariants || []).map((ev) => [ev.size.toLowerCase().trim(), ev]));
+    const preservedIds = new Set<string>();
+
+    for (let idx = 0; idx < payload.variants.length; idx++) {
+      const v = payload.variants[idx];
+      if (!v) continue;
+      const cleanSize = v.size.trim();
+      const vPrice = Number(v.price) || (payload.price ?? 3999);
+      const vCompare = v.compare_at_price !== undefined && v.compare_at_price !== null
+        ? Number(v.compare_at_price)
+        : (payload.compare_at_price || null);
+      const vStock = v.inventory_quantity !== undefined ? Number(v.inventory_quantity) : 10;
+
+      // Match by explicit ID or matching size
+      const matched = (v.id && existingMap.get(v.id)) || existingSizeMap.get(cleanSize.toLowerCase());
+
+      if (matched) {
+        preservedIds.add(matched.id);
+        await supabase
+          .from('product_variants')
+          .update({
+            size: cleanSize,
+            price: vPrice,
+            compare_at_price: vCompare,
+            inventory_quantity: vStock,
+            is_active: v.is_active ?? true,
+            sort_order: idx + 1,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', matched.id);
+      } else {
+        // Insert new size variant
+        const { data: insertedVar } = await supabase
+          .from('product_variants')
+          .insert({
+            product_id: id,
+            size: cleanSize,
+            price: vPrice,
+            compare_at_price: vCompare,
+            inventory_quantity: vStock,
+            is_active: v.is_active ?? true,
+            sort_order: idx + 1,
+          })
+          .select('id')
+          .single();
+
+        if (insertedVar?.id) {
+          preservedIds.add(insertedVar.id);
+        }
+      }
+    }
+
+    // Remove any variants that were deselected/removed by the user
+    for (const ev of existingVariants || []) {
+      if (!preservedIds.has(ev.id)) {
+        const { error: delErr } = await supabase.from('product_variants').delete().eq('id', ev.id);
+        if (delErr) {
+          // If foreign key constraint prevents deletion (e.g., past orders), deactivate it safely
+          await supabase.from('product_variants').update({ is_active: false }).eq('id', ev.id);
+        }
+      }
+    }
+  } else if (payload.price !== undefined || payload.compare_at_price !== undefined || payload.inventory_quantity !== undefined) {
     const { data: existingVariants } = await supabase.from('product_variants').select('*').eq('product_id', id);
 
     if (existingVariants && existingVariants.length > 0) {
@@ -316,7 +414,6 @@ export async function updateProduct(
       if (payload.compare_at_price !== undefined) varUpdates.compare_at_price = payload.compare_at_price || null;
 
       if (payload.inventory_quantity !== undefined) {
-        // Distribute stock across variants
         const stockPerVar = Math.max(0, Math.floor(payload.inventory_quantity / existingVariants.length));
         for (let i = 0; i < existingVariants.length; i++) {
           const v = existingVariants[i];
@@ -330,10 +427,9 @@ export async function updateProduct(
         await supabase.from('product_variants').update(varUpdates).eq('product_id', id);
       }
     } else {
-      // Create primary variant if none existed
       await supabase.from('product_variants').insert({
         product_id: id,
-        size: 'Standard',
+        size: 'Free Size',
         price: payload.price ?? 3999,
         compare_at_price: payload.compare_at_price || null,
         inventory_quantity: payload.inventory_quantity ?? 10,
@@ -975,14 +1071,14 @@ export async function getInventoryAlerts(options?: { scope?: 'alerts' | 'all' })
       updated_at: v.updated_at || null,
       products: v.products
         ? {
-            id: v.products.id,
-            name: v.products.name,
-            sku: v.products.sku,
-            slug: v.products.slug,
-            is_active: Boolean(v.products.is_active),
-            category_name: v.products.categories?.name || null,
-            images: imageUrls.length > 0 ? imageUrls : null,
-          }
+          id: v.products.id,
+          name: v.products.name,
+          sku: v.products.sku,
+          slug: v.products.slug,
+          is_active: Boolean(v.products.is_active),
+          category_name: v.products.categories?.name || null,
+          images: imageUrls.length > 0 ? imageUrls : null,
+        }
         : null,
     };
   });
