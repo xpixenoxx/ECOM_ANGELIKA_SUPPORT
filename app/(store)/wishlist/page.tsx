@@ -5,150 +5,172 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { SizeSelector } from '@/components/composite/SizeSelector';
 import { cn } from '@/lib/utils/cn';
 import { ScrollReveal } from '@/components/animations/ScrollReveal';
 import { StaggerContainer, StaggerItem, StaggerGrid } from '@/components/animations/Stagger';
 import { MagneticButton } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
+import { useWishlist, WishlistItem } from '@/lib/hooks/useWishlist';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { AuthModal } from '@/components/ui/AuthModal';
+import toast from 'react-hot-toast';
 
-const mockWishlistItems = [
+const curatedRecommendations = [
   {
-    id: 'wish-1',
-    productId: 'royal-crimson-bridal-zardozi-lehenga',
+    id: 'rec-1',
+    slug: 'royal-crimson-bridal-zardozi-lehenga',
     name: 'Royal Crimson Bridal Zardozi Lehenga',
     price: 18499,
     originalPrice: 24999,
     image: '/images/products/lehenga-bridal-1.jpg',
-    color: 'Crimson Red',
-    colorHex: '#8B0000',
-    size: 'M',
-    inStock: true,
     discount: 26,
     category: 'Lehengas',
-    addedAt: '2026-01-10',
   },
   {
-    id: 'wish-2',
-    productId: 'royal-indigo-pure-raw-silk-straight-suit',
+    id: 'rec-2',
+    slug: 'royal-indigo-pure-raw-silk-straight-suit',
     name: 'Royal Indigo Pure Raw Silk Straight Suit',
     price: 7499,
     originalPrice: 9999,
     image: '/images/products/salwar-rawsilk-1.jpg',
-    color: 'Royal Indigo',
-    colorHex: '#1E3A8A',
-    size: 'Free Size',
-    inStock: true,
     discount: 25,
     category: 'Salwars',
-    addedAt: '2026-01-08',
   },
   {
-    id: 'wish-3',
-    productId: 'heritage-temple-kanjivaram-silk-saree',
-    name: 'Heritage Temple Kanjivaram Silk Saree',
-    price: 22499,
-    originalPrice: 27999,
-    image: '/images/products/saree-kanjivaram-1.jpg',
-    color: 'Crimson & Gold',
-    colorHex: '#C9A84C',
-    size: 'Free Size',
-    inStock: true,
-    discount: 20,
-    category: 'Sarees',
-    addedAt: '2026-01-05',
-  },
-  {
-    id: 'wish-4',
-    productId: 'royal-gold-banarasi-katan-silk-dupatta',
-    name: 'Royal Gold Banarasi Katan Silk Dupatta',
-    price: 4499,
-    originalPrice: 5999,
-    image: '/images/products/dupatta-banarasi-1.jpg',
-    color: 'Gold',
-    colorHex: '#D4AF37',
-    size: 'Free Size',
-    inStock: true,
-    discount: 25,
-    category: 'Dupattas',
-    addedAt: '2026-01-03',
-  },
-  {
-    id: 'wish-5',
-    productId: 'kutch-ajrakh-modal-silk-kurti',
-    name: 'Kutch Ajrakh Modal Silk Kurti',
-    price: 4999,
-    originalPrice: 6499,
-    image: '/images/products/kurti-ajrakh-1.jpg',
-    color: 'Indigo & Madder',
-    colorHex: '#312E81',
-    size: 'M',
-    inStock: true,
-    discount: 23,
-    category: 'Kurtis',
-    addedAt: '2025-12-28',
-  },
-  {
-    id: 'wish-6',
-    productId: 'ivory-gold-chanderi-angrakha-suit',
+    id: 'rec-3',
+    slug: 'ivory-gold-chanderi-angrakha-suit',
     name: 'Ivory & Gold Chanderi Angrakha Suit',
     price: 6899,
     originalPrice: 8999,
     image: '/images/products/salwar-angrakha-1.jpg',
-    color: 'Ivory Gold',
-    colorHex: '#FFFDD0',
-    size: 'L',
-    inStock: true,
     discount: 23,
     category: 'Salwars',
-    addedAt: '2025-12-20',
+  },
+  {
+    id: 'rec-4',
+    slug: 'mirror-work-lehenga',
+    name: 'Mirror Work Festive Lehenga',
+    price: 14999,
+    originalPrice: 17999,
+    image: '/images/products/lehenga-mirror-1.jpg',
+    discount: 17,
+    category: 'Lehengas',
   },
 ];
 
 export default function WishlistPage() {
-  const { addItem } = useCart();
-  const [items, setItems] = useState(mockWishlistItems);
+  const { user, loading: authLoading } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const { addItem: addToCartHook } = useCart();
+  const { items, removeItem, clearWishlist, isLoading } = useWishlist();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [moveToCart, setMoveToCart] = useState<string | null>(null);
+  const [movingItemId, setMovingItemId] = useState<string | null>(null);
 
   const inStockItems = items.filter(item => item.inStock);
   const outOfStockItems = items.filter(item => !item.inStock);
 
-  const addToCart = async (item: typeof mockWishlistItems[0]) => {
-    setMoveToCart(item.id);
+  const addToCart = async (item: WishlistItem) => {
+    setMovingItemId(item.id);
     try {
-      await addItem(item.productId || item.id, 1, item.size);
-      setItems(prev => prev.filter(i => i.id !== item.id));
+      await addToCartHook(item.variant_id || item.product_id || item.productId || item.id, 1, item.size, {
+        product_name: item.name,
+        price: item.price,
+        image: item.image,
+      });
+      await removeItem(item.product_id || item.productId || item.id);
+      toast.success('Moved to Bag!', { icon: '🛍️' });
     } catch (err) {
       console.error(err);
+      toast.error('Failed to move to bag');
+    } finally {
+      setMovingItemId(null);
     }
   };
 
-  const removeItem = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+  const addAllToBag = async () => {
+    if (inStockItems.length === 0) return;
+    try {
+      for (const item of inStockItems) {
+        await addToCartHook(item.variant_id || item.product_id || item.productId || item.id, 1, item.size, {
+          product_name: item.name,
+          price: item.price,
+          image: item.image,
+        });
+      }
+      toast.success('All available items added to Bag!', { icon: '🛍️' });
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not add some items to bag');
+    }
   };
 
-  const clearWishlist = () => {
-    setItems([]);
+  const handleRemove = async (item: WishlistItem) => {
+    await removeItem(item.product_id || item.productId || item.slug || item.id);
+  };
+
+  const handleClearWishlist = async () => {
+    if (items.length === 0) return;
+    if (window.confirm('Are you sure you want to clear your wishlist?')) {
+      await clearWishlist();
+    }
   };
 
   const shareWishlist = () => {
+    if (typeof window === 'undefined') return;
     if (navigator.share) {
       navigator.share({
         title: 'My Angelika Fashions Wishlist',
         text: 'Check out my favorite picks from Angelika Fashions!',
         url: window.location.href,
-      });
+      }).catch(() => {});
     } else {
       navigator.clipboard.writeText(window.location.href);
+      toast.success('Wishlist link copied to clipboard!', { icon: '📋' });
     }
   };
 
-  if (items.length === 0) {
+  if (!user && !isLoading && !authLoading) {
     return (
       <div className="min-h-screen bg-[var(--color-white)]">
-        <section className="py-16">
+        <section className="py-20">
+          <div className="container-custom px-6 max-w-md mx-auto text-center">
+            <ScrollReveal variant="fadeUp">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center">
+                <svg className="h-12 w-12 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                </svg>
+              </div>
+              <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)] mb-3">
+                Sign In to View Wishlist
+              </h1>
+              <p className="text-[var(--color-slate)] mb-8 text-sm leading-relaxed">
+                Save your favorite sarees, lehengas, and ensembles. Access your personalized wishlist anytime by signing in to your account.
+              </p>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => setShowAuthModal(true)}
+                className="w-full sm:w-auto px-8 cursor-pointer"
+              >
+                Sign In to Your Account
+              </Button>
+            </ScrollReveal>
+          </div>
+        </section>
+        {showAuthModal && (
+          <AuthModal
+            onClose={() => setShowAuthModal(false)}
+            onSuccess={() => setShowAuthModal(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (!isLoading && items.length === 0) {
+    return (
+      <div className="min-h-screen bg-[var(--color-white)]">
+        <section className="py-20">
           <div className="container-custom px-6">
             <ScrollReveal variant="fadeUp" className="text-center max-w-md mx-auto mb-16">
               <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center">
@@ -160,53 +182,33 @@ export default function WishlistPage() {
                 Your Wishlist is Empty
               </h1>
               <p className="text-[var(--color-slate)] mb-8">
-                Save items you love for later. They'll be here waiting for you.
+                Explore our handcrafted luxury collections and save your favorite silhouettes to review anytime.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <MagneticButton size="lg" variant="primary" strength={0.3} asChild>
-                  <Link href="/shop">Start Shopping</Link>
-                </MagneticButton>
-                <MagneticButton size="lg" variant="outline" strength={0.3} asChild>
-                  <Link href="/vidhyas-picks">View Vidhya's Picks</Link>
-                </MagneticButton>
-              </div>
+              <MagneticButton variant="gold" size="lg" asChild strength={0.3}>
+                <Link href="/shop">Explore Collections</Link>
+              </MagneticButton>
             </ScrollReveal>
 
-            {/* Recommendations for empty wishlist */}
-            <div className="mt-16 pt-12 border-t border-[var(--color-whisper)]">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-gold)] mb-1 block">
-                    Curated Masterpieces
-                  </span>
-                  <h2 className="text-[var(--font-display)] text-2xl md:text-3xl font-medium text-[var(--color-ink)]">
-                    You May Also Like
-                  </h2>
-                </div>
-                <MagneticButton variant="outline" asChild strength={0.3}>
-                  <Link href="/shop">Explore Collection →</Link>
-                </MagneticButton>
-              </div>
+            {/* Recommendations */}
+            <div className="border-t border-[var(--color-whisper)] pt-12">
+              <h2 className="text-[var(--font-display)] text-2xl font-medium text-[var(--color-ink)] mb-6 text-center">
+                Trending Designer Pieces
+              </h2>
               <StaggerGrid
-                items={[
-                  { id: 'rec-1', slug: 'royal-crimson-bridal-zardozi-lehenga', name: 'Royal Crimson Bridal Zardozi Lehenga', price: 18499, originalPrice: 24999, image: '/images/products/lehenga-bridal-1.jpg', discount: 26, category: 'Lehengas' },
-                  { id: 'rec-2', slug: 'royal-indigo-pure-raw-silk-straight-suit', name: 'Royal Indigo Pure Raw Silk Straight Suit', price: 7499, originalPrice: 9999, image: '/images/products/salwar-rawsilk-1.jpg', discount: 25, category: 'Salwars' },
-                  { id: 'rec-3', slug: 'ivory-gold-chanderi-angrakha-suit', name: 'Ivory & Gold Chanderi Angrakha Suit', price: 6899, originalPrice: 8999, image: '/images/products/salwar-angrakha-1.jpg', discount: 23, category: 'Salwars' },
-                  { id: 'rec-4', slug: 'mirror-work-lehenga', name: 'Mirror Work Festive Lehenga', price: 14999, originalPrice: 17999, image: '/images/products/lehenga-mirror-1.jpg', discount: 17, category: 'Lehengas' },
-                ]}
+                items={curatedRecommendations}
                 renderItem={(product, index) => (
                   <StaggerItem key={product.id} variant="scale" style={{ transitionDelay: `${index * 0.05}s` }}>
                     <article className="bg-[var(--color-white)] rounded-[var(--radius-xl)] overflow-hidden border border-[var(--color-whisper)] hover:shadow-[var(--shadow-lg)] transition-shadow duration-300 group">
-                      <div className="relative aspect-[3/4] overflow-hidden">
+                      <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-snow)]">
                         <Image
                           src={product.image}
                           alt={product.name}
                           fill
-                          className="object-cover"
+                          className="object-cover group-hover:scale-105 transition-transform duration-500"
                           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                         />
                         {product.discount > 0 && (
-                          <span className="absolute top-3 left-3 bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold px-2 py-1 rounded-[var(--radius-sm)]">
+                          <span className="absolute top-3 left-3 bg-[#A84557] text-white text-xs font-bold px-2 py-1 rounded-[var(--radius-sm)] shadow-xs">
                             -{product.discount}%
                           </span>
                         )}
@@ -255,7 +257,7 @@ export default function WishlistPage() {
                   variant={viewMode === 'grid' ? 'primary' : 'ghost'}
                   size="sm"
                   strength={0.2}
-                  className="rounded-[var(--radius-md)]"
+                  className="rounded-[var(--radius-md)] cursor-pointer"
                   onClick={() => setViewMode('grid')}
                   aria-label="Grid view"
                 >
@@ -270,7 +272,7 @@ export default function WishlistPage() {
                   variant={viewMode === 'list' ? 'primary' : 'ghost'}
                   size="sm"
                   strength={0.2}
-                  className="rounded-[var(--radius-md)]"
+                  className="rounded-[var(--radius-md)] cursor-pointer"
                   onClick={() => setViewMode('list')}
                   aria-label="List view"
                 >
@@ -283,7 +285,7 @@ export default function WishlistPage() {
                   </svg>
                 </MagneticButton>
               </div>
-              <MagneticButton variant="outline" size="sm" strength={0.3} onClick={shareWishlist} className="gap-2">
+              <MagneticButton variant="outline" size="sm" strength={0.3} onClick={shareWishlist} className="gap-2 cursor-pointer">
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <circle cx="18" cy="5" r="3" />
                   <circle cx="6" cy="12" r="3" />
@@ -293,7 +295,7 @@ export default function WishlistPage() {
                 Share
               </MagneticButton>
               {items.length > 0 && (
-                <MagneticButton variant="ghost" size="sm" strength={0.3} onClick={clearWishlist} className="text-[var(--color-error)] hover:text-[var(--color-error)]">
+                <MagneticButton variant="ghost" size="sm" strength={0.3} onClick={handleClearWishlist} className="text-[var(--color-error)] hover:text-[var(--color-error)] cursor-pointer">
                   Clear All
                 </MagneticButton>
               )}
@@ -312,7 +314,7 @@ export default function WishlistPage() {
                 <h2 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)]">
                   In Stock ({inStockItems.length})
                 </h2>
-                <MagneticButton variant="primary" size="sm" strength={0.3} onClick={() => inStockItems.forEach(addToCart)} className="gap-2">
+                <MagneticButton variant="gold" size="sm" strength={0.3} onClick={addAllToBag} className="gap-2 cursor-pointer">
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                     <path d="M3 6h18" />
@@ -330,8 +332,8 @@ export default function WishlistPage() {
                       <ProductCardWishlist
                         item={item}
                         onAddToCart={addToCart}
-                        onRemove={removeItem}
-                        isMovingToCart={moveToCart === item.id}
+                        onRemove={handleRemove}
+                        isMovingToCart={movingItemId === item.id}
                       />
                     </StaggerItem>
                   )}
@@ -345,8 +347,8 @@ export default function WishlistPage() {
                       <ProductCardWishlistList
                         item={item}
                         onAddToCart={addToCart}
-                        onRemove={removeItem}
-                        isMovingToCart={moveToCart === item.id}
+                        onRemove={handleRemove}
+                        isMovingToCart={movingItemId === item.id}
                       />
                     </StaggerItem>
                   ))}
@@ -357,7 +359,7 @@ export default function WishlistPage() {
 
           {/* Out of Stock Items */}
           {outOfStockItems.length > 0 && (
-            <ScrollReveal variant="fadeUp" delay={0.2}>
+            <ScrollReveal variant="fadeUp" delay={0.2} className="mt-12">
               <h2 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)] mb-6">
                 Out of Stock ({outOfStockItems.length})
               </h2>
@@ -369,8 +371,8 @@ export default function WishlistPage() {
                       <ProductCardWishlist
                         item={item}
                         onAddToCart={addToCart}
-                        onRemove={removeItem}
-                        isMovingToCart={moveToCart === item.id}
+                        onRemove={handleRemove}
+                        isMovingToCart={movingItemId === item.id}
                       />
                     </StaggerItem>
                   )}
@@ -384,8 +386,8 @@ export default function WishlistPage() {
                       <ProductCardWishlistList
                         item={item}
                         onAddToCart={addToCart}
-                        onRemove={removeItem}
-                        isMovingToCart={moveToCart === item.id}
+                        onRemove={handleRemove}
+                        isMovingToCart={movingItemId === item.id}
                       />
                     </StaggerItem>
                   ))}
@@ -396,33 +398,28 @@ export default function WishlistPage() {
         </div>
       </section>
 
-      {/* Recently Viewed / Recommendations */}
-      <section className="py-10 bg-[var(--color-snow)] border-t border-[var(--color-whisper)]">
+      {/* Recommendations */}
+      <section className="py-12 bg-[var(--color-snow)] border-t border-[var(--color-whisper)]">
         <div className="container-custom px-6">
           <ScrollReveal variant="fadeUp">
             <h2 className="text-[var(--font-display)] text-2xl font-medium text-[var(--color-ink)] mb-6">
               You May Also Like
             </h2>
             <StaggerGrid
-              items={[
-                { id: 'rec-1', slug: 'royal-crimson-bridal-zardozi-lehenga', name: 'Royal Crimson Bridal Zardozi Lehenga', price: 18499, originalPrice: 24999, image: '/images/products/lehenga-bridal-1.jpg', discount: 26, category: 'Lehengas' },
-                { id: 'rec-2', slug: 'royal-indigo-pure-raw-silk-straight-suit', name: 'Royal Indigo Pure Raw Silk Straight Suit', price: 7499, originalPrice: 9999, image: '/images/products/salwar-rawsilk-1.jpg', discount: 25, category: 'Salwars' },
-                { id: 'rec-3', slug: 'ivory-gold-chanderi-angrakha-suit', name: 'Ivory & Gold Chanderi Angrakha Suit', price: 6899, originalPrice: 8999, image: '/images/products/salwar-angrakha-1.jpg', discount: 23, category: 'Salwars' },
-                { id: 'rec-4', slug: 'mirror-work-lehenga', name: 'Mirror Work Festive Lehenga', price: 14999, originalPrice: 17999, image: '/images/products/lehenga-mirror-1.jpg', discount: 17, category: 'Lehengas' },
-              ]}
+              items={curatedRecommendations}
               renderItem={(product, index) => (
                 <StaggerItem key={product.id} variant="scale" style={{ transitionDelay: `${index * 0.05}s` }}>
                   <article className="bg-[var(--color-white)] rounded-[var(--radius-xl)] overflow-hidden border border-[var(--color-whisper)] hover:shadow-[var(--shadow-lg)] transition-shadow duration-300 group">
-                    <div className="relative aspect-[3/4] overflow-hidden">
+                    <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-snow)]">
                       <Image
                         src={product.image}
                         alt={product.name}
                         fill
-                        className="object-cover"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                       />
                       {product.discount > 0 && (
-                        <span className="absolute top-3 left-3 bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold px-2 py-1 rounded-[var(--radius-sm)]">
+                        <span className="absolute top-3 left-3 bg-[#A84557] text-white text-xs font-bold px-2 py-1 rounded-[var(--radius-sm)] shadow-xs">
                           -{product.discount}%
                         </span>
                       )}
@@ -447,188 +444,219 @@ export default function WishlistPage() {
           </ScrollReveal>
         </div>
       </section>
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => setShowAuthModal(false)}
+        />
+      )}
     </div>
   );
 }
 
-function ProductCardWishlist({ item, onAddToCart, onRemove, isMovingToCart }: {
-  item: typeof mockWishlistItems[0];
-  onAddToCart: (item: typeof mockWishlistItems[0]) => void;
-  onRemove: (id: string) => void;
+function ProductCardWishlist({
+  item,
+  onAddToCart,
+  onRemove,
+  isMovingToCart,
+}: {
+  item: WishlistItem;
+  onAddToCart: (item: WishlistItem) => void;
+  onRemove: (item: WishlistItem) => void;
   isMovingToCart: boolean;
 }) {
+  const productHref = `/product/${item.slug || item.productId || item.product_id}`;
+
   return (
     <AnimatePresence mode="wait">
-      {!isMovingToCart && (
-        <motion.article
-          className="bg-[var(--color-white)] rounded-[var(--radius-xl)] overflow-hidden border border-[var(--color-whisper)] hover:shadow-[var(--shadow-lg)] transition-all duration-300"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="relative aspect-[3/4] overflow-hidden">
+      <motion.article
+        className="bg-[var(--color-white)] rounded-[var(--radius-xl)] overflow-hidden border border-[var(--color-whisper)] hover:shadow-[var(--shadow-lg)] transition-all duration-300"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: -20 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="relative aspect-[3/4] overflow-hidden bg-[var(--color-snow)]">
+          <Link href={productHref} className="block w-full h-full">
             <Image
-              src={item.image}
+              src={item.image || '/images/placeholder.jpg'}
               alt={item.name}
               fill
-              className="object-cover"
+              className="object-cover hover:scale-105 transition-transform duration-500"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
-            <div className="absolute top-3 right-3 flex flex-col gap-2">
-              <button
-                onClick={() => onRemove(item.id)}
-                className="p-2 rounded-full bg-[var(--color-white)]/90 hover:bg-[var(--color-white)] text-[var(--color-mist)] hover:text-[var(--color-error)] shadow-[var(--shadow-sm)] transition-colors"
-                aria-label={`Remove ${item.name} from wishlist`}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </button>
-              {item.discount > 0 && (
-                <span className="bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold px-2 py-1 rounded-[var(--radius-sm)]">
-                  -{item.discount}%
-                </span>
-              )}
-            </div>
-            {!item.inStock && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Out of Stock</span>
-              </div>
+          </Link>
+          <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+            <button
+              onClick={() => onRemove(item)}
+              className="p-2 rounded-full bg-[var(--color-white)]/90 hover:bg-[var(--color-white)] text-[var(--color-mist)] hover:text-[#A84557] shadow-sm transition-colors cursor-pointer"
+              aria-label={`Remove ${item.name} from wishlist`}
+              title="Remove from wishlist"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </button>
+            {item.discount > 0 && (
+              <span className="bg-[#A84557] text-white text-xs font-bold px-2 py-1 rounded-[var(--radius-sm)] shadow-xs">
+                -{item.discount}%
+              </span>
             )}
           </div>
-          <div className="p-4">
-            <p className="text-xs text-[var(--color-gold)] font-medium mb-1">{item.category}</p>
-            <h3 className="text-[var(--font-display)] text-sm font-medium text-[var(--color-ink)] line-clamp-2 mb-2">{item.name}</h3>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="flex items-center gap-1 text-sm text-[var(--color-slate)]">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.colorHex }} aria-hidden="true" />
-                {item.color}
-              </span>
-              <span className="text-sm text-[var(--color-slate)]">Size: {item.size}</span>
+          {!item.inStock && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 pointer-events-none">
+              <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Out of Stock</span>
             </div>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="font-bold text-[var(--color-ink)]">₹{item.price.toLocaleString()}</span>
-              <span className="text-sm text-[var(--color-mist)] line-through">₹{item.originalPrice.toLocaleString()}</span>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={item.inStock ? 'primary' : 'outline'}
-                className="flex-1"
-                onClick={() => onAddToCart(item)}
-                disabled={!item.inStock || isMovingToCart}
-              >
-                {isMovingToCart ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                      <path d="M12 2a10 10 0 0 1 10 10" strokeOpacity="1" />
-                    </svg>
-                    Adding...
-                  </span>
-                ) : item.inStock ? (
-                  'Add to Bag'
-                ) : (
-                  'Notify Me'
-                )}
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href={`/product/${item.productId}`} className="w-full justify-center">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 6v6l4 2" />
-                  </svg>
-                </Link>
-              </Button>
-            </div>
-            <p className="text-xs text-[var(--color-mist)] mt-2 text-center">Added {new Date(item.addedAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          )}
+        </div>
+        <div className="p-4">
+          <p className="text-xs text-[var(--color-gold)] font-medium mb-1">{item.category}</p>
+          <Link href={productHref}>
+            <h3 className="text-[var(--font-display)] text-sm font-medium text-[var(--color-ink)] line-clamp-2 mb-2 hover:text-[var(--color-gold)] transition-colors">
+              {item.name}
+            </h3>
+          </Link>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="flex items-center gap-1.5 text-xs text-[var(--color-slate)]">
+              <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: item.colorHex }} aria-hidden="true" />
+              {item.color}
+            </span>
+            <span className="text-xs text-[var(--color-slate)]">Size: {item.size}</span>
           </div>
-        </motion.article>
-      )}
+          <div className="flex items-baseline gap-2 mb-4">
+            <span className="font-bold text-[var(--color-ink)]">₹{item.price.toLocaleString()}</span>
+            {item.originalPrice > item.price && (
+              <span className="text-sm text-[var(--color-mist)] line-through">₹{item.originalPrice.toLocaleString()}</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={item.inStock ? 'primary' : 'outline'}
+              className="flex-1"
+              onClick={() => onAddToCart(item)}
+              disabled={!item.inStock || isMovingToCart}
+            >
+              {isMovingToCart ? (
+                <span className="flex items-center justify-center gap-2">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+                    <path d="M12 2a10 10 0 0 1 10 10" strokeOpacity="1" />
+                  </svg>
+                  Adding...
+                </span>
+              ) : item.inStock ? (
+                'Add to Bag'
+              ) : (
+                'Out of Stock'
+              )}
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href={productHref} className="justify-center" title="View Product Details">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </motion.article>
     </AnimatePresence>
   );
 }
 
-function ProductCardWishlistList({ item, onAddToCart, onRemove, isMovingToCart }: {
-  item: typeof mockWishlistItems[0];
-  onAddToCart: (item: typeof mockWishlistItems[0]) => void;
-  onRemove: (id: string) => void;
+function ProductCardWishlistList({
+  item,
+  onAddToCart,
+  onRemove,
+  isMovingToCart,
+}: {
+  item: WishlistItem;
+  onAddToCart: (item: WishlistItem) => void;
+  onRemove: (item: WishlistItem) => void;
   isMovingToCart: boolean;
 }) {
+  const productHref = `/product/${item.slug || item.productId || item.product_id}`;
+
   return (
     <AnimatePresence mode="wait">
-      {!isMovingToCart && (
-        <motion.div
-          className="flex gap-4 p-4 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-xl)] hover:shadow-[var(--shadow-md)] transition-shadow duration-300"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ duration: 0.2 }}
-        >
-          <div className="relative w-24 h-32 flex-shrink-0 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-whisper)]">
+      <motion.div
+        className="flex gap-4 p-4 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-xl)] hover:shadow-[var(--shadow-md)] transition-shadow duration-300"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 20 }}
+        transition={{ duration: 0.2 }}
+      >
+        <div className="relative w-24 h-32 flex-shrink-0 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-whisper)]">
+          <Link href={productHref} className="block w-full h-full">
             <Image
-              src={item.image}
+              src={item.image || '/images/placeholder.jpg'}
               alt={item.name}
               fill
               className="object-cover"
               sizes="96px"
             />
-            {!item.inStock && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Out of Stock</span>
-              </div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-xs text-[var(--color-gold)] font-medium mb-1">{item.category}</p>
-                <Link href={`/product/${item.productId}`} className="hover:underline">
-                  <h3 className="text-[var(--font-display)] text-base font-medium text-[var(--color-ink)] line-clamp-2 mb-1">
-                    {item.name}
-                  </h3>
-                </Link>
-                <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--color-slate)]">
-                  <span className="flex items-center gap-1">
-                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.colorHex }} aria-hidden="true" />
-                    {item.color}
-                  </span>
-                  <span>Size: {item.size}</span>
-                </div>
-              </div>
-              <button
-                onClick={() => onRemove(item.id)}
-                className="p-2 text-[var(--color-mist)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)] rounded-[var(--radius-md)] transition-colors flex-shrink-0"
-                aria-label={`Remove ${item.name} from wishlist`}
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-              </button>
+          </Link>
+          {!item.inStock && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10 pointer-events-none">
+              <span className="text-[10px] font-semibold text-white bg-[var(--color-error)] px-2 py-0.5 rounded-[var(--radius-sm)]">Out of Stock</span>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
-              <div className="flex items-baseline gap-3">
-                <span className="text-lg font-bold text-[var(--color-ink)] tabular-nums">₹{item.price.toLocaleString()}</span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs text-[var(--color-gold)] font-medium mb-1">{item.category}</p>
+              <Link href={productHref} className="hover:underline">
+                <h3 className="text-[var(--font-display)] text-base font-medium text-[var(--color-ink)] line-clamp-2 mb-1">
+                  {item.name}
+                </h3>
+              </Link>
+              <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--color-slate)]">
+                <span className="flex items-center gap-1.5 text-xs">
+                  <span className="w-2.5 h-2.5 rounded-full border border-black/10" style={{ backgroundColor: item.colorHex }} aria-hidden="true" />
+                  {item.color}
+                </span>
+                <span className="text-xs">Size: {item.size}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => onRemove(item)}
+              className="p-2 text-[var(--color-mist)] hover:text-[#A84557] hover:bg-red-50 rounded-[var(--radius-md)] transition-colors flex-shrink-0 cursor-pointer"
+              aria-label={`Remove ${item.name} from wishlist`}
+              title="Remove from wishlist"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-4">
+            <div className="flex items-baseline gap-3">
+              <span className="text-lg font-bold text-[var(--color-ink)] tabular-nums">₹{item.price.toLocaleString()}</span>
+              {item.originalPrice > item.price && (
                 <span className="text-sm text-[var(--color-mist)] line-through">₹{item.originalPrice.toLocaleString()}</span>
-                <span className="px-2 py-0.5 text-xs font-semibold bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-sm)]">-{item.discount}%</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={item.inStock ? 'primary' : 'outline'}
-                  size="sm"
-                  onClick={() => onAddToCart(item)}
-                  disabled={!item.inStock || isMovingToCart}
-                >
-                  {isMovingToCart ? 'Adding...' : item.inStock ? 'Add to Bag' : 'Notify Me'}
-                </Button>
-                <Button variant="ghost" size="sm" asChild>
-                  <Link href={`/product/${item.productId}`}>View</Link>
-                </Button>
-              </div>
+              )}
+              {item.discount > 0 && (
+                <span className="px-2 py-0.5 text-xs font-semibold bg-[#A84557] text-white rounded-[var(--radius-sm)]">-{item.discount}%</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={item.inStock ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => onAddToCart(item)}
+                disabled={!item.inStock || isMovingToCart}
+              >
+                {isMovingToCart ? 'Adding...' : item.inStock ? 'Add to Bag' : 'Out of Stock'}
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={productHref}>View</Link>
+              </Button>
             </div>
           </div>
-        </motion.div>
-      )}
+        </div>
+      </motion.div>
     </AnimatePresence>
   );
 }

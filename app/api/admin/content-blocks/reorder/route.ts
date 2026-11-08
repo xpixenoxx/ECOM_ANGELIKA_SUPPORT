@@ -1,27 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminClient } from '@/lib/supabase/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -31,12 +18,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'blockIds array required' }, { status: 400 });
     }
 
-    const updates = blockIds.map((id: string, index: number) =>
-      supabase
+    const updates = blockIds.map((id: string, index: number) => {
+      const updateData: any = { sort_order: index };
+      if (userId) updateData.updated_by = userId;
+      return supabase
         .from('content_blocks')
-        .update({ sort_order: index, updated_by: user.id })
-        .eq('id', id)
-    );
+        .update(updateData)
+        .eq('id', id);
+    });
 
     const results = await Promise.all(updates);
 
@@ -46,8 +35,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Reorder content blocks error:', error);
-    return NextResponse.json({ error: 'Failed to reorder content blocks' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to reorder content blocks' }, { status: 500 });
   }
 }

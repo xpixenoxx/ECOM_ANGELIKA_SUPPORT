@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils/cn';
 import { ProductCard } from '@/components/ui/Card';
 import { SkeletonProductCard } from '@/components/ui/Skeleton';
 import { Pagination } from '@/components/ui/Pagination';
+import { useWishlist } from '@/lib/hooks/useWishlist';
 
 export interface ProductGridItem {
   id: string;
@@ -23,6 +24,8 @@ export interface ProductGridItem {
   reviewCount?: number;
   badge?: 'new' | 'sale' | 'limited' | 'exclusive';
   href?: string;
+  slug?: string;
+  isWishlisted?: boolean;
 }
 
 export interface ProductGridProps {
@@ -71,6 +74,7 @@ export function ProductGrid({
   className = '',
 }: ProductGridProps) {
   const gridId = useId();
+  const { isInWishlist, toggleItem } = useWishlist();
 
   if (loading) {
     return (
@@ -137,9 +141,10 @@ export function ProductGrid({
           >
             <ProductCard
               {...product}
+              isWishlisted={product.isWishlisted ?? isInWishlist((product as any).slug || product.id)}
               onQuickView={() => onQuickView?.(product.id)}
               onAddToBag={() => onAddToBag?.(product.id)}
-              onAddToWishlist={() => onAddToWishlist?.(product.id)}
+              onAddToWishlist={onAddToWishlist ? () => onAddToWishlist(product.id) : () => toggleItem(product.id, undefined, product)}
             />
           </motion.article>
         ))}
@@ -246,6 +251,7 @@ export function ProductCarousel({
 }: ProductCarouselProps) {
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const carouselId = useId();
+  const { isInWishlist, toggleItem } = useWishlist();
   const itemsPerView = typeof window !== 'undefined' && window.innerWidth >= 1024 ? 4 : typeof window !== 'undefined' && window.innerWidth >= 768 ? 3 : 2;
   const maxIndex = Math.max(0, products.length - itemsPerView);
 
@@ -292,9 +298,10 @@ export function ProductCarousel({
             >
               <ProductCard
                 {...product}
+                isWishlisted={product.isWishlisted ?? isInWishlist((product as any).slug || product.id)}
                 onQuickView={() => onQuickView?.(product.id)}
                 onAddToBag={() => onAddToBag?.(product.id)}
-                onAddToWishlist={() => onAddToWishlist?.(product.id)}
+                onAddToWishlist={onAddToWishlist ? () => onAddToWishlist(product.id) : () => toggleItem(product.id, undefined, product)}
               />
             </motion.div>
           ))}

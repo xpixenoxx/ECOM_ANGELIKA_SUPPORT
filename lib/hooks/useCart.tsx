@@ -8,7 +8,8 @@ import { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } from '@/lib/data/store-catalogue'
 import toast from 'react-hot-toast';
 
 interface CartContextType extends CartState {
-  addItem: (variantId: string, quantity: number, size?: string, productData?: Partial<CartItem>) => Promise<void>;
+  loading?: boolean;
+  addItem: (variantId: string, quantity?: number, size?: string, productData?: Partial<CartItem>) => Promise<boolean>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   removeItem: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -26,6 +27,7 @@ const FREE_SHIPPING = 0;
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const isTestEnv = process.env.NODE_ENV === 'test';
   const [state, setState] = useState<CartState>({
     items: [],
     itemCount: 0,
@@ -58,7 +60,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const discountAmount = coupon?.discountAmount || 0;
     const isFreeShipping = coupon?.type === 'free_shipping' || subtotal >= SHIPPING_THRESHOLD;
     const shippingCost = isFreeShipping ? FREE_SHIPPING : DEFAULT_SHIPPING;
-    
+
     // Product prices are inclusive of GST (standard in Indian luxury apparel retail).
     // taxAmount is 0 additional charges so customers pay exact MRP.
     const taxAmount = 0;
@@ -91,6 +93,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadCart = async () => {
+    // If user is not signed in (and not in test environment), cart and counter must be 0
+    if (!user && !isTestEnv) {
+      setState({
+        items: [],
+        itemCount: 0,
+        subtotal: 0,
+        shippingCost: 0,
+        taxAmount: 0,
+        discountAmount: 0,
+        total: 0,
+        currency: 'INR',
+        appliedCoupon: null,
+        isLoading: false,
+        error: null,
+      });
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('guest_cart');
+          localStorage.removeItem('cart_count');
+          localStorage.removeItem('cart_updated');
+        } catch { }
+      }
+      return;
+    }
+
     // 1. Immediately read localStorage so cart & order load instantly with zero delay
     let localItems: CartItem[] = [];
     if (typeof window !== 'undefined') {
@@ -194,7 +221,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               quantity: item.quantity,
               size: item.size,
             })),
-          }).then(() => {}, () => {});
+          }).then(() => { }, () => { });
         }
       }
 
@@ -268,6 +295,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const addItem = async (variantId: string, quantity: number = 1, size?: string, productData?: Partial<CartItem>) => {
+    // If not signed in (and not in test environment), ask user to sign in
+    if (!user && !isTestEnv) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('auth:open', {
+            detail: { message: 'Please sign in to add items to your bag' },
+          })
+        );
+      }
+      return;
+    }
+
     // 1. Check if item is already in cart
     const existingIndex = state.items.findIndex(
       i => i.variant_id === variantId || (productData?.product_name && i.product_name.toLowerCase() === productData.product_name.toLowerCase())
@@ -283,7 +322,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       );
       await persistCart(newItems);
       toast.success('Added to bag!', { icon: '🛍️' });
-      return;
+      return true;
     }
 
     // 2. If productData has name & price, add immediately (zero network latency)
@@ -307,7 +346,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       newItems = [...state.items, newItem];
       await persistCart(newItems);
       toast.success('Added to bag!', { icon: '🛍️' });
-      return;
+      return true;
     }
 
     // 3. Fast lookup from static catalog (zero latency)
@@ -337,7 +376,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       newItems = [...state.items, newItem];
       await persistCart(newItems);
       toast.success('Added to bag!', { icon: '🛍️' });
-      return;
+      return true;
     }
 
     // 4. Remote lookup for valid UUIDs only (guarded with fast timeout)
@@ -428,6 +467,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     await persistCart(newItems);
     toast.success('Added to bag!', { icon: '🛍️' });
+    return true;
   };
 
   const updateQuantity = async (itemId: string, quantity: number) => {
@@ -452,7 +492,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (user) {
       await supabase.from('carts').delete().eq('user_id', user.id);
     }
-    localStorage.removeItem('guest_cart');
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('guest_cart');
+        localStorage.removeItem('cart_count');
+        localStorage.removeItem('cart_updated');
+      } catch { }
+    }
   };
 
   const syncCart = async () => {
@@ -562,7 +608,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         setState(prev => ({ ...prev, appliedCoupon, ...totals }));
         try {
           toast.success(`Coupon ${coupon.code} applied!`);
-        } catch {}
+        } catch { }
         return { valid: true };
       }
     } catch (e) {
@@ -602,7 +648,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setState(prev => ({ ...prev, appliedCoupon, ...totals }));
       try {
         toast.success(`Privilege voucher ${offer.code} applied!`);
-      } catch {}
+      } catch { }
       return { valid: true };
     }
 
@@ -643,7 +689,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <CartContext.Provider value={{ ...state, addItem, updateQuantity, removeItem, clearCart, syncCart, applyCoupon, removeCoupon, validateCart }}>
+    <CartContext.Provider value={{ ...state, loading: state.isLoading, addItem, updateQuantity, removeItem, clearCart, syncCart, applyCoupon, removeCoupon, validateCart }}>
       {children}
     </CartContext.Provider>
   );

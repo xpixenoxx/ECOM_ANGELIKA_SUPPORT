@@ -1,32 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminClient } from '@/lib/supabase/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const supabase = await createClient();
-    const { id } = await params;
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { supabase, isAdmin } = await getAdminClient();
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
-    }
+    const { id } = await Promise.resolve(params);
 
     const { data: block, error } = await supabase
       .from('content_blocks')
@@ -39,37 +26,23 @@ export async function GET(
     }
 
     return NextResponse.json({ block });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get content block error:', error);
-    return NextResponse.json({ error: 'Failed to fetch content block' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to fetch content block' }, { status: 500 });
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const supabase = await createClient();
-    const { id } = await params;
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { supabase, isAdmin, userId } = await getAdminClient();
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
-    }
-
+    const { id } = await Promise.resolve(params);
     const body = await request.json();
     const { key, type, title, content, settings, is_active, published_at, sort_order } = body;
 
@@ -80,7 +53,7 @@ export async function PATCH(
         .select('id')
         .eq('key', key)
         .neq('id', id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         return NextResponse.json({ error: 'A content block with this key already exists' }, { status: 400 });
@@ -88,9 +61,11 @@ export async function PATCH(
     }
 
     const updateData: any = {
-      updated_by: user.id,
       updated_at: new Date().toISOString(),
     };
+    if (userId) {
+      updateData.updated_by = userId;
+    }
 
     if (key !== undefined) updateData.key = key;
     if (type !== undefined) updateData.type = type;
@@ -114,36 +89,23 @@ export async function PATCH(
     }
 
     return NextResponse.json({ block });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update content block error:', error);
-    return NextResponse.json({ error: 'Failed to update content block' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to update content block' }, { status: 500 });
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const supabase = await createClient();
-    const { id } = await params;
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { supabase, isAdmin } = await getAdminClient();
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
-    }
+    const { id } = await Promise.resolve(params);
 
     const { error } = await supabase
       .from('content_blocks')
@@ -156,8 +118,8 @@ export async function DELETE(
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Delete content block error:', error);
-    return NextResponse.json({ error: 'Failed to delete content block' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to delete content block' }, { status: 500 });
   }
 }

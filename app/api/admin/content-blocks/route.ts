@@ -1,35 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminClient } from '@/lib/supabase/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin } = await getAdminClient();
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
     const includeDrafts = searchParams.get('includeDrafts') === 'true';
 
-    let query = supabase
-      .from('content_blocks')
-      .select('*');
+    let query = supabase.from('content_blocks').select('*');
 
     if (!includeDrafts) {
       query = query
@@ -48,31 +33,18 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ blocks: blocks || [] });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get content blocks error:', error);
-    return NextResponse.json({ error: 'Failed to fetch content blocks' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to fetch content blocks' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -87,7 +59,7 @@ export async function POST(request: NextRequest) {
       .from('content_blocks')
       .select('id')
       .eq('key', key)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       return NextResponse.json({ error: 'A content block with this key already exists' }, { status: 400 });
@@ -103,8 +75,8 @@ export async function POST(request: NextRequest) {
         settings: settings || {},
         is_active: is_active || false,
         published_at: published_at || null,
-        created_by: user.id,
-        updated_by: user.id,
+        created_by: userId,
+        updated_by: userId,
       })
       .select()
       .single();
@@ -115,8 +87,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ block }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create content block error:', error);
-    return NextResponse.json({ error: 'Failed to create content block' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to create content block' }, { status: 500 });
   }
 }

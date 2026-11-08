@@ -1,11 +1,12 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useWishlist, WishlistProvider } from './useWishlist';
 import { AuthProvider } from './useAuth';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, getSupabaseClient } from '@/lib/supabase/client';
 import { ReactNode } from 'react';
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(),
+  getSupabaseClient: vi.fn(),
 }));
 
 const mockSupabase = {
@@ -50,6 +51,7 @@ describe('useWishlist', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (createClient as any).mockReturnValue(mockSupabase);
+    (getSupabaseClient as any).mockReturnValue(mockSupabase);
     localStorage.clear();
   });
 

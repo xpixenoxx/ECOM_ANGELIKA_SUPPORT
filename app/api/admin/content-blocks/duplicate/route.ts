@@ -1,27 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getAdminClient } from '@/lib/supabase/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
     }
 
     const body = await request.json();
@@ -52,7 +39,7 @@ export async function POST(request: NextRequest) {
         .from('content_blocks')
         .select('id')
         .eq('key', newKey)
-        .single();
+        .maybeSingle();
 
       if (!existing) break;
       counter++;
@@ -70,8 +57,8 @@ export async function POST(request: NextRequest) {
         settings: original.settings,
         is_active: false, // Duplicate starts as draft
         published_at: null,
-        created_by: user.id,
-        updated_by: user.id,
+        created_by: userId,
+        updated_by: userId,
       })
       .select()
       .single();
@@ -82,8 +69,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ block }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Duplicate content block error:', error);
-    return NextResponse.json({ error: 'Failed to duplicate content block' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to duplicate content block' }, { status: 500 });
   }
 }

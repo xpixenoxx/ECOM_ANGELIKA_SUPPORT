@@ -160,6 +160,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('guest_cart');
+        localStorage.removeItem('cart_count');
+        localStorage.removeItem('cart_updated');
+        localStorage.removeItem('guest_wishlist');
+        localStorage.removeItem('user_wishlist');
+        localStorage.removeItem('wishlist_count');
+        localStorage.removeItem('wishlist_updated');
+        window.dispatchEvent(new CustomEvent('cart:updated', { detail: { items: [], totals: { itemCount: 0 } } }));
+        window.dispatchEvent(new CustomEvent('wishlist:updated', { detail: { items: [] } }));
+      } catch {}
+    }
     setUser(null);
     setProfile(null);
     setSession(null);

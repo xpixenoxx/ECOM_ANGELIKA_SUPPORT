@@ -5,5 +5,5 @@ export const dynamic = 'force-dynamic';
 
 export default async function InventoryPage() {
   const { variants } = await getInventoryAlerts();
-  return <InventoryClient initialVariants={variants} />;
+  return <InventoryClient initialVariants={(variants as any) || []} />;
 }

@@ -80,7 +80,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
 
 Card.displayName = 'Card';
 
-export interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {}
+export interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> { }
 export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
   ({ className = '', children, ...props }, ref) => (
     <div ref={ref} className={cn('mb-4', className)} {...props}>
@@ -90,7 +90,7 @@ export const CardHeader = forwardRef<HTMLDivElement, CardHeaderProps>(
 );
 CardHeader.displayName = 'CardHeader';
 
-export interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> {}
+export interface CardTitleProps extends HTMLAttributes<HTMLHeadingElement> { }
 export const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
   ({ className = '', children, ...props }, ref) => (
     <h3
@@ -104,7 +104,7 @@ export const CardTitle = forwardRef<HTMLHeadingElement, CardTitleProps>(
 );
 CardTitle.displayName = 'CardTitle';
 
-export interface CardDescriptionProps extends HTMLAttributes<HTMLParagraphElement> {}
+export interface CardDescriptionProps extends HTMLAttributes<HTMLParagraphElement> { }
 export const CardDescription = forwardRef<HTMLParagraphElement, CardDescriptionProps>(
   ({ className = '', children, ...props }, ref) => (
     <p
@@ -118,7 +118,7 @@ export const CardDescription = forwardRef<HTMLParagraphElement, CardDescriptionP
 );
 CardDescription.displayName = 'CardDescription';
 
-export interface CardContentProps extends HTMLAttributes<HTMLDivElement> {}
+export interface CardContentProps extends HTMLAttributes<HTMLDivElement> { }
 export const CardContent = forwardRef<HTMLDivElement, CardContentProps>(
   ({ className = '', children, ...props }, ref) => (
     <div ref={ref} className={cn('', className)} {...props}>
@@ -128,7 +128,7 @@ export const CardContent = forwardRef<HTMLDivElement, CardContentProps>(
 );
 CardContent.displayName = 'CardContent';
 
-export interface CardFooterProps extends HTMLAttributes<HTMLDivElement> {}
+export interface CardFooterProps extends HTMLAttributes<HTMLDivElement> { }
 export const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(
   ({ className = '', children, ...props }, ref) => (
     <div
@@ -156,7 +156,7 @@ export interface ProductCardProps {
   rating?: number;
   reviewCount?: number;
   onQuickView?: () => void;
-  onAddToBag?: () => void | Promise<void>;
+  onAddToBag?: () => void | boolean | Promise<void | boolean>;
   onAddToWishlist?: () => void;
   href?: string;
   badge?: 'new' | 'sale' | 'limited' | 'exclusive';
@@ -200,10 +200,12 @@ export function ProductCard({
     setIsAdding(true);
     try {
       if (onAddToBag) {
-        await onAddToBag();
+        const res = await onAddToBag();
+        if (res !== false) {
+          setIsAdded(true);
+          setTimeout(() => setIsAdded(false), 2000);
+        }
       }
-      setIsAdded(true);
-      setTimeout(() => setIsAdded(false), 2000);
     } catch (err) {
       console.error('Failed to add to bag:', err);
     } finally {
@@ -230,15 +232,15 @@ export function ProductCard({
   const badgeText = badge
     ? badge.toUpperCase()
     : isNew || isVidhyasPick
-    ? 'NEW ARRIVAL'
-    : isSale && calculatedDiscount
-    ? `SALE ${calculatedDiscount}%`
-    : 'NEW ARRIVAL';
+      ? 'NEW ARRIVAL'
+      : isSale && calculatedDiscount
+        ? `SALE ${calculatedDiscount}%`
+        : 'NEW ARRIVAL';
 
   const cardContent = (
     <div className={cn("group relative flex flex-col w-[320px] max-w-full mx-auto bg-white", className)}>
       {/* ── 1. Image Viewport with Inset Badges (Explicit 320x400, No Zoom on Hover) ── */}
-      <div 
+      <div
         style={{ width: '320px', height: '400px' }}
         className="relative w-[320px] h-[400px] max-w-full overflow-hidden bg-[#F7F5F0] mx-auto shrink-0"
       >
@@ -267,19 +269,25 @@ export function ProductCard({
         )}
 
         {/* Floating Wishlist Button */}
-        {isWishlisted && (
+        {(onAddToWishlist || isWishlisted) && (
           <button
             type="button"
             onClick={handleWishlist}
-            className="absolute top-2.5 right-2.5 p-1.5 rounded-full bg-white text-[#A84557] shadow-xs z-10 cursor-pointer"
-            aria-label="Remove from wishlist"
+            className={cn(
+              "absolute top-2.5 right-2.5 p-2 rounded-full shadow-sm z-10 cursor-pointer transition-all duration-200",
+              isWishlisted
+                ? "bg-white text-[#A84557] hover:scale-110"
+                : "bg-white/90 text-[#6B5E55] hover:text-[#A84557] hover:bg-white hover:scale-110"
+            )}
+            aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+            title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
           >
             <svg
-              className="h-4 w-4 fill-current text-[#A84557]"
+              className={cn("h-4 w-4 transition-transform active:scale-125", isWishlisted && "fill-current text-[#A84557]")}
               viewBox="0 0 24 24"
-              fill="currentColor"
+              fill={isWishlisted ? "currentColor" : "none"}
               stroke="currentColor"
-              strokeWidth="1.8"
+              strokeWidth={isWishlisted ? "1.8" : "2"}
               aria-hidden="true"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -311,8 +319,8 @@ export function ProductCard({
           isAdded
             ? "bg-emerald-700 text-white"
             : isAdding
-            ? "bg-[#111111] text-[#FBF4EC] opacity-85"
-            : "bg-[#FBF4EC] text-[#111111]"
+              ? "bg-[#111111] text-[#FBF4EC] opacity-85"
+              : "bg-[#FBF4EC] text-[#111111]"
         )}
       >
         {isAdded ? (

@@ -138,6 +138,46 @@ export default function CartPage() {
     );
   }
 
+  if (!user && !isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--color-white)]">
+        <section className="py-20">
+          <div className="container-custom px-6 max-w-md mx-auto text-center">
+            <ScrollReveal variant="fadeUp">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center">
+                <svg className="h-12 w-12 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                  <path d="M3 6h18" />
+                  <path d="M16 10a4 4 0 0 1 0 8" />
+                </svg>
+              </div>
+              <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)] mb-3">
+                Sign In to View Your Bag
+              </h1>
+              <p className="text-[var(--color-slate)] mb-8 text-sm leading-relaxed">
+                Items in your shopping bag are securely saved to your account. Please sign in to view your bag or proceed to checkout.
+              </p>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => setShowAuthModal(true)}
+                className="w-full sm:w-auto px-8 cursor-pointer"
+              >
+                Sign In to Your Account
+              </Button>
+            </ScrollReveal>
+          </div>
+        </section>
+        {showAuthModal && (
+          <AuthModal
+            onClose={() => setShowAuthModal(false)}
+            onSuccess={() => setShowAuthModal(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-[var(--color-white)]">
@@ -340,8 +380,8 @@ export default function CartPage() {
                         {appliedCoupon.type === 'percentage'
                           ? `${appliedCoupon.value}% off`
                           : appliedCoupon.type === 'free_shipping'
-                          ? 'Free Shipping'
-                          : `₹${formatPricePlain(appliedCoupon.discountAmount)} off`}
+                            ? 'Free Shipping'
+                            : `₹${formatPricePlain(appliedCoupon.discountAmount)} off`}
                       </p>
                     </div>
                   </div>

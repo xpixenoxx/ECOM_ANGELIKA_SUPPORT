@@ -19,6 +19,7 @@ import { ScrollReveal as ScrollRevealAnim } from '@/components/animations/Scroll
 import { MagneticButton } from '@/components/animations/MagneticButton';
 import { MagneticCard } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
+import { useWishlist } from '@/lib/hooks/useWishlist';
 import type { ShopProductCard, ShopFilters } from '@/lib/actions/shop-types';
 import type { SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent, ShopPageContent } from '@/lib/actions/site-content-types';
 import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES } from '@/lib/actions/shop-types';
@@ -75,6 +76,25 @@ export function CategoryPageClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addItem } = useCart();
+  const { toggleItem, isInWishlist } = useWishlist();
+
+  const handleToggleWishlist = async (product: any) => {
+    try {
+      await toggleItem(product.id, undefined, {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice || product.compare_at_price,
+        discount: product.discount,
+        image: product.image || product.images?.[0]?.url || product.images?.[0] || '/images/collection-kurtis.jpg',
+        category: product.category?.name || product.category || 'Ethnic Wear',
+        isVidhyasPick: product.isVidhyasPick || product.is_vidyas_pick,
+      });
+    } catch (err) {
+      console.error('Failed to toggle wishlist:', err);
+    }
+  };
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filters, setFilters] = useState<ShopFilters>(initialFilters);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -185,9 +205,10 @@ export function CategoryPageClient({
 
   const handleAddToBag = async (product: any) => {
     try {
-      await addItem(product.defaultVariantId || product.id, 1);
+      return await addItem(product.defaultVariantId || product.id, 1);
     } catch (err) {
       console.error('Failed to add to bag:', err);
+      return false;
     }
   };
 
@@ -474,20 +495,20 @@ export function CategoryPageClient({
             {/* Featured category banner card */}
             {(activeCategoryContent?.hero?.showFeaturedCard ?? true) && (
               <ScrollRevealAnim variant="fadeLeft" delay={0.2} className="hidden md:block w-72 flex-shrink-0">
-              <div className="relative rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-gold)]/40 shadow-2xl bg-black/40 backdrop-blur-sm group">
-                <div className="aspect-[4/3] overflow-hidden">
-                  <img
-                    src={cardImg}
-                    alt={pageTitle}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                <div className="relative rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-gold)]/40 shadow-2xl bg-black/40 backdrop-blur-sm group">
+                  <div className="aspect-[4/3] overflow-hidden">
+                    <img
+                      src={cardImg}
+                      alt={pageTitle}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="p-3 bg-black/80 backdrop-blur-md flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wider text-[var(--color-gold)] font-medium">{cardBadgeText}</span>
+                    <span className="text-xs text-white/70">{cardSubtitleText}</span>
+                  </div>
                 </div>
-                <div className="p-3 bg-black/80 backdrop-blur-md flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-wider text-[var(--color-gold)] font-medium">{cardBadgeText}</span>
-                  <span className="text-xs text-white/70">{cardSubtitleText}</span>
-                </div>
-              </div>
-            </ScrollRevealAnim>
+              </ScrollRevealAnim>
             )}
           </div>
         </div>
@@ -1153,6 +1174,25 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
   onFilterChange: (key: string, value: any) => void;
   onAddToBag: (product: any) => void;
 }) {
+  const { toggleItem, isInWishlist } = useWishlist();
+
+  const handleToggleWishlist = async (product: any) => {
+    try {
+      await toggleItem(product.id, undefined, {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice || product.compare_at_price,
+        discount: product.discount,
+        image: product.image || product.images?.[0]?.url || product.images?.[0] || '/images/collection-kurtis.jpg',
+        category: product.category?.name || product.category || 'Ethnic Wear',
+        isVidhyasPick: product.isVidhyasPick || product.is_vidyas_pick,
+      });
+    } catch (err) {
+      console.error('Failed to toggle wishlist:', err);
+    }
+  };
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -1223,6 +1263,8 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
                     reviewCount={product.reviewCount || 12}
                     href={product.slug ? `/product/${product.slug}` : '/shop'}
                     onAddToBag={() => onAddToBag(product)}
+                    onAddToWishlist={() => handleToggleWishlist(product)}
+                    isWishlisted={isInWishlist(product.slug || product.id)}
                   />
                 </div>
               </StaggerItem>

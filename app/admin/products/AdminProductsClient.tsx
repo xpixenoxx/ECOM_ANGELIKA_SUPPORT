@@ -102,11 +102,11 @@ export default function AdminProductsClient({
           alert(result.error || 'Failed to delete products');
         }
       } else {
-        const status = action === 'publish' ? 'active' : 'draft';
-        const result = await bulkUpdateProducts(selectedProducts, { status: status as 'active' | 'draft' });
+        const is_active = action === 'publish';
+        const result = await bulkUpdateProducts(selectedProducts, { is_active });
         if (result.success) {
           setProducts(prev => prev.map(p =>
-            selectedProducts.includes(p.id) ? { ...p, status } : p
+            selectedProducts.includes(p.id) ? { ...p, is_active } : p
           ));
         } else {
           alert(result.error || 'Failed to update products');
@@ -122,7 +122,7 @@ export default function AdminProductsClient({
     const result = await duplicateProduct(productId);
     if (result.success) {
       // Refresh would be needed here
-      console.log('Product duplicated:', result.productId);
+      console.log('Product duplicated:', result.data?.id);
     } else {
       alert(result.error || 'Failed to duplicate product');
     }
@@ -285,9 +285,9 @@ export default function AdminProductsClient({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-whisper)] flex-shrink-0">
-                      {product.image ? (
-                        <Image src={product.image} alt={product.name} fill className="object-cover" sizes="48px" />
+                    <div className="w-12 h-12 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-whisper)] flex-shrink-0 relative">
+                      {product.images?.[0] ? (
+                        <Image src={product.images[0]} alt={product.name} fill className="object-cover" sizes="48px" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-[var(--color-mist)]">📦</div>
                       )}
@@ -297,30 +297,30 @@ export default function AdminProductsClient({
                         {product.name}
                       </Link>
                       <div className="flex items-center gap-2 text-xs text-[var(--color-slate)]">
-                        {product.featured && <Badge variant="gold" className="text-[10px]">Featured</Badge>}
+                        {product.is_featured && <Badge variant="gold" className="text-[10px]">Featured</Badge>}
                         <span className="font-mono">{product.sku}</span>
                       </div>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell><span className="font-mono text-sm text-[var(--color-slate)]">{product.sku}</span></TableCell>
-                <TableCell><Badge variant="outline" className="text-xs">{product.category}</Badge></TableCell>
+                <TableCell><Badge variant="outline" className="text-xs">{product.category_name}</Badge></TableCell>
                 <TableCell className="text-right">
                   <div className="text-right">
                     <span className="font-medium text-[var(--color-ink)]">₹{product.price.toLocaleString()}</span>
-                    {product.originalPrice && product.originalPrice > product.price && (
-                      <span className="block text-xs text-[var(--color-mist)] line-through">₹{product.originalPrice.toLocaleString()}</span>
+                    {product.compare_at_price && product.compare_at_price > product.price && (
+                      <span className="block text-xs text-[var(--color-mist)] line-through">₹{product.compare_at_price.toLocaleString()}</span>
                     )}
                   </div>
                 </TableCell>
                 <TableCell className="text-center">
-                  <span className={cn('font-mono font-medium', product.stock === 0 ? 'text-[var(--color-error)]' : product.stock < 10 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]')}>
-                    {product.stock}
+                  <span className={cn('font-mono font-medium', product.total_inventory === 0 ? 'text-[var(--color-error)]' : product.total_inventory < 10 ? 'text-[var(--color-warning)]' : 'text-[var(--color-success)]')}>
+                    {product.total_inventory}
                   </span>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge variant={statusBadges[product.status] as any} className="text-xs">
-                    {statusDisplay[product.status]}
+                  <Badge variant={product.is_active ? 'success' : 'default'} className="text-xs">
+                    {product.is_active ? 'Active' : 'Hidden'}
                   </Badge>
                 </TableCell>
                 <TableCell className="w-32">

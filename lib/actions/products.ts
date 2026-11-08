@@ -16,12 +16,14 @@ export interface ProductWithRelations extends ProductRow {
   })[];
 }
 
+import type { ProductCardData } from './recommendations';
 export { getRelatedProducts, getCartRecommendations } from './recommendations';
-export type { ProductCardData } from './recommendations';
+export type { ProductCardData };
 
 // Helper to transform product data for the client component
 export interface ClientProductData {
   id: string;
+  slug?: string;
   name: string;
   price: number;
   originalPrice: number | undefined;
@@ -134,6 +136,7 @@ export function transformProductForClient(
 
   return {
     id: product.id,
+    slug: product.slug,
     name: product.name,
     price: product.variants[0]?.price || 0,
     originalPrice: product.variants[0]?.compare_at_price ?? undefined,

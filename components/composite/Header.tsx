@@ -13,8 +13,10 @@ import { CartDrawer, CartItem } from '@/components/ui/Drawer';
 import { SearchDropdown } from '@/components/ui/SearchDropdown';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { useCart } from '@/lib/hooks/useCart';
+import { useWishlist } from '@/lib/hooks/useWishlist';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { User } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
 
 export interface NavItem {
   label: string;
@@ -445,23 +447,39 @@ export function Header({
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const { user, loading: authLoading } = useAuth();
   const cart = useCart();
+  const { count: rawWishlistCount } = useWishlist();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  const effectiveCartItems = cartItems.length > 0 ? cartItems : (cart.items as any);
-  const effectiveSubtotal = cartSubtotal > 0 ? cartSubtotal : cart.subtotal;
-  const effectiveTotal = cartTotal > 0 ? cartTotal : cart.total;
-  const effectiveItemCount = cart.itemCount ?? 0;
+  // Numbers and cart/wishlist products should ONLY show after user signs in
+  const wishlistCount = user ? rawWishlistCount : 0;
+  const effectiveCartItems = user ? (cartItems.length > 0 ? cartItems : (cart.items as any)) : [];
+  const effectiveSubtotal = user ? (cartSubtotal > 0 ? cartSubtotal : cart.subtotal) : 0;
+  const effectiveTotal = user ? (cartTotal > 0 ? cartTotal : cart.total) : 0;
+  const effectiveItemCount = user ? (cart.itemCount ?? 0) : 0;
   const handleUpdateQuantity = onCartUpdateQuantity || cart.updateQuantity;
   const handleRemoveItem = onCartRemoveItem || cart.removeItem;
   const handleProceedToCheckout = onCartProceedToCheckout || (() => {
     if (!user) {
       setShowAuthModal(true);
+      toast('Please sign in to proceed to checkout', { icon: '🛍️' });
     } else {
       router.push('/checkout');
     }
   });
   const handleApplyCoupon = onApplyCoupon || (async (code: string) => { await cart.applyCoupon(code); });
   const handleRemoveCoupon = onRemoveCoupon || cart.removeCoupon;
+
+  // Global listener for auth:open event from hooks / components
+  useEffect(() => {
+    const handleOpenAuth = (e: any) => {
+      setShowAuthModal(true);
+      if (e.detail?.message) {
+        toast(e.detail.message, { icon: '🔒' });
+      }
+    };
+    window.addEventListener('auth:open', handleOpenAuth);
+    return () => window.removeEventListener('auth:open', handleOpenAuth);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -635,15 +653,28 @@ export function Header({
 
               <div className="flex items-center gap-1">
                 {showWishlist && (
-                  <Link
-                    href="/wishlist"
-                    className="p-2 rounded-[var(--radius-md)] text-[var(--color-ink)] hover:bg-[var(--color-whisper)] hover:text-[var(--color-gold)] transition-all duration-200 relative"
-                    aria-label="Wishlist"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!user) {
+                        setShowAuthModal(true);
+                        toast('Please sign in to view your wishlist', { icon: '🤍' });
+                      } else {
+                        router.push('/wishlist');
+                      }
+                    }}
+                    className="p-2 rounded-[var(--radius-md)] text-[var(--color-ink)] hover:bg-[var(--color-whisper)] hover:text-[var(--color-gold)] transition-all duration-200 relative cursor-pointer"
+                    aria-label={`Wishlist (${user ? wishlistCount : 0})`}
                   >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                     </svg>
-                  </Link>
+                    {Boolean(user) && wishlistCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#A84557] text-[10px] font-bold text-white leading-none shadow-xs">
+                        {wishlistCount > 99 ? '99+' : wishlistCount}
+                      </span>
+                    )}
+                  </button>
                 )}
 
                 {showCart && (
@@ -652,15 +683,19 @@ export function Header({
                     subtotal={effectiveSubtotal}
                     total={effectiveTotal}
                     items={effectiveCartItems}
-                    shipping={cart.shippingCost}
-                    tax={cart.taxAmount}
-                    discount={cart.discountAmount}
-                    couponCode={cart.appliedCoupon?.code}
+                    shipping={user ? cart.shippingCost : 0}
+                    tax={user ? cart.taxAmount : 0}
+                    discount={user ? cart.discountAmount : 0}
+                    couponCode={user ? cart.appliedCoupon?.code : undefined}
                     onUpdateQuantity={handleUpdateQuantity}
                     onRemoveItem={handleRemoveItem}
                     onProceedToCheckout={handleProceedToCheckout}
                     onApplyCoupon={handleApplyCoupon}
                     onRemoveCoupon={handleRemoveCoupon}
+                    onOpenAuth={() => {
+                      setShowAuthModal(true);
+                      toast('Please sign in to view your bag', { icon: '🛍️' });
+                    }}
                   />
                 )}
 
@@ -690,13 +725,13 @@ export function Header({
         onSearch={onSearch}
         user={getUserDisplayData(user)}
         cartItemCount={effectiveItemCount}
+        onOpenAuth={() => setShowAuthModal(true)}
       />
       {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
           onSuccess={() => {
             setShowAuthModal(false);
-            router.push('/checkout');
           }}
           defaultTab="signin"
         />
@@ -874,6 +909,7 @@ interface CartButtonProps {
   onProceedToCheckout: (() => void) | undefined;
   onApplyCoupon: ((code: string) => void) | undefined;
   onRemoveCoupon: (() => void) | undefined;
+  onOpenAuth?: () => void;
 }
 
 function CartButton({
@@ -889,10 +925,12 @@ function CartButton({
   onRemoveItem,
   onProceedToCheckout,
   onApplyCoupon,
-  onRemoveCoupon
+  onRemoveCoupon,
+  onOpenAuth,
 }: CartButtonProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useAuth();
 
   // Close cart drawer when route changes or if on checkout
   useEffect(() => {
@@ -901,8 +939,8 @@ function CartButton({
 
   useEffect(() => {
     const handleCartOpen = () => {
-      // Never open cart drawer on checkout page
-      if (pathname === '/checkout') return;
+      // Never open cart drawer on checkout page or if not signed in
+      if (pathname === '/checkout' || !user) return;
       setIsCartOpen(true);
     };
     window.addEventListener('cart:peek', handleCartOpen);
@@ -911,7 +949,7 @@ function CartButton({
       window.removeEventListener('cart:peek', handleCartOpen);
       window.removeEventListener('cart:open', handleCartOpen);
     };
-  }, [pathname]);
+  }, [pathname, user]);
 
   const handleCheckoutClick = () => {
     setIsCartOpen(false);
@@ -921,13 +959,17 @@ function CartButton({
   return (
     <>
       <button
-        className="relative p-2 rounded-[var(--radius-md)] text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-all duration-200"
+        className="relative p-2 rounded-[var(--radius-md)] text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-all duration-200 cursor-pointer"
         onClick={() => {
+          if (!user) {
+            onOpenAuth?.();
+            return;
+          }
           if (pathname !== '/checkout') {
             setIsCartOpen(true);
           }
         }}
-        aria-label={`Shopping bag${itemCount > 0 ? `, ${itemCount} items` : ', empty'}`}
+        aria-label={`Shopping bag${user && itemCount > 0 ? `, ${itemCount} items` : ', empty'}`}
         aria-expanded={isCartOpen}
       >
         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -935,7 +977,7 @@ function CartButton({
           <path d="M3 6h18" />
           <path d="M16 10a4 4 0 0 1 0 8" />
         </svg>
-        {itemCount > 0 && (
+        {Boolean(user) && itemCount > 0 && (
           <motion.span
             className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold flex items-center justify-center"
             initial={{ scale: 0 }}
@@ -975,6 +1017,7 @@ interface AccountDropdownProps {
 
 function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
   const { signOut } = useAuth();
+  const { count: wishlistCount } = useWishlist();
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -1180,6 +1223,7 @@ interface MobileMenuProps {
   onSearch?: (query: string) => void;
   user: { name: string; email: string; avatarUrl?: string } | null;
   cartItemCount: number;
+  onOpenAuth?: () => void;
 }
 
 function MobileMenu({
@@ -1196,8 +1240,10 @@ function MobileMenu({
   onSearch,
   user,
   cartItemCount,
+  onOpenAuth,
 }: MobileMenuProps) {
   const { signOut } = useAuth();
+  const { count: wishlistCount } = useWishlist();
   const router = useRouter();
   return (
     <AnimatePresence>
@@ -1273,7 +1319,7 @@ function MobileMenu({
                       onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
                       className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full text-[var(--color-mist)] hover:text-[var(--color-ink)]"
                     >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
                     </button>
                   )}
                 </form>
@@ -1291,23 +1337,48 @@ function MobileMenu({
               </nav>
 
               <div className="pt-4 border-t border-[var(--color-whisper)] space-y-3">
-                <Link
-                  href="/wishlist"
-                  className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (!user) {
+                      onOpenAuth?.();
+                      toast('Please sign in to view your wishlist', { icon: '🤍' });
+                    } else {
+                      router.push('/wishlist');
+                    }
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors cursor-pointer text-left"
                 >
-                  <svg className="h-6 w-6 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                  <span className="font-medium">Wishlist</span>
-                </Link>
-                <Link
-                  href="/cart"
-                  className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
+                  <div className="flex items-center gap-3">
+                    <svg className="h-6 w-6 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+                    <span className="font-medium">Wishlist</span>
+                  </div>
+                  {Boolean(user) && wishlistCount > 0 && (
+                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#A84557] text-white">
+                      {wishlistCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (!user) {
+                      onOpenAuth?.();
+                      toast('Please sign in to view your bag', { icon: '🛍️' });
+                    } else {
+                      router.push('/cart');
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors cursor-pointer text-left"
                 >
-                  <svg className="h-6 w-6 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1 0 8"/></svg>
+                  <svg className="h-6 w-6 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1 0 8" /></svg>
                   <span className="font-medium">Bag</span>
-                  {cartItemCount > 0 && (
+                  {Boolean(user) && cartItemCount > 0 && (
                     <span className="ml-auto px-2 py-0.5 text-xs font-bold bg-[var(--color-gold)] text-[var(--color-ink)] rounded-full">{cartItemCount}</span>
                   )}
-                </Link>
+                </button>
               </div>
 
               {user ? (
@@ -1323,28 +1394,28 @@ function MobileMenu({
                     href="/account"
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
-                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
+                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /></svg>
                     My Account
                   </Link>
                   <Link
                     href="/account/orders"
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
-                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
                     My Orders
                   </Link>
                   <Link
                     href="/account/addresses"
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
-                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
                     Saved Addresses
                   </Link>
                   <Link
                     href="/account/loyalty"
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
-                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
                     Loyalty Rewards
                   </Link>
                   <button
@@ -1355,7 +1426,7 @@ function MobileMenu({
                     }}
                     className="flex items-center gap-3 w-full px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
-                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>
+                    <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></svg>
                     Sign Out
                   </button>
                 </div>

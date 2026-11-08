@@ -18,9 +18,17 @@ import {
   Star,
   Eye,
   Heart,
+  RefreshCw,
+  Sliders,
+  Upload,
+  Link as LinkIcon,
+  Copy,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from 'lucide-react';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
-import { createProduct, updateProduct } from '@/lib/actions/admin-products';
+import { createProduct, updateProduct, deleteProduct } from '@/lib/actions/admin-products';
 import type { AdminCategory } from '@/lib/actions/admin-products';
 
 interface Props {
@@ -29,34 +37,70 @@ interface Props {
   isNew?: boolean;
 }
 
+const COMMON_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size'];
+
+const PHOTO_PRESETS = [
+  { label: 'Lucknowi Kurti', url: '/images/products/kurti-lucknowi-1.jpg' },
+  { label: 'Modal Silk Kurti', url: '/images/products/kurti-modal-silk-1.jpg' },
+  { label: 'Block Print Kurti', url: '/images/products/kurti-block-print-1.jpg' },
+  { label: 'Velvet Kurti', url: '/images/products/kurti-velvet-1.jpg' },
+  { label: 'Banarasi Saree', url: '/images/products/saree-banarasi-1.jpg' },
+  { label: 'Kanjivaram Saree', url: '/images/products/saree-kanjivaram-1.jpg' },
+  { label: 'Chanderi Saree', url: '/images/products/saree-chanderi-1.jpg' },
+  { label: 'Organza Saree', url: '/images/products/saree-organza-1.jpg' },
+  { label: 'Bridal Lehenga', url: '/images/products/lehenga-bridal-1.jpg' },
+  { label: 'Velvet Lehenga', url: '/images/products/lehenga-velvet-1.jpg' },
+  { label: 'Raw Silk Salwar', url: '/images/products/salwar-rawsilk-1.jpg' },
+  { label: 'Angrakha Salwar', url: '/images/products/salwar-angrakha-1.jpg' },
+  { label: 'Banarasi Dupatta', url: '/images/products/dupatta-banarasi-1.jpg' },
+  { label: 'Phulkari Dupatta', url: '/images/products/dupatta-phulkari-1.jpg' },
+];
+
 export default function ProductFormClient({ initialProduct, categories, isNew = false }: Props) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
   const [name, setName] = useState(initialProduct?.name || '');
   const [slug, setSlug] = useState(initialProduct?.slug || '');
+  const [sku, setSku] = useState(initialProduct?.sku || '');
   const [categoryId, setCategoryId] = useState(
     initialProduct?.category_id || categories[0]?.id || ''
   );
   const [description, setDescription] = useState(initialProduct?.description || '');
-  const [price, setPrice] = useState(
-    initialProduct?.product_variants?.[0]?.price
-      ? String(initialProduct.product_variants[0].price)
-      : initialProduct?.price
-      ? String(initialProduct.price)
-      : '3999'
+
+  // Calculate pricing & inventory from primary variant or product
+  const initialPrice = initialProduct?.product_variants?.[0]?.price
+    ? String(initialProduct.product_variants[0].price)
+    : initialProduct?.price
+    ? String(initialProduct.price)
+    : '3999';
+
+  const initialComparePrice = initialProduct?.product_variants?.[0]?.compare_at_price
+    ? String(initialProduct.product_variants[0].compare_at_price)
+    : initialProduct?.compare_at_price
+    ? String(initialProduct.compare_at_price)
+    : '4999';
+
+  const totalVariantStock = initialProduct?.product_variants?.reduce(
+    (sum: number, v: any) => sum + Number(v.inventory_quantity || 0),
+    0
   );
-  const [compareAtPrice, setCompareAtPrice] = useState(
-    initialProduct?.product_variants?.[0]?.compare_at_price
-      ? String(initialProduct.product_variants[0].compare_at_price)
-      : initialProduct?.compare_at_price
-      ? String(initialProduct.compare_at_price)
-      : '4999'
-  );
-  const [inventory, setInventory] = useState(
-    initialProduct?.product_variants?.[0]?.inventory_quantity !== undefined
-      ? String(initialProduct.product_variants[0].inventory_quantity)
-      : '25'
+  const initialInventory = totalVariantStock !== undefined && totalVariantStock > 0
+    ? String(totalVariantStock)
+    : initialProduct?.total_inventory !== undefined
+    ? String(initialProduct.total_inventory)
+    : '25';
+
+  const [price, setPrice] = useState(initialPrice);
+  const [compareAtPrice, setCompareAtPrice] = useState(initialComparePrice);
+  const [inventory, setInventory] = useState(initialInventory);
+
+  // Sizes selection
+  const existingSizes = (initialProduct?.product_variants || [])
+    .map((v: any) => v.size)
+    .filter(Boolean);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>(
+    existingSizes.length > 0 ? existingSizes : ['S', 'M', 'L', 'XL']
   );
 
   const [isActive, setIsActive] = useState(initialProduct?.is_active ?? true);
@@ -64,41 +108,170 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
   const [isVidhyasPick, setIsVidhyasPick] = useState(initialProduct?.is_vidyas_pick ?? false);
 
   const initialImages: string[] =
-    initialProduct?.product_images?.map((img: any) => img.url) ||
+    initialProduct?.product_images
+      ?.sort((a: any, b: any) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) || a.sort_order - b.sort_order)
+      ?.map((img: any) => img.url) ||
     initialProduct?.images || [
       '/images/products/kurti-lucknowi-1.jpg',
     ];
   const [images, setImages] = useState<string[]>(initialImages);
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [showPresets, setShowPresets] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const [tags, setTags] = useState(
-    initialProduct?.tags?.join(', ') || 'festive, handcrafted, pure cotton'
+    initialProduct?.tags?.join(', ') || 'festive, handcrafted, luxury'
   );
 
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   function handleNameChange(val: string) {
     setName(val);
     if (isNew) {
-      setSlug(
-        val
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)/g, '')
-      );
+      const generatedSlug = val
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '');
+      setSlug(generatedSlug);
+      if (!sku) {
+        const prefix = val
+          .split(' ')
+          .slice(0, 2)
+          .map((w: string) => w.substring(0, 2).toUpperCase())
+          .join('')
+          .replace(/[^A-Z]/g, '') || 'GAR';
+        setSku(`AF-${prefix}-${Math.floor(1000 + Math.random() * 9000)}`);
+      }
     }
   }
 
-  function addImage() {
-    if (!newImageUrl.trim()) return;
-    setImages([...images, newImageUrl.trim()]);
-    setNewImageUrl('');
+  function handleAutoSKU() {
+    const prefix = name
+      .split(' ')
+      .slice(0, 2)
+      .map((w: string) => w.substring(0, 2).toUpperCase())
+      .join('')
+      .replace(/[^A-Z]/g, '') || 'GAR';
+    setSku(`AF-${prefix}-${Math.floor(1000 + Math.random() * 9000)}`);
+  }
+
+  function toggleSize(sz: string) {
+    if (selectedSizes.includes(sz)) {
+      if (selectedSizes.length > 1) {
+        setSelectedSizes(selectedSizes.filter((s) => s !== sz));
+      }
+    } else {
+      setSelectedSizes([...selectedSizes, sz]);
+    }
+  }
+
+  function addImage(urlToAdd?: string) {
+    const targetUrl = urlToAdd || newImageUrl;
+    if (!targetUrl.trim()) return;
+    if (!images.includes(targetUrl.trim())) {
+      setImages([...images, targetUrl.trim()]);
+    }
+    if (!urlToAdd) setNewImageUrl('');
   }
 
   function removeImage(index: number) {
     setImages(images.filter((_, i) => i !== index));
+  }
+
+  function setAsPrimary(index: number) {
+    if (index === 0 || !images[index]) return;
+    const target = images[index]!;
+    const rest = images.filter((_, i) => i !== index);
+    setImages([target, ...rest]);
+  }
+
+  function updateImagePath(index: number, newPath: string) {
+    const updated = [...images];
+    updated[index] = newPath;
+    setImages(updated);
+  }
+
+  function moveImage(index: number, direction: 'left' | 'right') {
+    const targetIndex = direction === 'left' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= images.length) return;
+    const updated = [...images];
+    const [moved] = updated.splice(index, 1);
+    if (moved) {
+      updated.splice(targetIndex, 0, moved);
+      setImages(updated);
+    }
+  }
+
+  function copyImagePath(path: string, index: number) {
+    if (typeof window !== 'undefined' && navigator?.clipboard) {
+      navigator.clipboard.writeText(path);
+      setCopiedIdx(index);
+      setTimeout(() => setCopiedIdx(null), 2000);
+    }
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    setErrorMessage(null);
+
+    try {
+      const newUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file) continue;
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/admin/products/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || `Failed to upload ${file.name}`);
+        }
+
+        if (data.url && !images.includes(data.url) && !newUrls.includes(data.url)) {
+          newUrls.push(data.url);
+        }
+      }
+
+      if (newUrls.length > 0) {
+        setImages((prev) => [...prev, ...newUrls]);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Image upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
+  function handleDeleteProduct() {
+    if (!confirm('Are you sure you want to permanently delete this garment? This action cannot be undone.')) {
+      return;
+    }
+    setDeleting(true);
+    startTransition(async () => {
+      const res = await deleteProduct(initialProduct.id);
+      if (res?.error) {
+        setErrorMessage(res.error || 'Failed to delete product');
+        setDeleting(false);
+      } else {
+        router.push('/admin/products');
+      }
+    });
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -113,7 +286,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
 
     const tagList = tags
       .split(',')
-      .map((t) => t.trim())
+      .map((t: string) => t.trim())
       .filter(Boolean);
 
     startTransition(async () => {
@@ -122,6 +295,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
           const res = await createProduct({
             name: name.trim(),
             slug: slug.trim(),
+            sku: sku.trim() || undefined,
             category_id: categoryId,
             description: description.trim(),
             price: Number(price) || 0,
@@ -132,6 +306,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
             is_vidyas_pick: isVidhyasPick,
             images,
             tags: tagList,
+            sizes: selectedSizes,
           });
 
           if (!res.success) {
@@ -148,15 +323,18 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
           const res = await updateProduct(initialProduct.id, {
             name: name.trim(),
             slug: slug.trim(),
+            sku: sku.trim() || undefined,
             category_id: categoryId,
             description: description.trim(),
             price: Number(price) || 0,
             compare_at_price: compareAtPrice ? Number(compareAtPrice) : undefined,
+            inventory_quantity: Number(inventory) || 0,
             is_active: isActive,
             is_featured: isFeatured,
             is_vidyas_pick: isVidhyasPick,
             images,
             tags: tagList,
+            sizes: selectedSizes,
           });
 
           if (!res.success) {
@@ -198,18 +376,18 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
                 storefrontImpact="Changes propagate live to the /shop catalog, specific category page, search autocomplete, product detail page (/product/[slug]), and checkout cart drawer."
                 targets={[
                   { name: 'Shop Catalog', path: '/shop', description: 'Product grid card & filters' },
-                  { name: 'Vidhya\'s Picks', path: '/vidhyas-picks', description: 'Curated designer collection' },
+                  { name: "Vidhya's Picks", path: '/vidhyas-picks', description: 'Curated designer collection' },
                   ...(!isNew && slug ? [{ name: 'Live Product Page', path: `/product/${slug}`, description: 'Storefront PDP' }] : []),
                 ]}
               />
             </div>
             <p className="text-xs text-[var(--color-slate,#666666)] mt-0.5">
-              {isNew ? 'Define pricing, imagery, and category assignments' : `ID: ${initialProduct?.id}`}
+              {isNew ? 'Define pricing, sizing, imagery, and category assignments' : `ID: ${initialProduct?.id}`}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {!isNew && slug && (
             <a
               href={`/product/${slug}`}
@@ -221,6 +399,20 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
+
+          {!isNew && (
+            <button
+              type="button"
+              onClick={handleDeleteProduct}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-red-200 text-red-600 hover:bg-red-50 text-xs font-medium transition-colors"
+              title="Delete product"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{deleting ? 'Deleting...' : 'Delete'}</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleSubmit}
@@ -240,7 +432,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
             ) : (
               <span className="flex items-center gap-1.5">
                 <Save className="w-4 h-4" />
-                {isNew ? 'Publish Product' : 'Save Changes'}
+                {isNew ? 'Publish Garment' : 'Save Changes'}
               </span>
             )}
           </button>
@@ -279,32 +471,57 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                URL Slug * (auto-generated)
-              </label>
-              <div className="flex items-center rounded-xl border border-[var(--color-whisper,#E5E5E5)] bg-[var(--color-snow,#F9F9F9)] overflow-hidden">
-                <span className="px-3.5 text-xs text-[var(--color-mist,#999999)] select-none">/product/</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+                  URL Slug *
+                </label>
+                <div className="flex items-center rounded-xl border border-[var(--color-whisper,#E5E5E5)] bg-[var(--color-snow,#F9F9F9)] overflow-hidden">
+                  <span className="px-3 text-xs text-[var(--color-mist,#999999)] select-none">/product/</span>
+                  <input
+                    type="text"
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    placeholder="royal-indigo-straight-suit"
+                    required
+                    className="w-full bg-transparent py-2.5 pr-3 text-xs font-mono focus:outline-none text-[var(--color-ink,#111111)]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-[var(--color-slate,#666666)]">
+                    SKU Code *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleAutoSKU}
+                    className="text-[11px] text-[var(--color-gold,#C9A84C)] hover:underline flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Auto
+                  </button>
+                </div>
                 <input
                   type="text"
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  placeholder="royal-indigo-pure-raw-silk-straight-suit"
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value)}
+                  placeholder="AF-RAW-2041"
                   required
-                  className="w-full bg-transparent py-2.5 pr-3 text-sm font-mono focus:outline-none text-[var(--color-ink,#111111)]"
+                  className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
                 />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                Description &amp; Craftsmanship
+                Description &amp; Craftsmanship Details
               </label>
               <textarea
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe fabric weaving, zari work, embroidery, and fit details..."
+                placeholder="Describe fabric weaving, zari work, embroidery, fit, and styling recommendations..."
                 className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl p-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
               />
             </div>
@@ -314,7 +531,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
           <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
             <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
-              Pricing &amp; Stock
+              Pricing, Inventory &amp; Sizes
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -335,7 +552,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
 
               <div>
                 <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                  Compare at Price / MRP (₹)
+                  MRP / Compare at (₹)
                 </label>
                 <input
                   type="number"
@@ -349,7 +566,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
 
               <div>
                 <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                  Available Stock (Units)
+                  Total Inventory (Units) *
                 </label>
                 <input
                   type="number"
@@ -357,59 +574,268 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
                   onChange={(e) => setInventory(e.target.value)}
                   placeholder="25"
                   min={0}
+                  required
                   className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
                 />
               </div>
             </div>
+
+            {/* Sizes Selection */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1.5 flex items-center justify-between">
+                <span>Available Sizes ({selectedSizes.length} selected)</span>
+                <span className="text-[11px] text-[var(--color-mist,#999999)] font-normal">Stock distributes evenly across selected sizes</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {COMMON_SIZES.map((sz) => {
+                  const isSelected = selectedSizes.includes(sz);
+                  return (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => toggleSize(sz)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        isSelected
+                          ? 'bg-[var(--color-gold,#C9A84C)] text-white border-[var(--color-gold,#C9A84C)]'
+                          : 'bg-[var(--color-snow,#F9F9F9)] text-[var(--color-slate,#666666)] border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)]/50'
+                      }`}
+                    >
+                      {sz}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
-          {/* Media & Images */}
-          <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
-            <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
-              Product Photography ({images.length} images)
-            </h2>
-
-            {/* Thumbnail Previews */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {images.map((url, idx) => (
-                <div key={idx} className="relative group rounded-xl overflow-hidden border border-[var(--color-whisper,#E5E5E5)] bg-[var(--color-snow,#F9F9F9)] aspect-square">
-                  <img src={url} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    {idx === 0 && (
-                      <span className="absolute top-1 left-1 bg-[var(--color-gold,#C9A84C)] text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-                        Primary
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeImage(idx)}
-                      className="p-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700"
-                      title="Remove image"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Add Image input */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newImageUrl}
-                onChange={(e) => setNewImageUrl(e.target.value)}
-                placeholder="Paste image path or URL (e.g. /images/products/kurti-1.jpg)"
-                className="flex-1 border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
-              />
+          {/* Media & Photography */}
+          <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
+                  Product Photography ({images.length} {images.length === 1 ? 'image' : 'images'})
+                </h2>
+                <p className="text-xs text-[var(--color-slate,#666666)] mt-0.5">
+                  First image is the primary cover photo. View/edit file paths below, or add via link and device upload.
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={addImage}
-                className="px-4 py-2 bg-[var(--color-snow,#F9F9F9)] border border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)] rounded-xl text-xs font-medium text-[var(--color-ink,#111111)] transition-colors"
+                onClick={() => setShowPresets(!showPresets)}
+                className="text-xs text-[var(--color-gold,#C9A84C)] font-medium hover:underline flex items-center gap-1 self-start sm:self-auto"
               >
-                + Add Image
+                <Sliders className="w-3.5 h-3.5" />
+                {showPresets ? 'Hide Curated Library' : 'Pick from Curated Library'}
               </button>
+            </div>
+
+            {/* Presets Grid */}
+            {showPresets && (
+              <div className="p-3 bg-[var(--color-snow,#F9F9F9)] rounded-xl border border-[var(--color-whisper,#E5E5E5)] space-y-2">
+                <p className="text-xs text-[var(--color-slate,#666666)] font-medium">Click to append image to product gallery:</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {PHOTO_PRESETS.map((preset) => (
+                    <button
+                      key={preset.url}
+                      type="button"
+                      onClick={() => addImage(preset.url)}
+                      className="flex items-center gap-2 p-1.5 rounded-lg bg-white border border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)] text-left group"
+                    >
+                      <img src={preset.url} alt={preset.label} className="w-7 h-7 rounded object-cover" />
+                      <span className="text-[11px] text-[var(--color-ink,#111111)] font-medium truncate">{preset.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Existing Images Gallery with Visible Paths */}
+            {images.length === 0 ? (
+              <div className="p-8 border-2 border-dashed border-[var(--color-whisper,#E5E5E5)] rounded-2xl text-center space-y-2">
+                <ImageIcon className="w-8 h-8 text-[var(--color-slate,#666666)]/40 mx-auto" />
+                <p className="text-sm font-medium text-[var(--color-ink,#111111)]">No product images attached</p>
+                <p className="text-xs text-[var(--color-slate,#666666)]">Add images via local device upload or paste a link/path below.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-[var(--color-slate,#666666)] uppercase tracking-wider">
+                    Existing Image Paths & Positions
+                  </label>
+                  <span className="text-[11px] text-[var(--color-slate,#666666)]">
+                    Editable direct paths (relative or HTTPS)
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {images.map((url, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-xl border transition-all ${
+                        idx === 0
+                          ? 'bg-amber-50/50 border-[var(--color-gold,#C9A84C)] shadow-xs'
+                          : 'bg-[var(--color-snow,#F9F9F9)] border-[var(--color-whisper,#E5E5E5)] hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {/* Thumbnail */}
+                        <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-[var(--color-whisper,#E5E5E5)] bg-white flex-shrink-0 group">
+                          <img src={url} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                          {idx === 0 && (
+                            <span className="absolute top-1 left-1 bg-[var(--color-gold,#C9A84C)] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow">
+                              Cover
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Path & Controls */}
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-semibold text-[var(--color-ink,#111111)]">
+                              {idx === 0 ? 'Primary Cover Photo' : `Gallery Shot #${idx + 1}`}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {idx > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => moveImage(idx, 'left')}
+                                  title="Move earlier"
+                                  className="p-1 rounded text-gray-500 hover:text-black hover:bg-white"
+                                >
+                                  <ChevronLeft className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              {idx < images.length - 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => moveImage(idx, 'right')}
+                                  title="Move later"
+                                  className="p-1 rounded text-gray-500 hover:text-black hover:bg-white"
+                                >
+                                  <ChevronRight className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => removeImage(idx)}
+                                title="Remove image"
+                                className="p-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Editable Path Input + Copy */}
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={url}
+                              onChange={(e) => updateImagePath(idx, e.target.value)}
+                              title="Direct image path or URL"
+                              className="w-full bg-white border border-[var(--color-whisper,#E5E5E5)] rounded-lg px-2.5 py-1 text-xs font-mono text-[var(--color-ink,#111111)] focus:outline-none focus:border-[var(--color-gold,#C9A84C)] truncate"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => copyImagePath(url, idx)}
+                              className="p-1.5 rounded-lg border border-[var(--color-whisper,#E5E5E5)] bg-white text-gray-600 hover:text-black text-xs flex-shrink-0"
+                              title="Copy image path to clipboard"
+                            >
+                              {copiedIdx === idx ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+
+                          {idx !== 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setAsPrimary(idx)}
+                              className="text-[11px] font-medium text-[var(--color-gold,#C9A84C)] hover:underline inline-flex items-center gap-1"
+                            >
+                              ★ Set as Primary Cover
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Dual Add Methods: Link & Local Upload */}
+            <div className="pt-3 border-t border-[var(--color-whisper,#E5E5E5)] space-y-3">
+              <label className="text-xs font-semibold text-[var(--color-slate,#666666)] uppercase tracking-wider block">
+                Add New Photography (via Link or Upload from Local Device)
+              </label>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Method 1: Upload from Local Device */}
+                <div className="p-4 rounded-xl border-2 border-dashed border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)] bg-[var(--color-snow,#F9F9F9)]/70 transition-all flex flex-col items-center justify-center text-center group cursor-pointer relative min-h-[100px]">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    multiple
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/avif,image/svg+xml,image/gif"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    disabled={uploading}
+                  />
+                  {uploading ? (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <Loader2 className="w-6 h-6 text-[var(--color-gold,#C9A84C)] animate-spin" />
+                      <span className="text-xs font-medium text-[var(--color-ink,#111111)]">Uploading image from device...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-1.5 py-1">
+                      <div className="w-9 h-9 rounded-full bg-[var(--color-gold,#C9A84C)]/10 text-[var(--color-gold,#C9A84C)] flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Upload className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-semibold text-[var(--color-ink,#111111)] group-hover:text-[var(--color-gold,#C9A84C)]">
+                          Upload from Local Device
+                        </span>
+                        <p className="text-[11px] text-[var(--color-slate,#666666)] mt-0.5">
+                          Click or drag & drop (JPG, PNG, WebP)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Method 2: Add via Link / Path */}
+                <div className="p-4 rounded-xl border border-[var(--color-whisper,#E5E5E5)] bg-white flex flex-col justify-between gap-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-ink,#111111)]">
+                    <LinkIcon className="w-3.5 h-3.5 text-[var(--color-gold,#C9A84C)]" />
+                    <span>Add via Image Link / URL</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newImageUrl}
+                      onChange={(e) => setNewImageUrl(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addImage();
+                        }
+                      }}
+                      placeholder="/images/products/saree-banarasi-1.jpg or https://..."
+                      className="flex-1 border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)] font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => addImage()}
+                      className="px-3.5 py-2 bg-[var(--color-gold,#C9A84C)] hover:bg-[var(--color-gold,#C9A84C)]/90 text-white rounded-xl text-xs font-medium transition-colors flex items-center gap-1 flex-shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Link
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-[var(--color-slate,#666666)]">
+                    Supports relative paths (e.g. <code>/images/products/...</code>) and full HTTPS web links.
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -427,7 +853,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
               <select
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)] bg-white"
+                className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)] bg-white text-[var(--color-ink,#111111)]"
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>

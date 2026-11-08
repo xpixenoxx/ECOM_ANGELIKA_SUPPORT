@@ -1,6 +1,8 @@
 'use server';
 
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { getAdminClient } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
 import {
   ContentBlock,
@@ -14,6 +16,7 @@ import {
   CONTENT_BLOCK_DEFAULT_SETTINGS,
 } from './content-blocks-types';
 
+
 // ============================================
 // SERVER ACTIONS
 // ============================================
@@ -23,22 +26,10 @@ import {
  */
 export async function getContentBlocksAdmin(): Promise<ContentBlockListResult> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin } = await getAdminClient();
 
-    // Check admin auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
     }
 
     const { data: blocks, error } = await supabase
@@ -53,9 +44,9 @@ export async function getContentBlocksAdmin(): Promise<ContentBlockListResult> {
     }
 
     return { success: true, blocks: blocks || [] };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get content blocks error:', error);
-    return { success: false, error: 'Failed to fetch content blocks' };
+    return { success: false, error: error?.message || 'Failed to fetch content blocks' };
   }
 }
 
@@ -64,7 +55,7 @@ export async function getContentBlocksAdmin(): Promise<ContentBlockListResult> {
  */
 export async function getPublishedContentBlocks(): Promise<ContentBlockListResult> {
   try {
-    const supabase = await createClient();
+    const { supabase } = await getAdminClient();
 
     const { data: blocks, error } = await supabase
       .from('content_blocks')
@@ -81,9 +72,9 @@ export async function getPublishedContentBlocks(): Promise<ContentBlockListResul
     }
 
     return { success: true, blocks: blocks || [] };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get published content blocks error:', error);
-    return { success: false, error: 'Failed to fetch content blocks' };
+    return { success: false, error: error?.message || 'Failed to fetch content blocks' };
   }
 }
 
@@ -92,21 +83,10 @@ export async function getPublishedContentBlocks(): Promise<ContentBlockListResul
  */
 export async function getContentBlock(id: string): Promise<ContentBlockSingleResult> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin } = await getAdminClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
     }
 
     const { data: block, error } = await supabase
@@ -120,9 +100,9 @@ export async function getContentBlock(id: string): Promise<ContentBlockSingleRes
     }
 
     return { success: true, block };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get content block error:', error);
-    return { success: false, error: 'Failed to fetch content block' };
+    return { success: false, error: error?.message || 'Failed to fetch content block' };
   }
 }
 
@@ -131,21 +111,10 @@ export async function getContentBlock(id: string): Promise<ContentBlockSingleRes
  */
 export async function createContentBlock(input: ContentBlockInput): Promise<ContentBlockMutationResult> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
     }
 
     // Check if key already exists
@@ -153,7 +122,7 @@ export async function createContentBlock(input: ContentBlockInput): Promise<Cont
       .from('content_blocks')
       .select('id')
       .eq('key', input.key)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       return { success: false, error: 'A content block with this key already exists' };
@@ -165,8 +134,8 @@ export async function createContentBlock(input: ContentBlockInput): Promise<Cont
         ...input,
         content: input.content || CONTENT_BLOCK_DEFAULT_CONTENT[input.type as ContentBlockType] || {},
         settings: input.settings || CONTENT_BLOCK_DEFAULT_SETTINGS[input.type as ContentBlockType] || {},
-        created_by: user.id,
-        updated_by: user.id,
+        created_by: userId,
+        updated_by: userId,
       })
       .select()
       .single();
@@ -180,9 +149,9 @@ export async function createContentBlock(input: ContentBlockInput): Promise<Cont
     revalidatePath('/');
 
     return { success: true, block };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Create content block error:', error);
-    return { success: false, error: 'Failed to create content block' };
+    return { success: false, error: error?.message || 'Failed to create content block' };
   }
 }
 
@@ -191,21 +160,10 @@ export async function createContentBlock(input: ContentBlockInput): Promise<Cont
  */
 export async function updateContentBlock(id: string, input: Partial<ContentBlockInput>): Promise<ContentBlockMutationResult> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
     }
 
     // If key is being changed, check for conflicts
@@ -215,20 +173,24 @@ export async function updateContentBlock(id: string, input: Partial<ContentBlock
         .select('id')
         .eq('key', input.key)
         .neq('id', id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         return { success: false, error: 'A content block with this key already exists' };
       }
     }
 
+    const updatePayload: any = {
+      ...input,
+      updated_at: new Date().toISOString(),
+    };
+    if (userId) {
+      updatePayload.updated_by = userId;
+    }
+
     const { data: block, error } = await supabase
       .from('content_blocks')
-      .update({
-        ...input,
-        updated_by: user.id,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
@@ -242,9 +204,9 @@ export async function updateContentBlock(id: string, input: Partial<ContentBlock
     revalidatePath('/');
 
     return { success: true, block };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Update content block error:', error);
-    return { success: false, error: 'Failed to update content block' };
+    return { success: false, error: error?.message || 'Failed to update content block' };
   }
 }
 
@@ -253,21 +215,10 @@ export async function updateContentBlock(id: string, input: Partial<ContentBlock
  */
 export async function deleteContentBlock(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin } = await getAdminClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
     }
 
     const { error } = await supabase
@@ -284,9 +235,9 @@ export async function deleteContentBlock(id: string): Promise<{ success: boolean
     revalidatePath('/');
 
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Delete content block error:', error);
-    return { success: false, error: 'Failed to delete content block' };
+    return { success: false, error: error?.message || 'Failed to delete content block' };
   }
 }
 
@@ -295,29 +246,20 @@ export async function deleteContentBlock(id: string): Promise<{ success: boolean
  */
 export async function reorderContentBlocks(blockIds: string[]): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
-
-    const updates = blockIds.map((id, index) =>
-      supabase
+    const updates = blockIds.map((id, index) => {
+      const updateData: any = { sort_order: index };
+      if (userId) updateData.updated_by = userId;
+      return supabase
         .from('content_blocks')
-        .update({ sort_order: index, updated_by: user.id })
-        .eq('id', id)
-    );
+        .update(updateData)
+        .eq('id', id);
+    });
 
     const results = await Promise.all(updates);
 
@@ -330,9 +272,9 @@ export async function reorderContentBlocks(blockIds: string[]): Promise<{ succes
     revalidatePath('/');
 
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Reorder content blocks error:', error);
-    return { success: false, error: 'Failed to reorder content blocks' };
+    return { success: false, error: error?.message || 'Failed to reorder content blocks' };
   }
 }
 
@@ -341,27 +283,19 @@ export async function reorderContentBlocks(blockIds: string[]): Promise<{ succes
  */
 export async function toggleContentBlockStatus(id: string, isActive: boolean, publish: boolean = false): Promise<ContentBlockMutationResult> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
     }
 
     const updateData: any = {
       is_active: isActive,
-      updated_by: user.id,
+      updated_at: new Date().toISOString(),
     };
+    if (userId) {
+      updateData.updated_by = userId;
+    }
 
     if (publish && isActive) {
       updateData.published_at = new Date().toISOString();
@@ -385,9 +319,9 @@ export async function toggleContentBlockStatus(id: string, isActive: boolean, pu
     revalidatePath('/');
 
     return { success: true, block };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Toggle content block status error:', error);
-    return { success: false, error: 'Failed to toggle status' };
+    return { success: false, error: error?.message || 'Failed to toggle status' };
   }
 }
 
@@ -396,21 +330,10 @@ export async function toggleContentBlockStatus(id: string, isActive: boolean, pu
  */
 export async function duplicateContentBlock(id: string): Promise<ContentBlockMutationResult> {
   try {
-    const supabase = await createClient();
+    const { supabase, isAdmin, userId } = await getAdminClient();
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
     }
 
     // Get original block
@@ -434,7 +357,7 @@ export async function duplicateContentBlock(id: string): Promise<ContentBlockMut
         .from('content_blocks')
         .select('id')
         .eq('key', newKey)
-        .single();
+        .maybeSingle();
 
       if (!existing) break;
       counter++;
@@ -452,8 +375,8 @@ export async function duplicateContentBlock(id: string): Promise<ContentBlockMut
         settings: original.settings,
         is_active: false, // Duplicate starts as draft
         published_at: null,
-        created_by: user.id,
-        updated_by: user.id,
+        created_by: userId,
+        updated_by: userId,
       })
       .select()
       .single();
@@ -466,8 +389,8 @@ export async function duplicateContentBlock(id: string): Promise<ContentBlockMut
     revalidatePath('/admin/content/blocks');
 
     return { success: true, block };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Duplicate content block error:', error);
-    return { success: false, error: 'Failed to duplicate content block' };
+    return { success: false, error: error?.message || 'Failed to duplicate content block' };
   }
 }

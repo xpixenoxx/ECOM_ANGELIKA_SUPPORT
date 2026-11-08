@@ -15,6 +15,7 @@ import { ScrollReveal as ScrollRevealAnim } from '@/components/animations/Scroll
 import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
 import { ExploreCollections } from '@/components/composite/ExploreCollections';
 import { useCart } from '@/lib/hooks/useCart';
+import { useWishlist } from '@/lib/hooks/useWishlist';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage-types';
 import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
 import type { SiteContent } from '@/lib/actions/site-content-types';
@@ -132,6 +133,25 @@ export default function HomePageClient({
   siteContent,
 }: HomePageClientProps) {
   const { addItem } = useCart();
+  const { toggleItem, isInWishlist } = useWishlist();
+
+  const handleToggleWishlist = async (product: any) => {
+    try {
+      await toggleItem(product.id, undefined, {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        price: Number(product.price) || 0,
+        originalPrice: product.originalPrice || product.compare_at_price ? Number(product.originalPrice || product.compare_at_price) : undefined,
+        discount: product.discount,
+        image: product.image || (Array.isArray(product.images) ? (product.images[0]?.url || product.images[0]) : null) || '/images/placeholder.jpg',
+        category: product.category?.name || product.category || 'Ethnic Wear',
+        isVidhyasPick: product.is_vidyas_pick,
+      });
+    } catch (err) {
+      console.error('Failed to toggle wishlist:', err);
+    }
+  };
 
   const heroContent = siteContent?.hero || {
     title: 'Grace in Every Drape',
@@ -146,33 +166,33 @@ export default function HomePageClient({
   const vidhyasPicksSection = siteContent?.['vidhyas-picks'];
   const activeVidhyasPicks: HomepageProductCard[] = (vidhyasPicksSection?.items && vidhyasPicksSection.items.length > 0)
     ? vidhyasPicksSection.items.map((item: any, idx: number) => {
-        const priceNum = Number(String(item.price ?? '').replace(/[^0-9.]/g, '')) || 0;
-        const compareNum = item.originalPrice || item.compare_at_price
-          ? Number(String(item.originalPrice || item.compare_at_price).replace(/[^0-9.]/g, ''))
-          : null;
-        const discountVal = item.discount ?? (
-          compareNum && priceNum > 0 && compareNum > priceNum
-            ? Math.round(((compareNum - priceNum) / compareNum) * 100)
-            : 0
-        );
-        return {
-          id: item.id || `vp-${idx + 1}`,
-          slug: item.slug || (item.name ? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `product-${idx + 1}`),
-          name: item.name || '',
-          variant_id: null,
-          price: priceNum,
-          compare_at_price: compareNum,
-          images: [{ url: item.image || '/images/placeholder.jpg', alt_text: item.name || 'Product' }],
-          category: {
-            id: `cat-${idx + 1}`,
-            name: item.category || 'Collection',
-            slug: (item.category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          },
-          discount: discountVal,
-          is_vidyas_pick: item.isVidhyasPick ?? true,
-          is_new: false,
-        };
-      })
+      const priceNum = Number(String(item.price ?? '').replace(/[^0-9.]/g, '')) || 0;
+      const compareNum = item.originalPrice || item.compare_at_price
+        ? Number(String(item.originalPrice || item.compare_at_price).replace(/[^0-9.]/g, ''))
+        : null;
+      const discountVal = item.discount ?? (
+        compareNum && priceNum > 0 && compareNum > priceNum
+          ? Math.round(((compareNum - priceNum) / compareNum) * 100)
+          : 0
+      );
+      return {
+        id: item.id || `vp-${idx + 1}`,
+        slug: item.slug || (item.name ? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `product-${idx + 1}`),
+        name: item.name || '',
+        variant_id: null,
+        price: priceNum,
+        compare_at_price: compareNum,
+        images: [{ url: item.image || '/images/placeholder.jpg', alt_text: item.name || 'Product' }],
+        category: {
+          id: `cat-${idx + 1}`,
+          name: item.category || 'Collection',
+          slug: (item.category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        },
+        discount: discountVal,
+        is_vidyas_pick: item.isVidhyasPick ?? true,
+        is_new: false,
+      };
+    })
     : vidhyasPicks;
 
   const brandStorySection = siteContent?.['brand-story'];
@@ -187,35 +207,35 @@ export default function HomePageClient({
 
   const activeFeatures = (siteContent?.features?.items && siteContent.features.items.length > 0)
     ? siteContent.features.items.map((item, index) => {
-        let iconNode: React.ReactNode = features[index % features.length]?.icon;
-        if (typeof item.icon === 'string' && item.icon.trim()) {
-          const isImageUrl =
-            item.icon.startsWith('/') ||
-            item.icon.startsWith('http') ||
-            item.icon.startsWith('data:image');
+      let iconNode: React.ReactNode = features[index % features.length]?.icon;
+      if (typeof item.icon === 'string' && item.icon.trim()) {
+        const isImageUrl =
+          item.icon.startsWith('/') ||
+          item.icon.startsWith('http') ||
+          item.icon.startsWith('data:image');
 
-          if (isImageUrl) {
-            iconNode = (
-              <img
-                src={item.icon}
-                alt={item.title || 'Feature icon'}
-                className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
-              />
-            );
-          } else {
-            iconNode = (
-              <span className="text-base sm:text-lg leading-none select-none inline-flex items-center justify-center" aria-hidden="true">
-                {item.icon}
-              </span>
-            );
-          }
+        if (isImageUrl) {
+          iconNode = (
+            <img
+              src={item.icon}
+              alt={item.title || 'Feature icon'}
+              className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
+            />
+          );
+        } else {
+          iconNode = (
+            <span className="text-base sm:text-lg leading-none select-none inline-flex items-center justify-center" aria-hidden="true">
+              {item.icon}
+            </span>
+          );
         }
-        return {
-          icon: iconNode,
-          title: item.title,
-          description: item.desc || item.description || '',
-        };
-      })
+      }
+      return {
+        icon: iconNode,
+        title: item.title,
+        description: item.desc || item.description || '',
+      };
+    })
     : features;
 
   const handleAddToBag = async (product: any) => {
@@ -225,7 +245,7 @@ export default function HomePageClient({
     const isVP = Boolean(product.isVidhyasPick || product.is_vidyas_pick);
     const prodName = product.name || product.title || 'Handcrafted Ethnic Ensemble';
 
-    await addItem(targetId, 1, 'Free Size', {
+    return await addItem(targetId, 1, 'Free Size', {
       product_id: product.id,
       product_name: prodName,
       price: priceVal,
@@ -308,7 +328,10 @@ export default function HomePageClient({
             </div>
 
             {/* Subtitle / Description */}
-            <p className="text-white/85 text-sm sm:text-base leading-relaxed mb-8 max-w-md font-sans whitespace-pre-line">
+            <p
+              style={{ color: '#FAF6F0' }}
+              className="text-[#FAF6F0] text-sm sm:text-base md:text-[17px] leading-relaxed mb-8 max-w-lg font-sans font-normal tracking-wide whitespace-pre-line drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)]"
+            >
               {heroSubtitle}
             </p>
 
@@ -326,7 +349,8 @@ export default function HomePageClient({
               {secondaryCtaText && (
                 <Link
                   href={secondaryCtaLink}
-                  className="inline-flex items-center justify-center px-7 py-3.5 text-xs uppercase tracking-[0.2em] font-medium text-white/95 border border-white/40 hover:border-white hover:bg-white/10 transition-all duration-300 backdrop-blur-xs"
+                  style={{ color: '#FAF6F0' }}
+                  className="inline-flex items-center justify-center px-7 py-3.5 text-xs uppercase tracking-[0.2em] font-medium text-[#FAF6F0] border border-white/50 hover:border-white hover:bg-white/10 transition-all duration-300 backdrop-blur-xs drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]"
                 >
                   {secondaryCtaText}
                 </Link>
@@ -399,6 +423,8 @@ export default function HomePageClient({
                     discount={product.discount}
                     href={product.slug ? `/product/${product.slug}` : `/vidhyas-picks?search=${encodeURIComponent(product.name)}`}
                     onAddToBag={() => handleAddToBag(product)}
+                    onAddToWishlist={() => handleToggleWishlist(product)}
+                    isWishlisted={isInWishlist(product.slug || product.id)}
                   />
                 </StaggerItem>
               ))
@@ -416,8 +442,8 @@ export default function HomePageClient({
       {/* New Arrivals: Reference Style */}
       {(() => {
         const naContent = siteContent?.['new-arrivals'];
-        const headingTitle = naContent?.heading 
-          ? `${naContent.heading} ${naContent.headingHighlight || ''}`.trim() 
+        const headingTitle = naContent?.heading
+          ? `${naContent.heading} ${naContent.headingHighlight || ''}`.trim()
           : 'NEW COLLECTION: NEW ARRIVALS';
         const ctaText = naContent?.ctaText || 'OPEN';
         const ctaLink = naContent?.ctaLink || '/new-arrivals';
@@ -467,6 +493,8 @@ export default function HomePageClient({
                           discount={product.discount}
                           href={productHref}
                           onAddToBag={() => handleAddToBag(product)}
+                          onAddToWishlist={() => handleToggleWishlist(product)}
+                          isWishlisted={isInWishlist(product.slug || product.id)}
                         />
                       </StaggerItem>
                     );
@@ -496,12 +524,12 @@ export default function HomePageClient({
         const paragraphs = Array.isArray(bs?.storyParagraphs) && bs.storyParagraphs.length > 0
           ? bs.storyParagraphs
           : (bs?.story
-              ? bs.story.split('\n\n').filter(Boolean)
-              : [
-                  "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.",
-                  "Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.",
-                  "When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.",
-                ]);
+            ? bs.story.split('\n\n').filter(Boolean)
+            : [
+              "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.",
+              "Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.",
+              "When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.",
+            ]);
         const primaryCtaText = bs?.primaryCtaText || 'Read Our Story';
         const primaryCtaLink = bs?.primaryCtaLink || '/about';
         const whatsappCtaText = bs?.whatsappCtaText || 'Chat with Vidhya';

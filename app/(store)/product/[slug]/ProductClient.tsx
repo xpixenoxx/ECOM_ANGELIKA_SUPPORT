@@ -7,6 +7,8 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/hooks/useCart';
 import { useWishlist } from '@/lib/hooks/useWishlist';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { AuthModal } from '@/components/ui/AuthModal';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { Card, ProductCard } from '@/components/ui/Card';
@@ -35,6 +37,7 @@ interface ProductClientProps {
 
 export function ProductClient({ product, relatedProducts, reviews = [], reviewSummary }: ProductClientProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const { addItem } = useCart();
   const { toggleItem: toggleWishlistItem, isInWishlist } = useWishlist();
   const [selectedColor, setSelectedColor] = useState(0);
@@ -43,6 +46,7 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   const [activeTab, setActiveTab] = useState('description');
   const [addedToBag, setAddedToBag] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const currentColor = product.colors[selectedColor] ?? product.colors[0] ?? { name: '', value: '', hex: '#CCCCCC', images: [] };
   const discount = product.originalPrice ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100) : 0;
@@ -69,6 +73,11 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   });
 
   const handleAddToBag = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      toast('Please sign in to add items to your bag', { icon: '🛍️' });
+      return;
+    }
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
     setIsSubmitting(true);
     try {
@@ -83,6 +92,11 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   };
 
   const handleBuyNow = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      toast('Please sign in to proceed to checkout', { icon: '🛍️' });
+      return;
+    }
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
     setIsSubmitting(true);
     try {
@@ -104,6 +118,11 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   };
 
   const handleAddRelatedToBag = async (related: ProductCardData) => {
+    if (!user) {
+      setShowAuthModal(true);
+      toast('Please sign in to add items to your bag', { icon: '🛍️' });
+      return;
+    }
     try {
       await addItem(related.id, 1, 'Free Size');
       toast.success(`Added "${related.name}" to your bag!`);
@@ -112,9 +131,52 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
     }
   };
 
-  const handleToggleRelatedWishlist = async (related: ProductCardData) => {
+  const isWishlisted = isInWishlist(product.id) || (product.slug ? isInWishlist(product.slug) : false);
+
+  const handleToggleWishlist = async () => {
+    if (!user) {
+      setShowAuthModal(true);
+      toast('Please sign in to save items to your wishlist', { icon: '🤍' });
+      return;
+    }
     try {
-      await toggleWishlistItem(related.id);
+      await toggleWishlistItem(product.id, undefined, {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        price: product.price,
+        originalPrice: product.originalPrice,
+        discount: discount,
+        image: galleryImages[0]?.src || product.images[0] || '/images/placeholder.jpg',
+        category: product.category,
+        color: currentColor.name || product.colors[0]?.name || 'Default',
+        colorHex: currentColor.hex || product.colors[0]?.hex || '#CCCCCC',
+        size: selectedSize || product.sizes[0] || 'Free Size',
+        inStock: product.inStock,
+      });
+    } catch (err) {
+      console.error('Failed to toggle wishlist:', err);
+    }
+  };
+
+  const handleToggleRelatedWishlist = async (related: ProductCardData) => {
+    if (!user) {
+      setShowAuthModal(true);
+      toast('Please sign in to save items to your wishlist', { icon: '🤍' });
+      return;
+    }
+    try {
+      await toggleWishlistItem(related.id, undefined, {
+        id: related.id,
+        slug: related.slug,
+        name: related.name,
+        price: related.price,
+        originalPrice: related.compare_at_price ?? undefined,
+        discount: related.discount,
+        image: related.images[0]?.url || '/images/collection-kurtis.jpg',
+        category: related.category?.name || product.category,
+        isVidhyasPick: related.is_vidyas_pick,
+      });
     } catch (err) {
       console.error('Failed to toggle wishlist:', err);
     }
@@ -352,7 +414,22 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
               {/* Wishlist & Compare */}
               <div className="flex items-center gap-3 border-t border-[var(--color-whisper)] pt-6">
-                <LikeButton liked={false} count={product.reviewCount} onChange={() => {}} size="md" />
+                <div className="flex items-center gap-1.5">
+                  <LikeButton
+                    liked={isWishlisted}
+                    onChange={handleToggleWishlist}
+                    size="md"
+                    className="cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleToggleWishlist}
+                    className="text-xs uppercase tracking-wider font-semibold text-[var(--color-slate)] hover:text-[var(--color-ink)] transition-colors cursor-pointer select-none"
+                    aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                  >
+                    {isWishlisted ? 'Wishlisted' : 'Wishlist'}
+                  </button>
+                </div>
                 <MagneticButton variant="ghost" size="sm" className="gap-2" strength={0.3}>
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -763,7 +840,7 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                       category={related.category?.name || product.category}
                       discount={related.discount}
                       isVidhyasPick={related.is_vidyas_pick}
-                      isWishlisted={isInWishlist(related.id)}
+                      isWishlisted={isInWishlist(related.id) || (related.slug ? isInWishlist(related.slug) : false)}
                       rating={related.rating || 4.8}
                       reviewCount={related.review_count || 12}
                       href={`/product/${related.slug}`}
@@ -777,6 +854,13 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
           )}
         </div>
       </section>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => setShowAuthModal(false)}
+        />
+      )}
     </div>
   );
 }

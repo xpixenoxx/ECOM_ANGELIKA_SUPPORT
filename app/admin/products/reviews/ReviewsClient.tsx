@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import {
@@ -52,16 +52,16 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
 
-  // Modal states
+  // Modal & inline states
   const [editingReview, setEditingReview] = useState<AdminProductReview | null>(null);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addingProductId, setAddingProductId] = useState<string | null>(null);
   const [targetProductForAdd, setTargetProductForAdd] = useState<ProductWithReviewStats | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // Form states for Edit / Create
-  const [form, setForm] = useState({
+  // Form state for Edit
+  const [editForm, setEditForm] = useState({
     reviewer_name: '',
     rating: 5,
     title: '',
@@ -71,6 +71,19 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
     is_verified_purchase: true,
     is_published: true,
   });
+
+  // Form state for Add
+  const initialAddForm = {
+    reviewer_name: '',
+    rating: 5,
+    title: '',
+    body: '',
+    quality_rating: 5,
+    fit_rating: 5,
+    is_verified_purchase: true,
+    is_published: true,
+  };
+  const [addForm, setAddForm] = useState(initialAddForm);
 
   // Calculate live stats
   const totalReviewsCount = reviews.length;
@@ -112,10 +125,15 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
       );
   });
 
-  // Open Edit Modal
+  // Open Edit (Inline rectangular box below review)
   const openEditModal = (review: AdminProductReview) => {
+    if (editingReview?.id === review.id) {
+      setEditingReview(null);
+      return;
+    }
+    setAddingProductId(null); // close any active add box
     setEditingReview(review);
-    setForm({
+    setEditForm({
       reviewer_name: review.reviewer_name || 'Verified Customer',
       rating: review.rating || 5,
       title: review.title || '',
@@ -127,27 +145,493 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
     });
   };
 
-  // Open Add Modal
-  const openAddModal = (product?: ProductWithReviewStats) => {
-    const prod = product || products[0] || null;
-    setTargetProductForAdd(prod);
-    setForm({
-      reviewer_name: '',
-      rating: 5,
-      title: '',
-      body: '',
-      quality_rating: 5,
-      fit_rating: 5,
-      is_verified_purchase: true,
-      is_published: true,
-    });
-    setIsAddModalOpen(true);
+  // Open Inline Add Box (inside product card or top-level)
+  const openInlineAdd = (product?: ProductWithReviewStats | 'top') => {
+    const targetKey = typeof product === 'object' ? product.id : (product || 'top');
+    if (addingProductId === targetKey) {
+      setAddingProductId(null);
+      return;
+    }
+    setEditingReview(null); // close any active edit box
+    if (typeof product === 'object') {
+      setTargetProductForAdd(product);
+    } else if (!targetProductForAdd && products.length > 0) {
+      setTargetProductForAdd(products[0] || null);
+    }
+    setAddForm(initialAddForm);
+    setAddingProductId(targetKey);
   };
 
-  // Handle Save Review (Edit)
+  // Inline rectangular box renderer for Editing a review
+  const renderInlineEditBox = (review: AdminProductReview, layout: 'card' | 'table' = 'table') => {
+    const isCard = layout === 'card';
+
+    return (
+      <div className={`bg-[#FCFBF8] rounded-xl border-2 border-[var(--color-gold)]/40 shadow-sm text-sm ${isCard ? 'p-4 my-2' : 'p-5 my-1'}`}>
+        {/* Top Header of the rectangular box */}
+        <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-[var(--color-whisper)]">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-[var(--color-gold)] bg-[var(--color-gold-light)] px-2.5 py-1 rounded-md flex-shrink-0">
+              <Edit2 className="w-3.5 h-3.5" />
+              Edit Review
+            </span>
+            <span className="text-xs text-[var(--color-slate)]">for</span>
+            <span className="font-semibold text-xs text-[var(--color-ink)] truncate max-w-[220px]" title={review.product?.name}>
+              {review.product?.name || 'Product'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setEditingReview(null)}
+            disabled={isSaving}
+            className="p-1.5 rounded-lg text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-colors cursor-pointer flex-shrink-0"
+            title="Cancel & close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form fields */}
+        <div className="space-y-3.5">
+          {/* Row 1: Reviewer Name & Star Rating */}
+          <div className={isCard ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+                Reviewer Display Name *
+              </label>
+              <input
+                type="text"
+                value={editForm.reviewer_name}
+                onChange={e => setEditForm(f => ({ ...f, reviewer_name: e.target.value }))}
+                placeholder="e.g. Priya Sharma"
+                className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+                Star Rating ({editForm.rating} out of 5 stars)
+              </label>
+              <div className="flex items-center gap-1.5 pt-0.5">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setEditForm(f => ({ ...f, rating: star }))}
+                    className="p-0.5 hover:scale-110 transition-transform cursor-pointer"
+                    title={`${star} Star${star > 1 ? 's' : ''}`}
+                  >
+                    <Star
+                      className={`w-5 h-5 ${
+                        star <= editForm.rating
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-gray-200 hover:text-amber-200'
+                      }`}
+                    />
+                  </button>
+                ))}
+                <span className="ml-2 text-xs font-bold text-[var(--color-ink)]">{editForm.rating}★</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Headline / Title & Scores */}
+          <div className={isCard ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
+            <div className={isCard ? '' : 'md:col-span-2'}>
+              <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+                Review Headline / Title
+              </label>
+              <input
+                type="text"
+                value={editForm.title}
+                onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Stunning craftsmanship and drape"
+                className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                  Quality (1-5)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={editForm.quality_rating}
+                  onChange={e => setEditForm(f => ({ ...f, quality_rating: Number(e.target.value) }))}
+                  className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-2.5 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                  Fit (1-5)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={editForm.fit_rating}
+                  onChange={e => setEditForm(f => ({ ...f, fit_rating: Number(e.target.value) }))}
+                  className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-2.5 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Review Text Content */}
+          <div>
+            <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+              Review Content / Feedback *
+            </label>
+            <textarea
+              value={editForm.body}
+              onChange={e => setEditForm(f => ({ ...f, body: e.target.value }))}
+              rows={3}
+              placeholder="Enter customer review text..."
+              className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] resize-none transition-all leading-relaxed shadow-2xs"
+            />
+          </div>
+
+          {/* Row 4: Toggles */}
+          <div className="flex flex-wrap items-center gap-4 pt-2.5 pb-1 border-t border-[var(--color-whisper)]">
+            <div
+              className="flex items-center gap-2 cursor-pointer select-none"
+              onClick={() => setEditForm(f => ({ ...f, is_published: !f.is_published }))}
+            >
+              <button
+                type="button"
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
+                  editForm.is_published ? 'bg-green-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                    editForm.is_published ? 'translate-x-4.5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-medium text-[var(--color-ink)]">
+                {editForm.is_published ? 'Published (Live)' : 'Hidden (Draft)'}
+              </span>
+            </div>
+
+            <div
+              className="flex items-center gap-2 cursor-pointer select-none"
+              onClick={() => setEditForm(f => ({ ...f, is_verified_purchase: !f.is_verified_purchase }))}
+            >
+              <button
+                type="button"
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
+                  editForm.is_verified_purchase ? 'bg-[var(--color-gold)]' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                    editForm.is_verified_purchase ? 'translate-x-4.5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-medium text-[var(--color-ink)] flex items-center gap-1">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                Verified Buyer
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer actions of rectangular box */}
+        <div className="flex items-center justify-between pt-3.5 mt-3 border-t border-[var(--color-whisper)]">
+          {review.product?.slug ? (
+            <a
+              href={`/product/${review.product.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-[var(--color-gold)] hover:underline flex items-center gap-1"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>View on Site</span>
+            </a>
+          ) : <div />}
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setEditingReview(null)}
+              disabled={isSaving}
+              className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-[var(--color-slate)] hover:bg-[var(--color-whisper)] transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 bg-[var(--color-gold)] text-white rounded-lg px-4 py-1.5 font-semibold text-xs hover:opacity-90 disabled:opacity-50 transition-all shadow-xs cursor-pointer"
+            >
+              {isSaving ? (
+                <>
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Saving…</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Inline rectangular box renderer for Adding a new review
+  const renderInlineAddBox = (product?: ProductWithReviewStats, layout: 'card' | 'wide' = 'card') => {
+    const currentProduct = product || targetProductForAdd;
+    const isCard = layout === 'card';
+
+    return (
+      <div className={`bg-[#FCFBF8] rounded-xl border-2 border-[var(--color-gold)]/40 shadow-sm text-sm ${isCard ? 'p-4 my-2' : 'p-5 my-3'}`}>
+        {/* Top Header of rectangular add box */}
+        <div className="flex items-center justify-between pb-3 mb-3.5 border-b border-[var(--color-whisper)]">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-xs text-[var(--color-gold)] bg-[var(--color-gold-light)] px-2.5 py-1 rounded-md flex-shrink-0">
+              <Plus className="w-3.5 h-3.5" />
+              Add Review
+            </span>
+            {currentProduct && (
+              <>
+                <span className="text-xs text-[var(--color-slate)]">for</span>
+                <span className="font-semibold text-xs text-[var(--color-ink)] truncate max-w-[220px]" title={currentProduct.name}>
+                  {currentProduct.name}
+                </span>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setAddingProductId(null)}
+            disabled={isSaving}
+            className="p-1.5 rounded-lg text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-colors cursor-pointer flex-shrink-0"
+            title="Cancel & close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Form Fields */}
+        <div className="space-y-3.5">
+          {/* Product selector if wide / top-level without explicit product */}
+          {!product && (
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+                Target Product *
+              </label>
+              <select
+                value={targetProductForAdd?.id || ''}
+                onChange={e => {
+                  const found = products.find(p => p.id === e.target.value);
+                  setTargetProductForAdd(found || null);
+                }}
+                className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+              >
+                {products.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.category_name || 'Product'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Row 1: Reviewer Name & Star Rating */}
+          <div className={isCard ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-2 gap-4'}>
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+                Reviewer Display Name *
+              </label>
+              <input
+                type="text"
+                value={addForm.reviewer_name}
+                onChange={e => setAddForm(f => ({ ...f, reviewer_name: e.target.value }))}
+                placeholder="e.g. Priya Sharma, Ananya V."
+                className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+                Star Rating ({addForm.rating} out of 5 stars)
+              </label>
+              <div className="flex items-center gap-1.5 pt-0.5">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setAddForm(f => ({ ...f, rating: star }))}
+                    className="p-0.5 hover:scale-110 transition-transform cursor-pointer"
+                    title={`${star} Star${star > 1 ? 's' : ''}`}
+                  >
+                    <Star
+                      className={`w-5 h-5 ${
+                        star <= addForm.rating
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-gray-200 hover:text-amber-200'
+                      }`}
+                    />
+                  </button>
+                ))}
+                <span className="ml-2 text-xs font-bold text-[var(--color-ink)]">{addForm.rating}★</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Headline / Title & Scores */}
+          <div className={isCard ? 'space-y-3' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
+            <div className={isCard ? '' : 'md:col-span-2'}>
+              <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+                Review Headline / Title
+              </label>
+              <input
+                type="text"
+                value={addForm.title}
+                onChange={e => setAddForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Stunning craftsmanship and drape"
+                className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                  Quality (1-5)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={addForm.quality_rating}
+                  onChange={e => setAddForm(f => ({ ...f, quality_rating: Number(e.target.value) }))}
+                  className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-2.5 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                  Fit (1-5)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={5}
+                  value={addForm.fit_rating}
+                  onChange={e => setAddForm(f => ({ ...f, fit_rating: Number(e.target.value) }))}
+                  className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-2.5 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] transition-all shadow-2xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 3: Content / Feedback */}
+          <div>
+            <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
+              Review Content / Feedback *
+            </label>
+            <textarea
+              value={addForm.body}
+              onChange={e => setAddForm(f => ({ ...f, body: e.target.value }))}
+              rows={3}
+              placeholder="Enter customer review text..."
+              className="w-full bg-white border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-xs text-[var(--color-ink)] focus:outline-none focus:ring-1 focus:ring-[var(--color-gold)] focus:border-[var(--color-gold)] resize-none transition-all leading-relaxed shadow-2xs"
+            />
+          </div>
+
+          {/* Row 4: Toggles */}
+          <div className="flex flex-wrap items-center gap-4 pt-2.5 pb-1 border-t border-[var(--color-whisper)]">
+            <div
+              className="flex items-center gap-2 cursor-pointer select-none"
+              onClick={() => setAddForm(f => ({ ...f, is_published: !f.is_published }))}
+            >
+              <button
+                type="button"
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
+                  addForm.is_published ? 'bg-green-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                    addForm.is_published ? 'translate-x-4.5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-medium text-[var(--color-ink)]">
+                {addForm.is_published ? 'Published (Live)' : 'Hidden (Draft)'}
+              </span>
+            </div>
+
+            <div
+              className="flex items-center gap-2 cursor-pointer select-none"
+              onClick={() => setAddForm(f => ({ ...f, is_verified_purchase: !f.is_verified_purchase }))}
+            >
+              <button
+                type="button"
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
+                  addForm.is_verified_purchase ? 'bg-[var(--color-gold)]' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+                    addForm.is_verified_purchase ? 'translate-x-4.5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-medium text-[var(--color-ink)] flex items-center gap-1">
+                <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                Verified Buyer
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex items-center justify-end gap-2.5 pt-3.5 mt-3 border-t border-[var(--color-whisper)]">
+          <button
+            type="button"
+            onClick={() => setAddingProductId(null)}
+            disabled={isSaving}
+            className="px-3.5 py-1.5 rounded-lg text-xs font-medium text-[var(--color-slate)] hover:bg-[var(--color-whisper)] transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => handleCreateReview(product)}
+            disabled={isSaving}
+            className="flex items-center gap-1.5 bg-[var(--color-gold)] text-white rounded-lg px-4 py-1.5 font-semibold text-xs hover:opacity-90 disabled:opacity-50 transition-all shadow-xs cursor-pointer"
+          >
+            {isSaving ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Saving…</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Save Review</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Handle Save Review (Edit) - Auto closes on success
   const handleSaveEdit = async () => {
     if (!editingReview) return;
-    if (!form.body.trim()) {
+    if (!editForm.body.trim()) {
       toast.error('Review text content is required');
       return;
     }
@@ -157,14 +641,14 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
 
     try {
       const res = await updateAdminReview(editingReview.id, {
-        reviewer_name: form.reviewer_name,
-        rating: form.rating,
-        title: form.title,
-        body: form.body,
-        quality_rating: form.quality_rating,
-        fit_rating: form.fit_rating,
-        is_verified_purchase: form.is_verified_purchase,
-        is_published: form.is_published,
+        reviewer_name: editForm.reviewer_name,
+        rating: editForm.rating,
+        title: editForm.title,
+        body: editForm.body,
+        quality_rating: editForm.quality_rating,
+        fit_rating: editForm.fit_rating,
+        is_verified_purchase: editForm.is_verified_purchase,
+        is_published: editForm.is_published,
         product_slug: productSlug,
       });
 
@@ -200,7 +684,7 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
       }));
 
       toast.success('Review updated & reflected on product page!');
-      setEditingReview(null);
+      setEditingReview(null); // Auto-close rectangular box
     } catch (err: any) {
       toast.error(err?.message || 'Error updating review');
     } finally {
@@ -208,29 +692,30 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
     }
   };
 
-  // Handle Create Review
-  const handleCreateReview = async () => {
-    if (!targetProductForAdd) {
+  // Handle Create Review - Auto closes on success
+  const handleCreateReview = async (specificProduct?: ProductWithReviewStats) => {
+    const target = specificProduct || targetProductForAdd;
+    if (!target) {
       toast.error('Please select a product');
       return;
     }
-    if (!form.body.trim()) {
+    if (!addForm.body.trim()) {
       toast.error('Review text content is required');
       return;
     }
 
     setIsSaving(true);
     try {
-      const res = await createAdminReview(targetProductForAdd.id, {
-        reviewer_name: form.reviewer_name,
-        rating: form.rating,
-        title: form.title,
-        body: form.body,
-        quality_rating: form.quality_rating,
-        fit_rating: form.fit_rating,
-        is_verified_purchase: form.is_verified_purchase,
-        is_published: form.is_published,
-        product_slug: targetProductForAdd.slug,
+      const res = await createAdminReview(target.id, {
+        reviewer_name: addForm.reviewer_name || 'Verified Customer',
+        rating: addForm.rating,
+        title: addForm.title,
+        body: addForm.body,
+        quality_rating: addForm.quality_rating,
+        fit_rating: addForm.fit_rating,
+        is_verified_purchase: addForm.is_verified_purchase,
+        is_published: addForm.is_published,
+        product_slug: target.slug,
       });
 
       if (!res.success || !res.data) {
@@ -241,11 +726,11 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
       const created: AdminProductReview = {
         ...res.data,
         product: {
-          id: targetProductForAdd.id,
-          name: targetProductForAdd.name,
-          slug: targetProductForAdd.slug,
-          sku: targetProductForAdd.sku,
-          image_url: targetProductForAdd.image_url,
+          id: target.id,
+          name: target.name,
+          slug: target.slug,
+          sku: target.sku,
+          image_url: target.image_url,
         },
       };
 
@@ -253,7 +738,7 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
 
       // Update product stats
       setProducts(prev => prev.map(p => {
-        if (p.id === targetProductForAdd.id) {
+        if (p.id === target.id) {
           const pRevs = [created, ...p.reviews];
           const published = pRevs.filter(r => r.is_published);
           const avg = published.length > 0
@@ -270,8 +755,9 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
         return p;
       }));
 
-      toast.success(`Review created for "${targetProductForAdd.name}"!`);
-      setIsAddModalOpen(false);
+      toast.success(`Review created for "${target.name}"!`);
+      setAddingProductId(null); // Auto-close rectangular box
+      setAddForm(initialAddForm);
     } catch (err: any) {
       toast.error(err?.message || 'Error creating review');
     } finally {
@@ -384,11 +870,15 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
 
         <button
           type="button"
-          onClick={() => openAddModal()}
-          className="flex items-center gap-2 bg-[var(--color-gold)] text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:opacity-90 transition-opacity shadow-sm self-start sm:self-auto"
+          onClick={() => openInlineAdd('top')}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 font-medium text-sm transition-all shadow-sm self-start sm:self-auto cursor-pointer ${
+            addingProductId === 'top'
+              ? 'bg-[var(--color-ink)] text-white'
+              : 'bg-[var(--color-gold)] text-white hover:opacity-90'
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          <span>Write Customer Review</span>
+          {addingProductId === 'top' ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+          <span>{addingProductId === 'top' ? 'Close Review Form' : 'Write Customer Review'}</span>
         </button>
       </div>
 
@@ -463,6 +953,20 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
         </div>
       </div>
 
+      {/* Top Inline Add Box (if opened from top button) */}
+      <AnimatePresence>
+        {addingProductId === 'top' && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            {renderInlineAddBox(undefined, 'wide')}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* VIEW MODE 1: BY PRODUCT (All 27 products from the website with their user reviews) */}
       {viewMode === 'by-product' && (
         <div className="space-y-4">
@@ -519,35 +1023,55 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
                       {hasReviews ? (
                         <div className="space-y-2.5">
                           {product.reviews.slice(0, 2).map(r => (
-                            <div
-                              key={r.id}
-                              className="p-3 bg-[var(--color-snow)] rounded-xl border border-[var(--color-whisper)] text-xs space-y-1 hover:border-[var(--color-gold)]/40 transition-colors"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-semibold text-[var(--color-ink)] truncate">
-                                  {r.reviewer_name}
-                                </span>
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <div className="flex text-amber-500">
-                                    {[...Array(5)].map((_, idx) => (
-                                      <Star
-                                        key={idx}
-                                        className={`w-3 h-3 ${idx < r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
-                                      />
-                                    ))}
+                            <div key={r.id} className="space-y-2">
+                              <div
+                                className={`p-3 rounded-xl border text-xs space-y-1 transition-colors ${
+                                  editingReview?.id === r.id
+                                    ? 'bg-[var(--color-gold)]/5 border-[var(--color-gold)]/50'
+                                    : 'bg-[var(--color-snow)] border-[var(--color-whisper)] hover:border-[var(--color-gold)]/40'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-semibold text-[var(--color-ink)] truncate">
+                                    {r.reviewer_name}
+                                  </span>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <div className="flex text-amber-500">
+                                      {[...Array(5)].map((_, idx) => (
+                                        <Star
+                                          key={idx}
+                                          className={`w-3 h-3 ${idx < r.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => openEditModal(r)}
+                                      className={`p-1 rounded transition-colors ml-1 cursor-pointer ${
+                                        editingReview?.id === r.id
+                                          ? 'bg-[var(--color-gold-light)] text-[var(--color-gold)]'
+                                          : 'text-[var(--color-slate)] hover:text-[var(--color-gold)]'
+                                      }`}
+                                      title={editingReview?.id === r.id ? 'Close inline editor' : 'Edit this review'}
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => openEditModal(r)}
-                                    className="p-1 text-[var(--color-slate)] hover:text-[var(--color-gold)] ml-1"
-                                    title="Edit this review"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
                                 </div>
+                                {r.title && <p className="font-medium text-[var(--color-ink)] truncate">{r.title}</p>}
+                                <p className="text-[var(--color-slate)] line-clamp-2 leading-relaxed">{r.body}</p>
                               </div>
-                              {r.title && <p className="font-medium text-[var(--color-ink)] truncate">{r.title}</p>}
-                              <p className="text-[var(--color-slate)] line-clamp-2 leading-relaxed">{r.body}</p>
+
+                              {editingReview?.id === r.id && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -6 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: -6 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  {renderInlineEditBox(r, 'card')}
+                                </motion.div>
+                              )}
                             </div>
                           ))}
                           {product.reviews.length > 2 && (
@@ -560,6 +1084,18 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
                         <div className="py-4 text-center text-xs text-[var(--color-mist)] bg-gray-50/70 rounded-xl border border-dashed border-gray-200">
                           <p>No user reviews yet for this product</p>
                         </div>
+                      )}
+
+                      {/* Inline Add Box inside Product Card */}
+                      {addingProductId === product.id && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {renderInlineAddBox(product, 'card')}
+                        </motion.div>
                       )}
                     </div>
                   </div>
@@ -580,10 +1116,14 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => openAddModal(product)}
-                        className="px-2.5 py-1 bg-white border border-[var(--color-whisper)] rounded-lg text-xs font-semibold text-[var(--color-gold)] hover:border-[var(--color-gold)] transition-all shadow-xs"
+                        onClick={() => openInlineAdd(product)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all shadow-xs cursor-pointer ${
+                          addingProductId === product.id
+                            ? 'bg-[var(--color-gold)] text-white'
+                            : 'bg-white border border-[var(--color-whisper)] text-[var(--color-gold)] hover:border-[var(--color-gold)]'
+                        }`}
                       >
-                        + Add Review
+                        {addingProductId === product.id ? '✕ Close' : '+ Add Review'}
                       </button>
                       {hasReviews && (
                         <button
@@ -686,8 +1226,8 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
                         <p className="font-medium text-[var(--color-ink)]">No reviews found matching your criteria</p>
                         <button
                           type="button"
-                          onClick={() => openAddModal()}
-                          className="mt-3 text-xs text-[var(--color-gold)] hover:underline font-semibold"
+                          onClick={() => openInlineAdd('top')}
+                          className="mt-3 text-xs text-[var(--color-gold)] hover:underline font-semibold cursor-pointer"
                         >
                           + Write a review for any product
                         </button>
@@ -695,130 +1235,152 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
                     </tr>
                   )}
                   {filteredReviews.map((review, i) => (
-                    <motion.tr
-                      key={review.id}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.02 }}
-                      className="hover:bg-[var(--color-snow)]/60 transition-colors"
-                    >
-                      {/* Product */}
-                      <td className="px-6 py-3.5 max-w-[200px]">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-10 h-10 rounded-lg bg-[var(--color-snow)] border border-[var(--color-whisper)] overflow-hidden flex-shrink-0">
-                            {review.product?.image_url ? (
-                              <img
-                                src={review.product.image_url}
-                                alt={review.product.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <Package className="w-4 h-4 m-auto text-[var(--color-mist)]" />
-                            )}
+                    <Fragment key={review.id}>
+                      <tr
+                        className={`transition-colors ${
+                          editingReview?.id === review.id
+                            ? 'bg-[var(--color-gold)]/5 border-l-4 border-l-[var(--color-gold)]'
+                            : 'hover:bg-[var(--color-snow)]/60'
+                        }`}
+                      >
+                        {/* Product */}
+                        <td className="px-6 py-3.5 max-w-[200px]">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-10 h-10 rounded-lg bg-[var(--color-snow)] border border-[var(--color-whisper)] overflow-hidden flex-shrink-0">
+                              {review.product?.image_url ? (
+                                <img
+                                  src={review.product.image_url}
+                                  alt={review.product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Package className="w-4 h-4 m-auto text-[var(--color-mist)]" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-xs text-[var(--color-ink)] truncate" title={review.product?.name}>
+                                {review.product?.name || 'Product'}
+                              </p>
+                              {review.product?.slug && (
+                                <a
+                                  href={`/product/${review.product.slug}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-[var(--color-gold)] hover:underline flex items-center gap-0.5 mt-0.5"
+                                >
+                                  <span>View on site</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              )}
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-xs text-[var(--color-ink)] truncate" title={review.product?.name}>
-                              {review.product?.name || 'Product'}
-                            </p>
-                            {review.product?.slug && (
-                              <a
-                                href={`/product/${review.product.slug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] text-[var(--color-gold)] hover:underline flex items-center gap-0.5 mt-0.5"
-                              >
-                                <span>View on site</span>
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Reviewer */}
-                      <td className="px-4 py-3.5">
-                        <p className="font-semibold text-xs text-[var(--color-ink)]">{review.reviewer_name}</p>
-                        {review.is_verified_purchase && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.2 rounded-full font-medium mt-1">
-                            <CheckCircle className="w-2.5 h-2.5" /> Verified Buyer
-                          </span>
-                        )}
-                        <p className="text-[10px] text-[var(--color-mist)] mt-1">
-                          {new Date(review.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-                        </p>
-                      </td>
-
-                      {/* Rating */}
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1">
-                          <div className="flex text-amber-500">
-                            {[...Array(5)].map((_, idx) => (
-                              <Star
-                                key={idx}
-                                className={`w-3.5 h-3.5 ${idx < review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
-                              />
-                            ))}
-                          </div>
-                          <span className="text-xs font-bold text-[var(--color-ink)] ml-1">{review.rating}★</span>
-                        </div>
-                        {(review.quality_rating || review.fit_rating) && (
+                        {/* Reviewer */}
+                        <td className="px-4 py-3.5">
+                          <p className="font-semibold text-xs text-[var(--color-ink)]">{review.reviewer_name}</p>
+                          {review.is_verified_purchase && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.2 rounded-full font-medium mt-1">
+                              <CheckCircle className="w-2.5 h-2.5" /> Verified Buyer
+                            </span>
+                          )}
                           <p className="text-[10px] text-[var(--color-mist)] mt-1">
-                            Q: {review.quality_rating || 5}/5 · Fit: {review.fit_rating || 5}/5
+                            {new Date(review.created_at).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
                           </p>
-                        )}
-                      </td>
+                        </td>
 
-                      {/* Review Content */}
-                      <td className="px-4 py-3.5 max-w-[340px]">
-                        {review.title && (
-                          <p className="font-semibold text-xs text-[var(--color-ink)] mb-0.5">{review.title}</p>
-                        )}
-                        <p className="text-xs text-[var(--color-slate)] line-clamp-2 leading-relaxed">
-                          {review.body}
-                        </p>
-                      </td>
+                        {/* Rating */}
+                        <td className="px-4 py-3.5">
+                          <div className="flex items-center gap-1">
+                            <div className="flex text-amber-500">
+                              {[...Array(5)].map((_, idx) => (
+                                <Star
+                                  key={idx}
+                                  className={`w-3.5 h-3.5 ${idx < review.rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs font-bold text-[var(--color-ink)] ml-1">{review.rating}★</span>
+                          </div>
+                          {(review.quality_rating || review.fit_rating) && (
+                            <p className="text-[10px] text-[var(--color-mist)] mt-1">
+                              Q: {review.quality_rating || 5}/5 · Fit: {review.fit_rating || 5}/5
+                            </p>
+                          )}
+                        </td>
 
-                      {/* Status Toggle */}
-                      <td className="px-4 py-3.5">
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePublished(review)}
-                          disabled={togglingId === review.id}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
-                            review.is_published
-                              ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
-                              : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
-                          } disabled:opacity-50`}
-                          title={review.is_published ? 'Click to hide from store' : 'Click to publish on store'}
-                        >
-                          {review.is_published ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                          <span>{review.is_published ? 'Published' : 'Hidden'}</span>
-                        </button>
-                      </td>
+                        {/* Review Content */}
+                        <td className="px-4 py-3.5 max-w-[340px]">
+                          {review.title && (
+                            <p className="font-semibold text-xs text-[var(--color-ink)] mb-0.5">{review.title}</p>
+                          )}
+                          <p className="text-xs text-[var(--color-slate)] line-clamp-2 leading-relaxed">
+                            {review.body}
+                          </p>
+                        </td>
 
-                      {/* Actions */}
-                      <td className="px-6 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        {/* Status Toggle */}
+                        <td className="px-4 py-3.5">
                           <button
                             type="button"
-                            onClick={() => openEditModal(review)}
-                            className="p-1.5 rounded-lg hover:bg-[var(--color-whisper)] text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors"
-                            title="Edit this review"
+                            onClick={() => handleTogglePublished(review)}
+                            disabled={togglingId === review.id}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
+                              review.is_published
+                                ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
+                                : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-gray-200'
+                            } disabled:opacity-50`}
+                            title={review.is_published ? 'Click to hide from store' : 'Click to publish on store'}
                           >
-                            <Edit2 className="w-4 h-4" />
+                            {review.is_published ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                            <span>{review.is_published ? 'Published' : 'Hidden'}</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReview(review)}
-                            disabled={deletingId === review.id}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--color-slate)] hover:text-red-500 transition-colors disabled:opacity-50"
-                            title="Delete this review"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-6 py-3.5 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(review)}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                editingReview?.id === review.id
+                                  ? 'bg-[var(--color-gold-light)] text-[var(--color-gold)]'
+                                  : 'hover:bg-[var(--color-whisper)] text-[var(--color-slate)] hover:text-[var(--color-gold)]'
+                              }`}
+                              title={editingReview?.id === review.id ? 'Close inline editor' : 'Edit this review'}
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteReview(review)}
+                              disabled={deletingId === review.id}
+                              className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--color-slate)] hover:text-red-500 transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Delete this review"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Rectangular box just below the review */}
+                      {editingReview?.id === review.id && (
+                        <tr key={`inline-edit-${review.id}`} className="bg-[var(--color-snow)]/40 border-b border-[var(--color-whisper)]">
+                          <td colSpan={6} className="px-6 py-3">
+                            <motion.div
+                              initial={{ opacity: 0, y: -6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -6 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              {renderInlineEditBox(review, 'table')}
+                            </motion.div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -826,417 +1388,6 @@ export default function ReviewsClient({ initialProducts, initialAllReviews, init
           </div>
         </div>
       )}
-
-      {/* EDIT REVIEW MODAL */}
-      <AnimatePresence>
-        {editingReview && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
-              onClick={() => !isSaving && setEditingReview(null)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
-            >
-              <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto pointer-events-auto"
-                onClick={e => e.stopPropagation()}
-              >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between p-6 border-b border-[var(--color-whisper)]">
-                  <div>
-                    <h2 className="text-lg font-semibold text-[var(--color-ink)]" style={{ fontFamily: 'var(--font-display)' }}>
-                      Edit User Review
-                    </h2>
-                    <p className="text-xs text-[var(--color-slate)] mt-0.5">
-                      Editing review for <span className="font-semibold text-[var(--color-ink)]">{editingReview.product?.name}</span>
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => !isSaving && setEditingReview(null)}
-                    className="p-2 rounded-lg hover:bg-[var(--color-whisper)] text-[var(--color-slate)] transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Modal Form */}
-                <div className="p-6 space-y-4">
-                  {/* Reviewer Name */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                      Reviewer Display Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={form.reviewer_name}
-                      onChange={e => setForm(f => ({ ...f, reviewer_name: e.target.value }))}
-                      placeholder="e.g. Priya Sharma, Ananya R."
-                      className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)]"
-                    />
-                  </div>
-
-                  {/* Rating Selector */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1.5">
-                      Star Rating * ({form.rating} out of 5 stars)
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      {[1, 2, 3, 4, 5].map(star => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setForm(f => ({ ...f, rating: star }))}
-                          className="p-1 hover:scale-110 transition-transform"
-                        >
-                          <Star
-                            className={`w-7 h-7 ${
-                              star <= form.rating
-                                ? 'fill-amber-400 text-amber-400'
-                                : 'text-gray-200 hover:text-amber-200'
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Review Title */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                      Review Title / Headline
-                    </label>
-                    <input
-                      type="text"
-                      value={form.title}
-                      onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                      placeholder="e.g. Stunning craftsmanship and drape"
-                      className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)]"
-                    />
-                  </div>
-
-                  {/* Review Body */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                      Review Content / Feedback *
-                    </label>
-                    <textarea
-                      value={form.body}
-                      onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                      rows={4}
-                      placeholder="Enter customer review text..."
-                      className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)] resize-none"
-                    />
-                  </div>
-
-                  {/* Quality & Fit Ratings */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                        Quality Score (1-5)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={form.quality_rating}
-                        onChange={e => setForm(f => ({ ...f, quality_rating: Number(e.target.value) }))}
-                        className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                        Fit Score (1-5)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={form.fit_rating}
-                        onChange={e => setForm(f => ({ ...f, fit_rating: Number(e.target.value) }))}
-                        className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Toggles */}
-                  <div className="pt-2 border-t border-[var(--color-whisper)] space-y-3">
-                    <div className="flex items-center justify-between py-1">
-                      <div>
-                        <span className="text-sm font-medium text-[var(--color-ink)]">Publish on Storefront</span>
-                        <p className="text-xs text-[var(--color-slate)]">When enabled, this review is live on the product page</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, is_published: !f.is_published }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.is_published ? 'bg-[var(--color-gold)]' : 'bg-gray-300'}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.is_published ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1">
-                      <div>
-                        <span className="text-sm font-medium text-[var(--color-ink)]">Verified Purchase Badge</span>
-                        <p className="text-xs text-[var(--color-slate)]">Displays green "Verified Buyer" badge beside reviewer name</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, is_verified_purchase: !f.is_verified_purchase }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.is_verified_purchase ? 'bg-[var(--color-gold)]' : 'bg-gray-300'}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.is_verified_purchase ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex items-center justify-between p-6 border-t border-[var(--color-whisper)] bg-[var(--color-snow)] rounded-b-2xl">
-                  {editingReview.product?.slug && (
-                    <a
-                      href={`/product/${editingReview.product.slug}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-[var(--color-gold)] hover:underline flex items-center gap-1"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Preview Product Page</span>
-                    </a>
-                  )}
-
-                  <div className="flex items-center gap-3 ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => setEditingReview(null)}
-                      disabled={isSaving}
-                      className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--color-slate)] hover:bg-[var(--color-whisper)] transition-colors disabled:opacity-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveEdit}
-                      disabled={isSaving}
-                      className="flex items-center gap-2 bg-[var(--color-gold)] text-white rounded-lg px-5 py-2 font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity shadow-sm"
-                    >
-                      {isSaving ? (
-                        <>
-                          <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Saving…</span>
-                        </>
-                      ) : (
-                        'Save & Publish Changes'
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* CREATE REVIEW MODAL */}
-      <AnimatePresence>
-        {isAddModalOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
-              onClick={() => !isSaving && setIsAddModalOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
-            >
-              <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto pointer-events-auto"
-                onClick={e => e.stopPropagation()}
-              >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between p-6 border-b border-[var(--color-whisper)]">
-                  <div>
-                    <h2 className="text-lg font-semibold text-[var(--color-ink)]" style={{ fontFamily: 'var(--font-display)' }}>
-                      Add Customer Review
-                    </h2>
-                    <p className="text-xs text-[var(--color-slate)] mt-0.5">
-                      Create customer review that reflects on the storefront product page
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => !isSaving && setIsAddModalOpen(false)}
-                    className="p-2 rounded-lg hover:bg-[var(--color-whisper)] text-[var(--color-slate)] transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Modal Form */}
-                <div className="p-6 space-y-4">
-                  {/* Product Selector */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                      Target Product *
-                    </label>
-                    <select
-                      value={targetProductForAdd?.id || ''}
-                      onChange={e => {
-                        const found = products.find(p => p.id === e.target.value);
-                        setTargetProductForAdd(found || null);
-                      }}
-                      className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)] bg-white"
-                    >
-                      {products.map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.category_name})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Reviewer Name */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                      Customer Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={form.reviewer_name}
-                      onChange={e => setForm(f => ({ ...f, reviewer_name: e.target.value }))}
-                      placeholder="e.g. Ananya Iyer, Pooja V."
-                      className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)]"
-                    />
-                  </div>
-
-                  {/* Rating Selector */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1.5">
-                      Star Rating * ({form.rating} out of 5 stars)
-                    </label>
-                    <div className="flex items-center gap-1.5">
-                      {[1, 2, 3, 4, 5].map(star => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => setForm(f => ({ ...f, rating: star }))}
-                          className="p-1 hover:scale-110 transition-transform"
-                        >
-                          <Star
-                            className={`w-7 h-7 ${
-                              star <= form.rating
-                                ? 'fill-amber-400 text-amber-400'
-                                : 'text-gray-200 hover:text-amber-200'
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Review Title */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                      Review Title / Headline
-                    </label>
-                    <input
-                      type="text"
-                      value={form.title}
-                      onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                      placeholder="e.g. Unbelievable craftsmanship and drape"
-                      className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)]"
-                    />
-                  </div>
-
-                  {/* Review Body */}
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate)] mb-1">
-                      Review Details *
-                    </label>
-                    <textarea
-                      value={form.body}
-                      onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-                      rows={4}
-                      placeholder="Write customer feedback here..."
-                      className="w-full border border-[var(--color-whisper)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/30 focus:border-[var(--color-gold)] resize-none"
-                    />
-                  </div>
-
-                  {/* Toggles */}
-                  <div className="pt-2 border-t border-[var(--color-whisper)] space-y-3">
-                    <div className="flex items-center justify-between py-1">
-                      <div>
-                        <span className="text-sm font-medium text-[var(--color-ink)]">Publish Immediately</span>
-                        <p className="text-xs text-[var(--color-slate)]">Make this review visible on the product page right away</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, is_published: !f.is_published }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.is_published ? 'bg-[var(--color-gold)]' : 'bg-gray-300'}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.is_published ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between py-1">
-                      <div>
-                        <span className="text-sm font-medium text-[var(--color-ink)]">Verified Purchase Badge</span>
-                        <p className="text-xs text-[var(--color-slate)]">Tag as verified buyer</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, is_verified_purchase: !f.is_verified_purchase }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.is_verified_purchase ? 'bg-[var(--color-gold)]' : 'bg-gray-300'}`}
-                      >
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${form.is_verified_purchase ? 'translate-x-6' : 'translate-x-1'}`} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-[var(--color-whisper)] bg-[var(--color-snow)] rounded-b-2xl">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    disabled={isSaving}
-                    className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--color-slate)] hover:bg-[var(--color-whisper)] transition-colors disabled:opacity-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCreateReview}
-                    disabled={isSaving}
-                    className="flex items-center gap-2 bg-[var(--color-gold)] text-white rounded-lg px-5 py-2 font-medium text-sm hover:opacity-90 disabled:opacity-50 transition-opacity shadow-sm"
-                  >
-                    {isSaving ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Publishing…</span>
-                      </>
-                    ) : (
-                      'Publish Review'
-                    )}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
