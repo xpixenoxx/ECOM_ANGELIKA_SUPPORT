@@ -51,6 +51,7 @@ export interface ClientProductData {
   categoryId?: string;
   categorySlug?: string;
   tags?: string[];
+  returnWindowDays?: number;
   rawFabric?: any;
   variants?: Array<{
     id: string;
@@ -172,6 +173,14 @@ export function transformProductForClient(
     categoryId: product.category_id || undefined,
     categorySlug: product.category?.slug || undefined,
     tags: product.tags || [],
+    returnWindowDays: (() => {
+      const tag = (product.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
+      if (tag) {
+        const val = parseInt(tag.replace('return-days:', ''), 10);
+        return isNaN(val) ? 7 : val;
+      }
+      return 7;
+    })(),
     rawFabric: product.fabric,
     variants: (product.variants || []).map((v) => ({
       id: v.id,

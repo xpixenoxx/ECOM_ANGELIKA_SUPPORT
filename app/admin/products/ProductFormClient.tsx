@@ -26,6 +26,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
 import { createProduct, updateProduct, deleteProduct } from '@/lib/actions/admin-products';
@@ -146,9 +147,25 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
   const [uploading, setUploading] = useState(false);
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
+  const cleanInitialTags = (initialProduct?.tags || [])
+    .filter((t: string) => typeof t === 'string' && !t.startsWith('return-days:'))
+    .join(', ');
+
   const [tags, setTags] = useState(
-    initialProduct?.tags?.join(', ') || 'festive, handcrafted, luxury'
+    cleanInitialTags || (initialProduct ? '' : 'festive, handcrafted, luxury')
   );
+
+  const [returnDays, setReturnDays] = useState<number>(() => {
+    if (initialProduct?.return_window_days !== undefined) {
+      return Number(initialProduct.return_window_days);
+    }
+    const returnTag = (initialProduct?.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
+    if (returnTag) {
+      const parsed = parseInt(returnTag.replace('return-days:', ''), 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return 7;
+  });
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -433,6 +450,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
             is_vidyas_pick: isVidhyasPick,
             images,
             tags: tagList,
+            return_window_days: returnDays,
             sizes: formattedVariants.map((v) => v.size),
             variants: formattedVariants,
           });
@@ -462,6 +480,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
             is_vidyas_pick: isVidhyasPick,
             images,
             tags: tagList,
+            return_window_days: returnDays,
             sizes: formattedVariants.map((v) => v.size),
             variants: formattedVariants,
           });
@@ -1277,6 +1296,93 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
                     }`}
                 />
               </button>
+            </div>
+          </div>
+
+          {/* Return Window & Policy Card */}
+          <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
+                <RotateCcw className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
+                Return Window &amp; Policy
+              </h2>
+              <p className="text-xs text-[var(--color-slate,#666666)] mt-0.5">
+                Number of days customers can return or exchange this product after delivery
+              </p>
+            </div>
+
+            {/* Quick Presets */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-2">
+                Return Period Presets
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { days: 0, label: 'Non-Returnable' },
+                  { days: 7, label: '7 Days (Std)' },
+                  { days: 10, label: '10 Days' },
+                  { days: 14, label: '14 Days' },
+                  { days: 15, label: '15 Days' },
+                  { days: 30, label: '30 Days' },
+                ].map((preset) => (
+                  <button
+                    key={preset.days}
+                    type="button"
+                    onClick={() => setReturnDays(preset.days)}
+                    className={`py-2 px-2 rounded-xl text-xs font-medium border text-center transition-all cursor-pointer ${
+                      returnDays === preset.days
+                        ? 'border-[var(--color-gold,#C9A84C)] bg-amber-50 text-amber-950 font-bold ring-1 ring-[var(--color-gold,#C9A84C)]'
+                        : 'border-[var(--color-whisper,#E5E5E5)] text-[var(--color-ink,#111111)] hover:bg-slate-50'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Input */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+                Custom Return Period (Days)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="180"
+                  value={returnDays}
+                  onChange={(e) => setReturnDays(Math.max(0, parseInt(e.target.value) || 0))}
+                  placeholder="7"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[var(--color-whisper,#E5E5E5)] text-sm text-[var(--color-ink,#111111)] focus:outline-none focus:border-[var(--color-gold,#C9A84C)] focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/20"
+                />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-medium text-[var(--color-slate,#666666)] pointer-events-none">
+                  days after delivery
+                </span>
+              </div>
+            </div>
+
+            {/* Policy Explanatory Note */}
+            <div className={`p-3 rounded-xl border text-xs leading-relaxed ${
+              returnDays === 0
+                ? 'bg-rose-50 border-rose-200 text-rose-900'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            }`}>
+              {returnDays === 0 ? (
+                <>
+                  <p className="font-bold mb-0.5">⚠️ Final Sale (Non-Returnable)</p>
+                  <p className="text-[11px] opacity-90">
+                    Customers will see &quot;Non-Returnable&quot; on the product page. The return button will be completely hidden from their order details after purchase.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-bold mb-0.5">✓ Returnable within {returnDays} days</p>
+                  <p className="text-[11px] opacity-90">
+                    Customers can request a doorstep return or size exchange for up to {returnDays} days following order delivery. Once {returnDays} days pass, the return button automatically disappears from their order.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>

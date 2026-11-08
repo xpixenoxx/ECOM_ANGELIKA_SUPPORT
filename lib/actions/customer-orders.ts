@@ -40,6 +40,11 @@ export interface CustomerOrderItem {
   total_price: number;
   existing_review?: CustomerOrderItemReview | null;
   existing_return?: CustomerOrderItemReturn | null;
+  return_window_days?: number;
+  is_return_eligible?: boolean;
+  return_expired?: boolean;
+  return_deadline?: string | null;
+  days_left?: number;
   variant_details?: {
     size?: string;
     color?: string;
@@ -288,9 +293,42 @@ export async function getCustomerOrderById(
       console.warn('Returns fetch warning for order:', e);
     }
 
+    // Fetch product tags for return windows
+    const productReturnMap = new Map<string, number>();
+    if (prodIds.length > 0) {
+      try {
+        const { data: prods } = await supabaseAdmin
+          .from('products')
+          .select('id, tags')
+          .in('id', prodIds);
+
+        (prods || []).forEach((p: any) => {
+          const tag = (p.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
+          if (tag) {
+            const val = parseInt(tag.replace('return-days:', ''), 10);
+            productReturnMap.set(p.id, isNaN(val) ? 7 : val);
+          } else {
+            productReturnMap.set(p.id, 7);
+          }
+        });
+      } catch (pErr) {
+        console.warn('Product return window fetch warning:', pErr);
+      }
+    }
+
+    const isDelivered = (order.status || '').toLowerCase() === 'delivered';
+    const deliveryDate = order.delivered_at || order.updated_at || order.created_at;
+    const deliveryTime = new Date(deliveryDate).getTime();
+    const now = Date.now();
+    const daysElapsed = Math.floor((now - deliveryTime) / (1000 * 60 * 60 * 24));
+
     const items: CustomerOrderItem[] = rawOrderItems.map((it: any) => {
       const vd = it.variant_details || {};
       const img = vd.image || vd.image_url || '/images/collection-kurtis.jpg';
+
+      const itemReturnWindowDays = it.product_id && productReturnMap.has(it.product_id)
+        ? productReturnMap.get(it.product_id)!
+        : 7;
 
       const matchReview = existingReviews.find((r: any) =>
         r.order_item_id === it.id || (it.product_id && r.product_id === it.product_id)
@@ -321,10 +359,23 @@ export async function getCustomerOrderById(
         created_at: matchReturn.created_at,
       } : null;
 
+      // Item is eligible only if delivered, has >0 days return policy, within return days, and not already requested
+      const isReturnExpired = isDelivered ? (itemReturnWindowDays === 0 || daysElapsed > itemReturnWindowDays) : false;
+      const isReturnEligible = isDelivered && itemReturnWindowDays > 0 && daysElapsed <= itemReturnWindowDays && !returnObj;
+      const daysLeft = isDelivered && itemReturnWindowDays > 0 ? Math.max(0, itemReturnWindowDays - daysElapsed) : 0;
+      const returnDeadline = isDelivered && itemReturnWindowDays > 0
+        ? new Date(deliveryTime + itemReturnWindowDays * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
       return {
         ...it,
         existing_review: reviewObj,
         existing_return: returnObj,
+        return_window_days: itemReturnWindowDays,
+        is_return_eligible: isReturnEligible,
+        return_expired: isReturnExpired,
+        return_deadline: returnDeadline,
+        days_left: daysLeft,
         variant_details: {
           ...vd,
           image: img,
@@ -593,6 +644,35 @@ export async function submitCustomerReturnRequest(data: {
         success: false,
         error: `A return request has already been recorded for this item (Status: ${existingRet.status.toUpperCase()})`,
       };
+    }
+
+    // Verify product return window has not expired
+    if (item.product_id) {
+      const { data: prod } = await supabaseAdmin
+        .from('products')
+        .select('tags')
+        .eq('id', item.product_id)
+        .maybeSingle();
+
+      const returnTag = (prod?.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
+      const returnWindowDays = returnTag ? parseInt(returnTag.replace('return-days:', ''), 10) : 7;
+
+      if (returnWindowDays === 0) {
+        return {
+          success: false,
+          error: 'This handcrafted item is designated as Final Sale and cannot be returned or exchanged.',
+        };
+      }
+
+      const deliveryDate = order.delivered_at || order.updated_at || order.created_at;
+      const daysElapsed = Math.floor((Date.now() - new Date(deliveryDate).getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysElapsed > returnWindowDays) {
+        return {
+          success: false,
+          error: `The return period for this item has completed (${returnWindowDays} days policy). Return requests can no longer be processed.`,
+        };
+      }
     }
 
     // Resolve user_id from order or profile

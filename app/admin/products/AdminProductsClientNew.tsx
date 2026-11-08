@@ -866,6 +866,13 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
                           Low Stock ({product.total_inventory})
                         </span>
                       )}
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm backdrop-blur-sm ${
+                        product.return_window_days === 0
+                          ? 'bg-rose-600 text-white'
+                          : 'bg-white/90 text-amber-900 border border-amber-200'
+                      }`}>
+                        {product.return_window_days === 0 ? 'No Return' : `${product.return_window_days || 7}d Return`}
+                      </span>
                     </div>
 
                     {/* Live link shortcut */}

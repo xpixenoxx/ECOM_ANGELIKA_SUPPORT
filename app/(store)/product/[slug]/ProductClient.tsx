@@ -473,14 +473,24 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                   </div>
                 </MagneticCard>
                 <MagneticCard className="flex items-start gap-3 p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)]" strength={0.1}>
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] flex-shrink-0">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    product.returnWindowDays === 0
+                      ? 'bg-rose-100 text-rose-700'
+                      : 'bg-[var(--color-gold-light)] text-[var(--color-gold)]'
+                  }`}>
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                     </svg>
                   </div>
                   <div>
-                    <p className="font-medium text-[var(--color-ink)]">Easy Returns</p>
-                    <p className="text-sm text-[var(--color-slate)]">15-day hassle-free returns</p>
+                    <p className="font-medium text-[var(--color-ink)]">
+                      {product.returnWindowDays === 0 ? 'Final Sale' : 'Easy Returns'}
+                    </p>
+                    <p className="text-sm text-[var(--color-slate)]">
+                      {product.returnWindowDays === 0
+                        ? 'Non-returnable item'
+                        : `${product.returnWindowDays !== undefined ? product.returnWindowDays : 7}-day doorstep returns`}
+                    </p>
                   </div>
                 </MagneticCard>
               </ScrollReveal>
@@ -625,11 +635,18 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                           title: 'Returns & Exchanges',
                           content: (
                             <div className="space-y-3 text-[var(--color-slate)]">
-                              <p><strong className="text-[var(--color-ink)]">15-Day Return Policy:</strong> Items can be returned within 15 days of delivery</p>
-                              <p><strong className="text-[var(--color-ink)]">Condition:</strong> Items must be unworn, unwashed, with original tags and packaging</p>
-                              <p><strong className="text-[var(--color-ink)]">Refunds:</strong> Processed within 5-7 business days after we receive the return</p>
-                              <p><strong className="text-[var(--color-ink)]">Exchanges:</strong> Available for size/color changes (subject to availability)</p>
-                              <p><strong className="text-[var(--color-ink)]">Non-returnable:</strong> Personalized items, sale items (final sale), innerwear</p>
+                              {product.returnWindowDays === 0 ? (
+                                <p className="text-rose-700 font-medium">
+                                  <strong className="text-rose-900">Final Sale (Non-Returnable):</strong> This handcrafted garment is not eligible for returns or exchanges once delivered.
+                                </p>
+                              ) : (
+                                <p>
+                                  <strong className="text-[var(--color-ink)]">{product.returnWindowDays !== undefined ? product.returnWindowDays : 7}-Day Doorstep Returns:</strong> Items can be returned or exchanged within {product.returnWindowDays !== undefined ? product.returnWindowDays : 7} days of doorstep delivery.
+                                </p>
+                              )}
+                              <p><strong className="text-[var(--color-ink)]">Condition:</strong> Items must be unworn, unwashed, with original security tags and designer packaging intact</p>
+                              <p><strong className="text-[var(--color-ink)]">Refunds:</strong> Processed within 5-7 business days after reverse inspection at our atelier</p>
+                              <p><strong className="text-[var(--color-ink)]">Size Exchanges:</strong> Doorstep size swap arranged with no additional pickup charges</p>
                             </div>
                           ),
                         },

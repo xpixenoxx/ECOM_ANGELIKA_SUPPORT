@@ -28,6 +28,7 @@ export interface AdminProduct {
   is_vidyas_pick: boolean;
   images: string[];
   tags: string[] | null;
+  return_window_days?: number;
   variant_count: number;
   total_inventory: number;
   created_at: string;
@@ -122,6 +123,14 @@ export async function getAdminProducts(filters?: {
       is_vidyas_pick: Boolean(p.is_vidyas_pick),
       images: images.length > 0 ? images : ['/images/placeholder.jpg'],
       tags: p.tags || [],
+      return_window_days: (() => {
+        const tag = (p.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
+        if (tag) {
+          const val = parseInt(tag.replace('return-days:', ''), 10);
+          return isNaN(val) ? 7 : val;
+        }
+        return 7;
+      })(),
       variant_count: variants.length,
       total_inventory: totalInventory,
       created_at: p.created_at,
@@ -170,7 +179,15 @@ export async function getProductById(id: string) {
     console.error('getProductById error:', error, 'ID:', id);
     return { product: null, error: error.message };
   }
-  return { product, error: null };
+
+  let returnWindowDays = 7;
+  const returnTag = (product?.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
+  if (returnTag) {
+    const parsed = parseInt(returnTag.replace('return-days:', ''), 10);
+    if (!isNaN(parsed)) returnWindowDays = parsed;
+  }
+
+  return { product: { ...product, return_window_days: returnWindowDays }, error: null };
 }
 
 // Helper to generate SKU
@@ -200,6 +217,7 @@ export async function createProduct(payload: {
   images?: string[];
   tags?: string[];
   sizes?: string[];
+  return_window_days?: number;
   variants?: Array<{
     id?: string;
     size: string;
@@ -214,6 +232,10 @@ export async function createProduct(payload: {
   const cleanSlug = payload.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/(^-|-$)/g, '');
   const sku = (payload.sku && payload.sku.trim()) || generateSKU(payload.name, payload.category_id);
 
+  const rawTags = (payload.tags || []).filter((t: string) => !t.startsWith('return-days:'));
+  const returnDays = payload.return_window_days !== undefined ? payload.return_window_days : 7;
+  const finalTags = [...rawTags, `return-days:${returnDays}`];
+
   // 1. Insert product
   const { data: newProd, error: prodErr } = await supabase
     .from('products')
@@ -226,7 +248,7 @@ export async function createProduct(payload: {
       is_active: payload.is_active ?? true,
       is_featured: payload.is_featured ?? false,
       is_vidyas_pick: payload.is_vidyas_pick ?? false,
-      tags: payload.tags || [],
+      tags: finalTags,
     })
     .select()
     .single();
@@ -234,6 +256,23 @@ export async function createProduct(payload: {
   if (prodErr) {
     console.error('createProduct error:', prodErr);
     return { success: false, error: prodErr.message };
+  }
+
+  // Also store return policy in content_blocks
+  try {
+    await supabase.from('content_blocks').upsert(
+      {
+        key: `product_return_policy_${newProd.id}`,
+        type: 'custom',
+        title: `Return Policy for ${newProd.name}`,
+        content: { return_window_days: returnDays, updated_at: new Date().toISOString() },
+        settings: { kind: 'product_return_policy' },
+        is_active: true,
+      },
+      { onConflict: 'key' }
+    );
+  } catch (cbErr) {
+    console.warn('Failed to upsert return policy in content_blocks:', cbErr);
   }
 
   // 2. Insert variants (support customized price per size or fallback to uniform sizes)
@@ -305,6 +344,7 @@ export async function updateProduct(
     images?: string[];
     tags?: string[];
     sizes?: string[];
+    return_window_days?: number;
     variants?: Array<{
       id?: string;
       size: string;
@@ -327,7 +367,38 @@ export async function updateProduct(
   if (payload.is_active !== undefined) prodUpdates.is_active = payload.is_active;
   if (payload.is_featured !== undefined) prodUpdates.is_featured = payload.is_featured;
   if (payload.is_vidyas_pick !== undefined) prodUpdates.is_vidyas_pick = payload.is_vidyas_pick;
-  if (payload.tags !== undefined) prodUpdates.tags = payload.tags;
+  if (payload.tags !== undefined || payload.return_window_days !== undefined) {
+    let currentTags = payload.tags;
+    if (currentTags === undefined) {
+      const { data: currentP } = await supabase.from('products').select('tags').eq('id', id).single();
+      currentTags = currentP?.tags || [];
+    }
+    const cleanTags = (currentTags || []).filter((t: string) => !t.startsWith('return-days:'));
+    const returnDays = payload.return_window_days !== undefined
+      ? payload.return_window_days
+      : (() => {
+          const existing = (currentTags || []).find((t: string) => t.startsWith('return-days:'));
+          return existing ? parseInt(existing.replace('return-days:', ''), 10) : 7;
+        })();
+    prodUpdates.tags = [...cleanTags, `return-days:${returnDays}`];
+
+    // Also persist in content_blocks
+    try {
+      await supabase.from('content_blocks').upsert(
+        {
+          key: `product_return_policy_${id}`,
+          type: 'custom',
+          title: `Return Policy for Product ${id}`,
+          content: { return_window_days: returnDays, updated_at: new Date().toISOString() },
+          settings: { kind: 'product_return_policy' },
+          is_active: true,
+        },
+        { onConflict: 'key' }
+      );
+    } catch (cbErr) {
+      console.warn('Failed to update return policy in content_blocks:', cbErr);
+    }
+  }
 
   const { error: prodErr } = await supabase.from('products').update(prodUpdates).eq('id', id);
   if (prodErr) {

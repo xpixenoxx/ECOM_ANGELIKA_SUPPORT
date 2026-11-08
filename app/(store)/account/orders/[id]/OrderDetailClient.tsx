@@ -330,13 +330,13 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
               <span className={cn('px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full uppercase tracking-wider', statusBadgeClass)}>
                 {order.status}
               </span>
-              {statusKey === 'delivered' && order.items.length > 0 && (
+              {statusKey === 'delivered' && order.items.some((i) => (i.is_return_eligible ?? true) && !itemReturns[i.id] && !i.existing_return) && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const unreturnedItem = order.items.find((i) => !itemReturns[i.id] && !i.existing_return) || order.items[0];
-                    if (unreturnedItem) handleOpenReturnModal(unreturnedItem);
+                    const eligibleItem = order.items.find((i) => (i.is_return_eligible ?? true) && !itemReturns[i.id] && !i.existing_return);
+                    if (eligibleItem) handleOpenReturnModal(eligibleItem);
                   }}
                   className="cursor-pointer border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100 flex items-center gap-1.5"
                 >
@@ -511,14 +511,28 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
 
                               <div className="flex items-center gap-2">
                                 {!existingRet && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenReturnModal(item)}
-                                    className="px-4 py-2 text-xs font-semibold rounded-full uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-xs border border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100"
-                                  >
-                                    <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-                                    <span>Return Item</span>
-                                  </button>
+                                  (item.is_return_eligible ?? true) ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenReturnModal(item)}
+                                      className="px-4 py-2 text-xs font-semibold rounded-full uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-xs border border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100"
+                                      title={item.days_left !== undefined ? `${item.days_left} days left to return` : undefined}
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                                      <span>Return Item</span>
+                                      {item.days_left !== undefined && item.days_left > 0 && (
+                                        <span className="text-[10px] font-normal text-amber-700">({item.days_left}d left)</span>
+                                      )}
+                                    </button>
+                                  ) : item.return_window_days === 0 ? (
+                                    <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
+                                      Final Sale (Non-Returnable)
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] font-medium text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200/80">
+                                      Return window closed ({item.return_window_days || 7}d policy)
+                                    </span>
+                                  )
                                 )}
 
                                 <button
