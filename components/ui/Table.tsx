@@ -422,8 +422,8 @@ export const TableRow = forwardRef<HTMLTableRowElement, TableRowProps>(
 TableRow.displayName = 'TableRow';
 
 // TableHead component
-export interface TableHeadProps {
-  children: ReactNode;
+export interface TableHeadProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
+  children?: ReactNode;
   className?: string;
   width?: string;
   align?: 'left' | 'center' | 'right';
@@ -459,8 +459,8 @@ export const TableHead = forwardRef<HTMLTableCellElement, TableHeadProps>(
 TableHead.displayName = 'TableHead';
 
 // TableCell component
-export interface TableCellProps {
-  children: ReactNode;
+export interface TableCellProps extends React.TdHTMLAttributes<HTMLTableCellElement> {
+  children?: ReactNode;
   className?: string;
   align?: 'left' | 'center' | 'right';
   compact?: boolean;

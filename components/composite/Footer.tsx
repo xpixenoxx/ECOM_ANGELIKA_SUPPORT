@@ -19,10 +19,13 @@ export interface FooterColumn {
 }
 
 export interface SocialLink {
-  platform: 'instagram' | 'facebook' | 'pinterest' | 'youtube' | 'whatsapp' | 'twitter';
+  id?: string;
+  platform: 'instagram' | 'facebook' | 'pinterest' | 'youtube' | 'whatsapp' | 'twitter' | 'threads' | 'telegram' | 'tiktok' | 'linkedin' | 'snapchat' | 'spotify' | 'globe' | 'website' | 'email' | 'sms' | string;
+  icon?: string;
   href: string;
   label: string;
   handle?: string;
+  enabled?: boolean;
 }
 
 export interface FooterProps {
@@ -500,18 +503,18 @@ export function Footer({
               <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold)] block">
                 {effectiveSocialTitle}
               </span>
-              <div className="flex items-center gap-2.5" role="list" aria-label="Social media channels">
-                {effectiveSocialLinks.map((social) => (
+              <div className="flex items-center gap-2.5 flex-wrap" role="list" aria-label="Social media channels">
+                {effectiveSocialLinks.map((social, sIdx) => (
                   <a
-                    key={social.platform}
+                    key={social.id || `${social.platform}-${sIdx}`}
                     href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-8 h-8 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-slate)] hover:bg-[var(--color-gold)] hover:text-white hover:border-[var(--color-gold)] flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-xs"
-                    aria-label={social.label}
-                    title={social.handle || social.label}
+                    aria-label={social.label || social.platform}
+                    title={social.handle || social.label || social.platform}
                   >
-                    <SocialIcon platform={social.platform} size="sm" />
+                    <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
                   </a>
                 ))}
               </div>

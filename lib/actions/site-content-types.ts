@@ -433,7 +433,9 @@ export interface FooterColumnItem {
 }
 
 export interface FooterSocialItem {
-  platform: 'instagram' | 'whatsapp' | 'facebook' | 'pinterest' | 'youtube' | 'twitter';
+  id?: string;
+  platform: 'instagram' | 'whatsapp' | 'facebook' | 'pinterest' | 'youtube' | 'twitter' | 'threads' | 'telegram' | 'tiktok' | 'linkedin' | 'snapchat' | 'spotify' | 'globe' | 'website' | 'email' | 'sms' | string;
+  icon?: string;
   href: string;
   label: string;
   handle?: string;

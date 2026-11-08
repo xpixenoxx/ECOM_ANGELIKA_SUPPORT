@@ -15,6 +15,19 @@ export interface CustomerOrderItemReview {
   created_at?: string;
 }
 
+export interface CustomerOrderItemReturn {
+  id: string;
+  order_id: string;
+  order_item_id: string;
+  type: string;
+  status: string;
+  reason: string;
+  reason_detail?: string | null;
+  refund_amount?: number | null;
+  exchange_size?: string | null;
+  created_at: string;
+}
+
 export interface CustomerOrderItem {
   id: string;
   order_id: string;
@@ -26,6 +39,7 @@ export interface CustomerOrderItem {
   unit_price: number;
   total_price: number;
   existing_review?: CustomerOrderItemReview | null;
+  existing_return?: CustomerOrderItemReturn | null;
   variant_details?: {
     size?: string;
     color?: string;
@@ -260,6 +274,20 @@ export async function getCustomerOrderById(
       console.warn('Reviews fetch warning for order:', e);
     }
 
+    // Fetch existing return requests for this order
+    let existingReturns: any[] = [];
+    try {
+      const { data: retRows } = await supabaseAdmin
+        .from('returns')
+        .select('id, order_id, order_item_id, type, status, reason, reason_detail, refund_amount, exchange_size, created_at')
+        .eq('order_id', order.id);
+      if (retRows && retRows.length > 0) {
+        existingReturns = retRows;
+      }
+    } catch (e) {
+      console.warn('Returns fetch warning for order:', e);
+    }
+
     const items: CustomerOrderItem[] = rawOrderItems.map((it: any) => {
       const vd = it.variant_details || {};
       const img = vd.image || vd.image_url || '/images/collection-kurtis.jpg';
@@ -279,9 +307,24 @@ export async function getCustomerOrderById(
         created_at: matchReview.created_at,
       } : null;
 
+      const matchReturn = existingReturns.find((r: any) => r.order_item_id === it.id);
+      const returnObj: CustomerOrderItemReturn | null = matchReturn ? {
+        id: matchReturn.id,
+        order_id: matchReturn.order_id,
+        order_item_id: matchReturn.order_item_id,
+        type: matchReturn.type || 'return',
+        status: matchReturn.status || 'requested',
+        reason: matchReturn.reason,
+        reason_detail: matchReturn.reason_detail,
+        refund_amount: matchReturn.refund_amount ? Number(matchReturn.refund_amount) : null,
+        exchange_size: matchReturn.exchange_size || null,
+        created_at: matchReturn.created_at,
+      } : null;
+
       return {
         ...it,
         existing_review: reviewObj,
+        existing_return: returnObj,
         variant_details: {
           ...vd,
           image: img,
@@ -496,5 +539,162 @@ export async function submitCustomerOrderReview(data: {
   } catch (err: any) {
     console.error('submitCustomerOrderReview error:', err);
     return { success: false, error: err?.message || 'Failed to submit review' };
+  }
+}
+
+/**
+ * Allows verified customer to submit a return or exchange request for a delivered product.
+ */
+export async function submitCustomerReturnRequest(data: {
+  orderId: string;
+  orderItemId: string;
+  type: 'return' | 'exchange';
+  reason: string;
+  reasonDetail?: string;
+  pickupAddress: {
+    name: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    pincode: string;
+  };
+  exchangeSize?: string;
+  refundAmount?: number;
+}): Promise<{ success: boolean; error?: string; returnRecord?: CustomerOrderItemReturn }> {
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.orderId);
+    let orderQuery = supabaseAdmin.from('orders').select('*, order_items(*)');
+    if (isUuid) {
+      orderQuery = orderQuery.eq('id', data.orderId);
+    } else {
+      orderQuery = orderQuery.eq('order_number', data.orderId);
+    }
+    const { data: order, error: oErr } = await orderQuery.maybeSingle();
+
+    if (oErr || !order) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    const item = (order.order_items || []).find((i: any) => i.id === data.orderItemId);
+    if (!item) {
+      return { success: false, error: 'Item not found in this order' };
+    }
+
+    // Verify item has not already been requested
+    const { data: existingRet } = await supabaseAdmin
+      .from('returns')
+      .select('id, status')
+      .eq('order_item_id', data.orderItemId)
+      .maybeSingle();
+
+    if (existingRet) {
+      return {
+        success: false,
+        error: `A return request has already been recorded for this item (Status: ${existingRet.status.toUpperCase()})`,
+      };
+    }
+
+    // Resolve user_id from order or profile
+    let userId = order.user_id;
+    if (!userId && order.email) {
+      const { data: prof } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', order.email)
+        .maybeSingle();
+      if (prof?.id) {
+        userId = prof.id;
+      }
+    }
+    if (!userId) {
+      const { data: anyProf } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .limit(1)
+        .maybeSingle();
+      if (anyProf?.id) {
+        userId = anyProf.id;
+      }
+    }
+
+    if (!userId) {
+      return { success: false, error: 'Could not associate return with a valid customer account' };
+    }
+
+    const calculatedRefund = typeof data.refundAmount === 'number' && data.refundAmount > 0
+      ? data.refundAmount
+      : (item.total_price || item.unit_price * item.quantity);
+
+    // Map reasons to database check constraint 'returns_reason_check': ('size', 'fit', 'wrong_item', 'damaged', 'quality', 'changed_mind', 'other')
+    const allowedReasons = ['size', 'fit', 'wrong_item', 'damaged', 'quality', 'changed_mind', 'other'];
+    const reasonMapping: Record<string, string> = {
+      size: 'size',
+      wrong_size: 'size',
+      fit: 'fit',
+      fit_issue: 'fit',
+      wrong_item: 'wrong_item',
+      wrong_color: 'wrong_item',
+      color_difference: 'wrong_item',
+      not_as_described: 'wrong_item',
+      damaged: 'damaged',
+      damaged_defective: 'damaged',
+      defective: 'damaged',
+      quality: 'quality',
+      quality_issue: 'quality',
+      fabric_quality: 'quality',
+      changed_mind: 'changed_mind',
+      other: 'other',
+    };
+    const sanitizedReason = reasonMapping[data.reason] || (allowedReasons.includes(data.reason) ? data.reason : 'other');
+
+    const returnPayload = {
+      order_id: order.id,
+      order_item_id: data.orderItemId,
+      user_id: userId,
+      type: data.type === 'exchange' ? 'exchange' : 'return',
+      status: 'requested',
+      reason: sanitizedReason,
+      reason_detail: data.reasonDetail?.trim() || null,
+      refund_amount: calculatedRefund,
+      pickup_address: data.pickupAddress || order.shipping_address || null,
+      exchange_size: data.exchangeSize || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: created, error: cErr } = await supabaseAdmin
+      .from('returns')
+      .insert(returnPayload)
+      .select()
+      .single();
+
+    if (cErr) {
+      console.error('Failed to insert return record:', cErr);
+      return { success: false, error: cErr.message || 'Failed to submit return request' };
+    }
+
+    revalidatePath(`/account/orders/${order.id}`);
+    revalidatePath(`/account/orders/${order.order_number}`);
+    revalidatePath('/admin/orders/returns');
+
+    return {
+      success: true,
+      returnRecord: {
+        id: created.id,
+        order_id: created.order_id,
+        order_item_id: created.order_item_id,
+        type: created.type,
+        status: created.status,
+        reason: created.reason,
+        reason_detail: created.reason_detail,
+        refund_amount: created.refund_amount ? Number(created.refund_amount) : null,
+        exchange_size: created.exchange_size || null,
+        created_at: created.created_at,
+      },
+    };
+  } catch (err: any) {
+    console.error('submitCustomerReturnRequest error:', err);
+    return { success: false, error: err?.message || 'Failed to submit return request' };
   }
 }

@@ -129,14 +129,18 @@ export const RETURN_TYPES = [
 export type ReturnType = typeof RETURN_TYPES[number]['value'];
 
 export const RETURN_REASONS = [
+  { value: 'size', label: 'Size Issue' },
+  { value: 'fit', label: 'Fit & Silhouette' },
+  { value: 'quality', label: 'Quality Issue' },
+  { value: 'damaged', label: 'Damaged / Defective' },
+  { value: 'wrong_item', label: 'Wrong Item / Color' },
+  { value: 'changed_mind', label: 'Changed Mind' },
+  { value: 'other', label: 'Other' },
   { value: 'wrong_size', label: 'Wrong Size' },
   { value: 'wrong_color', label: 'Wrong Color' },
   { value: 'not_as_described', label: 'Not as Described' },
-  { value: 'damaged', label: 'Damaged/Defective' },
   { value: 'quality_issue', label: 'Quality Issue' },
-  { value: 'changed_mind', label: 'Changed Mind' },
   { value: 'late_delivery', label: 'Late Delivery' },
-  { value: 'other', label: 'Other' },
 ] as const;
 
 export type ReturnReason = typeof RETURN_REASONS[number]['value'];

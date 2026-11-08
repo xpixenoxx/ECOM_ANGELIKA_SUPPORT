@@ -33,6 +33,13 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 import type { ReturnWithDetails, ReturnStatus, ReturnFilters, ReturnType, ReturnReason } from '@/lib/actions/returns-types';
+import {
+  getReturns,
+  updateReturnStatus,
+  schedulePickup,
+  processRefund,
+  processExchange,
+} from '@/lib/actions/returns';
 
 interface ReturnsClientProps {
   initialStats: {
@@ -66,20 +73,24 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-[var(--color-slate-bg)] text-[var(--color-slate)]',
 };
 
-const TYPE_ICONS: Record<ReturnType, string> = {
+const TYPE_ICONS: Record<string, string> = {
   return: '↩️',
   exchange: '🔄',
 };
 
-const REASON_LABELS: Record<ReturnReason, string> = {
+const REASON_LABELS: Record<string, string> = {
+  size: 'Size Issue',
+  fit: 'Fit & Silhouette',
+  quality: 'Quality Issue',
+  damaged: 'Damaged / Defective',
+  wrong_item: 'Wrong Item / Color',
+  changed_mind: 'Changed Mind',
+  other: 'Other',
   wrong_size: 'Wrong Size',
   wrong_color: 'Wrong Color',
   not_as_described: 'Not as Described',
-  damaged: 'Damaged/Defective',
   quality_issue: 'Quality Issue',
-  changed_mind: 'Changed Mind',
   late_delivery: 'Late Delivery',
-  other: 'Other',
 };
 
 export default function ReturnsClient({
@@ -97,9 +108,9 @@ export default function ReturnsClient({
   const [pageSize] = useState(20);
   const [isLoading, setIsLoading] = useState(false);
   const [filters, setFilters] = useState<ReturnFilters>({
-    status: '',
-    type: '',
-    reason: '',
+    status: undefined,
+    type: undefined,
+    reason: undefined,
     dateFrom: '',
     dateTo: '',
     search: '',
@@ -133,26 +144,16 @@ export default function ReturnsClient({
   const fetchReturns = useCallback(async (page = 1) => {
     setIsLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: pageSize.toString(),
-      });
-      if (filters.status) params.set('status', filters.status);
-      if (filters.type) params.set('type', filters.type);
-      if (filters.reason) params.set('reason', filters.reason);
-      if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
-      if (filters.dateTo) params.set('dateTo', filters.dateTo);
-      if (filters.search) params.set('search', filters.search);
-
-      const res = await fetch(`/api/admin/returns?${params}`);
-      const data = await res.json();
+      const data = await getReturns(page, pageSize, filters);
       if (data.success) {
         setReturns(data.returns || []);
         setTotalReturns(data.total || 0);
+      } else {
+        addToast({ type: 'error', title: 'Error', message: data.error || 'Failed to fetch returns' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch returns error:', error);
-      addToast({ type: 'error', message: 'Failed to fetch returns' });
+      addToast({ type: 'error', title: 'Error', message: error?.message || 'Failed to fetch returns' });
     } finally {
       setIsLoading(false);
     }
@@ -168,61 +169,33 @@ export default function ReturnsClient({
     try {
       switch (actionDialog.action) {
         case 'status': {
-          const res = await fetch('/api/admin/returns', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'update-status',
-              id: returnId,
-              status: actionForm.status,
-              adminNotes: actionForm.adminNotes,
-            }),
-          });
-          result = await res.json();
+          result = await updateReturnStatus(returnId, actionForm.status, actionForm.adminNotes);
           break;
         }
         case 'pickup': {
-          const res = await fetch('/api/admin/returns', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'schedule-pickup',
-              returnId,
-              courierPartner: actionForm.courierPartner,
-              pickupAddress: actionForm.pickupAddress,
-              scheduledAt: actionForm.scheduledAt,
-            }),
+          result = await schedulePickup({
+            returnId,
+            courierPartner: actionForm.courierPartner,
+            pickupAddress: actionForm.pickupAddress,
+            scheduledAt: actionForm.scheduledAt,
           });
-          result = await res.json();
           break;
         }
         case 'refund': {
-          const res = await fetch('/api/admin/returns', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'process-refund',
-              returnId,
-              refundAmount: parseFloat(actionForm.refundAmount),
-              paymentMethod: actionForm.paymentMethod,
-              notes: actionForm.adminNotes,
-            }),
+          result = await processRefund({
+            returnId,
+            refundAmount: parseFloat(actionForm.refundAmount),
+            paymentMethod: actionForm.paymentMethod,
+            notes: actionForm.adminNotes,
           });
-          result = await res.json();
           break;
         }
         case 'exchange': {
-          const res = await fetch('/api/admin/returns', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'process-exchange',
-              returnId,
-              exchangeVariantId: actionForm.exchangeVariantId,
-              notes: actionForm.adminNotes,
-            }),
+          result = await processExchange({
+            returnId,
+            exchangeVariantId: actionForm.exchangeVariantId,
+            notes: actionForm.adminNotes,
           });
-          result = await res.json();
           break;
         }
         default:
@@ -230,15 +203,15 @@ export default function ReturnsClient({
       }
 
       if (result.success) {
-        addToast({ type: 'success', message: 'Action completed successfully' });
+        addToast({ type: 'success', title: 'Success', message: 'Action completed successfully' });
         setActionDialog({ open: false, action: null, return: null });
         fetchReturns(currentPage);
       } else {
-        addToast({ type: 'error', message: result.error || 'Action failed' });
+        addToast({ type: 'error', title: 'Error', message: result.error || 'Action failed' });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Action error:', error);
-      addToast({ type: 'error', message: 'Action failed' });
+      addToast({ type: 'error', title: 'Error', message: error?.message || 'Action failed' });
     } finally {
       setIsLoading(false);
     }
@@ -251,15 +224,15 @@ export default function ReturnsClient({
       adminNotes: '',
       courierPartner: '',
       pickupAddress: {
-        name: returnData.user?.full_name || '',
-        phone: returnData.user?.phone || '',
-        address: returnData.order?.shipping_address?.address || '',
-        city: returnData.order?.shipping_address?.city || '',
-        state: returnData.order?.shipping_address?.state || '',
-        pincode: returnData.order?.shipping_address?.pincode || '',
+        name: returnData.user?.full_name || (returnData.pickup_address as any)?.name || '',
+        phone: returnData.user?.phone || (returnData.pickup_address as any)?.phone || '',
+        address: (returnData.order as any)?.shipping_address?.address || (returnData.pickup_address as any)?.address || '',
+        city: (returnData.order as any)?.shipping_address?.city || (returnData.pickup_address as any)?.city || '',
+        state: (returnData.order as any)?.shipping_address?.state || (returnData.pickup_address as any)?.state || '',
+        pincode: (returnData.order as any)?.shipping_address?.pincode || (returnData.pickup_address as any)?.pincode || '',
       },
       scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16),
-      refundAmount: returnData.order_item?.unit_price?.toString() || '',
+      refundAmount: returnData.order_item?.unit_price?.toString() || returnData.refund_amount?.toString() || '',
       paymentMethod: 'original',
       exchangeVariantId: '',
     });
@@ -367,34 +340,34 @@ export default function ReturnsClient({
                   className="pl-10 w-64"
                 />
               </div>
-              <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v }))}>
+              <Select value={filters.status || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, status: v === 'all' ? undefined : v }))}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
+                  <SelectItem value="all">All Status</SelectItem>
                   {statuses.map(s => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filters.type} onValueChange={(v) => setFilters(f => ({ ...f, type: v as ReturnType }))}>
+              <Select value={filters.type || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, type: v === 'all' ? undefined : (v as ReturnType) }))}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="All Types" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Types</SelectItem>
+                  <SelectItem value="all">All Types</SelectItem>
                   {types.map(t => (
                     <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filters.reason} onValueChange={(v) => setFilters(f => ({ ...f, reason: v as ReturnReason }))}>
+              <Select value={filters.reason || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, reason: v === 'all' ? undefined : (v as ReturnReason) }))}>
                 <SelectTrigger className="w-44">
                   <SelectValue placeholder="All Reasons" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Reasons</SelectItem>
+                  <SelectItem value="all">All Reasons</SelectItem>
                   {reasons.map(r => (
                     <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
                   ))}
@@ -414,7 +387,7 @@ export default function ReturnsClient({
                 placeholder="To"
                 className="w-40"
               />
-              <Button variant="outline" onClick={() => setFilters({ status: '', type: '', reason: '', dateFrom: '', dateTo: '', search: '' })}>
+              <Button variant="outline" onClick={() => setFilters({ status: undefined, type: undefined, reason: undefined, dateFrom: '', dateTo: '', search: '' })}>
                 <RefreshCw className="h-4 w-4 mr-2" /> Clear
               </Button>
             </div>
@@ -469,22 +442,23 @@ export default function ReturnsClient({
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <img
-                            src={ret.order_item?.product?.images?.[0]?.url || '/placeholder.jpg'}
-                            alt={ret.order_item?.product?.name}
+                            src={ret.order_item?.product?.images?.[0]?.url || (ret.order_item?.variant_details as any)?.image || (ret.order_item?.variant_details as any)?.image_url || '/images/collection-kurtis.jpg'}
+                            alt={ret.order_item?.product?.name || ret.order_item?.product_name}
                             className="w-12 h-16 object-cover rounded-[var(--radius-md)]"
                           />
                           <div className="min-w-0">
                             <p className="font-medium text-[var(--color-ink)] truncate max-w-xs">{ret.order_item?.product_name}</p>
                             <p className="text-sm text-[var(--color-slate)]">
-                              {ret.order_item?.variant?.size && `Size: ${ret.order_item.variant.size}`}
+                              {((ret.order_item?.variant?.size) || (ret.order_item?.variant_details as any)?.size || ret.exchange_size) &&
+                                `Size: ${ret.order_item?.variant?.size || (ret.order_item?.variant_details as any)?.size || ret.exchange_size}`}
                               {ret.order_item?.variant?.color && ` • ${ret.order_item.variant.color.name}`}
                             </p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {REASON_LABELS[ret.reason as ReturnReason] || ret.reason}
+                        <Badge variant="outline" className="text-xs">
+                          {REASON_LABELS[ret.reason] || ret.reason}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -493,7 +467,7 @@ export default function ReturnsClient({
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono font-medium text-[var(--color-ink)]">
-                        {formatCurrency(ret.order_item?.unit_price * (ret.order_item?.quantity || 1))}
+                        {formatCurrency(ret.refund_amount || ((ret.order_item?.unit_price || 0) * (ret.order_item?.quantity || 1)))}
                       </TableCell>
                       <TableCell className="text-[var(--color-slate)]">{formatDate(ret.created_at)}</TableCell>
                       <TableCell className="text-right">
@@ -586,9 +560,9 @@ export default function ReturnsClient({
                   <div>
                     <p className="text-sm text-[var(--color-slate)]">Request</p>
                     <p className="font-medium capitalize">{detailDialog.return.type}</p>
-                    <p className="text-sm text-[var(--color-slate)]">Reason: {REASON_LABELS[detailDialog.return.reason as ReturnReason] || detailDialog.return.reason}</p>
+                    <p className="text-sm text-[var(--color-slate)]">Reason: {REASON_LABELS[detailDialog.return.reason] || detailDialog.return.reason}</p>
                     <Badge className={cn('mt-2', STATUS_COLORS[detailDialog.return.status] || '')}>
-                      {statuses.find(s => s.value === detailDialog.return.status)?.label || detailDialog.return.status}
+                      {statuses.find(s => s.value === detailDialog.return?.status)?.label || detailDialog.return.status}
                     </Badge>
                   </div>
                 </div>
@@ -596,8 +570,8 @@ export default function ReturnsClient({
                 {/* Product Info */}
                 <div className="flex gap-4 p-4 border border-[var(--color-whisper)] rounded-[var(--radius-lg)]">
                   <img
-                    src={detailDialog.return.order_item?.product?.images?.[0]?.url || '/placeholder.jpg'}
-                    alt={detailDialog.return.order_item?.product?.name}
+                    src={detailDialog.return.order_item?.product?.images?.[0]?.url || (detailDialog.return.order_item?.variant_details as any)?.image || (detailDialog.return.order_item?.variant_details as any)?.image_url || '/images/collection-kurtis.jpg'}
+                    alt={detailDialog.return.order_item?.product?.name || detailDialog.return.order_item?.product_name}
                     className="w-24 h-32 object-cover rounded-[var(--radius-md)]"
                   />
                   <div className="flex-1">
@@ -642,9 +616,9 @@ export default function ReturnsClient({
                   <div className="p-4 bg-[var(--color-info-bg)] rounded-[var(--radius-lg)]">
                     <p className="text-sm text-[var(--color-slate)]">Pickup Scheduled</p>
                     <p className="font-medium">Courier: {detailDialog.return.courier_partner}</p>
-                    <p className="text-sm">{detailDialog.return.pickup_address.name}</p>
-                    <p className="text-sm">{detailDialog.return.pickup_address.address}, {detailDialog.return.pickup_address.city}, {detailDialog.return.pickup_address.state} - {detailDialog.return.pickup_address.pincode}</p>
-                    <p className="text-sm">Phone: {detailDialog.return.pickup_address.phone}</p>
+                    <p className="text-sm">{(detailDialog.return.pickup_address as any)?.name}</p>
+                    <p className="text-sm">{(detailDialog.return.pickup_address as any)?.address}, {(detailDialog.return.pickup_address as any)?.city}, {(detailDialog.return.pickup_address as any)?.state} - {(detailDialog.return.pickup_address as any)?.pincode}</p>
+                    <p className="text-sm">Phone: {(detailDialog.return.pickup_address as any)?.phone}</p>
                     {detailDialog.return.pickup_scheduled_at && (
                       <p className="text-sm">Scheduled: {formatDate(detailDialog.return.pickup_scheduled_at)}</p>
                     )}

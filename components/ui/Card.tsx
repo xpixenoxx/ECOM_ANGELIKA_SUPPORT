@@ -4,6 +4,7 @@ import { useState, forwardRef, HTMLAttributes, ReactNode } from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
+import { useCart } from '@/lib/hooks/useCart';
 
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'elevated' | 'outlined' | 'interactive' | 'product' | 'editorial';
@@ -143,6 +144,7 @@ export const CardFooter = forwardRef<HTMLDivElement, CardFooterProps>(
 CardFooter.displayName = 'CardFooter';
 
 export interface ProductCardProps {
+  id?: string;
   image: string;
   name: string;
   price: number;
@@ -163,9 +165,11 @@ export interface ProductCardProps {
   discount?: number;
   isWishlisted?: boolean;
   className?: string;
+  [key: string]: any;
 }
 
 export function ProductCard({
+  id,
   image,
   name,
   price,
@@ -186,9 +190,11 @@ export function ProductCard({
   discount,
   isWishlisted,
   className = '',
+  ...rest
 }: ProductCardProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [isAdded, setIsAdded] = useState(false);
+  const cart = useCart();
 
   const calculatedDiscount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : discount;
   const isValidHref = Boolean(href && !href.includes('/undefined') && href !== '#');
@@ -199,12 +205,32 @@ export function ProductCard({
     if (isAdding) return;
     setIsAdding(true);
     try {
+      let added = false;
       if (onAddToBag) {
         const res = await onAddToBag();
         if (res !== false) {
-          setIsAdded(true);
-          setTimeout(() => setIsAdded(false), 2000);
+          added = true;
         }
+      }
+      if (!added) {
+        const cleanPrice = typeof price === 'number' && !isNaN(price) && price > 0
+          ? price
+          : Number(String(price || '').replace(/[^0-9.]/g, '')) || 2999;
+        const targetId = id || (rest['slug'] as string) || (rest['defaultVariantId'] as string) || (rest['variant_id'] as string) || name || 'prod-1';
+        const res = await cart.addItem(targetId, 1, 'Free Size', {
+          product_id: targetId,
+          product_name: name,
+          price: cleanPrice,
+          image: image || '/images/collection-kurtis.jpg',
+          is_vidyas_pick: Boolean(isVidhyasPick),
+        });
+        if (res !== false) {
+          added = true;
+        }
+      }
+      if (added) {
+        setIsAdded(true);
+        setTimeout(() => setIsAdded(false), 2000);
       }
     } catch (err) {
       console.error('Failed to add to bag:', err);

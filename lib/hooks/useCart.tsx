@@ -25,6 +25,17 @@ const SHIPPING_THRESHOLD = 2999; // Free shipping for orders >= ₹2,999 (matche
 const DEFAULT_SHIPPING = 99; // Standard shipping is ₹99 for orders under ₹2,999
 const FREE_SHIPPING = 0;
 
+function generateCartItemId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // Fall through to fallback generator
+    }
+  }
+  return 'cart_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const isTestEnv = process.env.NODE_ENV === 'test';
@@ -56,7 +67,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const subtotal = items.reduce((sum, item) => {
+      const p = typeof item.price === 'number' && !isNaN(item.price) && item.price > 0
+        ? item.price
+        : Number(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
+      const q = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1;
+      return sum + p * q;
+    }, 0);
     const discountAmount = coupon?.discountAmount || 0;
     const isFreeShipping = coupon?.type === 'free_shipping' || subtotal >= SHIPPING_THRESHOLD;
     const shippingCost = isFreeShipping ? FREE_SHIPPING : DEFAULT_SHIPPING;
@@ -72,7 +89,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       taxAmount,
       discountAmount,
       total,
-      itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+      itemCount: items.reduce((sum, item) => sum + (typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1), 0),
     };
   }, []);
 
@@ -93,31 +110,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadCart = async () => {
-    // If user is not signed in (and not in test environment), cart and counter must be 0
-    if (!user && !isTestEnv) {
-      setState({
-        items: [],
-        itemCount: 0,
-        subtotal: 0,
-        shippingCost: 0,
-        taxAmount: 0,
-        discountAmount: 0,
-        total: 0,
-        currency: 'INR',
-        appliedCoupon: null,
-        isLoading: false,
-        error: null,
-      });
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.removeItem('guest_cart');
-          localStorage.removeItem('cart_count');
-          localStorage.removeItem('cart_updated');
-        } catch { }
-      }
-      return;
-    }
-
     // 1. Immediately read localStorage so cart & order load instantly with zero delay
     let localItems: CartItem[] = [];
     if (typeof window !== 'undefined') {
@@ -142,6 +134,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }));
     } else {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
+    }
+
+    // If user is a guest, set local items and finish loading
+    if (!user) {
+      const totals = calculateTotals(localItems, state.appliedCoupon);
+      setState(prev => ({
+        ...prev,
+        items: localItems,
+        ...totals,
+        isLoading: false,
+      }));
+      return;
     }
 
     try {
@@ -180,7 +184,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 '/images/collection-kurtis.jpg';
 
               return {
-                id: item.id || crypto.randomUUID(),
+                id: item.id || generateCartItemId(),
                 product_id: variant?.product?.id || item.product_id,
                 variant_id: item.variant_id,
                 quantity: item.quantity,
@@ -295,16 +299,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const addItem = async (variantId: string, quantity: number = 1, size?: string, productData?: Partial<CartItem>) => {
-    // If not signed in (and not in test environment), ask user to sign in
-    if (!user && !isTestEnv) {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('auth:open', {
-            detail: { message: 'Please sign in to add items to your bag' },
-          })
-        );
+    // Sanitize price
+    const rawPrice = productData?.price;
+    let cleanPrice = 0;
+    if (typeof rawPrice === 'number' && !isNaN(rawPrice) && rawPrice > 0) {
+      cleanPrice = rawPrice;
+    } else if (rawPrice !== undefined && rawPrice !== null) {
+      const parsed = parseFloat(String(rawPrice).replace(/[^0-9.]/g, ''));
+      if (!isNaN(parsed) && parsed > 0) {
+        cleanPrice = parsed;
       }
-      return;
+    }
+    if (!cleanPrice || cleanPrice <= 0) {
+      cleanPrice = 2999;
     }
 
     // 1. Check if item is already in cart
@@ -325,10 +332,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    // 2. If productData has name & price, add immediately (zero network latency)
-    if (productData?.product_name && typeof productData.price === 'number' && productData.price > 0) {
+    // 2. If productData has name, add immediately (zero network latency)
+    if (productData?.product_name && cleanPrice > 0) {
       const newItem: CartItem = {
-        id: crypto.randomUUID(),
+        id: generateCartItemId(),
         product_id: productData.product_id || variantId,
         variant_id: variantId,
         quantity,
@@ -336,7 +343,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         size: size || productData.size || 'Free Size',
         color: productData.color || 'Default',
         color_hex: productData.color_hex || '#C9A84C',
-        price: productData.price,
+        price: cleanPrice,
         image: productData.image || '/images/collection-kurtis.jpg',
         is_vidyas_pick: Boolean(productData.is_vidyas_pick),
         inventory_quantity: 10,
@@ -358,7 +365,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     if (catalogueMatch) {
       const newItem: CartItem = {
-        id: crypto.randomUUID(),
+        id: generateCartItemId(),
         product_id: catalogueMatch.id,
         variant_id: variantId,
         quantity,
@@ -366,7 +373,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         size: size || 'Free Size',
         color: catalogueMatch.color || 'Default',
         color_hex: '#C9A84C',
-        price: catalogueMatch.price,
+        price: catalogueMatch.price || cleanPrice,
         image: catalogueMatch.image || '/images/collection-kurtis.jpg',
         is_vidyas_pick: Boolean(catalogueMatch.isVidhyasPick),
         inventory_quantity: 10,
@@ -429,7 +436,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         '/images/collection-kurtis.jpg';
 
       const newItem: CartItem = {
-        id: crypto.randomUUID(),
+        id: generateCartItemId(),
         product_id: variant.product?.id || variant.product_id,
         variant_id: variant.id,
         quantity,
@@ -437,7 +444,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         size: size || variant.size || productData?.size || 'Free Size',
         color: productData?.color || 'Default',
         color_hex: productData?.color_hex || '#C9A84C',
-        price: variant.price || productData?.price || 2999,
+        price: variant.price || cleanPrice,
         image: primaryImg,
         is_vidyas_pick: variant.product?.is_vidyas_pick || productData?.is_vidyas_pick || false,
         inventory_quantity: variant.inventory_quantity || 10,
@@ -447,7 +454,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       newItems = [...state.items, newItem];
     } else {
       const fallbackItem: CartItem = {
-        id: crypto.randomUUID(),
+        id: generateCartItemId(),
         product_id: variantId,
         variant_id: variantId,
         quantity,
@@ -455,7 +462,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         size: size || productData?.size || 'Free Size',
         color: productData?.color || 'Default',
         color_hex: productData?.color_hex || '#C9A84C',
-        price: productData?.price || 2999,
+        price: cleanPrice,
         image: productData?.image || '/images/collection-kurtis.jpg',
         is_vidyas_pick: Boolean(productData?.is_vidyas_pick),
         inventory_quantity: 10,
@@ -473,16 +480,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const updateQuantity = async (itemId: string, quantity: number) => {
     if (quantity < 1) return removeItem(itemId);
 
-    const item = state.items.find(i => i.id === itemId);
+    const item = state.items.find(i => i.id === itemId || i.variant_id === itemId);
     if (!item) return;
 
-    const newQuantity = Math.min(quantity, item.max_quantity);
-    const newItems = state.items.map(i => i.id === itemId ? { ...i, quantity: newQuantity } : i);
+    const newQuantity = Math.min(quantity, item.max_quantity || 10);
+    const newItems = state.items.map(i => (i.id === item.id || i.variant_id === item.variant_id) ? { ...i, quantity: newQuantity } : i);
     await persistCart(newItems);
   };
 
   const removeItem = async (itemId: string) => {
-    const newItems = state.items.filter(i => i.id !== itemId);
+    const newItems = state.items.filter(i => i.id !== itemId && i.variant_id !== itemId);
     await persistCart(newItems);
     toast.success('Removed from bag');
   };
@@ -698,7 +705,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
 export function useCart() {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
+    return {
+      items: [],
+      itemCount: 0,
+      subtotal: 0,
+      shippingCost: 0,
+      taxAmount: 0,
+      discountAmount: 0,
+      total: 0,
+      currency: 'INR',
+      appliedCoupon: null,
+      isLoading: false,
+      error: null,
+      addItem: async () => false,
+      updateQuantity: async () => {},
+      removeItem: async () => {},
+      clearCart: async () => {},
+      syncCart: async () => {},
+      applyCoupon: async () => ({ valid: false, error: 'Cart not ready' }),
+      removeCoupon: async () => {},
+      validateCart: async () => ({ valid: true, errors: [] }),
+    };
   }
   return context;
 }

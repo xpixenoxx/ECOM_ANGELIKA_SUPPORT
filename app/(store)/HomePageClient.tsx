@@ -241,12 +241,15 @@ export default function HomePageClient({
   const handleAddToBag = async (product: any) => {
     const targetId = product.variant_id || product.defaultVariantId || product.id || product.slug || 'na-1';
     const imgUrl = product.image || product.images?.[0]?.url || '/images/collection-kurtis.jpg';
-    const priceVal = Number(product.price) || 2999;
+    const rawPrice = product.price;
+    const priceVal = typeof rawPrice === 'number' && !isNaN(rawPrice) && rawPrice > 0
+      ? rawPrice
+      : Number(String(rawPrice || '').replace(/[^0-9.]/g, '')) || 2999;
     const isVP = Boolean(product.isVidhyasPick || product.is_vidyas_pick);
     const prodName = product.name || product.title || 'Handcrafted Ethnic Ensemble';
 
     return await addItem(targetId, 1, 'Free Size', {
-      product_id: product.id,
+      product_id: product.id || targetId,
       product_name: prodName,
       price: priceVal,
       image: imgUrl,

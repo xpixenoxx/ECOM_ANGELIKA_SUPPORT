@@ -205,7 +205,22 @@ export function CategoryPageClient({
 
   const handleAddToBag = async (product: any) => {
     try {
-      return await addItem(product.defaultVariantId || product.id, 1);
+      const targetId = product.defaultVariantId || product.variant_id || product.id || product.slug || 'prod-1';
+      const imgUrl = product.image || product.images?.[0]?.url || product.images?.[0] || '/images/collection-kurtis.jpg';
+      const rawPrice = product.price;
+      const priceVal = typeof rawPrice === 'number' && !isNaN(rawPrice) && rawPrice > 0
+        ? rawPrice
+        : Number(String(rawPrice || '').replace(/[^0-9.]/g, '')) || 2999;
+      const isVP = Boolean(product.isVidhyasPick || product.is_vidyas_pick);
+      const prodName = product.name || product.title || 'Handcrafted Luxury Ensemble';
+
+      return await addItem(targetId, 1, 'Free Size', {
+        product_id: product.id || targetId,
+        product_name: prodName,
+        price: priceVal,
+        image: imgUrl,
+        is_vidyas_pick: isVP,
+      });
     } catch (err) {
       console.error('Failed to add to bag:', err);
       return false;

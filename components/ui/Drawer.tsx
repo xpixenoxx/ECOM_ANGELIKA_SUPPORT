@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, ReactNode, useEffect } from 'react';
+import { Fragment, ReactNode, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -8,9 +8,12 @@ import { cn } from '@/lib/utils/cn';
 import { FocusTrap } from '@/components/ui/FocusTrap';
 import { Input } from '@/components/ui/Input';
 
-function formatCurrency(amount: number): string {
-  if (!amount || amount <= 0) return '0';
-  return Math.round(amount).toLocaleString('en-IN');
+function formatCurrency(amount: any): string {
+  const num = typeof amount === 'number' && !isNaN(amount)
+    ? amount
+    : parseFloat(String(amount || '').replace(/[^0-9.]/g, '')) || 0;
+  if (!num || num <= 0) return '0';
+  return Math.round(num).toLocaleString('en-IN');
 }
 
 export interface DrawerProps {
@@ -243,19 +246,43 @@ export function CartDrawer({
   isLoading = false,
 }: CartDrawerProps) {
   const router = useRouter();
+  const [storedGuestItems, setStoredGuestItems] = useState<CartItem[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('guest_cart');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setStoredGuestItems(parsed);
+          }
+        }
+      } catch {}
+    }
+  }, [isOpen]);
+
+  const effectiveDrawerItems = (items && items.length > 0) ? items : storedGuestItems;
+  const effectiveSubtotal = subtotal > 0
+    ? subtotal
+    : effectiveDrawerItems.reduce((sum, item) => {
+        const p = typeof item.price === 'number' && !isNaN(item.price) ? item.price : Number(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
+        return sum + p * (item.quantity || 1);
+      }, 0);
+  const effectiveTotal = total > 0 ? total : Math.max(0, effectiveSubtotal + shipping - discount);
 
   return (
     <Drawer
       isOpen={isOpen}
       onClose={onClose}
       title="Shopping Bag"
-      description={`${items.length} item${items.length !== 1 ? 's' : ''}`}
+      description={`${effectiveDrawerItems.length} item${effectiveDrawerItems.length !== 1 ? 's' : ''}`}
       size="lg"
       position="right"
       className="flex flex-col"
     >
       <div className="flex-1 overflow-y-auto space-y-4">
-        {items.length === 0 ? (
+        {effectiveDrawerItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
             <motion.div
               className="w-20 h-20 rounded-full bg-[var(--color-gold-light)]/60 border border-[var(--color-gold)]/20 flex items-center justify-center mb-5 text-[var(--color-gold)] shadow-xs"
@@ -307,7 +334,7 @@ export function CartDrawer({
         ) : (
           <>
             <ul className="space-y-4" role="list" aria-label="Cart items">
-              {items.map((item, index) => {
+              {effectiveDrawerItems.map((item, index) => {
                 const itemName = (item as any).name || (item as any).product_name || 'Product';
                 const itemImage = (item as any).image || (item as any).image_url || '/images/collection-kurtis.jpg';
                 return (
@@ -419,7 +446,7 @@ export function CartDrawer({
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-[var(--color-slate)]">
                   <span>Subtotal</span>
-                  <span>₹{formatCurrency(subtotal)}</span>
+                  <span>₹{formatCurrency(effectiveSubtotal)}</span>
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-[var(--color-success)]">
@@ -437,7 +464,7 @@ export function CartDrawer({
                 </div>
                 <div className="flex justify-between text-base font-semibold text-[var(--color-ink)] pt-2 border-t border-[var(--color-whisper)]">
                   <span>Total</span>
-                  <span>₹{formatCurrency(total)}</span>
+                  <span>₹{formatCurrency(effectiveTotal)}</span>
                 </div>
               </div>
             </div>
@@ -445,7 +472,7 @@ export function CartDrawer({
         )}
       </div>
 
-      {items.length === 0 ? (
+      {effectiveDrawerItems.length === 0 ? (
         <motion.button
           className="w-full px-6 py-4 text-base font-semibold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-md)] shadow-[var(--shadow-gold)] hover:bg-[var(--color-gold-hover)] hover:shadow-[var(--shadow-lg)] transition-all duration-200 flex items-center justify-center gap-2 group cursor-pointer mt-4 flex-shrink-0"
           whileHover={{ scale: 1.02 }}
@@ -467,7 +494,7 @@ export function CartDrawer({
             onClick={onProceedToCheckout}
             disabled={isLoading}
           >
-            {isLoading ? 'Processing...' : `Proceed to Checkout — ₹${formatCurrency(total)}`}
+            {isLoading ? 'Processing...' : `Proceed to Checkout — ₹${formatCurrency(effectiveTotal)}`}
           </motion.button>
         </div>
       )}

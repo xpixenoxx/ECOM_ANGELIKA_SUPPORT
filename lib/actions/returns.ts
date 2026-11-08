@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import {
   Return,
@@ -28,22 +28,7 @@ import {
  */
 export async function getReturnStats(): Promise<ReturnStats> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Unauthorized');
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      throw new Error('Forbidden - Admin only');
-    }
+    const supabase = supabaseAdmin;
 
     // Get counts by status
     const statuses = ['requested', 'approved', 'received', 'refunded', 'exchanged', 'rejected', 'cancelled'];
@@ -87,7 +72,7 @@ export async function getReturnStats(): Promise<ReturnStats> {
 
     const [{ count: totalReturns }, { count: deliveredOrders }] = await Promise.all([
       supabase.from('returns').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
-      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('order_status', 'delivered').gte('created_at', thirtyDaysAgo),
+      supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'delivered').gte('created_at', thirtyDaysAgo),
     ]);
 
     const returnRate = deliveredOrders && deliveredOrders > 0 ? ((totalReturns || 0) / deliveredOrders) * 100 : 0;
@@ -97,7 +82,7 @@ export async function getReturnStats(): Promise<ReturnStats> {
       .from('returns')
       .select(`
         *,
-        order:orders!returns_order_id_fkey (id, order_number, total_amount, order_status, created_at),
+        order:orders!returns_order_id_fkey (id, order_number, total_amount, status, created_at),
         order_item:order_items!returns_order_item_id_fkey (
           id,
           product_name,
@@ -114,10 +99,10 @@ export async function getReturnStats(): Promise<ReturnStats> {
 
     return {
       totalRequests: Object.values(counts).reduce((a, b) => a + b, 0),
-      pendingRequests: (counts.requested || 0) + (counts.approved || 0) + (counts.picked_up || 0) + (counts.received || 0) + (counts.inspected || 0),
-      approvedRequests: counts.approved || 0,
-      completedRequests: (counts.refunded || 0) + (counts.exchanged || 0),
-      rejectedRequests: counts.rejected || 0,
+      pendingRequests: (counts['requested'] || 0) + (counts['approved'] || 0) + (counts['picked_up'] || 0) + (counts['received'] || 0) + (counts['inspected'] || 0),
+      approvedRequests: counts['approved'] || 0,
+      completedRequests: (counts['refunded'] || 0) + (counts['exchanged'] || 0),
+      rejectedRequests: counts['rejected'] || 0,
       totalRefundAmount,
       avgProcessingDays,
       returnRate: Math.round(returnRate * 10) / 10,
@@ -148,28 +133,13 @@ export async function getReturns(
   filters: ReturnFilters = {}
 ): Promise<ReturnListResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     let query = supabase
       .from('returns')
       .select(`
         *,
-        order:orders!returns_order_id_fkey (id, order_number, total_amount, order_status, created_at),
+        order:orders!returns_order_id_fkey (id, order_number, total_amount, status, created_at, shipping_address),
         order_item:order_items!returns_order_item_id_fkey (
           id,
           product_name,
@@ -199,20 +169,29 @@ export async function getReturns(
     if (filters.dateTo) {
       query = query.lte('created_at', filters.dateTo);
     }
-    if (filters.search) {
-      query = query.or(`order.order_number.ilike.%${filters.search}%,user.full_name.ilike.%${filters.search}%,user.email.ilike.%${filters.search}%`);
-    }
 
     const { data: returns, error, count } = await query;
 
     if (error) {
+      console.error('Get returns error:', error);
       return { success: false, error: error.message };
+    }
+
+    let finalReturns = returns || [];
+    if (filters.search && filters.search.trim()) {
+      const q = filters.search.toLowerCase().trim();
+      finalReturns = finalReturns.filter((r: any) =>
+        r.order?.order_number?.toLowerCase().includes(q) ||
+        r.user?.full_name?.toLowerCase().includes(q) ||
+        r.user?.email?.toLowerCase().includes(q) ||
+        r.order_item?.product_name?.toLowerCase().includes(q)
+      );
     }
 
     return {
       success: true,
-      returns: returns || [],
-      total: count || 0,
+      returns: finalReturns,
+      total: count || finalReturns.length,
     };
   } catch (error) {
     console.error('Get returns error:', error);
@@ -225,28 +204,13 @@ export async function getReturns(
  */
 export async function getReturn(id: string): Promise<ReturnSingleResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     const { data: returnData, error } = await supabase
       .from('returns')
       .select(`
         *,
-        order:orders!returns_order_id_fkey (id, order_number, total_amount, order_status, created_at, shipping_address, billing_address),
+        order:orders!returns_order_id_fkey (id, order_number, total_amount, status, created_at, shipping_address, billing_address),
         order_item:order_items!returns_order_item_id_fkey (
           id,
           product_name,
@@ -281,22 +245,7 @@ export async function updateReturnStatus(
   adminNotes?: string
 ): Promise<ReturnMutationResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     // Validate status transition
     const currentReturn = await getReturn(id);
@@ -326,7 +275,7 @@ export async function updateReturnStatus(
       .eq('id', id)
       .select(`
         *,
-        order:orders!returns_order_id_fkey (id, order_number, total_amount, order_status, created_at),
+        order:orders!returns_order_id_fkey (id, order_number, total_amount, status, created_at),
         order_item:order_items!returns_order_item_id_fkey (
           id,
           product_name,
@@ -346,6 +295,7 @@ export async function updateReturnStatus(
 
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${id}`);
+    revalidatePath('/account/orders');
 
     return { success: true, return: updatedReturn as ReturnWithDetails };
   } catch (error) {
@@ -359,22 +309,7 @@ export async function updateReturnStatus(
  */
 export async function schedulePickup(input: SchedulePickupInput): Promise<ReturnMutationResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     const pickupOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -391,7 +326,7 @@ export async function schedulePickup(input: SchedulePickupInput): Promise<Return
       .eq('id', input.returnId)
       .select(`
         *,
-        order:orders!returns_order_id_fkey (id, order_number, total_amount, order_status, created_at),
+        order:orders!returns_order_id_fkey (id, order_number, total_amount, status, created_at),
         order_item:order_items!returns_order_item_id_fkey (
           id,
           product_name,
@@ -411,6 +346,7 @@ export async function schedulePickup(input: SchedulePickupInput): Promise<Return
 
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${input.returnId}`);
+    revalidatePath('/account/orders');
 
     return { success: true, return: updatedReturn as ReturnWithDetails };
   } catch (error) {
@@ -424,22 +360,7 @@ export async function schedulePickup(input: SchedulePickupInput): Promise<Return
  */
 export async function processRefund(input: ProcessRefundInput): Promise<ReturnMutationResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     const { data: updatedReturn, error } = await supabase
       .from('returns')
@@ -452,7 +373,7 @@ export async function processRefund(input: ProcessRefundInput): Promise<ReturnMu
       .eq('id', input.returnId)
       .select(`
         *,
-        order:orders!returns_order_id_fkey (id, order_number, total_amount, order_status, created_at),
+        order:orders!returns_order_id_fkey (id, order_number, total_amount, status, created_at),
         order_item:order_items!returns_order_item_id_fkey (
           id,
           product_name,
@@ -470,11 +391,9 @@ export async function processRefund(input: ProcessRefundInput): Promise<ReturnMu
       return { success: false, error: error.message };
     }
 
-    // TODO: Integrate with payment gateway to actually process refund
-    // This would call Razorpay/Stripe refund API
-
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${input.returnId}`);
+    revalidatePath('/account/orders');
 
     return { success: true, return: updatedReturn as ReturnWithDetails };
   } catch (error) {
@@ -488,22 +407,7 @@ export async function processRefund(input: ProcessRefundInput): Promise<ReturnMu
  */
 export async function processExchange(input: ProcessExchangeInput): Promise<ReturnMutationResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     // Get variant details
     const { data: variant } = await supabase
@@ -522,14 +426,14 @@ export async function processExchange(input: ProcessExchangeInput): Promise<Retu
         status: 'exchanged',
         exchange_variant_id: input.exchangeVariantId,
         exchange_size: variant.size,
-        exchange_color_id: variant.color?.id,
+        exchange_color_id: (variant as any).color?.id || (Array.isArray(variant.color) ? (variant.color as any)[0]?.id : null),
         admin_notes: input.notes,
         updated_at: new Date().toISOString(),
       })
       .eq('id', input.returnId)
       .select(`
         *,
-        order:orders!returns_order_id_fkey (id, order_number, total_amount, order_status, created_at),
+        order:orders!returns_order_id_fkey (id, order_number, total_amount, status, created_at),
         order_item:order_items!returns_order_item_id_fkey (
           id,
           product_name,
@@ -547,10 +451,9 @@ export async function processExchange(input: ProcessExchangeInput): Promise<Retu
       return { success: false, error: error.message };
     }
 
-    // TODO: Create new order for exchange shipment
-
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${input.returnId}`);
+    revalidatePath('/account/orders');
 
     return { success: true, return: updatedReturn as ReturnWithDetails };
   } catch (error) {

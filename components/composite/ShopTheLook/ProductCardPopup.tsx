@@ -75,7 +75,13 @@ export function ProductCardPopup({
     try {
       const selectedVariant = product.variants?.find((v) => v.size === selectedSize);
       const targetId = selectedVariant?.id || product.default_variant_id || product.id;
-      await addItem(targetId, 1, selectedSize);
+      await addItem(targetId, 1, selectedSize, {
+        product_id: product.id,
+        product_name: product.name,
+        price: product.price,
+        image: imageUrl,
+        size: selectedSize,
+      });
       window.dispatchEvent(new CustomEvent('cart:peek'));
       toast.success(`${product.name} added to bag!`);
       onClose();

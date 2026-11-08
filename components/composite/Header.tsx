@@ -450,12 +450,12 @@ export function Header({
   const { count: rawWishlistCount } = useWishlist();
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // Numbers and cart/wishlist products should ONLY show after user signs in
+  // Cart & wishlist state
   const wishlistCount = user ? rawWishlistCount : 0;
-  const effectiveCartItems = user ? (cartItems.length > 0 ? cartItems : (cart.items as any)) : [];
-  const effectiveSubtotal = user ? (cartSubtotal > 0 ? cartSubtotal : cart.subtotal) : 0;
-  const effectiveTotal = user ? (cartTotal > 0 ? cartTotal : cart.total) : 0;
-  const effectiveItemCount = user ? (cart.itemCount ?? 0) : 0;
+  const effectiveCartItems = cartItems.length > 0 ? cartItems : (cart.items as any);
+  const effectiveSubtotal = cartSubtotal > 0 ? cartSubtotal : cart.subtotal;
+  const effectiveTotal = cartTotal > 0 ? cartTotal : cart.total;
+  const effectiveItemCount = cart.itemCount ?? (effectiveCartItems?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) ?? 0);
   const handleUpdateQuantity = onCartUpdateQuantity || cart.updateQuantity;
   const handleRemoveItem = onCartRemoveItem || cart.removeItem;
   const handleProceedToCheckout = onCartProceedToCheckout || (() => {
@@ -669,7 +669,7 @@ export function Header({
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                     </svg>
-                    {Boolean(user) && wishlistCount > 0 && (
+                    {wishlistCount > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#A84557] text-[10px] font-bold text-white leading-none shadow-xs">
                         {wishlistCount > 99 ? '99+' : wishlistCount}
                       </span>
@@ -683,10 +683,10 @@ export function Header({
                     subtotal={effectiveSubtotal}
                     total={effectiveTotal}
                     items={effectiveCartItems}
-                    shipping={user ? cart.shippingCost : 0}
-                    tax={user ? cart.taxAmount : 0}
-                    discount={user ? cart.discountAmount : 0}
-                    couponCode={user ? cart.appliedCoupon?.code : undefined}
+                    shipping={cart.shippingCost || 0}
+                    tax={cart.taxAmount || 0}
+                    discount={cart.discountAmount || 0}
+                    couponCode={cart.appliedCoupon?.code}
                     onUpdateQuantity={handleUpdateQuantity}
                     onRemoveItem={handleRemoveItem}
                     onProceedToCheckout={handleProceedToCheckout}
@@ -931,6 +931,8 @@ function CartButton({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const pathname = usePathname();
   const { user } = useAuth();
+  const cart = useCart();
+  const [localCart, setLocalCart] = useState<{ items: CartItem[]; itemCount: number; subtotal: number; total: number } | null>(null);
 
   // Close cart drawer when route changes or if on checkout
   useEffect(() => {
@@ -939,17 +941,45 @@ function CartButton({
 
   useEffect(() => {
     const handleCartOpen = () => {
-      // Never open cart drawer on checkout page or if not signed in
-      if (pathname === '/checkout' || !user) return;
+      // Never open cart drawer on checkout page
+      if (pathname === '/checkout') return;
       setIsCartOpen(true);
+    };
+    const handleCartUpdated = (e: any) => {
+      if (e.detail?.items) {
+        setLocalCart({
+          items: e.detail.items,
+          itemCount: e.detail.totals?.itemCount ?? e.detail.items.length,
+          subtotal: e.detail.totals?.subtotal ?? 0,
+          total: e.detail.totals?.total ?? 0,
+        });
+      }
     };
     window.addEventListener('cart:peek', handleCartOpen);
     window.addEventListener('cart:open', handleCartOpen);
+    window.addEventListener('cart:updated', handleCartUpdated);
     return () => {
       window.removeEventListener('cart:peek', handleCartOpen);
       window.removeEventListener('cart:open', handleCartOpen);
+      window.removeEventListener('cart:updated', handleCartUpdated);
     };
-  }, [pathname, user]);
+  }, [pathname]);
+
+  const activeItems = (localCart?.items && localCart.items.length > 0)
+    ? localCart.items
+    : (items && items.length > 0)
+      ? items
+      : (cart.items && cart.items.length > 0)
+        ? cart.items
+        : [];
+
+  const activeCount = localCart?.itemCount ?? (
+    activeItems.length > 0
+      ? activeItems.reduce((s: number, i: any) => s + (i.quantity || 1), 0)
+      : (cart.itemCount ?? itemCount)
+  );
+  const activeSubtotal = localCart?.subtotal ?? (subtotal > 0 ? subtotal : cart.subtotal);
+  const activeTotal = localCart?.total ?? (total > 0 ? total : cart.total);
 
   const handleCheckoutClick = () => {
     setIsCartOpen(false);
@@ -961,15 +991,11 @@ function CartButton({
       <button
         className="relative p-2 rounded-[var(--radius-md)] text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-all duration-200 cursor-pointer"
         onClick={() => {
-          if (!user) {
-            onOpenAuth?.();
-            return;
-          }
           if (pathname !== '/checkout') {
             setIsCartOpen(true);
           }
         }}
-        aria-label={`Shopping bag${user && itemCount > 0 ? `, ${itemCount} items` : ', empty'}`}
+        aria-label={`Shopping bag${activeCount > 0 ? `, ${activeCount} items` : ', empty'}`}
         aria-expanded={isCartOpen}
       >
         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -977,15 +1003,15 @@ function CartButton({
           <path d="M3 6h18" />
           <path d="M16 10a4 4 0 0 1 0 8" />
         </svg>
-        {Boolean(user) && itemCount > 0 && (
+        {activeCount > 0 && (
           <motion.span
             className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold flex items-center justify-center"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: 'spring', damping: 12, stiffness: 200 }}
-            aria-label={`${itemCount} items in bag`}
+            aria-label={`${activeCount} items in bag`}
           >
-            {itemCount > 99 ? '99+' : itemCount}
+            {activeCount > 99 ? '99+' : activeCount}
           </motion.span>
         )}
       </button>
@@ -993,9 +1019,9 @@ function CartButton({
       <CartDrawer
         isOpen={isCartOpen && pathname !== '/checkout'}
         onClose={() => setIsCartOpen(false)}
-        items={items}
-        subtotal={subtotal}
-        total={total}
+        items={activeItems as any}
+        subtotal={activeSubtotal}
+        total={activeTotal}
         shipping={shipping}
         tax={tax}
         discount={discount}
@@ -1354,7 +1380,7 @@ function MobileMenu({
                     <svg className="h-6 w-6 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
                     <span className="font-medium">Wishlist</span>
                   </div>
-                  {Boolean(user) && wishlistCount > 0 && (
+                  {wishlistCount > 0 && (
                     <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-[#A84557] text-white">
                       {wishlistCount}
                     </span>
@@ -1364,18 +1390,13 @@ function MobileMenu({
                   type="button"
                   onClick={() => {
                     onClose();
-                    if (!user) {
-                      onOpenAuth?.();
-                      toast('Please sign in to view your bag', { icon: '🛍️' });
-                    } else {
-                      router.push('/cart');
-                    }
+                    router.push('/cart');
                   }}
                   className="w-full flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors cursor-pointer text-left"
                 >
                   <svg className="h-6 w-6 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><path d="M3 6h18" /><path d="M16 10a4 4 0 0 1 0 8" /></svg>
                   <span className="font-medium">Bag</span>
-                  {Boolean(user) && cartItemCount > 0 && (
+                  {cartItemCount > 0 && (
                     <span className="ml-auto px-2 py-0.5 text-xs font-bold bg-[var(--color-gold)] text-[var(--color-ink)] rounded-full">{cartItemCount}</span>
                   )}
                 </button>

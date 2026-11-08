@@ -4661,7 +4661,7 @@ export async function getSiteContent(): Promise<SiteContent> {
       footer: {
         ...DEFAULT_SITE_CONTENT.footer,
         ...(parsed.footer || {}),
-        socialLinks: (parsed.footer?.socialLinks && parsed.footer.socialLinks.length > 0)
+        socialLinks: Array.isArray(parsed.footer?.socialLinks)
           ? parsed.footer.socialLinks
           : (DEFAULT_SITE_CONTENT.footer?.socialLinks || []),
         columns: (parsed.footer?.columns && parsed.footer.columns.length > 0)
@@ -4838,7 +4838,7 @@ export async function updateSectionContent(
         atelierEmail: sectionData?.atelierEmail || defaultFooter.atelierEmail,
         atelierSchedule: sectionData?.atelierSchedule || defaultFooter.atelierSchedule,
         socialTitle: sectionData?.socialTitle || defaultFooter.socialTitle,
-        socialLinks: Array.isArray(sectionData?.socialLinks) && sectionData.socialLinks.length > 0
+        socialLinks: Array.isArray(sectionData?.socialLinks)
           ? sectionData.socialLinks
           : defaultFooter.socialLinks,
         columns: Array.isArray(sectionData?.columns) && sectionData.columns.length > 0

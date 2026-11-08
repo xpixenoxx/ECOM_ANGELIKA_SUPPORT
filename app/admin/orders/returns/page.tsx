@@ -17,7 +17,7 @@ export default async function ReturnsPage() {
     initialReturns={returns.success ? returns.returns || [] : []}
     initialTotal={returns.total || 0}
     statuses={statuses}
-    types={types}
-    reasons={reasons}
+    types={types as any}
+    reasons={reasons as any}
   />;
 }

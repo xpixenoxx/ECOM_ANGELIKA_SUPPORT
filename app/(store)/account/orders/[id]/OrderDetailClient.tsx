@@ -8,14 +8,16 @@ import {
   CustomerOrder,
   CustomerOrderItem,
   CustomerOrderItemReview,
+  CustomerOrderItemReturn,
   submitCustomerOrderReview,
+  submitCustomerReturnRequest,
 } from '@/lib/actions/customer-orders';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
 import toast from 'react-hot-toast';
-import { Star, CheckCircle, X, Sparkles, Edit3 } from 'lucide-react';
+import { Star, CheckCircle, X, Sparkles, Edit3, RotateCcw, ArrowLeftRight, Truck, ShieldCheck, MapPin, AlertCircle, Package } from 'lucide-react';
 
 interface OrderDetailClientProps {
   order: CustomerOrder;
@@ -41,15 +43,50 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
 
   // Map initial reviews by item.id
   const initialMap: Record<string, CustomerOrderItemReview> = {};
+  // Map initial returns by item.id
+  const initialReturnsMap: Record<string, CustomerOrderItemReturn> = {};
   order.items.forEach((it) => {
     if (it.existing_review) {
       initialMap[it.id] = it.existing_review;
     }
+    if (it.existing_return) {
+      initialReturnsMap[it.id] = it.existing_return;
+    }
   });
 
   const [itemReviews, setItemReviews] = useState<Record<string, CustomerOrderItemReview>>(initialMap);
+  const [itemReturns, setItemReturns] = useState<Record<string, CustomerOrderItemReturn>>(initialReturnsMap);
   const [activeReviewItem, setActiveReviewItem] = useState<CustomerOrderItem | null>(null);
+  const [activeReturnItem, setActiveReturnItem] = useState<CustomerOrderItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingReturn, setIsSubmittingReturn] = useState(false);
+
+  // Return Form States
+  const [returnType, setReturnType] = useState<'return' | 'exchange'>('return');
+  const [returnReason, setReturnReason] = useState('size');
+  const [returnReasonDetail, setReturnReasonDetail] = useState('');
+  const [exchangeSize, setExchangeSize] = useState('M');
+
+  // Reverse Pickup Address (pre-filled from order's shipping address)
+  const initialAddr: any = order.shipping_address || {};
+  const [pickupName, setPickupName] = useState(
+    [initialAddr.firstName, initialAddr.lastName].filter(Boolean).join(' ') || initialAddr.full_name || order.customer_name || ''
+  );
+  const [pickupPhone, setPickupPhone] = useState(initialAddr.phone || order.phone || '');
+  const [pickupAddress, setPickupAddress] = useState(initialAddr.address1 || initialAddr.address || initialAddr.street_address || '');
+  const [pickupCity, setPickupCity] = useState(initialAddr.city || '');
+  const [pickupState, setPickupState] = useState(initialAddr.state || '');
+  const [pickupPincode, setPickupPincode] = useState(initialAddr.pincode || initialAddr.postal_code || '');
+
+  const returnReasonOptions = [
+    { value: 'size', label: 'Size Issue (Too tight, too loose, or length problem)' },
+    { value: 'fit', label: 'Fit & Silhouette (Cut or drape does not sit well)' },
+    { value: 'quality', label: 'Fabric & Craftsmanship (Quality not as expected)' },
+    { value: 'damaged', label: 'Defective or Damaged Garment received' },
+    { value: 'wrong_item', label: 'Wrong Item or Color received' },
+    { value: 'changed_mind', label: 'Changed mind / No longer needed' },
+    { value: 'other', label: 'Other reason' },
+  ];
 
   // Review form states
   const [rating, setRating] = useState(5);
@@ -138,6 +175,79 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
     }
   };
 
+  const handleOpenReturnModal = (item: CustomerOrderItem) => {
+    setActiveReturnItem(item);
+    setReturnType('return');
+    setReturnReason('size');
+    setReturnReasonDetail('');
+    setExchangeSize(item.variant_details?.size || 'M');
+
+    const addr: any = order.shipping_address || {};
+    setPickupName([addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.full_name || order.customer_name || '');
+    setPickupPhone(addr.phone || order.phone || '');
+    setPickupAddress(addr.address1 || addr.address || addr.street_address || '');
+    setPickupCity(addr.city || '');
+    setPickupState(addr.state || '');
+    setPickupPincode(addr.pincode || addr.postal_code || '');
+  };
+
+  const handleCloseReturnModal = () => {
+    if (isSubmittingReturn) return;
+    setActiveReturnItem(null);
+  };
+
+  const handleSubmitReturn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeReturnItem) return;
+
+    if (!pickupName.trim() || !pickupPhone.trim() || !pickupAddress.trim() || !pickupCity.trim() || !pickupPincode.trim()) {
+      toast.error('Please complete all reverse pickup address fields (Name, Phone, Address, City, PIN)');
+      return;
+    }
+
+    setIsSubmittingReturn(true);
+    try {
+      const refundAmount = activeReturnItem.total_price || (activeReturnItem.unit_price * activeReturnItem.quantity);
+      const res = await submitCustomerReturnRequest({
+        orderId: order.id,
+        orderItemId: activeReturnItem.id,
+        type: returnType,
+        reason: returnReason,
+        reasonDetail: returnReasonDetail,
+        pickupAddress: {
+          name: pickupName.trim(),
+          phone: pickupPhone.trim(),
+          address: pickupAddress.trim(),
+          city: pickupCity.trim(),
+          state: pickupState.trim(),
+          pincode: pickupPincode.trim(),
+        },
+        exchangeSize: returnType === 'exchange' ? exchangeSize : undefined,
+        refundAmount,
+      });
+
+      if (res.success && res.returnRecord) {
+        toast.success(
+          returnType === 'exchange'
+            ? 'Exchange request recorded! Our concierge will arrange doorstep pickup.'
+            : 'Return request submitted! Doorstep reverse pickup has been initiated.',
+          { icon: '📦' }
+        );
+        setItemReturns((prev) => ({
+          ...prev,
+          [activeReturnItem.id]: res.returnRecord!,
+        }));
+        setActiveReturnItem(null);
+      } else {
+        toast.error(res.error || 'Failed to submit return request');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to submit return request');
+    } finally {
+      setIsSubmittingReturn(false);
+    }
+  };
+
   // Build timeline from real timestamps
   const timelineSteps = [
     {
@@ -220,6 +330,20 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
               <span className={cn('px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full uppercase tracking-wider', statusBadgeClass)}>
                 {order.status}
               </span>
+              {statusKey === 'delivered' && order.items.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const unreturnedItem = order.items.find((i) => !itemReturns[i.id] && !i.existing_return) || order.items[0];
+                    if (unreturnedItem) handleOpenReturnModal(unreturnedItem);
+                  }}
+                  className="cursor-pointer border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100 flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Return / Exchange</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -273,6 +397,7 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
                     {order.items.map((item, index) => {
                       const itemImg = item.variant_details?.image || item.variant_details?.image_url || '/images/collection-kurtis.jpg';
                       const existingRev = itemReviews[item.id] || item.existing_review;
+                      const existingRet = itemReturns[item.id] || item.existing_return;
                       return (
                         <motion.div
                           key={item.id}
@@ -317,7 +442,41 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
                             </div>
                           </div>
 
-                          {/* Delivered: Review Section */}
+                          {/* Existing Return / Exchange Banner if already requested */}
+                          {existingRet && (
+                            <div className="mt-4 p-3.5 bg-amber-50/70 border border-amber-200/90 rounded-2xl flex items-center justify-between flex-wrap gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0">
+                                  {existingRet.type === 'exchange' ? (
+                                    <ArrowLeftRight className="w-4 h-4 text-amber-700" />
+                                  ) : (
+                                    <RotateCcw className="w-4 h-4 text-amber-700" />
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-amber-950">
+                                      {existingRet.type === 'exchange' ? 'Exchange Requested' : 'Return Requested'}
+                                    </span>
+                                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 border border-amber-300/50">
+                                      {existingRet.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-amber-800 mt-0.5">
+                                    {existingRet.type === 'exchange' && existingRet.exchange_size
+                                      ? `Replacement Size: ${existingRet.exchange_size} • Reverse pickup scheduled`
+                                      : `Expected Refund: ₹${formatPrice(existingRet.refund_amount || (item.total_price || item.unit_price * item.quantity))} • Reverse pickup scheduled`}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] text-amber-900 font-medium bg-white/90 px-3 py-1.5 rounded-xl border border-amber-200/60 shadow-xs">
+                                <Truck className="w-3.5 h-3.5 text-amber-700" />
+                                <span>Free Doorstep Pickup</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Delivered: Actions Section */}
                           {statusKey === 'delivered' && (
                             <div className="mt-4 pt-3 border-t border-[var(--color-whisper)] flex items-center justify-between flex-wrap gap-2">
                               {existingRev ? (
@@ -350,28 +509,41 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
                                 </div>
                               )}
 
-                              <button
-                                type="button"
-                                onClick={() => handleOpenReviewModal(item)}
-                                className={cn(
-                                  "px-4 py-2 text-xs font-semibold rounded-full uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-xs",
-                                  existingRev
-                                    ? "bg-white hover:bg-[var(--color-gold-light)] text-[var(--color-ink)] hover:text-[var(--color-gold)] border border-[var(--color-whisper)]"
-                                    : "bg-[var(--color-gold)] hover:bg-[var(--color-gold-hover)] text-[var(--color-ink)]"
+                              <div className="flex items-center gap-2">
+                                {!existingRet && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenReturnModal(item)}
+                                    className="px-4 py-2 text-xs font-semibold rounded-full uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-xs border border-amber-300 bg-amber-50/70 text-amber-900 hover:bg-amber-100"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                                    <span>Return Item</span>
+                                  </button>
                                 )}
-                              >
-                                {existingRev ? (
-                                  <>
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                    <span>Edit Review</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Star className="w-3.5 h-3.5 fill-current" />
-                                    <span>Rate &amp; Review Product</span>
-                                  </>
-                                )}
-                              </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenReviewModal(item)}
+                                  className={cn(
+                                    "px-4 py-2 text-xs font-semibold rounded-full uppercase tracking-wider transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-xs",
+                                    existingRev
+                                      ? "bg-white hover:bg-[var(--color-gold-light)] text-[var(--color-ink)] hover:text-[var(--color-gold)] border border-[var(--color-whisper)]"
+                                      : "bg-[var(--color-gold)] hover:bg-[var(--color-gold-hover)] text-[var(--color-ink)]"
+                                  )}
+                                >
+                                  {existingRev ? (
+                                    <>
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      <span>Edit Review</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Star className="w-3.5 h-3.5 fill-current" />
+                                      <span>Rate &amp; Review</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           )}
                         </motion.div>
@@ -721,6 +893,317 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
                       <>
                         <CheckCircle className="w-4 h-4" />
                         <span>Submit Review</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Customer Return & Exchange Modal */}
+        {activeReturnItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={handleCloseReturnModal}
+            />
+
+            <motion.div
+              className="relative w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl border border-[var(--color-whisper)] max-h-[90vh] overflow-y-auto z-10"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 mb-6 pb-4 border-b border-[var(--color-whisper)]">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-gold)]">
+                      Hassle-Free Returns &amp; Exchanges
+                    </span>
+                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+                      7-Day Window Active
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold text-[var(--color-ink)]">
+                    {returnType === 'exchange' ? 'Exchange Garment Size' : 'Return & Refund Request'}
+                  </h3>
+                  <p className="text-xs text-[var(--color-slate)] mt-0.5">
+                    Order #{order.order_number}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseReturnModal}
+                  disabled={isSubmittingReturn}
+                  className="p-2 rounded-full hover:bg-[var(--color-snow)] text-[var(--color-slate)] hover:text-[var(--color-ink)] transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Item preview card */}
+              <div className="p-3.5 bg-[var(--color-snow)] rounded-2xl border border-[var(--color-whisper)] flex items-center gap-4 mb-6">
+                <div className="relative w-16 h-20 rounded-xl overflow-hidden bg-white border border-[var(--color-whisper)] flex-shrink-0">
+                  <img
+                    src={activeReturnItem.variant_details?.image || activeReturnItem.variant_details?.image_url || '/images/collection-kurtis.jpg'}
+                    alt={activeReturnItem.product_name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-sm font-semibold text-[var(--color-ink)] line-clamp-1">
+                    {activeReturnItem.product_name}
+                  </h4>
+                  <div className="flex items-center gap-2 text-xs text-[var(--color-slate)] mt-1">
+                    {activeReturnItem.variant_details?.size && (
+                      <span className="bg-white px-2 py-0.5 rounded border border-[var(--color-whisper)] font-medium">
+                        Current Size: {activeReturnItem.variant_details.size}
+                      </span>
+                    )}
+                    <span>Qty: {activeReturnItem.quantity}</span>
+                  </div>
+                  <div className="text-sm font-bold text-[var(--color-ink)] mt-1">
+                    ₹{formatPrice(activeReturnItem.total_price || activeReturnItem.unit_price * activeReturnItem.quantity)}
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleSubmitReturn} className="space-y-5">
+                {/* Type Selector: Return vs Exchange */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-ink)] mb-2">
+                    Select Resolution Type *
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setReturnType('return')}
+                      className={cn(
+                        'p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1',
+                        returnType === 'return'
+                          ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-xs ring-1 ring-[var(--color-gold)]'
+                          : 'border-[var(--color-whisper)] bg-white hover:bg-[var(--color-snow)]'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <RotateCcw className={cn('w-4 h-4', returnType === 'return' ? 'text-[var(--color-gold)]' : 'text-slate-400')} />
+                        <span className="text-sm font-bold text-[var(--color-ink)]">Return &amp; Refund</span>
+                      </div>
+                      <span className="text-xs text-[var(--color-slate)]">
+                        Refund ₹{formatPrice(activeReturnItem.total_price || activeReturnItem.unit_price * activeReturnItem.quantity)} to original payment source.
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setReturnType('exchange')}
+                      className={cn(
+                        'p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col gap-1',
+                        returnType === 'exchange'
+                          ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-xs ring-1 ring-[var(--color-gold)]'
+                          : 'border-[var(--color-whisper)] bg-white hover:bg-[var(--color-snow)]'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <ArrowLeftRight className={cn('w-4 h-4', returnType === 'exchange' ? 'text-[var(--color-gold)]' : 'text-slate-400')} />
+                        <span className="text-sm font-bold text-[var(--color-ink)]">Size Exchange</span>
+                      </div>
+                      <span className="text-xs text-[var(--color-slate)]">
+                        Swap for another size with doorstep handover. No fee.
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Exchange Size Selection (if returnType === 'exchange') */}
+                {returnType === 'exchange' && (
+                  <div className="p-4 bg-[var(--color-snow)]/60 rounded-2xl border border-[var(--color-whisper)]">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-ink)] mb-2">
+                      Select Replacement Size *
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size'].map((sz) => (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => setExchangeSize(sz)}
+                          className={cn(
+                            'px-3.5 py-1.5 rounded-xl text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer',
+                            exchangeSize === sz
+                              ? 'border-[var(--color-gold)] bg-[var(--color-gold)] text-[var(--color-ink)] font-bold shadow-xs'
+                              : 'border-[var(--color-whisper)] bg-white text-[var(--color-slate)] hover:border-[var(--color-gold)]'
+                          )}
+                        >
+                          {sz}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-[var(--color-slate)] mt-2">
+                      Subject to atelier stock. If preferred size is unavailable, full refund will be processed.
+                    </p>
+                  </div>
+                )}
+
+                {/* Reason for Return / Exchange */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-ink)] mb-1.5">
+                    Reason for Return / Exchange *
+                  </label>
+                  <select
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-[var(--color-whisper)] text-sm text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                  >
+                    {returnReasonOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Detailed Notes */}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[var(--color-ink)] mb-1.5">
+                    Additional Notes or Fit Comments <span className="text-[var(--color-slate)] font-normal">(Optional)</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={returnReasonDetail}
+                    onChange={(e) => setReturnReasonDetail(e.target.value)}
+                    placeholder="Please share any specific details (e.g., tight around chest, hem too long, loose on waist)..."
+                    className="w-full px-4 py-2.5 rounded-xl border border-[var(--color-whisper)] text-sm text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white resize-none"
+                  />
+                </div>
+
+                {/* Reverse Doorstep Pickup Details */}
+                <div className="p-4 bg-[var(--color-snow)]/70 rounded-2xl border border-[var(--color-whisper)] space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-[var(--color-whisper)]">
+                    <Truck className="w-4 h-4 text-[var(--color-gold)]" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-ink)]">
+                      Reverse Pickup Address (Doorstep Collection)
+                    </h4>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                        Contact Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={pickupName}
+                        onChange={(e) => setPickupName(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                        Contact Phone *
+                      </label>
+                      <input
+                        type="text"
+                        value={pickupPhone}
+                        onChange={(e) => setPickupPhone(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                      Street Address *
+                    </label>
+                    <input
+                      type="text"
+                      value={pickupAddress}
+                      onChange={(e) => setPickupAddress(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                        City *
+                      </label>
+                      <input
+                        type="text"
+                        value={pickupCity}
+                        onChange={(e) => setPickupCity(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                        State
+                      </label>
+                      <input
+                        type="text"
+                        value={pickupState}
+                        onChange={(e) => setPickupState(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-[var(--color-slate)] mb-1">
+                        PIN Code *
+                      </label>
+                      <input
+                        type="text"
+                        value={pickupPincode}
+                        onChange={(e) => setPickupPincode(e.target.value)}
+                        required
+                        className="w-full px-3 py-2 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Assurance Callout */}
+                <div className="flex items-start gap-3 p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-900">
+                  <ShieldCheck className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">
+                    <strong>Angelika Couture Assurance:</strong> Reverse pickup agent will collect the ensemble in original packaging with tags intact. Refund or exchange replacement will be processed swiftly upon arrival.
+                  </p>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-whisper)]">
+                  <button
+                    type="button"
+                    onClick={handleCloseReturnModal}
+                    disabled={isSubmittingReturn}
+                    className="px-5 py-2.5 rounded-full text-xs font-semibold text-[var(--color-slate)] hover:bg-[var(--color-snow)] transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReturn}
+                    className="px-6 py-2.5 rounded-full bg-[var(--color-gold)] hover:bg-[var(--color-gold-hover)] text-[var(--color-ink)] font-bold text-xs uppercase tracking-wider shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSubmittingReturn ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-[var(--color-ink)] border-t-transparent rounded-full animate-spin" />
+                        <span>Submitting Request...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-4 h-4" />
+                        <span>
+                          {returnType === 'exchange' ? 'Confirm Size Exchange' : 'Confirm Return & Refund'}
+                        </span>
                       </>
                     )}
                   </button>

@@ -41,6 +41,24 @@ interface FooterEditorProps {
   onCancel?: () => void;
 }
 
+const AVAILABLE_SOCIAL_ICONS: { value: string; label: string }[] = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'pinterest', label: 'Pinterest' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'twitter', label: 'Twitter / X' },
+  { value: 'threads', label: 'Threads' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'telegram', label: 'Telegram' },
+  { value: 'snapchat', label: 'Snapchat' },
+  { value: 'spotify', label: 'Spotify' },
+  { value: 'globe', label: 'Website / Globe' },
+  { value: 'email', label: 'Email' },
+  { value: 'sms', label: 'Phone / SMS' },
+];
+
 const DEFAULT_FOOTER_CONTENT: FooterContent = {
   brandName: 'Angelika',
   brandTagline: 'Fashions',
@@ -296,16 +314,53 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
   };
 
   // Social link helpers
-  const handleUpdateSocial = (platform: string, field: string, value: any) => {
+  const handleUpdateSocial = (index: number, field: string, value: any) => {
     setContent((prev) => {
-      const updated = prev.socialLinks.map((s) => {
-        if (s.platform === platform) {
+      const updated = prev.socialLinks.map((s, i) => {
+        if (i === index) {
           return { ...s, [field]: value };
         }
         return s;
       });
       return { ...prev, socialLinks: updated };
     });
+  };
+
+  const handleAddSocial = () => {
+    setContent((prev) => {
+      const newSocial: FooterSocialItem = {
+        id: `social-${Date.now()}`,
+        platform: 'instagram',
+        icon: 'instagram',
+        label: 'Instagram',
+        handle: '@angelikafashions',
+        href: 'https://instagram.com/angelikafashions',
+        enabled: true,
+      };
+      return {
+        ...prev,
+        socialLinks: [...prev.socialLinks, newSocial],
+      };
+    });
+    setStatusMessage({
+      type: 'success',
+      text: 'New social platform added! Customize its name, icon, and URL below, then click Save Changes.',
+    });
+    setTimeout(() => setStatusMessage(null), 3500);
+  };
+
+  const handleDeleteSocial = (index: number) => {
+    const item = content.socialLinks[index];
+    const name = item?.label || item?.platform || 'platform';
+    setContent((prev) => ({
+      ...prev,
+      socialLinks: prev.socialLinks.filter((_, i) => i !== index),
+    }));
+    setStatusMessage({
+      type: 'success',
+      text: `Deleted "${name}" from social channels. Click Save Changes to publish.`,
+    });
+    setTimeout(() => setStatusMessage(null), 3000);
   };
 
   // Trust badge helper
@@ -836,66 +891,171 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
       {/* TAB 3: SOCIAL MEDIA CHANNELS */}
       {activeTab === 'social' && (
         <div className="space-y-6">
-          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Section Heading
-              </label>
-              <input
-                type="text"
-                value={content.socialTitle}
-                onChange={(e) => setContent({ ...content, socialTitle: e.target.value })}
-                placeholder="CONNECT WITH US"
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white uppercase tracking-wider"
-              />
+          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-5">
+            {/* Top Bar: Section Heading & Add Platform Button */}
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-[#EAE4D9]">
+              <div className="flex-1 max-w-md">
+                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                  Section Heading
+                </label>
+                <input
+                  type="text"
+                  value={content.socialTitle}
+                  onChange={(e) => setContent({ ...content, socialTitle: e.target.value })}
+                  placeholder="CONNECT WITH US"
+                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white uppercase tracking-wider font-semibold text-[var(--color-ink)]"
+                />
+                <p className="text-[10px] text-[var(--color-slate)] mt-1">
+                  Header text displayed above social channels on the storefront footer.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAddSocial}
+                className="px-3.5 py-2 text-xs font-medium text-white bg-[var(--color-ink)] hover:bg-[#2A2621] rounded-lg transition-all shadow-xs flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Social Platform</span>
+              </button>
             </div>
 
-            <div className="space-y-3 pt-2">
-              {content.socialLinks.map((social) => (
+            {/* List of Dynamic Social Media Platforms */}
+            <div className="space-y-3.5 pt-1">
+              {content.socialLinks.map((social, idx) => (
                 <div
-                  key={social.platform}
-                  className="p-3.5 bg-white border border-[#E5DFD5] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+                  key={social.id || `${social.platform}-${idx}`}
+                  className="p-4 bg-white border border-[#E5DFD5] rounded-xl flex flex-col xl:flex-row xl:items-center justify-between gap-4 shadow-xs hover:border-[var(--color-gold)]/50 transition-all"
                 >
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                  {/* Left: Enable toggle, Live Icon Preview, Platform Name & Icon Select */}
+                  <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+                    <label
+                      className="flex items-center cursor-pointer p-1"
+                      title={social.enabled !== false ? 'Enabled on storefront' : 'Disabled (Hidden on storefront)'}
+                    >
                       <input
                         type="checkbox"
                         checked={social.enabled !== false}
-                        onChange={(e) => handleUpdateSocial(social.platform, 'enabled', e.target.checked)}
-                        className="w-4 h-4 rounded text-[var(--color-gold)] accent-[var(--color-gold)]"
+                        onChange={(e) => handleUpdateSocial(idx, 'enabled', e.target.checked)}
+                        className="w-4 h-4 rounded text-[var(--color-gold)] accent-[var(--color-gold)] cursor-pointer"
                       />
                     </label>
-                    <div className="w-8 h-8 rounded-full bg-[#FAF8F5] border border-[#E5DFD5] flex items-center justify-center text-[var(--color-slate)]">
-                      <SocialIcon platform={social.platform as any} size="sm" />
+
+                    {/* Round Live Icon Preview */}
+                    <div
+                      className="w-10 h-10 rounded-full bg-[#FAF8F5] border border-[#E5DFD5] flex items-center justify-center text-[var(--color-slate)] flex-shrink-0 shadow-xs"
+                      title={`Icon: ${social.icon || social.platform}`}
+                    >
+                      <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
                     </div>
-                    <div>
-                      <span className="text-xs font-bold text-[var(--color-ink)] capitalize">
-                        {social.platform}
-                      </span>
-                      <span className="block text-[10px] text-[var(--color-slate)]">
-                        {social.label}
-                      </span>
+
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
+                          Platform Name
+                        </label>
+                        <input
+                          type="text"
+                          value={social.label || ''}
+                          onChange={(e) => handleUpdateSocial(idx, 'label', e.target.value)}
+                          placeholder="e.g. Instagram"
+                          className="w-full px-2.5 py-1.5 text-xs font-semibold text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
+                          Icon
+                        </label>
+                        <select
+                          value={(social.icon || social.platform || 'instagram').toLowerCase()}
+                          onChange={(e) => {
+                            const newIcon = e.target.value;
+                            handleUpdateSocial(idx, 'icon', newIcon);
+                            handleUpdateSocial(idx, 'platform', newIcon);
+                          }}
+                          className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white text-[var(--color-ink)] cursor-pointer"
+                        >
+                          {AVAILABLE_SOCIAL_ICONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex-1 sm:max-w-md grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={social.href}
-                      onChange={(e) => handleUpdateSocial(social.platform, 'href', e.target.value)}
-                      placeholder={`https://${social.platform}.com/...`}
-                      className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] font-mono"
-                    />
-                    <input
-                      type="text"
-                      value={social.handle || ''}
-                      onChange={(e) => handleUpdateSocial(social.platform, 'handle', e.target.value)}
-                      placeholder="@angelikafashions"
-                      className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)]"
-                    />
+                  {/* Right: URL, Handle, and Delete Button */}
+                  <div className="flex items-center gap-2.5 flex-1 xl:max-w-xl">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
+                          Profile / Channel URL
+                        </label>
+                        <input
+                          type="text"
+                          value={social.href}
+                          onChange={(e) => handleUpdateSocial(idx, 'href', e.target.value)}
+                          placeholder="https://..."
+                          className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] font-mono text-[var(--color-ink)] bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
+                          Handle / Subtitle
+                        </label>
+                        <input
+                          type="text"
+                          value={social.handle || ''}
+                          onChange={(e) => handleUpdateSocial(idx, 'handle', e.target.value)}
+                          placeholder="@angelikafashions"
+                          className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] text-[var(--color-ink)] bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-3.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSocial(idx)}
+                        title={`Delete ${social.label || social.platform}`}
+                        className="p-2 text-[var(--color-slate)] hover:text-[var(--color-error)] hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
+
+              {content.socialLinks.length === 0 && (
+                <div className="p-8 text-center bg-white border border-dashed border-[#E5DFD5] rounded-xl space-y-3">
+                  <p className="text-xs text-[var(--color-slate)]">No social media platforms added yet.</p>
+                  <button
+                    type="button"
+                    onClick={handleAddSocial}
+                    className="px-3.5 py-2 text-xs font-medium text-white bg-[var(--color-ink)] hover:bg-[#2A2621] rounded-lg inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Your First Social Platform</span>
+                  </button>
+                </div>
+              )}
+
+              {content.socialLinks.length > 0 && (
+                <div className="pt-2 flex justify-start">
+                  <button
+                    type="button"
+                    onClick={handleAddSocial}
+                    className="px-3.5 py-1.5 text-xs font-medium text-[var(--color-gold)] hover:text-[#967637] border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] bg-white hover:bg-[var(--color-gold-light)]/20 rounded-lg transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Another Social Platform</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1204,15 +1364,16 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
                     <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--color-gold)] block">
                       {content.socialTitle}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {content.socialLinks
                         .filter((s) => s.enabled !== false)
-                        .map((social) => (
+                        .map((social, sIdx) => (
                           <div
-                            key={social.platform}
+                            key={social.id || `${social.platform}-${sIdx}`}
                             className="w-7 h-7 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-slate)] flex items-center justify-center shadow-xs"
+                            title={social.handle || social.label || social.platform}
                           >
-                            <SocialIcon platform={social.platform as any} size="sm" />
+                            <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
                           </div>
                         ))}
                     </div>

@@ -73,15 +73,17 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   });
 
   const handleAddToBag = async () => {
-    if (!user) {
-      setShowAuthModal(true);
-      toast('Please sign in to add items to your bag', { icon: '🛍️' });
-      return;
-    }
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
     setIsSubmitting(true);
     try {
-      await addItem(product.id, quantity, sizeToUse);
+      await addItem(product.id, quantity, sizeToUse, {
+        product_id: product.id,
+        product_name: product.name,
+        price: product.price,
+        image: product.images?.[0] || '/images/collection-kurtis.jpg',
+        size: sizeToUse,
+        is_vidyas_pick: product.isVidhyasPick,
+      });
       setAddedToBag(true);
       setTimeout(() => setAddedToBag(false), 3000);
     } catch (err) {
@@ -92,16 +94,23 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   };
 
   const handleBuyNow = async () => {
-    if (!user) {
-      setShowAuthModal(true);
-      toast('Please sign in to proceed to checkout', { icon: '🛍️' });
-      return;
-    }
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
     setIsSubmitting(true);
     try {
-      await addItem(product.id, quantity, sizeToUse);
-      router.push('/checkout');
+      await addItem(product.id, quantity, sizeToUse, {
+        product_id: product.id,
+        product_name: product.name,
+        price: product.price,
+        image: product.images?.[0] || '/images/collection-kurtis.jpg',
+        size: sizeToUse,
+        is_vidyas_pick: product.isVidhyasPick,
+      });
+      if (!user) {
+        setShowAuthModal(true);
+        toast('Please sign in to proceed to checkout', { icon: '🛍️' });
+      } else {
+        router.push('/checkout');
+      }
     } catch (err) {
       console.error('Failed to process buy now:', err);
       router.push('/checkout');
@@ -118,13 +127,15 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   };
 
   const handleAddRelatedToBag = async (related: ProductCardData) => {
-    if (!user) {
-      setShowAuthModal(true);
-      toast('Please sign in to add items to your bag', { icon: '🛍️' });
-      return;
-    }
     try {
-      await addItem(related.id, 1, 'Free Size');
+      const rel = related as any;
+      await addItem(related.id, 1, 'Free Size', {
+        product_id: related.id,
+        product_name: related.name,
+        price: related.price,
+        image: rel.image || rel.images?.[0]?.url || rel.images?.[0] || '/images/collection-kurtis.jpg',
+        is_vidyas_pick: Boolean(rel.isVidhyasPick || rel.is_vidyas_pick),
+      });
       toast.success(`Added "${related.name}" to your bag!`);
     } catch (err) {
       toast.error('Could not add to bag. Please try again.');
