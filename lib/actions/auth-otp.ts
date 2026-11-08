@@ -167,15 +167,24 @@ export async function sendSignupOtp(
       text: `Namaste ${cleanName},\n\nYour Angelika Fashions account verification code is: ${otp}\n\nThis code will expire in 10 minutes.`,
     });
 
-    const emailConfigured = isResendConfigured();
+    if (resendResult.success) {
+      return {
+        success: true,
+        message: `We have sent a 6-digit verification code to ${cleanEmail}.`,
+        emailConfigured: true,
+      };
+    }
+
+    // If Resend failed (e.g. unverified test recipient/domain), log warning and provide devCode fallback
+    console.warn(`[sendSignupOtp] Resend delivery unfulfilled for ${cleanEmail}:`, resendResult.error);
 
     return {
       success: true,
-      message: emailConfigured
-        ? `We have sent a 6-digit verification code to ${cleanEmail}.`
+      message: resendResult.error
+        ? `Notice: ${resendResult.error}`
         : `Verification code generated! (Dev mode active: ${otp})`,
-      devCode: emailConfigured ? undefined : otp,
-      emailConfigured,
+      devCode: otp,
+      emailConfigured: false,
     };
   } catch (err: any) {
     console.error('sendSignupOtp error:', err);
@@ -321,22 +330,31 @@ export async function sendPasswordResetOtp(
       actionNote: 'This reset code is valid for 10 minutes. If you did not make this request, your account is safe and no action is required.',
     });
 
-    await sendEmailViaResend({
+    const resendResult = await sendEmailViaResend({
       to: cleanEmail,
       subject: `Your Angelika Fashions Password Reset Code: ${otp}`,
       html: emailHtml,
       text: `Namaste ${userName},\n\nYour password reset code is: ${otp}\n\nEnter this code to set your new password. Valid for 10 minutes.`,
     });
 
-    const emailConfigured = isResendConfigured();
+    if (resendResult.success) {
+      return {
+        success: true,
+        message: `We have dispatched a 6-digit password reset code to ${cleanEmail}.`,
+        emailConfigured: true,
+      };
+    }
+
+    // If Resend failed (e.g. unverified test recipient/domain), log warning and provide devCode fallback
+    console.warn(`[sendPasswordResetOtp] Resend delivery unfulfilled for ${cleanEmail}:`, resendResult.error);
 
     return {
       success: true,
-      message: emailConfigured
-        ? `We have dispatched a 6-digit password reset code to ${cleanEmail}.`
+      message: resendResult.error
+        ? `Notice: ${resendResult.error}`
         : `Reset code generated! (Dev mode active: ${otp})`,
-      devCode: emailConfigured ? undefined : otp,
-      emailConfigured,
+      devCode: otp,
+      emailConfigured: false,
     };
   } catch (err: any) {
     console.error('sendPasswordResetOtp error:', err);

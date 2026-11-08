@@ -188,7 +188,7 @@ export function ResetPasswordPageClient() {
                 <span className="font-semibold block mb-0.5">Development Preview:</span>
                 Your OTP code is <strong className="font-mono text-sm tracking-widest text-amber-950">{devCode}</strong>.
                 <span className="block text-[11px] text-amber-700 mt-1">
-                  (Add <code>RESEND_API_KEY</code> in <code>.env.local</code> to dispatch real emails directly to inboxes).
+                  (Emails in test mode without a verified domain only deliver to your Resend account email; use this code to proceed).
                 </span>
               </div>
             )}

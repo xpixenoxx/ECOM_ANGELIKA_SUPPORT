@@ -369,12 +369,11 @@ export default function AdminDashboardClient({ data }: { data: DashboardData }) 
         className="p-6 bg-white rounded-2xl border border-[var(--color-whisper)] shadow-sm"
       >
         <h2 className="text-base font-semibold text-[var(--color-ink)] mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: 'Add Product', href: '/admin/products/new', color: 'bg-amber-50 text-amber-700 hover:bg-amber-100' },
             { label: 'View Orders', href: '/admin/orders', color: 'bg-blue-50 text-blue-700 hover:bg-blue-100' },
             { label: 'Manage Coupons', href: '/admin/products/coupons', color: 'bg-green-50 text-green-700 hover:bg-green-100' },
-            { label: 'Store Settings', href: '/admin/settings', color: 'bg-violet-50 text-violet-700 hover:bg-violet-100' },
           ].map(action => (
             <Link
               key={action.href}
