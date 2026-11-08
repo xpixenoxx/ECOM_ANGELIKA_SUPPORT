@@ -17,11 +17,6 @@ import { NewArrivalsEditor } from '@/components/admin/NewArrivalsEditor';
 import { BrandStoryEditor } from '@/components/admin/BrandStoryEditor';
 import { KurtisPageEditor } from '@/components/admin/KurtisPageEditor';
 import { FooterEditor } from '@/components/admin/FooterEditor';
-import { SalwarsPageEditor } from '@/components/admin/SalwarsPageEditor';
-import { LehengasPageEditor } from '@/components/admin/LehengasPageEditor';
-import { SareesPageEditor } from '@/components/admin/SareesPageEditor';
-import { DupattasPageEditor } from '@/components/admin/DupattasPageEditor';
-import { NewArrivalsPageEditor } from '@/components/admin/NewArrivalsPageEditor';
 import { SalePageEditor } from '@/components/admin/SalePageEditor';
 import { MyAngelikaLookEditor } from '@/components/admin/MyAngelikaLookEditor';
 import { PrivacyPolicyPageEditor } from '@/components/admin/PrivacyPolicyPageEditor';
@@ -45,31 +40,6 @@ const contentSections = [
   { id: 'categories', label: 'Category Showcase', type: 'categories' },
   { id: 'new-arrivals', label: 'New Arrivals Showcase', type: 'collection' },
   { id: 'vidhyas-picks', label: "Vidhya's Picks Showcase", type: 'editorial' },
-  {
-    id: 'salwars-page',
-    label: 'Salwars Page',
-    type: 'page'
-  },
-  {
-    id: 'lehengas-page',
-    label: 'Lehengas Page',
-    type: 'page'
-  },
-  {
-    id: 'sarees-page',
-    label: 'Sarees Page',
-    type: 'page'
-  },
-  {
-    id: 'dupattas-page',
-    label: 'Dupattas Page',
-    type: 'page'
-  },
-  {
-    id: 'new-arrivals-page',
-    label: 'New Arrivals Page',
-    type: 'page'
-  },
   {
     id: 'sale-page',
     label: 'Sale Page',
@@ -1076,66 +1046,6 @@ export default function AdminContentPage() {
                         }}
                       />
                     </CardContent>
-                  </Card>
-                ) : editingSection === 'salwars-page' ? (
-                  <Card variant="elevated" padding="lg">
-                    <SalwarsPageEditor
-                      onCancel={() => setEditingSection(null)}
-                      onSaved={() => {
-                        setStatusMessage({
-                          type: 'success',
-                          text: '"Salwars Page" updated successfully! Your changes are now live on /shop/salwars.',
-                        });
-                      }}
-                    />
-                  </Card>
-                ) : editingSection === 'lehengas-page' ? (
-                  <Card variant="elevated" padding="lg">
-                    <LehengasPageEditor
-                      onCancel={() => setEditingSection(null)}
-                      onSaved={() => {
-                        setStatusMessage({
-                          type: 'success',
-                          text: '"Lehengas Page" updated successfully! Your changes are now live on /shop/lehengas.',
-                        });
-                      }}
-                    />
-                  </Card>
-                ) : editingSection === 'sarees-page' ? (
-                  <Card variant="elevated" padding="lg">
-                    <SareesPageEditor
-                      onCancel={() => setEditingSection(null)}
-                      onSaved={() => {
-                        setStatusMessage({
-                          type: 'success',
-                          text: '"Sarees Page" updated successfully! Your changes are now live on /shop/sarees.',
-                        });
-                      }}
-                    />
-                  </Card>
-                ) : editingSection === 'dupattas-page' ? (
-                  <Card variant="elevated" padding="lg">
-                    <DupattasPageEditor
-                      onCancel={() => setEditingSection(null)}
-                      onSaved={() => {
-                        setStatusMessage({
-                          type: 'success',
-                          text: '"Dupattas Page" updated successfully! Your changes are now live on /shop/dupattas.',
-                        });
-                      }}
-                    />
-                  </Card>
-                ) : editingSection === 'new-arrivals-page' ? (
-                  <Card variant="elevated" padding="lg">
-                    <NewArrivalsPageEditor
-                      onCancel={() => setEditingSection(null)}
-                      onSaved={() => {
-                        setStatusMessage({
-                          type: 'success',
-                          text: '"New Arrivals Page" updated successfully! Your changes are now live on /new-arrivals.',
-                        });
-                      }}
-                    />
                   </Card>
                 ) : editingSection === 'sale-page' ? (
                   <Card variant="elevated" padding="lg">
@@ -2402,91 +2312,6 @@ export default function AdminContentPage() {
                           Manage Page
                         </Button>
                       </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Salwars Page</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>/shop/salwars</span>
-                          <button
-                            onClick={() => {
-                              setEditingSection('salwars-page');
-                            }}
-                            className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell>Live Storefront</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Lehengas Page</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>/shop/lehengas</span>
-                          <button
-                            onClick={() => {
-                              setEditingSection('lehengas-page');
-                            }}
-                            className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell>Live Storefront</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Sarees Page</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>/shop/sarees</span>
-                          <button
-                            onClick={() => {
-                              setEditingSection('sarees-page');
-                            }}
-                            className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell>Live Storefront</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">Dupattas Page</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>/shop/dupattas</span>
-                          <button
-                            onClick={() => {
-                              setEditingSection('dupattas-page');
-                            }}
-                            className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell>Live Storefront</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="font-medium">New Arrivals Page</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span>/new-arrivals</span>
-                          <button
-                            onClick={() => {
-                              setEditingSection('new-arrivals-page');
-                            }}
-                            className="text-xs px-2 py-0.5 rounded bg-[var(--color-gold)]/20 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/30 font-semibold transition-colors"
-                          >
-                            Edit
-                          </button>
-                        </div>
-                      </TableCell>
-                      <TableCell>Live Storefront</TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell className="font-medium">Sale Page</TableCell>
