@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { Card, ProductCard } from '@/components/ui/Card';
 import { SizeSelector } from '@/components/composite/SizeSelector';
+import { ProductCompareModal } from '@/components/composite/ProductCompareModal';
 import { ImageGallery } from '@/components/composite/ImageGallery';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Accordion } from '@/components/ui/Accordion';
@@ -47,6 +48,7 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   const [addedToBag, setAddedToBag] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   const currentColor = product.colors[selectedColor] ?? product.colors[0] ?? { name: '', value: '', hex: '#CCCCCC', images: [] };
   const activeVariant = product.variants?.find((v) => v.size.toLowerCase() === selectedSize?.toLowerCase()) || product.variants?.[0];
@@ -342,24 +344,11 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
               {/* Size Selector */}
               <div>
-                <label className="block text-sm font-medium text-[var(--color-ink)] mb-3">Select Size</label>
                 <SizeSelector
                   sizes={sizeOptions}
                   selectedSize={selectedSize ?? undefined}
-                  onSizeChange={setSelectedSize}
+                  onSizeChange={(size) => setSelectedSize(size)}
                 />
-                {selectedSize && (
-                  <motion.p
-                    className="mt-2 text-sm text-[var(--color-success)] flex items-center gap-1"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    Size {selectedSize} selected
-                  </motion.p>
-                )}
               </div>
 
               {/* Quantity Selector */}
@@ -444,7 +433,14 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                     {isWishlisted ? 'Wishlisted' : 'Wishlist'}
                   </button>
                 </div>
-                <MagneticButton variant="ghost" size="sm" className="gap-2" strength={0.3}>
+                <MagneticButton
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 cursor-pointer hover:text-[var(--color-gold)]"
+                  strength={0.3}
+                  onClick={() => setShowCompareModal(true)}
+                  aria-label="Compare ensemble specifications"
+                >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                     <polyline points="15 3 21 3 21 9" />
@@ -892,6 +888,27 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
           onSuccess={() => setShowAuthModal(false)}
         />
       )}
+
+      <ProductCompareModal
+        isOpen={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        currentProduct={product}
+        relatedProducts={relatedProducts}
+        onAddToBag={async (item) => {
+          try {
+            await addItem(item.id, 1, item.size, {
+              product_id: item.id,
+              product_name: item.name,
+              price: item.price,
+              image: item.image,
+              size: item.size,
+            });
+            toast.success(`Added "${item.name}" (${item.size}) to your bag!`);
+          } catch (err) {
+            toast.error('Could not add to bag. Please try again.');
+          }
+        }}
+      />
     </div>
   );
 }

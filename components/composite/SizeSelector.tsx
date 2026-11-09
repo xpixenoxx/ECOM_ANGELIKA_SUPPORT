@@ -156,29 +156,27 @@ export function SizeSelector({
 
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Size options">
         {sizes.map((size) => (
-          <motion.button
+          <button
+            type="button"
             key={size.value}
             role="radio"
             aria-checked={selectedSize === size.value}
             aria-disabled={!size.inStock}
             aria-label={`${size.label}${!size.inStock ? ', out of stock' : ''}${showAvailability && size.count !== undefined ? `, ${size.count} left` : ''}`}
-            onClick={() => handleSizeClick(size)}
+            onClick={(e) => {
+              e.preventDefault();
+              handleSizeClick(size);
+            }}
             disabled={!size.inStock}
             className={cn(
-              'relative px-4 py-2.5 text-sm font-semibold uppercase tracking-wider rounded-[var(--radius-md)] transition-all duration-200',
-              'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--color-gold)]/40 focus-visible:ring-offset-2',
+              'relative px-4 py-2.5 text-sm font-semibold uppercase tracking-wider rounded-[var(--radius-md)] transition-all duration-150 select-none cursor-pointer',
+              'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--color-gold)]/40 focus-visible:ring-offset-2 hover:scale-[1.03] active:scale-[0.97]',
               size.inStock
                 ? selectedSize === size.value
-                  ? 'bg-[var(--color-gold)] text-[var(--color-ink)] shadow-[var(--shadow-gold)]'
+                  ? 'bg-[var(--color-gold)] text-[var(--color-ink)] shadow-[var(--shadow-gold)] font-bold'
                   : 'bg-[var(--color-white)] border-2 border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold-light)]'
                 : 'bg-[var(--color-whisper)] border-2 border-[var(--color-whisper)] text-[var(--color-mist)] line-through cursor-not-allowed'
             )}
-            whileHover={size.inStock ? { scale: 1.02 } : undefined}
-            whileTap={size.inStock ? { scale: 0.98 } : undefined}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.2 }}
-            style={{ transitionDelay: '0ms' }}
           >
             {size.label}
             {!size.inStock && (
@@ -191,13 +189,14 @@ export function SizeSelector({
                 Only {size.count} left
               </span>
             )}
-          </motion.button>
+          </button>
         ))}
       </div>
 
       {selectedSize && (
         <motion.p
-          className="text-sm text-[var(--color-success)] flex items-center gap-1.5"
+          key={selectedSize}
+          className="text-sm text-[var(--color-success)] flex items-center gap-1.5 mt-2 font-medium"
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
         >

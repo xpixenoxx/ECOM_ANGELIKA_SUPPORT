@@ -319,7 +319,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
             <span className="text-[var(--color-ink)] font-medium">Couture Fit Studio</span>
           </nav>
           
-          {header.badge && (
+          {header.badge && header.badge.trim() !== '' && header.badge !== "Vidhya's Bespoke Drape & Silhouette Studio" && (
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#E5DECF] shadow-2xs mb-3">
               <span className="text-[var(--color-gold)] text-xs">⚜</span>
               <span className="text-[10px] font-semibold tracking-[0.22em] uppercase text-[var(--color-gold)]">

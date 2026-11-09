@@ -2609,7 +2609,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   },
   'size-finder-page': {
     header: {
-      badge: "Vidhya's Bespoke Drape & Silhouette Studio",
+      badge: '',
       title: 'Discover Your Signature Drape',
       description: 'Handcrafted luxury ethnic wear should never feel constrained. Our interactive studio calculates your tailored proportion based on your posture, height, and preferred ease.'
     },

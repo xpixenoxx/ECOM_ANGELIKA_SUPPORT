@@ -65,7 +65,7 @@ function AdminFormField({
 
 const DEFAULT_SIZE_FINDER_DATA: SizeFinderPageContent = {
   header: {
-    badge: "Vidhya's Bespoke Drape & Silhouette Studio",
+    badge: '',
     title: 'Discover Your Signature Drape',
     description:
       'Handcrafted luxury ethnic wear should never feel constrained. Our interactive studio calculates your tailored proportion based on your posture, height, and preferred ease.',
@@ -480,7 +480,7 @@ export function SizeFinderPageEditor({
                   header: { ...prev.header, badge: val },
                 }))
               }
-              placeholder="Vidhya's Bespoke Drape & Silhouette Studio"
+              placeholder="e.g. Couture Fit Studio"
             />
             <AdminFormField
               label="Page Main Heading"
