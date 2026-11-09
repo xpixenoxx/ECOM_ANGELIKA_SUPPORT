@@ -615,22 +615,44 @@ export default function CheckoutPage() {
           },
         };
 
-        // Load Razorpay script dynamically
-        const script = document.createElement('script');
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-        script.onload = () => {
+        // Load Razorpay script dynamically — guard against duplicate injection on retry
+        const existingScript = document.getElementById('razorpay-checkout-script');
+        if (existingScript) {
+          // Script already loaded; open modal directly
           const razorpay = new (window as any).Razorpay(razorpayOptions);
           razorpay.on('payment.failed', (response: any) => {
-            setError(response.error.description || 'Payment failed');
+            setError(response.error.description || 'Payment failed. Please try again.');
             setIsProcessing(false);
           });
           razorpay.open();
-        };
-        document.body.appendChild(script);
+        } else {
+          const script = document.createElement('script');
+          script.id = 'razorpay-checkout-script';
+          script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.onload = () => {
+            const razorpay = new (window as any).Razorpay(razorpayOptions);
+            razorpay.on('payment.failed', (response: any) => {
+              setError(response.error.description || 'Payment failed. Please try again.');
+              setIsProcessing(false);
+            });
+            razorpay.open();
+          };
+          // Edge case #4: Handle script load failure (CDN down / network error)
+          script.onerror = () => {
+            setError('Could not load payment gateway. Please check your connection and try again.');
+            setIsProcessing(false);
+          };
+          document.body.appendChild(script);
+        }
       } else if (selectedPayment === 'cod') {
         // COD order placed successfully
         await clearCart();
         window.location.href = `/order-success?order_id=${result.orderId}`;
+      } else {
+        // Edge case #6: Payment method selected but no razorpayOrderId returned —
+        // createOrder returned success:true with no payment window (should not happen after Fix #1)
+        setError('Payment session could not be created. Please try again.');
+        setIsProcessing(false);
       }
     } catch (err) {
       console.error('Order placement failed:', err);

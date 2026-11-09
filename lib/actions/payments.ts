@@ -120,21 +120,29 @@ async function handlePaymentCaptured(
 ) {
   if (!payment) return;
 
+  // payment_id column holds the Razorpay order ID (set during order creation)
   const { data: order } = await supabase
     .from('orders')
-    .select('id, user_id, email, phone, total_amount, currency')
-    .eq('razorpay_order_id', payment.order_id)
+    .select('id, user_id, email, phone, total_amount, currency, metadata, whatsapp_opt_in')
+    .eq('payment_id', payment.order_id)
     .single();
 
   if (!order) return;
 
-  // Update order payment status
+  const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+    ? (order.metadata as Record<string, unknown>)
+    : {};
+
+  // Update order payment status — store payment details in metadata
   await supabase
     .from('orders')
     .update({
       payment_status: 'paid',
-      razorpay_payment_id: payment.id,
-      paid_at: new Date().toISOString(),
+      metadata: {
+        ...existingMeta,
+        razorpay_payment_id: payment.id,
+        paid_at: new Date().toISOString(),
+      },
     })
     .eq('id', order.id);
 
@@ -148,20 +156,28 @@ async function handlePaymentFailed(
 ) {
   if (!payment) return;
 
+  // payment_id column holds the Razorpay order ID (set during order creation)
   const { data: order } = await supabase
     .from('orders')
-    .select('id')
-    .eq('razorpay_order_id', payment.order_id)
+    .select('id, metadata')
+    .eq('payment_id', payment.order_id)
     .single();
 
   if (!order) return;
+
+  const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+    ? (order.metadata as Record<string, unknown>)
+    : {};
 
   await supabase
     .from('orders')
     .update({
       payment_status: 'failed',
-      payment_failed_at: new Date().toISOString(),
-      payment_failure_reason: payment.error_description || payment.error_code || 'Payment failed',
+      metadata: {
+        ...existingMeta,
+        payment_failed_at: new Date().toISOString(),
+        payment_failure_reason: payment.error_description || payment.error_code || 'Payment failed',
+      },
     })
     .eq('id', order.id);
 
@@ -176,20 +192,28 @@ async function handleOrderPaid(
   if (!orderData) return;
 
   // This is a fallback - payment.captured should handle it
+  // payment_id column holds the Razorpay order ID (set during order creation)
   const { data: order } = await supabase
     .from('orders')
-    .select('id')
-    .eq('razorpay_order_id', orderData.id)
+    .select('id, metadata')
+    .eq('payment_id', orderData.id)
     .single();
 
   if (!order) return;
 
   if (orderData.amount_paid >= orderData.amount) {
+    const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+      ? (order.metadata as Record<string, unknown>)
+      : {};
+
     await supabase
       .from('orders')
       .update({
         payment_status: 'paid',
-        paid_at: new Date().toISOString(),
+        metadata: {
+          ...existingMeta,
+          paid_at: new Date().toISOString(),
+        },
       })
       .eq('id', order.id);
 
@@ -203,20 +227,38 @@ async function handleRefund(
 ) {
   if (!refund) return;
 
-  const { data: order } = await supabase
+  // razorpay_payment_id is stored inside the metadata JSON column
+  const { data: orders } = await supabase
     .from('orders')
-    .select('id')
-    .eq('razorpay_payment_id', refund.payment_id)
-    .single();
+    .select('id, total_amount, metadata')
+    .eq('payment_method', 'razorpay')
+    .eq('payment_status', 'paid');
+
+  if (!orders || orders.length === 0) return;
+
+  // Find the order whose metadata.razorpay_payment_id matches
+  const order = orders.find((o: any) => {
+    const meta = (typeof o.metadata === 'object' && o.metadata !== null && !Array.isArray(o.metadata))
+      ? (o.metadata as Record<string, unknown>)
+      : {};
+    return meta['razorpay_payment_id'] === refund.payment_id;
+  });
 
   if (!order) return;
+
+  const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+    ? (order.metadata as Record<string, unknown>)
+    : {};
 
   await supabase
     .from('orders')
     .update({
-      payment_status: 'refunded',
-      refund_amount: refund.amount,
-      refunded_at: new Date().toISOString(),
+      payment_status: refund.amount >= order.total_amount ? 'refunded' : 'partially_refunded',
+      metadata: {
+        ...existingMeta,
+        refund_amount: refund.amount,
+        refunded_at: new Date().toISOString(),
+      },
     })
     .eq('id', order.id);
 
@@ -233,10 +275,32 @@ async function restoreInventoryForOrder(supabase: any, orderId: string) {
   if (!items) return;
 
   for (const item of items) {
-    await supabase.rpc('increase_inventory', {
-      variant_id: item.variant_id,
-      quantity: item.quantity,
-    });
+    if (!item.variant_id) continue;
+    try {
+      // Try the RPC first (atomic increment)
+      const { error: rpcError } = await supabase.rpc('increase_inventory', {
+        variant_id: item.variant_id,
+        quantity: item.quantity,
+      });
+
+      // Edge case #5: If the RPC doesn't exist or fails, fall back to a direct read-then-update
+      if (rpcError) {
+        console.warn('increase_inventory RPC failed, using direct update fallback:', rpcError.message);
+        const { data: v } = await supabase
+          .from('product_variants')
+          .select('inventory_quantity')
+          .eq('id', item.variant_id)
+          .maybeSingle();
+        if (v && v.inventory_quantity !== null) {
+          await supabase
+            .from('product_variants')
+            .update({ inventory_quantity: v.inventory_quantity + item.quantity })
+            .eq('id', item.variant_id);
+        }
+      }
+    } catch (err) {
+      console.error('restoreInventory error for variant', item.variant_id, err);
+    }
   }
 }
 
@@ -692,7 +756,7 @@ export async function processRefund(
 
     const { data: order } = await supabase
       .from('orders')
-      .select('id, payment_method, payment_status, total_amount, razorpay_payment_id, stripe_payment_intent_id, currency')
+      .select('id, payment_method, payment_status, total_amount, metadata, currency, payment_id')
       .eq('id', orderId)
       .single();
 
@@ -706,12 +770,19 @@ export async function processRefund(
 
     const refundAmount = amount || order.total_amount;
 
-    if (order.payment_method === 'razorpay' && order.razorpay_payment_id) {
+    // Extract razorpay_payment_id from metadata JSON
+    const meta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+      ? (order.metadata as Record<string, unknown>)
+      : {};
+    const razorpayPaymentId = meta['razorpay_payment_id'] as string | undefined;
+    const stripePaymentIntentId = meta['stripe_payment_intent_id'] as string | undefined;
+
+    if (order.payment_method === 'razorpay' && razorpayPaymentId) {
       const keySecret = process.env['RAZORPAY_KEY_SECRET'];
       if (!keySecret) return { success: false, error: 'Razorpay not configured' };
 
       const auth = Buffer.from(`${process.env['RAZORPAY_KEY_ID']}:${keySecret}`).toString('base64');
-      const response = await fetch(`https://api.razorpay.com/v1/payments/${order.razorpay_payment_id}/refund`, {
+      const response = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}/refund`, {
         method: 'POST',
         headers: {
           Authorization: `Basic ${auth}`,
@@ -732,20 +803,24 @@ export async function processRefund(
         .from('orders')
         .update({
           payment_status: refundAmount >= order.total_amount ? 'refunded' : 'partially_refunded',
-          refund_amount: refundAmount,
-          refunded_at: new Date().toISOString(),
+          metadata: {
+            ...meta,
+            refund_id: data.id,
+            refund_amount: refundAmount,
+            refunded_at: new Date().toISOString(),
+          },
         })
         .eq('id', orderId);
 
       return { success: true, refundId: data.id };
     }
 
-    if (order.payment_method === 'stripe' && order.stripe_payment_intent_id) {
+    if (order.payment_method === 'stripe' && stripePaymentIntentId) {
       const Stripe = (await import('stripe')).default;
       const stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, { apiVersion: '2024-04-10' });
 
       const refund = await stripe.refunds.create({
-        payment_intent: order.stripe_payment_intent_id,
+        payment_intent: stripePaymentIntentId,
         amount: refundAmount,
         reason: 'requested_by_customer',
         metadata: { reason: reason || 'Customer requested refund' },
@@ -755,8 +830,12 @@ export async function processRefund(
         .from('orders')
         .update({
           payment_status: refundAmount >= order.total_amount ? 'refunded' : 'partially_refunded',
-          refund_amount: refundAmount,
-          refunded_at: new Date().toISOString(),
+          metadata: {
+            ...meta,
+            refund_id: refund.id,
+            refund_amount: refundAmount,
+            refunded_at: new Date().toISOString(),
+          },
         })
         .eq('id', orderId);
 

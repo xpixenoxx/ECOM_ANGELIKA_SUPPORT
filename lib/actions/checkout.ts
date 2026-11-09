@@ -180,22 +180,53 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
           user_id: userId || 'guest',
         },
       });
+
+      // Edge case #1: If Razorpay order creation fails, roll back the DB order
+      // so the customer doesn't get an orphan pending order with no payment window.
+      if (!razorpayResult.success || !razorpayResult.orderId) {
+        console.error('Razorpay order creation failed — rolling back DB order:', razorpayResult.error);
+        await supabase.from('order_items').delete().eq('order_id', order.id);
+        await supabase.from('orders').delete().eq('id', order.id);
+        // Restore inventory that was decremented above
+        for (const item of orderData.items) {
+          if (item.variant_id) {
+            try {
+              const { data: v } = await supabase
+                .from('product_variants')
+                .select('inventory_quantity')
+                .eq('id', item.variant_id)
+                .maybeSingle();
+              if (v && v.inventory_quantity !== null) {
+                await supabase
+                  .from('product_variants')
+                  .update({ inventory_quantity: v.inventory_quantity + item.quantity })
+                  .eq('id', item.variant_id);
+              }
+            } catch (invErr) {
+              console.warn('Inventory restore notice during rollback:', invErr);
+            }
+          }
+        }
+        return {
+          success: false,
+          error: razorpayResult.error || 'Could not connect to payment gateway. Please try again.',
+        };
+      }
+
       razorpayOrderId = razorpayResult.orderId;
 
       // Update order with Razorpay order ID in payment_id and metadata
-      if (razorpayOrderId) {
-        await supabase
-          .from('orders')
-          .update({
-            payment_id: razorpayOrderId,
-            metadata: {
-              cod_fee: codFee,
-              coupon_code: orderData.coupon?.code || null,
-              razorpay_order_id: razorpayOrderId,
-            },
-          })
-          .eq('id', order.id);
-      }
+      await supabase
+        .from('orders')
+        .update({
+          payment_id: razorpayOrderId,
+          metadata: {
+            cod_fee: codFee,
+            coupon_code: orderData.coupon?.code || null,
+            razorpay_order_id: razorpayOrderId,
+          },
+        })
+        .eq('id', order.id);
     }
 
     return {
@@ -284,25 +315,38 @@ export async function verifyRazorpayPayment(
 
     const supabase = await getSupabaseClient();
 
-    // Find order by Razorpay order ID
+    // Find order by Razorpay order ID — stored in payment_id column
     const { data: order, error: findError } = await supabase
       .from('orders')
-      .select('id')
-      .eq('razorpay_order_id', razorpayOrderId)
+      .select('id, metadata, payment_status')
+      .eq('payment_id', razorpayOrderId)
       .single();
 
     if (findError || !order) {
       return { success: false, error: 'Order not found' };
     }
 
-    // Update order with payment details
+    // Edge case #2: Idempotency — if already paid (double-submit / retry),
+    // return success immediately without updating again or firing duplicate notifications.
+    if (order.payment_status === 'paid') {
+      return { success: true, orderId: order.id };
+    }
+
+    // Update order: mark as paid, store payment details in metadata
+    const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+      ? (order.metadata as Record<string, unknown>)
+      : {};
+
     await supabase
       .from('orders')
       .update({
         payment_status: 'paid',
-        razorpay_payment_id: razorpayPaymentId,
-        razorpay_signature: razorpaySignature,
-        paid_at: new Date().toISOString(),
+        metadata: {
+          ...existingMeta,
+          razorpay_payment_id: razorpayPaymentId,
+          razorpay_signature: razorpaySignature,
+          paid_at: new Date().toISOString(),
+        },
       })
       .eq('id', order.id);
 
