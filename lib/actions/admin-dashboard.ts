@@ -4,7 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
+export type DashboardTimeRange = '7d' | '30d' | '90d' | 'all';
+
 export interface DashboardData {
+  timeRange?: DashboardTimeRange;
   stats: {
     totalRevenue: number;
     totalOrders: number;
@@ -32,15 +35,39 @@ export interface DashboardData {
     size: string;
     inventory_quantity: number;
     low_stock_threshold: number;
+    product_id?: string;
   }>;
-  revenueByDay: Array<{ date: string; revenue: number }>;
+  revenueByDay: Array<{ date: string; revenue: number; ordersCount?: number }>;
 }
 
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getDashboardData(timeRange: DashboardTimeRange = '30d'): Promise<DashboardData> {
   const supabase = supabaseAdmin;
   const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+  let days = 30;
+  if (timeRange === '7d') days = 7;
+  else if (timeRange === '90d') days = 90;
+  else if (timeRange === 'all') days = 0;
+
+  const startDate = days > 0 ? new Date(now.getTime() - days * 24 * 60 * 60 * 1000) : null;
+  const prevStartDate = days > 0 ? new Date(now.getTime() - 2 * days * 24 * 60 * 60 * 1000) : null;
+  const prevEndDate = startDate;
+
+  let currentOrdersQuery = supabase
+    .from('orders')
+    .select('id, total_amount, status, payment_status, created_at');
+  if (startDate) {
+    currentOrdersQuery = currentOrdersQuery.gte('created_at', startDate.toISOString());
+  }
+
+  let prevOrdersQuery = supabase
+    .from('orders')
+    .select('id, total_amount, status, created_at');
+  if (prevStartDate && prevEndDate) {
+    prevOrdersQuery = prevOrdersQuery
+      .gte('created_at', prevStartDate.toISOString())
+      .lt('created_at', prevEndDate.toISOString());
+  }
 
   const [
     ordersRes,
@@ -51,48 +78,104 @@ export async function getDashboardData(): Promise<DashboardData> {
     recentOrdersRes,
     variantsRes,
   ] = await Promise.all([
-    supabase.from('orders').select('total_amount, status, created_at').gte('created_at', thirtyDaysAgo.toISOString()),
-    supabase.from('orders').select('total_amount').gte('created_at', sixtyDaysAgo.toISOString()).lt('created_at', thirtyDaysAgo.toISOString()),
+    currentOrdersQuery,
+    days > 0 ? prevOrdersQuery : Promise.resolve({ data: [], error: null }),
     supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'customer'),
     supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase.from('orders').select('id', { count: 'exact', head: true }).in('status', ['pending', 'confirmed']),
-    supabase.from('orders').select('id, order_number, email, status, payment_status, total_amount, currency, created_at').order('created_at', { ascending: false }).limit(7),
-    supabase.from('product_variants').select('id, inventory_quantity, low_stock_threshold, size, products(name, sku)').lte('inventory_quantity', 5),
+    supabase
+      .from('orders')
+      .select('id, order_number, email, status, payment_status, total_amount, currency, created_at')
+      .order('created_at', { ascending: false })
+      .limit(7),
+    supabase
+      .from('product_variants')
+      .select('id, product_id, inventory_quantity, low_stock_threshold, size, products(id, name, sku)')
+      .lte('inventory_quantity', 10)
+      .order('inventory_quantity', { ascending: true }),
   ]);
 
   const orders = ordersRes.data || [];
-  const prevOrders = prevOrdersRes.data || [];
-  const totalRevenue = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
-  const prevRevenue = prevOrders.reduce((sum, o) => sum + Number(o.total_amount), 0);
-  const revenueChange = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : 0;
-  const ordersChange = prevOrders.length > 0 ? ((orders.length - prevOrders.length) / prevOrders.length) * 100 : 0;
+  const prevOrders = (prevOrdersRes as any)?.data || [];
+
+  // Exclude cancelled orders from revenue calculation
+  const validOrders = orders.filter(o => o.status !== 'cancelled');
+  const validPrevOrders = prevOrders.filter((o: any) => o.status !== 'cancelled');
+
+  const totalRevenue = validOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+  const prevRevenue = validPrevOrders.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0);
+
+  let revenueChange = 0;
+  if (prevRevenue > 0) {
+    revenueChange = ((totalRevenue - prevRevenue) / prevRevenue) * 100;
+  } else if (totalRevenue > 0 && days > 0) {
+    revenueChange = 100;
+  }
+
+  let ordersChange = 0;
+  if (prevOrders.length > 0) {
+    ordersChange = ((orders.length - prevOrders.length) / prevOrders.length) * 100;
+  } else if (orders.length > 0 && days > 0) {
+    ordersChange = 100;
+  }
 
   // Orders by status
+  const statusOrder = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'returned'];
   const statusMap: Record<string, number> = {};
-  orders.forEach(o => { statusMap[o.status] = (statusMap[o.status] || 0) + 1; });
-  const ordersByStatus = Object.entries(statusMap).map(([status, count]) => ({ status, count }));
+  orders.forEach(o => {
+    const s = o.status || 'pending';
+    statusMap[s] = (statusMap[s] || 0) + 1;
+  });
+  const ordersByStatus = Object.entries(statusMap)
+    .sort(([a], [b]) => {
+      const idxA = statusOrder.indexOf(a);
+      const idxB = statusOrder.indexOf(b);
+      return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+    })
+    .map(([status, count]) => ({ status, count }));
 
-  // Revenue by day (last 7 days)
-  const revenueByDay: Array<{ date: string; revenue: number }> = [];
+  // Revenue by day (last 7 days breakdown for chart)
+  const revenueByDay: Array<{ date: string; revenue: number; ordersCount: number }> = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dateStr = d.toISOString().split('T')[0] || '';
-    const dayRevenue = orders
-      .filter(o => o.created_at && o.created_at.startsWith(dateStr))
-      .reduce((sum, o) => sum + Number(o.total_amount), 0);
-    revenueByDay.push({ date: dateStr, revenue: dayRevenue });
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const isoDatePrefix = d.toISOString().split('T')[0] || '';
+
+    const matchingDayOrders = validOrders.filter(o => {
+      if (!o.created_at) return false;
+      const orderD = new Date(o.created_at);
+      const oYear = orderD.getFullYear();
+      const oMonth = String(orderD.getMonth() + 1).padStart(2, '0');
+      const oDay = String(orderD.getDate()).padStart(2, '0');
+      const oDateStr = `${oYear}-${oMonth}-${oDay}`;
+      return oDateStr === dateStr || o.created_at.startsWith(isoDatePrefix);
+    });
+
+    const dayRevenue = matchingDayOrders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+    revenueByDay.push({
+      date: dateStr,
+      revenue: dayRevenue,
+      ordersCount: matchingDayOrders.length,
+    });
   }
 
   // Low stock
-  const lowStockItems = (variantsRes.data || []).map((v: any) => ({
-    product_name: v.products?.name || 'Unknown',
-    sku: v.products?.sku || '',
-    size: v.size || '',
-    inventory_quantity: v.inventory_quantity,
-    low_stock_threshold: v.low_stock_threshold || 5,
-  }));
+  const lowStockItems = (variantsRes.data || [])
+    .filter((v: any) => Number(v.inventory_quantity ?? 0) <= Number(v.low_stock_threshold || 5))
+    .map((v: any) => ({
+      product_name: v.products?.name || 'Unknown Product',
+      sku: v.products?.sku || '',
+      size: v.size || '',
+      inventory_quantity: Number(v.inventory_quantity ?? 0),
+      low_stock_threshold: Number(v.low_stock_threshold || 5),
+      product_id: v.product_id || v.products?.id,
+    }));
 
   return {
+    timeRange,
     stats: {
       totalRevenue,
       totalOrders: orders.length,

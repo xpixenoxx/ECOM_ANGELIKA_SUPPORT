@@ -16,6 +16,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./*"],
+      "@/features/*": ["./features/*"],
+      "@/repositories/*": ["./lib/repositories/*"],
       "@/components/*": ["./components/*"],
       "@/lib/*": ["./lib/*"],
       "@/hooks/*": ["./lib/hooks/*"],

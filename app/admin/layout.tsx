@@ -23,9 +23,6 @@ import {
   Send,
   GitBranch,
   BarChart2,
-  Filter,
-  Users2,
-  Award,
   CreditCard,
   Truck as TruckIcon,
   Percent,
@@ -61,7 +58,6 @@ const navigation = [
     group: 'Content',
     items: [
       { href: '/admin/content', label: 'Pages', icon: FileText, badge: null },
-      { href: '/admin/content/blocks', label: 'Blocks', icon: FileText, badge: null },
       { href: '/admin/content/tokens', label: 'Design Tokens', icon: Palette, badge: null },
     ],
   },
@@ -103,9 +99,6 @@ const navigation = [
     group: 'Analytics',
     items: [
       { href: '/admin/analytics', label: 'Overview', icon: BarChart2, badge: null },
-      { href: '/admin/analytics/funnel', label: 'Funnel', icon: Filter, badge: null },
-      { href: '/admin/analytics/cohorts', label: 'Cohorts', icon: Users2, badge: null },
-      { href: '/admin/analytics/products', label: 'Products', icon: Award, badge: null },
     ],
   },
   {

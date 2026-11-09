@@ -39,6 +39,7 @@ export interface SearchResult {
   query: string;
   suggestions: SearchSuggestion[];
   took: number; // milliseconds
+  vidhyasPicks?: any[];
 }
 
 export interface SearchSuggestion {
@@ -58,6 +59,50 @@ export interface SemanticSearchParams {
 async function getSupabaseClient() {
   const { createClient } = await import('@/lib/supabase/server');
   return createClient();
+}
+
+async function getCatalogueFallback(
+  query: string,
+  page = 1,
+  pageSize = 20,
+  startTime = Date.now()
+): Promise<SearchResult | null> {
+  const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
+  const q = (query || '').trim().toLowerCase();
+  const localMatches = q
+    ? STORE_CATALOGUE.filter((item) => {
+        const titleLower = item.title.toLowerCase();
+        const catLower = (item.category || '').toLowerCase();
+        const subLower = (item.subtitle || '').toLowerCase();
+        return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
+      })
+    : [];
+
+  if (localMatches.length > 0) {
+    const catalogueProducts = localMatches.map((p) => ({
+      id: p.id,
+      name: p.title,
+      slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
+      description: p.subtitle || null,
+      price: p.price,
+      compare_at_price: p.originalPrice || null,
+      images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
+      category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
+      discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
+    }));
+
+    return {
+      products: catalogueProducts,
+      totalCount: catalogueProducts.length,
+      totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
+      currentPage: page,
+      query: q,
+      suggestions: [],
+      took: Date.now() - startTime,
+      vidhyasPicks: VIDHYAS_PICKS_LIST as any,
+    };
+  }
+  return null;
 }
 
 // ============================================
@@ -127,45 +172,12 @@ export async function searchProductsFullText(
     // Get suggestions
     const suggestions = await getSearchSuggestions(query, 5);
 
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
+    if (products.length === 0) {
+      const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+      if (fallback) return fallback;
     }
-  }
 
-  return {
+    return {
       products,
       totalCount,
       totalPages,
@@ -191,53 +203,21 @@ export async function searchProductsSemantic(
   const supabase = await getSupabaseClient();
 
   const { embedding, filters = {}, similarityThreshold = 0.5, limit = 20, offset = 0 } = params;
+  const query = filters.query || '';
+  const page = filters.page || Math.floor(offset / limit) + 1;
+  const pageSize = filters.pageSize || limit;
 
   // Validate embedding dimension
   if (!embedding || embedding.length !== 1536) {
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
+    const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+    if (fallback) return fallback;
 
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
-  }
-
-  return {
+    return {
       products: [],
       totalCount: 0,
       totalPages: 0,
-      currentPage: 1,
-      query: '',
+      currentPage: page,
+      query,
       suggestions: [],
       took: Date.now() - startTime,
     };
@@ -258,50 +238,15 @@ export async function searchProductsSemantic(
 
     if (error) {
       console.error('Semantic search error:', error);
-      if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
+      const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+      if (fallback) return fallback;
 
       return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
-  }
-
-  return {
         products: [],
         totalCount: 0,
         totalPages: 0,
-        currentPage: 1,
-        query: '',
+        currentPage: page,
+        query,
         suggestions: [],
         took: Date.now() - startTime,
       };
@@ -319,99 +264,31 @@ export async function searchProductsSemantic(
       discount: p.compare_at_price ? Math.round(((p.compare_at_price - p.price) / p.compare_at_price) * 100) : 0,
     }));
 
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
+    if (products.length === 0) {
+      const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+      if (fallback) return fallback;
     }
-  }
 
-  return {
+    return {
       products,
       totalCount: products.length,
       totalPages: 1,
-      currentPage: 1,
-      query: '',
+      currentPage: page,
+      query,
       suggestions: [],
       took: Date.now() - startTime,
     };
   } catch (error) {
     console.error('Semantic search exception:', error);
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
+    const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+    if (fallback) return fallback;
 
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
-  }
-
-  return {
+    return {
       products: [],
       totalCount: 0,
       totalPages: 0,
-      currentPage: 1,
-      query: '',
+      currentPage: page,
+      query,
       suggestions: [],
       took: Date.now() - startTime,
     };
@@ -493,45 +370,12 @@ export async function searchProductsHybrid(
 
     const suggestions = await getSearchSuggestions(query, 5);
 
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
+    if (products.length === 0) {
+      const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+      if (fallback) return fallback;
     }
-  }
 
-  return {
+    return {
       products,
       totalCount,
       totalPages,
@@ -556,45 +400,10 @@ export async function searchProducts(
 ): Promise<SearchResult> {
   // If query is empty, return empty results
   if (!query || query.trim().length === 0) {
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
+    const fallback = await getCatalogueFallback('', filters.page || 1, filters.pageSize || 20, 0);
+    if (fallback) return fallback;
 
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
-  }
-
-  return {
+    return {
       products: [],
       totalCount: 0,
       totalPages: 0,
@@ -727,119 +536,12 @@ async function fallbackSearch(
 
   const { data: products, error, count } = await queryBuilder;
 
-  if (error) {
-    console.error('Fallback search error:', error);
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
+  if (error || !products || products.length === 0) {
+    if (error) console.error('Fallback search error:', error);
+    const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+    if (fallback) return fallback;
 
-    const catalogueProducts = localMatches.map((p) => ({
-      id: p.id,
-      name: p.title,
-      slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-      description: p.subtitle || null,
-      price: p.price,
-      compare_at_price: p.originalPrice || null,
-      images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-      category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-      discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-    }));
-
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
-  }
-
-  return {
-      products: catalogueProducts,
-      totalCount: catalogueProducts.length,
-      totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-      currentPage: page,
-      query,
-      suggestions: [],
-      took: Date.now() - startTime,
-      vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-    };
-    /* original return */
-    if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
-  }
-
-  return {
+    return {
       products: [],
       totalCount: 0,
       totalPages: 0,
@@ -862,45 +564,12 @@ async function fallbackSearch(
     discount: p.compare_at_price ? Math.round(((p.compare_at_price - p.price) / p.compare_at_price) * 100) : 0,
   }));
 
-  const totalCount = count || 0;
+  const totalCount = count || formattedProducts.length;
   const totalPages = Math.ceil(totalCount / pageSize);
 
   if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
+    const fallback = await getCatalogueFallback(query, page, pageSize, startTime);
+    if (fallback) return fallback;
   }
 
   return {
@@ -930,45 +599,6 @@ export async function generateProductEmbeddings(
 ): Promise<EmbeddingResult> {
   // This would typically call an Edge Function or external API
   // to generate OpenAI embeddings for products
-  // For now, return not implemented
-  if (formattedProducts.length === 0) {
-    const { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } = await import('@/lib/data/store-catalogue');
-    const q = query.trim().toLowerCase();
-    const localMatches = q
-      ? STORE_CATALOGUE.filter((item) => {
-          const titleLower = item.title.toLowerCase();
-          const catLower = (item.category || '').toLowerCase();
-          const subLower = (item.subtitle || '').toLowerCase();
-          return titleLower.includes(q) || catLower.includes(q) || subLower.includes(q);
-        })
-      : [];
-
-    if (localMatches.length > 0) {
-      const catalogueProducts = localMatches.map((p) => ({
-        id: p.id,
-        name: p.title,
-        slug: p.href ? p.href.replace('/product/', '').replace('/shop/', '') : p.id,
-        description: p.subtitle || null,
-        price: p.price,
-        compare_at_price: p.originalPrice || null,
-        images: [{ id: `img-${p.id}`, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.title, sort_order: 0, is_primary: true }] as any,
-        category: p.category ? ({ id: `cat-${p.category}`, name: p.category, slug: p.category.toLowerCase() } as any) : null,
-        discount: p.originalPrice && p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0,
-      }));
-
-      return {
-        products: catalogueProducts,
-        totalCount: catalogueProducts.length,
-        totalPages: Math.ceil(catalogueProducts.length / pageSize) || 0,
-        currentPage: page,
-        query,
-        suggestions: [],
-        took: Date.now() - startTime,
-        vidhyasPicks: VIDHYAS_PICKS_LIST as any,
-      };
-    }
-  }
-
   return {
     success: false,
     processed: 0,

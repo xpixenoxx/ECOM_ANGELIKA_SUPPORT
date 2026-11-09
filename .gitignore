@@ -39,6 +39,19 @@ next-env.d.ts
 # Vercel
 .vercel
 
+# Testing & Coverage
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Storybook build output
+storybook-static/
+
+# Cache & Temporary
+.eslintcache
+*.tmp
+
 # Supabase (local dev)
 supabase/.branches
 supabase/.temp

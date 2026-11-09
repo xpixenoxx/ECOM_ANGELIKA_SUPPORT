@@ -7,7 +7,12 @@ import type { Database } from '@/types/database';
 type LoyaltyTransactionRow = Database['public']['Tables']['loyalty_transactions']['Row'];
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
-export interface LoyaltyTransaction extends LoyaltyTransactionRow {}
+export interface LoyaltyTransaction extends LoyaltyTransactionRow {
+  profiles?: {
+    full_name?: string | null;
+    email?: string | null;
+  } | null;
+}
 
 export interface LoyaltyTier {
   name: string;
@@ -206,7 +211,7 @@ export const DEFAULT_REDEMPTION_RULES: LoyaltyRedemptionRule[] = [
     rewardType: 'discount_fixed',
     rewardValue: 100,
     minOrderAmount: 500,
-    validFrom: new Date().toISOString().split('T')[0],
+    validFrom: new Date().toISOString().split('T')[0] ?? '',
     validUntil: null,
     isActive: true,
   },
@@ -218,7 +223,7 @@ export const DEFAULT_REDEMPTION_RULES: LoyaltyRedemptionRule[] = [
     rewardType: 'discount_fixed',
     rewardValue: 250,
     minOrderAmount: 1000,
-    validFrom: new Date().toISOString().split('T')[0],
+    validFrom: new Date().toISOString().split('T')[0] ?? '',
     validUntil: null,
     isActive: true,
   },
@@ -230,7 +235,7 @@ export const DEFAULT_REDEMPTION_RULES: LoyaltyRedemptionRule[] = [
     rewardType: 'discount_fixed',
     rewardValue: 500,
     minOrderAmount: 2000,
-    validFrom: new Date().toISOString().split('T')[0],
+    validFrom: new Date().toISOString().split('T')[0] ?? '',
     validUntil: null,
     isActive: true,
   },
@@ -241,7 +246,7 @@ export const DEFAULT_REDEMPTION_RULES: LoyaltyRedemptionRule[] = [
     pointsRequired: 300,
     rewardType: 'free_shipping',
     rewardValue: 0,
-    validFrom: new Date().toISOString().split('T')[0],
+    validFrom: new Date().toISOString().split('T')[0] ?? '',
     validUntil: null,
     isActive: true,
   },

@@ -2,6 +2,9 @@
 
 import { Variants, Transition } from 'framer-motion';
 
+// Re-export animation tokens, motion hooks, and motion one primitives
+export * from '../animation';
+
 // ============================================
 // Spring Configurations
 // ============================================

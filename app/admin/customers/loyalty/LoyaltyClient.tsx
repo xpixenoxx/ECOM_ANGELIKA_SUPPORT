@@ -148,7 +148,7 @@ export default function LoyaltyClient({
       }
     } catch (error) {
       console.error('Fetch transactions error:', error);
-      addToast({ type: 'error', message: 'Failed to fetch transactions' });
+      addToast({ title: 'Error', type: 'error', message: 'Failed to fetch transactions' });
     } finally {
       setIsLoading(false);
     }
@@ -156,7 +156,7 @@ export default function LoyaltyClient({
 
   const handleAddPoints = async () => {
     if (!pointsDialog.userId || !pointsForm.points || !pointsForm.description) {
-      addToast({ type: 'error', message: 'Please fill all required fields' });
+      addToast({ title: 'Validation Error', type: 'error', message: 'Please fill all required fields' });
       return;
     }
 
@@ -177,16 +177,16 @@ export default function LoyaltyClient({
 
       const data = await res.json();
       if (data.success) {
-        addToast({ type: 'success', message: pointsDialog.mode === 'add' ? 'Points added successfully' : 'Points deducted successfully' });
+        addToast({ title: 'Success', type: 'success', message: pointsDialog.mode === 'add' ? 'Points added successfully' : 'Points deducted successfully' });
         setPointsDialog({ open: false, mode: 'add', userId: '', userName: '' });
         setPointsForm({ points: '', type: 'earn_manual', description: '', expiresAt: '' });
         fetchTransactions(currentPage);
       } else {
-        addToast({ type: 'error', message: data.error || 'Failed to process' });
+        addToast({ title: 'Error', type: 'error', message: data.error || 'Failed to process' });
       }
     } catch (error) {
       console.error('Add points error:', error);
-      addToast({ type: 'error', message: 'Failed to process points' });
+      addToast({ title: 'Error', type: 'error', message: 'Failed to process points' });
     } finally {
       setIsLoading(false);
     }
@@ -221,7 +221,7 @@ export default function LoyaltyClient({
       </motion.div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as any)} className="space-y-6">
         <TabsList className="grid grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
@@ -547,7 +547,7 @@ export default function LoyaltyClient({
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="text-[var(--font-display)] text-base font-medium text-[var(--color-ink)]">{rule.name}</h4>
-                        <Badge variant={rule.isActive ? 'success' : 'secondary'}>{rule.isActive ? 'Active' : 'Inactive'}</Badge>
+                        <Badge variant={rule.isActive ? 'success' : 'default'}>{rule.isActive ? 'Active' : 'Inactive'}</Badge>
                       </div>
                       <p className="text-sm text-[var(--color-slate)]">{rule.description}</p>
                       <div className="mt-2 flex flex-wrap gap-4 text-sm text-[var(--color-slate)]">
@@ -580,7 +580,7 @@ export default function LoyaltyClient({
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h4 className="text-[var(--font-display)] text-base font-medium text-[var(--color-ink)]">{rule.name}</h4>
-                        <Badge variant={rule.isActive ? 'success' : 'secondary'}>{rule.isActive ? 'Active' : 'Inactive'}</Badge>
+                        <Badge variant={rule.isActive ? 'success' : 'default'}>{rule.isActive ? 'Active' : 'Inactive'}</Badge>
                       </div>
                       <p className="text-sm text-[var(--color-slate)]">{rule.description}</p>
                       <div className="mt-2 flex flex-wrap gap-4 text-sm text-[var(--color-slate)]">

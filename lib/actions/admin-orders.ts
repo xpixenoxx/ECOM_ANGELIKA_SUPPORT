@@ -149,6 +149,7 @@ export async function updateOrderStatus(
       return { success: false, error: error.message };
     }
 
+    revalidatePath('/admin');
     revalidatePath('/admin/orders');
     revalidatePath('/admin/orders/shipments');
     revalidatePath(`/admin/orders/${id}`);
@@ -190,6 +191,7 @@ export async function updateShipmentFulfillment(
       return { success: false, error: error.message };
     }
 
+    revalidatePath('/admin');
     revalidatePath('/admin/orders/shipments');
     revalidatePath('/admin/orders');
     revalidatePath(`/admin/orders/${orderId}`);
@@ -216,6 +218,7 @@ export async function updatePaymentStatus(
       return { success: false, error: error.message };
     }
 
+    revalidatePath('/admin');
     revalidatePath('/admin/orders');
     revalidatePath(`/admin/orders/${id}`);
     revalidatePath('/account/orders');

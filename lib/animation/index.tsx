@@ -13,6 +13,9 @@ import type { AnimationTokens, MotionVariants, ScrollRevealConfig, MagneticButto
 export { motion, AnimatePresence, LayoutGroup, MotionConfig };
 export { useMotionValue, useSpring, useTransform };
 
+// Re-export animation presets and variants for unified access
+export * from '../animations';
+
 // ============================================
 // EXPORT MOTION ONE PRIMITIVES
 // ============================================

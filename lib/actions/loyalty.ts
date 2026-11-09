@@ -250,7 +250,8 @@ export async function getCustomerLoyaltyProfile(userId: string): Promise<Custome
     const tier = customer.loyalty_tier || 'bronze';
 
     // Calculate tier progress
-    const currentTier = LOYALTY_TIERS.find(t => t.name === tier) || LOYALTY_TIERS[0];
+    const fallbackTier = LOYALTY_TIERS[0] ?? { name: 'bronze', label: 'Bronze', minPoints: 0, maxPoints: 999, benefits: [], color: 'var(--color-bronze)', icon: '🥉' };
+    const currentTier = LOYALTY_TIERS.find(t => t.name === tier) || fallbackTier;
     const nextTier = LOYALTY_TIERS.find(t => t.minPoints > currentTier.minPoints);
 
     let tierProgress = 0;
@@ -387,8 +388,9 @@ export async function deductLoyaltyPoints(
  */
 function calculateTier(points: number): string {
   for (let i = LOYALTY_TIERS.length - 1; i >= 0; i--) {
-    if (points >= LOYALTY_TIERS[i].minPoints) {
-      return LOYALTY_TIERS[i].name;
+    const tier = LOYALTY_TIERS[i];
+    if (tier && points >= tier.minPoints) {
+      return tier.name;
     }
   }
   return 'bronze';

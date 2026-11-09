@@ -1,11 +1,12 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAuth, AuthProvider } from './useAuth';
-import { createClient } from '@/lib/supabase/client';
+import { createClient, getSupabaseClient } from '@/lib/supabase/client';
 import { ReactNode } from 'react';
 
 // Mock the Supabase client
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(),
+  getSupabaseClient: vi.fn(),
 }));
 
 const mockSupabase = {
@@ -30,6 +31,7 @@ describe('useAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (createClient as any).mockReturnValue(mockSupabase);
+    (getSupabaseClient as any).mockReturnValue(mockSupabase);
     localStorage.clear();
   });
 
