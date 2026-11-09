@@ -1,7 +1,7 @@
 {
   "hero": {
     "title": "Grace in Every Drape",
-    "subtitle": "Timeless traditional wear for the modern woman. Rooted in heritage, designed for your today.",
+    "subtitle": "Timeless traditional wear for the modern woman.\nRooted in heritage, designed for your today.",
     "ctaText": "Explore Collection",
     "ctaLink": "/shop",
     "secondaryCtaText": "Vidhya's Picks",
@@ -109,7 +109,8 @@
         "image": "/images/category-showcase/showcase-party-wear-dresses.jpg",
         "href": "/shop?occasion=party",
         "cta": "Explore Dresses",
-        "row": 1
+        "row": 1,
+        "imagePosition": "object-center"
       },
       {
         "id": "office-wear-3piece",
@@ -118,7 +119,8 @@
         "image": "/images/category-showcase/showcase-office-wear-3piece.jpg",
         "href": "/shop/salwars?occasion=office",
         "cta": "Shop 3-Piece",
-        "row": 1
+        "row": 1,
+        "imagePosition": "object-center"
       },
       {
         "id": "coord-sets",
@@ -127,7 +129,8 @@
         "image": "/images/category-showcase/showcase-coord-sets.jpg",
         "href": "/shop/kurtis?type=coord-sets",
         "cta": "Shop Co-ords",
-        "row": 1
+        "row": 1,
+        "imagePosition": "object-center"
       },
       {
         "id": "lehengas",
@@ -136,7 +139,8 @@
         "image": "/images/category-showcase/showcase-lehengas.jpg",
         "href": "/shop/lehengas",
         "cta": "Explore Lehengas",
-        "row": 2
+        "row": 2,
+        "imagePosition": "object-center"
       },
       {
         "id": "daily-wear-sarees",
@@ -145,7 +149,8 @@
         "image": "/images/category-showcase/showcase-daily-wear-sarees.jpg",
         "href": "/shop/sarees?occasion=casual",
         "cta": "Shop Daily Sarees",
-        "row": 3
+        "row": 3,
+        "imagePosition": "object-center"
       },
       {
         "id": "office-wear-sarees",
@@ -154,7 +159,8 @@
         "image": "/images/category-showcase/showcase-office-wear-sarees.jpg",
         "href": "/shop/sarees?occasion=office",
         "cta": "Shop Office Sarees",
-        "row": 3
+        "row": 3,
+        "imagePosition": "object-center"
       },
       {
         "id": "party-wear-sarees",
@@ -163,7 +169,8 @@
         "image": "/images/category-showcase/showcase-party-wear-sarees.jpg",
         "href": "/shop/sarees?occasion=party",
         "cta": "Explore Party Sarees",
-        "row": 4
+        "row": 4,
+        "imagePosition": "object-center"
       },
       {
         "id": "womens-frocks",
@@ -172,7 +179,8 @@
         "image": "/images/category-showcase/showcase-womens-frocks.jpg",
         "href": "/shop/salwars?type=anarkali",
         "cta": "Shop Frocks",
-        "row": 5
+        "row": 5,
+        "imagePosition": "object-center"
       }
     ]
   },
@@ -189,7 +197,7 @@
         "id": "na-1",
         "name": "Royal Crimson Zari Bridal Lehenga Set",
         "category": "Salwars",
-        "price": 28999,
+        "price": "28999",
         "originalPrice": 34999,
         "image": "/images/collection-lehengas.jpg",
         "href": "/shop/salwars",
@@ -287,7 +295,7 @@
     "productImage": "/images/products/lehenga-mirror-1.jpg",
     "productSlug": "mirror-work-lehenga",
     "pinX": 47,
-    "pinY": 64
+    "pinY": 69
   },
   "lehengas-page": {
     "hero": {
@@ -2703,7 +2711,7 @@
   },
   "size-finder-page": {
     "header": {
-      "badge": "Vidhya's Bespoke Drape & Silhouette Studio",
+      "badge": "",
       "title": "Discover Your Signature Drape",
       "description": "Handcrafted luxury ethnic wear should never feel constrained. Our interactive studio calculates your tailored proportion based on your posture, height, and preferred ease."
     },
@@ -2999,7 +3007,7 @@
     ],
     "virtualCall": {
       "badge": "Complimentary Virtual Drape Call",
-      "description": "Bridal or festive celebration coming up? Connect directly over a WhatsApp video call to see real drape movement and live fabric falls before confirming.",
+      "description": "Bridal or  festive celebration coming up? Connect directly over a WhatsApp video call to see real drape movement and live fabric falls before confirming.",
       "ctaText": "Book 1-on-1 Consultation Call",
       "whatsappLink": "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20love%20to%20book%20a%20virtual%20drape%20consultation."
     },
@@ -3687,430 +3695,6 @@
       "metaDescription": "Discover the artisanal journey, design philosophy, and master craft heritage of Designer Vidhya at Angelika Fashions."
     }
   },
-  "brand-story": {
-    "badge": "Our Story",
-    "title": "Artisanal Luxury, Rooted in Indian Heritage",
-    "headingPrefix": "Crafted with",
-    "headingHighlight": "Love",
-    "headingSuffix": ", Worn with Pride",
-    "image": "/images/vidhya-story.jpg",
-    "imageAlt": "Vidhya in her atelier",
-    "storyParagraphs": [
-      "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.",
-      "Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.",
-      "When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence."
-    ],
-    "story": "Every piece in the Angelika collection is thoughtfully curated by designer Vidhya, honoring ancient weaving traditions while embracing contemporary silhouettes.",
-    "quote": "\"Fashion that honors where you come from while embracing where you are going.\"",
-    "primaryCtaText": "Read Our Story",
-    "primaryCtaLink": "/about",
-    "whatsappCtaText": "Chat with Vidhya",
-    "readStoryLink": "/about",
-    "chatWhatsappLink": "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I%20would%20like%20to%20know%20more",
-    "whatsappLink": "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey"
-  },
-  "kurtis-page": {
-    "badge": "HANDCRAFTED LUXURY EDIT",
-    "title": "Kurtis",
-    "description": "Discover our complete range of handcrafted Indian ethnic kurtis, tunics, and anarkalis, thoughtfully made with artisanal perfection and breathable natural textiles.",
-    "heroImage": "/images/hero-new-couture.jpg",
-    "cardImage": "/images/collection-kurtis.jpg",
-    "cardBadge": "CURATED BY VIDHYA",
-    "cardSubtitle": "48 Handcrafted Pieces",
-    "showPromoBanner": true,
-    "promoBadge": "FESTIVE OFFER",
-    "promoText": "Enjoy 15% off on all handcrafted Chanderi and Silk Kurtis. Use code: KURTI15",
-    "promoCtaText": "SHOP KURTIS",
-    "promoCtaLink": "/shop/kurtis",
-    "showStylingGuide": true,
-    "stylingBadge": "ATELIER NOTES & STYLING",
-    "stylingTitle": "Vidhya's Styling Guide for Kurtis",
-    "stylingNote": "Our kurtis are cut from pure breathable Chanderi, Mulmul and Tussar silk. For a contemporary festive look, pair straight-cut kurtis with cigarette pants, or flared anarkalis with statement jhumkas.",
-    "stylingImage": "/images/vidhya-story.jpg",
-    "highlights": [
-      {
-        "title": "Handloom Textiles",
-        "description": "Woven on authentic wooden looms using pure Chanderi silk and combed mulmul cotton."
-      },
-      {
-        "title": "Artisanal Block Prints",
-        "description": "Hand-block printed by master artisans using organic azo-free earthen dyes."
-      },
-      {
-        "title": "Tailored Silhouettes",
-        "description": "Comfortable relaxed drapes with thoughtful internal seam allowances for a bespoke fit."
-      }
-    ],
-    "showCategoryStrip": true,
-    "showSidebar": true,
-    "productsMode": "custom",
-    "products": [
-      {
-        "id": "kp-1",
-        "name": "Kutch Ajrakh Modal Silk Kurti",
-        "category": "KURTIS",
-        "price": 4999,
-        "originalPrice": 5999,
-        "discount": 17,
-        "image": "/images/collection-kurtis.jpg",
-        "href": "/product/kutch-ajrakh-modal-silk-kurti",
-        "isNew": true,
-        "isVidhyasPick": true,
-        "fabric": "Silk",
-        "rating": 4.8,
-        "reviewCount": 12,
-        "inStock": true
-      },
-      {
-        "id": "kp-2",
-        "name": "Pristine White Shadow Work Lucknowi Kurti",
-        "category": "KURTIS",
-        "price": 3999,
-        "originalPrice": 4799,
-        "discount": 17,
-        "image": "/images/collection-lehengas.jpg",
-        "href": "/product/pristine-white-shadow-work-lucknowi-kurti",
-        "isNew": true,
-        "isVidhyasPick": false,
-        "fabric": "Cotton",
-        "rating": 4.8,
-        "reviewCount": 12,
-        "inStock": true
-      },
-      {
-        "id": "kp-3",
-        "name": "Hand Block Printed Kurti",
-        "category": "KURTIS",
-        "price": 2499,
-        "originalPrice": 3299,
-        "discount": 24,
-        "image": "/images/collection-kurtis.jpg",
-        "href": "/product/hand-block-printed-kurti",
-        "isNew": true,
-        "isVidhyasPick": false,
-        "fabric": "Cotton",
-        "rating": 4.8,
-        "reviewCount": 12,
-        "inStock": true
-      },
-      {
-        "id": "kp-4",
-        "name": "Velvet Kurti Set",
-        "category": "KURTIS",
-        "price": 6999,
-        "originalPrice": 8499,
-        "discount": 18,
-        "image": "/images/cat-sarees.jpg",
-        "href": "/product/velvet-kurti-set",
-        "isNew": true,
-        "isVidhyasPick": true,
-        "fabric": "Velvet",
-        "rating": 4.8,
-        "reviewCount": 12,
-        "inStock": true
-      },
-      {
-        "id": "kp-5",
-        "name": "Chanderi Cotton Kurti",
-        "category": "KURTIS",
-        "price": 3199,
-        "originalPrice": 3999,
-        "discount": 20,
-        "image": "/images/cat-kurtis.jpg",
-        "href": "/product/chanderi-cotton-kurti",
-        "isNew": true,
-        "isVidhyasPick": false,
-        "fabric": "Chanderi",
-        "rating": 4.8,
-        "reviewCount": 12,
-        "inStock": true
-      },
-      {
-        "id": "kp-6",
-        "name": "Gota Patti Kurta",
-        "category": "KURTIS",
-        "price": 4299,
-        "originalPrice": 5299,
-        "discount": 19,
-        "image": "/images/cat-lehengas.jpg",
-        "href": "/product/gota-patti-kurta",
-        "isNew": true,
-        "isVidhyasPick": false,
-        "fabric": "Cotton",
-        "rating": 4.8,
-        "reviewCount": 12,
-        "inStock": true
-      }
-    ],
-    "metaTitle": "Designer Kurtis and Tunics Online | Angelika Fashions",
-    "metaDescription": "Shop handcrafted Indian ethnic kurtis, anarkalis and tunics by Vidhya at Angelika Fashions. Pure Chanderi silk and mulmul cotton with express delivery."
-  },
-  "footer": {
-    "brandName": "Angelika",
-    "brandTagline": "Fashions",
-    "logoUrl": "/images/logo.png",
-    "tagline": "Modern Indian luxury — rooted in craft, elevated for today.",
-    "showAtelierDesk": true,
-    "atelierBadge": "VIDHYA'S STYLING ATELIER",
-    "atelierStatusText": "Concierge Active",
-    "atelierTitle": "Personal Styling & Drape Consultation",
-    "atelierDescription": "Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.",
-    "atelierWhatsappCta": "Connect with Vidhya on WhatsApp",
-    "atelierWhatsappNumber": "+91 98765 43210",
-    "atelierWhatsappMessage": "Hi Vidhya, I would love personal styling guidance and drape consultation for my order.",
-    "atelierPhone": "+91 98765 43210",
-    "atelierEmail": "hallo@angelikafashions.com",
-    "atelierSchedule": "Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response",
-    "socialTitle": "Connect With Us",
-    "socialLinks": [
-      {
-        "platform": "instagram",
-        "href": "https://instagram.com/angelikafashions",
-        "label": "Instagram",
-        "handle": "@angelikafashions",
-        "enabled": true
-      },
-      {
-        "platform": "whatsapp",
-        "href": "https://wa.me/919876543210",
-        "label": "WhatsApp Concierge",
-        "handle": "Chat with Vidhya",
-        "enabled": true
-      },
-      {
-        "platform": "facebook",
-        "href": "https://facebook.com/angelikafashions",
-        "label": "Facebook",
-        "handle": "Angelika Fashions",
-        "enabled": true
-      },
-      {
-        "platform": "pinterest",
-        "href": "https://pinterest.com/angelikafashions",
-        "label": "Pinterest",
-        "handle": "Angelika Haute Couture",
-        "enabled": true
-      },
-      {
-        "platform": "youtube",
-        "href": "https://youtube.com/angelikafashions",
-        "label": "YouTube",
-        "handle": "Angelika Atelier",
-        "enabled": true
-      }
-    ],
-    "columns": [
-      {
-        "id": "col-shop",
-        "title": "Shop Collections",
-        "links": [
-          {
-            "label": "Handcrafted Kurtis",
-            "href": "/shop/kurtis"
-          },
-          {
-            "label": "Salwars & Palazzo Sets",
-            "href": "/shop/salwars"
-          },
-          {
-            "label": "Bridal & Festive Lehengas",
-            "href": "/shop/lehengas"
-          },
-          {
-            "label": "Pure Silk & Chanderi Sarees",
-            "href": "/shop/sarees"
-          },
-          {
-            "label": "Artisanal Dupattas",
-            "href": "/shop/dupattas"
-          },
-          {
-            "label": "New Arrivals",
-            "href": "/new-arrivals",
-            "badge": "New"
-          },
-          {
-            "label": "Vidhya's Curated Picks",
-            "href": "/vidhyas-picks",
-            "badge": "Curated"
-          },
-          {
-            "label": "Festive Archive Sale",
-            "href": "/sale",
-            "badge": "Sale"
-          }
-        ]
-      },
-      {
-        "id": "col-concierge",
-        "title": "Client Concierge",
-        "links": [
-          {
-            "label": "Track Your Order",
-            "href": "/track-order"
-          },
-          {
-            "label": "Shipping & Delivery Policy",
-            "href": "/shipping"
-          },
-          {
-            "label": "Returns & Size Exchanges",
-            "href": "/returns"
-          },
-          {
-            "label": "Interactive Size Finder",
-            "href": "/size-finder"
-          },
-          {
-            "label": "Garment Size Guide",
-            "href": "/size-guide"
-          },
-          {
-            "label": "Frequently Asked Questions",
-            "href": "/faq"
-          },
-          {
-            "label": "Contact Our Concierge",
-            "href": "/contact"
-          },
-          {
-            "label": "Wholesale & B2B Inquiries",
-            "href": "/wholesale"
-          }
-        ]
-      },
-      {
-        "id": "col-story",
-        "title": "The Atelier Story",
-        "links": [
-          {
-            "label": "Our Heritage & Philosophy",
-            "href": "/about"
-          },
-          {
-            "label": "Meet Designer Vidhya",
-            "href": "/about/vidhya"
-          },
-          {
-            "label": "Master Weaving Traditions",
-            "href": "/about#craft"
-          },
-          {
-            "label": "Ethical & Sustainable Craft",
-            "href": "/about#sustainability"
-          },
-          {
-            "label": "Editorial Style Journal",
-            "href": "/new-arrivals"
-          },
-          {
-            "label": "Press & Celebrity Spotlights",
-            "href": "/about#press"
-          },
-          {
-            "label": "Careers at Angelika",
-            "href": "/contact?subject=careers"
-          }
-        ]
-      },
-      {
-        "id": "col-trust",
-        "title": "Policies & Trust",
-        "links": [
-          {
-            "label": "Privacy Policy",
-            "href": "/privacy"
-          },
-          {
-            "label": "Terms of Service",
-            "href": "/terms"
-          },
-          {
-            "label": "Cookie Policy",
-            "href": "/cookies"
-          },
-          {
-            "label": "Accessibility Commitment",
-            "href": "/accessibility"
-          },
-          {
-            "label": "Client Account & Profile",
-            "href": "/account"
-          },
-          {
-            "label": "My Saved Wishlist",
-            "href": "/wishlist"
-          },
-          {
-            "label": "100% Silk Mark Authenticity",
-            "href": "/about#authenticity"
-          }
-        ]
-      }
-    ],
-    "paymentLabel": "Payment Options:",
-    "paymentOptions": {
-      "upi": true,
-      "visa": true,
-      "mastercard": true,
-      "rupay": true,
-      "netbanking": true,
-      "cod": true,
-      "amex": true
-    },
-    "trustBadges": [
-      {
-        "id": "tb-ssl",
-        "text": "256-Bit SSL Encrypted Checkout",
-        "icon": "ssl",
-        "enabled": true
-      },
-      {
-        "id": "tb-handloom",
-        "text": "100% Certified Authentic Handloom",
-        "icon": "handloom",
-        "enabled": true
-      },
-      {
-        "id": "tb-shipping",
-        "text": "Pan-India Express & Global Shipping",
-        "icon": "shipping",
-        "enabled": true
-      },
-      {
-        "id": "tb-exchange",
-        "text": "7-Day Complimentary Size Exchange",
-        "icon": "exchange",
-        "enabled": true
-      }
-    ],
-    "copyright": "© 2026 Angelika. All rights reserved. Handcrafted with reverence for Indian heritage.",
-    "showScrollTop": true,
-    "scrollTopText": "Top",
-    "bottomLinks": [
-      {
-        "label": "Privacy",
-        "href": "/privacy"
-      },
-      {
-        "label": "Terms",
-        "href": "/terms"
-      },
-      {
-        "label": "Cookies",
-        "href": "/cookies"
-      },
-      {
-        "label": "Accessibility",
-        "href": "/accessibility"
-      }
-    ]
-  },
-  "newsletter": {
-    "title": "Join the Angelika Circle",
-    "subtitle": "Receive exclusive invitations to preview new arrivals, bespoke styling sessions, and private editorial drops.",
-    "buttonText": "Subscribe"
-  },
   "vidhyas-picks-page": {
     "header": {
       "eyebrowBadge": "FOUNDER'S CURATION",
@@ -4676,5 +4260,429 @@
       "metaTitle": "Vidhya's Picks | Founder's Curated Handloom Ethnic Wear | Angelika",
       "metaDescription": "Explore Vidhya's personal curation of handwoven sarees, artisanal kurtis, festive lehengas, and elegant salwars direct from master looms."
     }
+  },
+  "brand-story": {
+    "badge": "Our Story",
+    "title": "Crafted with Love, Worn with Pride",
+    "headingPrefix": "Crafted with",
+    "headingHighlight": "Love",
+    "headingSuffix": ", Worn with Pride",
+    "image": "/images/vidhya-story.jpg",
+    "imageAlt": "Vidhya in her atelier",
+    "storyParagraphs": [
+      "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.",
+      "Every piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.",
+      "When you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence."
+    ],
+    "story": "Angelika Fashions was born from Vidhya's passion for preserving Indian textile heritage while creating contemporary silhouettes for the modern woman.\n\nEvery piece in our collection is thoughtfully designed, from selecting the finest fabrics to collaborating with skilled artisans who bring generations of expertise to each stitch.\n\nWhen you wear Angelika, you're not just wearing clothes — you're wearing a piece of tradition reimagined for today, made with integrity and worn with confidence.",
+    "quote": "\"Fashion that honors where you come from while embracing where you are going.\"",
+    "primaryCtaText": "Read Our Story",
+    "primaryCtaLink": "/about",
+    "whatsappCtaText": "Chat with Vidhya",
+    "readStoryLink": "/about",
+    "chatWhatsappLink": "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I%20would%20like%20to%20know%20more",
+    "whatsappLink": "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey"
+  },
+  "kurtis-page": {
+    "badge": "HANDCRAFTED LUXURY EDIT",
+    "title": "Kurtis",
+    "description": "Discover our complete range of handcrafted Indian ethnic kurtis, tunics, and anarkalis, thoughtfully made with artisanal perfection and breathable natural textiles.",
+    "heroImage": "/images/hero-new-couture.jpg",
+    "cardImage": "/images/collection-kurtis.jpg",
+    "cardBadge": "CURATED BY VIDHYA",
+    "cardSubtitle": "48 Handcrafted Pieces",
+    "showPromoBanner": true,
+    "promoBadge": "FESTIVE OFFER",
+    "promoText": "Enjoy 15% off on all handcrafted Chanderi and Silk Kurtis. Use code: KURTI15",
+    "promoCtaText": "SHOP KURTIS",
+    "promoCtaLink": "/shop/kurtis",
+    "showStylingGuide": true,
+    "stylingBadge": "ATELIER NOTES & STYLING",
+    "stylingTitle": "Vidhya's Styling Guide for Kurtis",
+    "stylingNote": "Our kurtis are cut from pure breathable Chanderi, Mulmul and Tussar silk. For a contemporary festive look, pair straight-cut kurtis with cigarette pants, or flared anarkalis with statement jhumkas.",
+    "stylingImage": "/images/vidhya-story.jpg",
+    "highlights": [
+      {
+        "title": "Handloom Textiles",
+        "description": "Woven on authentic wooden looms using pure Chanderi silk and combed mulmul cotton."
+      },
+      {
+        "title": "Artisanal Block Prints",
+        "description": "Hand-block printed by master artisans using organic azo-free earthen dyes."
+      },
+      {
+        "title": "Tailored Silhouettes",
+        "description": "Comfortable relaxed drapes with thoughtful internal seam allowances for a bespoke fit."
+      }
+    ],
+    "showCategoryStrip": true,
+    "showSidebar": true,
+    "productsMode": "custom",
+    "products": [
+      {
+        "id": "kp-1",
+        "name": "Kutch Ajrakh Modal Silk Kurti",
+        "category": "KURTIS",
+        "price": 4999,
+        "originalPrice": 5999,
+        "discount": 17,
+        "image": "/images/collection-kurtis.jpg",
+        "href": "/product/kutch-ajrakh-modal-silk-kurti",
+        "isNew": true,
+        "isVidhyasPick": true,
+        "fabric": "Silk",
+        "rating": 4.8,
+        "reviewCount": 12,
+        "inStock": true
+      },
+      {
+        "id": "kp-2",
+        "name": "Pristine White Shadow Work Lucknowi Kurti",
+        "category": "KURTIS",
+        "price": 3999,
+        "originalPrice": 4799,
+        "discount": 17,
+        "image": "/images/collection-lehengas.jpg",
+        "href": "/product/pristine-white-shadow-work-lucknowi-kurti",
+        "isNew": true,
+        "isVidhyasPick": false,
+        "fabric": "Cotton",
+        "rating": 4.8,
+        "reviewCount": 12,
+        "inStock": true
+      },
+      {
+        "id": "kp-3",
+        "name": "Hand Block Printed Kurti",
+        "category": "KURTIS",
+        "price": 2499,
+        "originalPrice": 3299,
+        "discount": 24,
+        "image": "/images/collection-kurtis.jpg",
+        "href": "/product/hand-block-printed-kurti",
+        "isNew": true,
+        "isVidhyasPick": false,
+        "fabric": "Cotton",
+        "rating": 4.8,
+        "reviewCount": 12,
+        "inStock": true
+      },
+      {
+        "id": "kp-4",
+        "name": "Velvet Kurti Set",
+        "category": "KURTIS",
+        "price": 6999,
+        "originalPrice": 8499,
+        "discount": 18,
+        "image": "/images/cat-sarees.jpg",
+        "href": "/product/velvet-kurti-set",
+        "isNew": true,
+        "isVidhyasPick": true,
+        "fabric": "Velvet",
+        "rating": 4.8,
+        "reviewCount": 12,
+        "inStock": true
+      },
+      {
+        "id": "kp-5",
+        "name": "Chanderi Cotton Kurti",
+        "category": "KURTIS",
+        "price": 3199,
+        "originalPrice": 3999,
+        "discount": 20,
+        "image": "/images/cat-kurtis.jpg",
+        "href": "/product/chanderi-cotton-kurti",
+        "isNew": true,
+        "isVidhyasPick": false,
+        "fabric": "Chanderi",
+        "rating": 4.8,
+        "reviewCount": 12,
+        "inStock": true
+      },
+      {
+        "id": "kp-6",
+        "name": "Gota Patti Kurta",
+        "category": "KURTIS",
+        "price": 4299,
+        "originalPrice": 5299,
+        "discount": 19,
+        "image": "/images/cat-lehengas.jpg",
+        "href": "/product/gota-patti-kurta",
+        "isNew": true,
+        "isVidhyasPick": false,
+        "fabric": "Cotton",
+        "rating": 4.8,
+        "reviewCount": 12,
+        "inStock": true
+      }
+    ],
+    "metaTitle": "Designer Kurtis and Tunics Online | Angelika Fashions",
+    "metaDescription": "Shop handcrafted Indian ethnic kurtis, anarkalis and tunics by Vidhya at Angelika Fashions. Pure Chanderi silk and mulmul cotton with express delivery."
+  },
+  "footer": {
+    "brandName": "Angelika",
+    "brandTagline": "Fashions",
+    "logoUrl": "/images/logo.png",
+    "tagline": "Modern Indian luxury — rooted in craft, elevated for today.",
+    "showAtelierDesk": true,
+    "atelierBadge": "VIDHYA'S STYLING ATELIER",
+    "atelierStatusText": "Concierge Active",
+    "atelierTitle": "Personal Styling & Drape Consultation",
+    "atelierDescription": "Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.",
+    "atelierWhatsappCta": "Connect with Vidhya on WhatsApp",
+    "atelierWhatsappNumber": "+91 98765 43210",
+    "atelierWhatsappMessage": "Hi Vidhya, I would love personal styling guidance and drape consultation for my order.",
+    "atelierPhone": "+91 98765 43210",
+    "atelierEmail": "hallo@angelikafashions.com",
+    "atelierSchedule": "Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response",
+    "socialTitle": "Connect With Us",
+    "socialLinks": [
+      {
+        "platform": "instagram",
+        "href": "https://instagram.com/angelikafashions",
+        "label": "Instagram",
+        "handle": "@angelikafashions",
+        "enabled": true
+      },
+      {
+        "platform": "whatsapp",
+        "href": "https://wa.me/919876543210",
+        "label": "WhatsApp Concierge",
+        "handle": "Chat with Vidhya",
+        "enabled": true
+      },
+      {
+        "platform": "facebook",
+        "href": "https://facebook.com/angelikafashions",
+        "label": "Facebook",
+        "handle": "Angelika Fashions",
+        "enabled": true
+      },
+      {
+        "platform": "pinterest",
+        "href": "https://pinterest.com/angelikafashions",
+        "label": "Pinterest",
+        "handle": "Angelika Haute Couture",
+        "enabled": true
+      },
+      {
+        "platform": "youtube",
+        "href": "https://youtube.com/angelikafashions",
+        "label": "YouTube",
+        "handle": "Angelika Atelier",
+        "enabled": true
+      }
+    ],
+    "columns": [
+      {
+        "id": "col-shop",
+        "title": "Shop Collections",
+        "links": [
+          {
+            "label": "Handcrafted Kurtis",
+            "href": "/shop/kurtis"
+          },
+          {
+            "label": "Salwars & Palazzo Sets",
+            "href": "/shop/salwars"
+          },
+          {
+            "label": "Bridal & Festive Lehengas",
+            "href": "/shop/lehengas"
+          },
+          {
+            "label": "Pure Silk & Chanderi Sarees",
+            "href": "/shop/sarees"
+          },
+          {
+            "label": "Artisanal Dupattas",
+            "href": "/shop/dupattas"
+          },
+          {
+            "label": "New Arrivals",
+            "href": "/new-arrivals",
+            "badge": "New"
+          },
+          {
+            "label": "Vidhya's Curated Picks",
+            "href": "/vidhyas-picks",
+            "badge": "Curated"
+          },
+          {
+            "label": "Festive Archive Sale",
+            "href": "/sale",
+            "badge": "Sale"
+          }
+        ]
+      },
+      {
+        "id": "col-concierge",
+        "title": "Client Concierge",
+        "links": [
+          {
+            "label": "Track Your Order",
+            "href": "/track-order"
+          },
+          {
+            "label": "Shipping & Delivery Policy",
+            "href": "/shipping"
+          },
+          {
+            "label": "Returns & Size Exchanges",
+            "href": "/returns"
+          },
+          {
+            "label": "Interactive Size Finder",
+            "href": "/size-finder"
+          },
+          {
+            "label": "Garment Size Guide",
+            "href": "/size-guide"
+          },
+          {
+            "label": "Frequently Asked Questions",
+            "href": "/faq"
+          },
+          {
+            "label": "Contact Our Concierge",
+            "href": "/contact"
+          },
+          {
+            "label": "Wholesale & B2B Inquiries",
+            "href": "/wholesale"
+          }
+        ]
+      },
+      {
+        "id": "col-story",
+        "title": "The Atelier Story",
+        "links": [
+          {
+            "label": "Our Heritage & Philosophy",
+            "href": "/about"
+          },
+          {
+            "label": "Meet Designer Vidhya",
+            "href": "/about/vidhya"
+          },
+          {
+            "label": "Master Weaving Traditions",
+            "href": "/about#craft"
+          },
+          {
+            "label": "Ethical & Sustainable Craft",
+            "href": "/about#sustainability"
+          },
+          {
+            "label": "Editorial Style Journal",
+            "href": "/new-arrivals"
+          },
+          {
+            "label": "Press & Celebrity Spotlights",
+            "href": "/about#press"
+          },
+          {
+            "label": "Careers at Angelika",
+            "href": "/contact?subject=careers"
+          }
+        ]
+      },
+      {
+        "id": "col-trust",
+        "title": "Policies & Trust",
+        "links": [
+          {
+            "label": "Privacy Policy",
+            "href": "/privacy"
+          },
+          {
+            "label": "Terms of Service",
+            "href": "/terms"
+          },
+          {
+            "label": "Cookie Policy",
+            "href": "/cookies"
+          },
+          {
+            "label": "Accessibility Commitment",
+            "href": "/accessibility"
+          },
+          {
+            "label": "Client Account & Profile",
+            "href": "/account"
+          },
+          {
+            "label": "My Saved Wishlist",
+            "href": "/wishlist"
+          },
+          {
+            "label": "100% Silk Mark Authenticity",
+            "href": "/about#authenticity"
+          }
+        ]
+      }
+    ],
+    "paymentLabel": "Payment Options:",
+    "paymentOptions": {
+      "upi": true,
+      "visa": true,
+      "mastercard": true,
+      "rupay": true,
+      "netbanking": true,
+      "cod": true,
+      "amex": true
+    },
+    "trustBadges": [
+      {
+        "id": "tb-ssl",
+        "text": "256-Bit SSL Encrypted Checkout",
+        "icon": "ssl",
+        "enabled": true
+      },
+      {
+        "id": "tb-handloom",
+        "text": "100% Certified Authentic Handloom",
+        "icon": "handloom",
+        "enabled": true
+      },
+      {
+        "id": "tb-shipping",
+        "text": "Pan-India Express & Global Shipping",
+        "icon": "shipping",
+        "enabled": true
+      },
+      {
+        "id": "tb-exchange",
+        "text": "7-Day Complimentary Size Exchange",
+        "icon": "exchange",
+        "enabled": true
+      }
+    ],
+    "copyright": "© 2026 Angelika. All rights reserved. Handcrafted with reverence for Indian heritage.",
+    "showScrollTop": true,
+    "scrollTopText": "Top",
+    "bottomLinks": [
+      {
+        "label": "Privacy",
+        "href": "/privacy"
+      },
+      {
+        "label": "Terms",
+        "href": "/terms"
+      },
+      {
+        "label": "Cookies",
+        "href": "/cookies"
+      },
+      {
+        "label": "Accessibility",
+        "href": "/accessibility"
+      }
+    ]
+  },
+  "newsletter": {
+    "title": "Join the Angelika Circle",
+    "subtitle": "Receive exclusive invitations to preview new arrivals, bespoke styling sessions, and private editorial drops.",
+    "buttonText": "Subscribe"
   }
 }

@@ -112,6 +112,12 @@ const homepageSections: ContentSectionMeta[] = [
     description: 'Customer community Instagram styling gallery and photo submissions',
   },
   {
+    id: 'size-finder-page',
+    label: 'Couture Fit Studio (Size Finder)',
+    type: 'studio',
+    description: 'Interactive garment fitting studio with personalized size recommendation and measurement charts',
+  },
+  {
     id: 'footer',
     label: 'Global Site Footer & Atelier Desk',
     type: 'global',
@@ -739,6 +745,17 @@ export default function AdminContentPage() {
           <FooterEditor
             onCancel={() => setEditingSection(null)}
             onSaved={() => toast.success('Footer saved successfully!')}
+          />
+        </Card>
+      );
+    }
+
+    if (editingSection === 'size-finder-page') {
+      return (
+        <Card variant="elevated" padding="lg">
+          <SizeFinderPageEditor
+            onCancel={() => setEditingSection(null)}
+            onSaved={() => toast.success('Couture Fit Studio (Size Finder) saved successfully!')}
           />
         </Card>
       );
@@ -1521,7 +1538,7 @@ export default function AdminContentPage() {
 
                     {/* Category Filter */}
                     <div className="flex items-center bg-stone-100 p-1 rounded-xl border border-stone-200 text-xs">
-                      {['all', 'Catalog', 'Brand Heritage', 'Customer Care', 'Legal Policy'].map(
+                      {['all', 'Catalog', 'Brand Heritage', 'Interactive Studio', 'Customer Care', 'Legal Policy'].map(
                         (cat) => (
                           <button
                             key={cat}
