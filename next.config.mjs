@@ -1,18 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Skip type checking and linting during build - we verify separately with `npx tsc --noEmit`
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   experimental: {
     // ppr: true, // Requires Next.js canary - disabled for stable build
     serverActions: {
       bodySizeLimit: '2mb',
-      allowedOrigins: ['localhost:3000', 'angelikafashions.com'],
+      allowedOrigins: process.env.NODE_ENV === 'production'
+        ? ['angelikafashions.com', 'www.angelikafashions.com']
+        : ['localhost:3000', 'angelikafashions.com'],
     },
     optimizePackageImports: [
       'framer-motion',
@@ -50,6 +51,18 @@ const nextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "img-src 'self' data: blob: https: https://*.supabase.co https://images.unsplash.com https://*.googleusercontent.com https://checkout.razorpay.com",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com",
+              "connect-src 'self' https://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com",
+            ].join('; '),
+          },
         ],
       },
       {

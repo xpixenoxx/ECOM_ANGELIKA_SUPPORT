@@ -248,6 +248,38 @@ export async function getCustomerOrderById(
       return { success: false, order: null, error: 'Order not found' };
     }
 
+    // Authorize caller to prevent IDOR
+    const userClient = createServerClient();
+    const { data: { user } } = await userClient.auth.getUser();
+
+    let isAuthorized = false;
+
+    if (user) {
+      if (order.user_id && order.user_id === user.id) {
+        isAuthorized = true;
+      } else if (user.email && order.email && user.email.toLowerCase() === order.email.toLowerCase()) {
+        isAuthorized = true;
+      } else {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'designer') {
+          isAuthorized = true;
+        }
+      }
+    } else if (options?.userId && order.user_id === options.userId) {
+      isAuthorized = true;
+    } else if (options?.userEmail && order.email && options.userEmail.toLowerCase() === order.email.toLowerCase()) {
+      isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
+      return { success: false, order: null, error: 'Unauthorized to view this order' };
+    }
+
     // Fetch existing reviews for order items or products
     const rawOrderItems = order.order_items || [];
     const itemIds = rawOrderItems.map((it: any) => it.id).filter(Boolean);

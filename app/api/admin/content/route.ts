@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSiteContent, updateSectionContent } from '@/lib/actions/site-content';
+import { getAdminClient } from '@/lib/supabase/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const { isAdmin } = await getAdminClient();
+    if (!isAdmin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { sectionId, data } = body;
 

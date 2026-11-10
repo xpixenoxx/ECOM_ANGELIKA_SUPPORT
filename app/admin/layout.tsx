@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -119,12 +119,21 @@ const ADMIN_NAV_WIDTH_COLLAPSED = 72;
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, profile, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Authentication removed per user request for direct admin access
+  useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.replace('/login?redirect=/admin');
+      } else if (profile && !['admin', 'manager', 'designer'].includes(profile.role)) {
+        router.replace('/');
+      }
+    }
+  }, [user, profile, loading, router]);
 
   const getActiveItem = () => {
     for (const section of navigation) {

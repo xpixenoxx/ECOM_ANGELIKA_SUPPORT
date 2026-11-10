@@ -2,6 +2,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { processRefund as processPaymentRefund } from '@/lib/actions/payments';
 import {
   Return,
   ReturnWithDetails,
@@ -389,6 +390,29 @@ export async function processRefund(input: ProcessRefundInput): Promise<ReturnMu
 
     if (error) {
       return { success: false, error: error.message };
+    }
+
+    // Trigger payment refund if order was paid via online gateway (e.g. Razorpay)
+    if (updatedReturn.order?.id && input.refundAmount && input.refundAmount > 0) {
+      try {
+        const { data: orderDetails } = await supabase
+          .from('orders')
+          .select('payment_method, payment_status')
+          .eq('id', updatedReturn.order.id)
+          .single();
+
+        if (orderDetails?.payment_method === 'razorpay' && orderDetails?.payment_status === 'paid') {
+          // Razorpay takes amount in paise (1 INR = 100 paise)
+          const amountInPaise = Math.round(input.refundAmount * 100);
+          await processPaymentRefund(
+            updatedReturn.order.id,
+            amountInPaise,
+            input.notes || 'Customer Return Refund'
+          );
+        }
+      } catch (payErr) {
+        console.warn('Payment refund dispatch warning:', payErr);
+      }
     }
 
     revalidatePath('/admin/orders/returns');

@@ -175,15 +175,16 @@ export async function sendSignupOtp(
       };
     }
 
-    // If Resend failed (e.g. unverified test recipient/domain), log warning and provide devCode fallback
+    // If Resend failed (e.g. unverified test recipient/domain), log warning and never leak OTP in production
     console.warn(`[sendSignupOtp] Resend delivery unfulfilled for ${cleanEmail}:`, resendResult.error);
 
+    const isDev = process.env.NODE_ENV === 'development';
     return {
-      success: true,
-      message: resendResult.error
-        ? `Notice: ${resendResult.error}`
-        : `Verification code generated! (Dev mode active: ${otp})`,
-      devCode: otp,
+      success: isDev,
+      message: isDev
+        ? `[Dev only] Email service unfulfilled (${resendResult.error || 'Check Resend key'}). OTP: ${otp}`
+        : 'Unable to deliver verification email at this moment. Please check your email address or try again shortly.',
+      devCode: isDev ? otp : undefined,
       emailConfigured: false,
     };
   } catch (err: any) {
@@ -345,15 +346,16 @@ export async function sendPasswordResetOtp(
       };
     }
 
-    // If Resend failed (e.g. unverified test recipient/domain), log warning and provide devCode fallback
+    // If Resend failed (e.g. unverified test recipient/domain), log warning and never leak OTP in production
     console.warn(`[sendPasswordResetOtp] Resend delivery unfulfilled for ${cleanEmail}:`, resendResult.error);
 
+    const isDev = process.env.NODE_ENV === 'development';
     return {
-      success: true,
-      message: resendResult.error
-        ? `Notice: ${resendResult.error}`
-        : `Reset code generated! (Dev mode active: ${otp})`,
-      devCode: otp,
+      success: isDev,
+      message: isDev
+        ? `[Dev only] Reset code generated! (${resendResult.error || 'Check Resend key'}). OTP: ${otp}`
+        : 'Unable to deliver password reset email at this moment. Please check your email address or try again shortly.',
+      devCode: isDev ? otp : undefined,
       emailConfigured: false,
     };
   } catch (err: any) {

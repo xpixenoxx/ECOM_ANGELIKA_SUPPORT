@@ -2,6 +2,7 @@
 
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { cookies } from 'next/headers';
 import type { CartItem, Address, CheckoutFormData, AppliedCoupon } from '@/types/commerce';
 
 async function getSupabaseClient() {
@@ -35,16 +36,128 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
   const supabase = supabaseAdmin;
 
   try {
+    if (!orderData.items || orderData.items.length === 0) {
+      return { success: false, error: 'Your cart is empty' };
+    }
+
     // Get user if authenticated (supports both logged-in and guest checkout)
     const { data: { user } } = await userClient.auth.getUser();
     const userId = orderData.userId || user?.id || null;
 
-    // Calculate totals in Rupees (prices in database are stored in Rupees)
-    const subtotal = orderData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const isFreeShipping = subtotal >= 2999 || orderData.coupon?.type === 'free_shipping';
+    // 1. Authoritative server-side price lookup & inventory verification
+    const variantIds = orderData.items
+      .map((i) => i.variant_id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+    const dbVariantsMap = new Map<string, { id: string; price: number; inventory_quantity: number | null; is_active: boolean | null }>();
+
+    if (variantIds.length > 0) {
+      const { data: dbVariants } = await supabase
+        .from('product_variants')
+        .select('id, price, inventory_quantity, is_active')
+        .in('id', variantIds);
+
+      if (dbVariants) {
+        dbVariants.forEach((v) => {
+          dbVariantsMap.set(v.id, {
+            id: v.id,
+            price: Number(v.price),
+            inventory_quantity: v.inventory_quantity,
+            is_active: v.is_active,
+          });
+        });
+      }
+    }
+
+    // Verify each item's price and inventory
+    const verifiedItems: Array<{
+      item: CartItem;
+      unitPrice: number;
+      totalPrice: number;
+    }> = [];
+
+    let subtotal = 0;
+
+    for (const item of orderData.items) {
+      const qty = Math.max(1, typeof item.quantity === 'number' ? item.quantity : 1);
+      const dbVar = item.variant_id ? dbVariantsMap.get(item.variant_id) : null;
+
+      let unitPrice = 0;
+      if (dbVar && !isNaN(dbVar.price) && dbVar.price > 0) {
+        unitPrice = dbVar.price;
+        if (dbVar.inventory_quantity !== null && dbVar.inventory_quantity < qty) {
+          return {
+            success: false,
+            error: `${item.product_name} (${item.size || 'Free Size'}) only has ${dbVar.inventory_quantity} in stock. Please adjust quantity.`,
+          };
+        }
+      } else {
+        const cleanClientPrice = typeof item.price === 'number' && item.price > 0 ? item.price : 2999;
+        unitPrice = cleanClientPrice;
+      }
+
+      const itemTotal = unitPrice * qty;
+      subtotal += itemTotal;
+      verifiedItems.push({
+        item,
+        unitPrice,
+        totalPrice: itemTotal,
+      });
+    }
+
+    // 2. Authoritative server-side coupon recalculation
+    let discountAmount = 0;
+    let isCouponFreeShipping = false;
+
+    if (orderData.coupon?.code) {
+      const cleanCode = orderData.coupon.code.trim().toUpperCase();
+
+      const { data: dbCoupon } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', cleanCode)
+        .maybeSingle();
+
+      if (dbCoupon && dbCoupon.is_active) {
+        const now = new Date();
+        const isValidDate = (!dbCoupon.valid_from || new Date(dbCoupon.valid_from) <= now) &&
+                            (!dbCoupon.valid_until || new Date(dbCoupon.valid_until) >= now);
+        const hasUsage = !dbCoupon.usage_limit || (dbCoupon.usage_count || 0) < dbCoupon.usage_limit;
+        const minOrder = dbCoupon.min_order_amount || 0;
+
+        if (isValidDate && hasUsage && subtotal >= minOrder) {
+          if (dbCoupon.type === 'percentage') {
+            discountAmount = Math.round((subtotal * Number(dbCoupon.value)) / 100);
+            if (dbCoupon.max_discount_amount) {
+              discountAmount = Math.min(discountAmount, Number(dbCoupon.max_discount_amount));
+            }
+          } else if (dbCoupon.type === 'fixed') {
+            discountAmount = Math.min(Number(dbCoupon.value), subtotal);
+          } else if (dbCoupon.type === 'free_shipping') {
+            isCouponFreeShipping = true;
+          }
+        }
+      } else {
+        const PRIVILEGE_OFFERS: Record<string, { type: string; value: number; min_order: number; max?: number }> = {
+          FIRST10: { type: 'percentage', value: 10, min_order: 1999, max: 1500 },
+          ROYAL500: { type: 'fixed', value: 500, min_order: 4999 },
+          COUTURE15: { type: 'percentage', value: 15, min_order: 5999, max: 2000 },
+        };
+        const offer = PRIVILEGE_OFFERS[cleanCode];
+        if (offer && subtotal >= offer.min_order) {
+          if (offer.type === 'percentage') {
+            discountAmount = Math.round((subtotal * offer.value) / 100);
+            if (offer.max) discountAmount = Math.min(discountAmount, offer.max);
+          } else if (offer.type === 'fixed') {
+            discountAmount = Math.min(offer.value, subtotal);
+          }
+        }
+      }
+    }
+
+    const isFreeShipping = subtotal >= 2999 || isCouponFreeShipping || orderData.coupon?.type === 'free_shipping';
     const shippingCost = isFreeShipping ? 0 : 99;
     const codFee = orderData.paymentMethod === 'cod' ? 49 : 0;
-    const discountAmount = orderData.coupon?.discountAmount || 0;
     const taxAmount = 0; // Prices are inclusive of GST
 
     const total = Math.max(0, subtotal + shippingCost + codFee - discountAmount);
@@ -53,6 +166,9 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     if (orderData.paymentMethod === 'cod' && total > 10000) {
       return { success: false, error: 'COD orders cannot exceed ₹10,000' };
     }
+
+    // Generate secure guest access token for guest checkout tracking
+    const guestAccessToken = crypto.randomUUID();
 
     // Create order in database
     const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -83,6 +199,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
           cod_fee: codFee,
           coupon_code: orderData.coupon?.code || null,
           gift_wrap: orderData.giftWrap || false,
+          guest_token: guestAccessToken,
         },
       })
       .select()
@@ -93,15 +210,29 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       return { success: false, error: orderError?.message || 'Failed to create order' };
     }
 
-    // Create order items
-    const orderItems = orderData.items.map((item) => ({
+    // Set secure HTTP-only access cookie for the order
+    try {
+      const cookieStore = cookies();
+      cookieStore.set(`order_access_${order.id}`, guestAccessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/',
+      });
+    } catch (cookieErr) {
+      console.warn('Could not set order access cookie:', cookieErr);
+    }
+
+    // Create order items with verified database prices
+    const orderItems = verifiedItems.map(({ item, unitPrice, totalPrice }) => ({
       order_id: order.id,
       product_id: item.product_id || null,
       variant_id: item.variant_id || null,
       product_name: item.product_name,
       quantity: item.quantity,
-      unit_price: item.price,
-      total_price: item.price * item.quantity,
+      unit_price: unitPrice,
+      total_price: totalPrice,
       variant_details: {
         size: item.size,
         color: item.color,
@@ -359,6 +490,9 @@ export async function verifyRazorpayPayment(
 
 export async function getOrderById(orderId: string) {
   try {
+    const userClient = await getSupabaseClient();
+    const { data: { user } } = await userClient.auth.getUser();
+
     const { data: order, error } = await supabaseAdmin
       .from('orders')
       .select(`
@@ -369,7 +503,47 @@ export async function getOrderById(orderId: string) {
       .maybeSingle();
 
     if (error || !order) return null;
-    return order;
+
+    // 1. Allow if logged-in user placed the order
+    if (user) {
+      if (order.user_id && order.user_id === user.id) {
+        return order;
+      }
+
+      // Allow admin / manager access
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profile?.role === 'admin' || profile?.role === 'manager' || profile?.role === 'designer') {
+        return order;
+      }
+    }
+
+    // 2. Allow if secure guest access cookie matches the order's guest token
+    try {
+      const cookieStore = cookies();
+      const guestCookie = cookieStore.get(`order_access_${order.id}`)?.value;
+      const meta = (typeof order.metadata === 'object' && order.metadata !== null)
+        ? (order.metadata as Record<string, any>)
+        : {};
+
+      if (guestCookie && meta['guest_token'] && guestCookie === meta['guest_token']) {
+        return order;
+      }
+
+      // Allow if current user's email matches order's contact email
+      if (user?.email && order.email && user.email.toLowerCase() === order.email.toLowerCase()) {
+        return order;
+      }
+    } catch {
+      // ignore
+    }
+
+    // Deny unauthorized access
+    return null;
   } catch (err) {
     console.error('Failed to get order:', err);
     return null;
