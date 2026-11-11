@@ -46,6 +46,7 @@ export interface ShopSortOption {
 }
 
 export const SHOP_SORT_OPTIONS: ShopSortOption[] = [
+  { value: 'featured', label: 'Featured First' },
   { value: 'newest', label: 'Newest Arrivals' },
   { value: 'price-asc', label: 'Price: Low to High' },
   { value: 'price-desc', label: 'Price: High to Low' },
@@ -86,3 +87,62 @@ export const SHOP_COLORS = [
 ];
 
 export const SHOP_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Free Size'];
+
+/**
+ * Authoritative color matcher for products across server actions and storefront client components.
+ */
+export function matchesProductColor(p: any, colorValue: string): boolean {
+  if (!p || !colorValue) return false;
+  const c = colorValue.toLowerCase().trim();
+
+  // 1. Direct tag matches (e.g. "color:red", "red")
+  const tags: string[] = Array.isArray(p.tags) ? p.tags : [];
+  const lowerTags = tags.map((t: string) => String(t).toLowerCase().trim());
+  if (lowerTags.includes(`color:${c}`) || lowerTags.includes(c)) return true;
+
+  // 2. Structured colors in fabric JSON (e.g. fabric.colors: ['red', 'gold'])
+  const fab = p.fabric;
+  if (fab && typeof fab === 'object') {
+    if (Array.isArray(fab.colors)) {
+      if (fab.colors.some((x: any) => String(x).toLowerCase().trim() === c)) {
+        return true;
+      }
+    }
+  }
+
+  // 3. Variant colors
+  const variants = p.variants || p.product_variants || [];
+  if (Array.isArray(variants)) {
+    if (variants.some((v: any) => String(v.color || '').toLowerCase().trim() === c)) {
+      return true;
+    }
+  }
+
+  // 4. Semantic / synonym text matches
+  const text = `${p.name || ''} ${p.slug || ''} ${lowerTags.join(' ')} ${JSON.stringify(fab || '')}`.toLowerCase();
+
+  switch (c) {
+    case 'red':
+      return text.includes('red') || text.includes('crimson') || text.includes('ruby') || text.includes('maroon') || text.includes('scarlet');
+    case 'blue':
+      return text.includes('blue') || text.includes('indigo') || text.includes('navy') || text.includes('sapphire') || text.includes('teal') || text.includes('sky');
+    case 'green':
+      return text.includes('green') || text.includes('emerald') || text.includes('olive') || text.includes('mint') || text.includes('pista') || text.includes('sage');
+    case 'yellow':
+      return text.includes('yellow') || text.includes('mustard') || text.includes('haldi') || text.includes('lemon');
+    case 'pink':
+      return text.includes('pink') || text.includes('blush') || text.includes('rose') || text.includes('peach') || text.includes('coral') || text.includes('rani');
+    case 'purple':
+      return text.includes('purple') || text.includes('lavender') || text.includes('violet') || text.includes('plum') || text.includes('mauve') || text.includes('magenta');
+    case 'black':
+      return text.includes('black') || text.includes('noir') || text.includes('charcoal') || text.includes('jet');
+    case 'white':
+      return text.includes('white') || text.includes('ivory') || text.includes('cream') || text.includes('pearl') || text.includes('off-white') || text.includes('milk');
+    case 'gold':
+      return text.includes('gold') || text.includes('golden') || text.includes('zari') || text.includes('gota') || text.includes('metallic') || text.includes('champagne');
+    case 'multi':
+      return text.includes('multi') || text.includes('multicolor') || text.includes('multicolour') || text.includes('multi-color') || text.includes('multi-colour') || text.includes('rainbow') || text.includes('printed') || text.includes('floral');
+    default:
+      return text.includes(c);
+  }
+}

@@ -31,6 +31,8 @@ export default async function ShopPage({
   const sortParam = getParam('sort');
   const pageParam = getParam('page');
   const searchParam = getParam('search') || getParam('q');
+  const occasionParam = getParam('occasion');
+  const typeParam = getParam('type');
 
   const parsePriceRange = (param: string | string[] | undefined): [number, number] | undefined => {
     if (!param) return undefined;
@@ -49,13 +51,15 @@ export default async function ShopPage({
     fabrics: fabricsParam ? (Array.isArray(fabricsParam) ? fabricsParam : [fabricsParam]) : undefined,
     colors: colorsParam ? (Array.isArray(colorsParam) ? colorsParam : [colorsParam]) : undefined,
     sizes: sizesParam ? (Array.isArray(sizesParam) ? sizesParam : [sizesParam]) : undefined,
+    occasion: occasionParam ? (Array.isArray(occasionParam) ? occasionParam : [occasionParam]) : undefined,
+    type: typeParam ? (Array.isArray(typeParam) ? typeParam : [typeParam]) : undefined,
     priceRange: parsePriceRange(priceRangeParam),
     inStockOnly: inStockOnlyParam === 'true',
     vidhyasPicksOnly: vidhyasPicksOnlyParam === 'true',
     search: searchParam ? (Array.isArray(searchParam) ? searchParam[0] : searchParam) : undefined,
   };
 
-  const sortBy = (sortParam as string) || 'newest';
+  const sortBy = (sortParam as string) || 'featured';
   const page = Number(pageParam) || 1;
 
   const { products, totalCount, totalPages } = await getAllProducts(

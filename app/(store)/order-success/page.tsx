@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { getOrderById, convertGuestToAccount } from '@/lib/actions/checkout';
+import { getOrderById, convertGuestToAccount, resendOrderConfirmation } from '@/lib/actions/checkout';
 import { formatINR } from '@/lib/utils/currency';
 
 function OrderSuccessContent() {
@@ -21,6 +21,10 @@ function OrderSuccessContent() {
   const [vipPassword, setVipPassword] = useState('');
   const [vipSubmitting, setVipSubmitting] = useState(false);
   const [vipStatus, setVipStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Email resend state
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{ success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     // Clear any guest cart from localStorage
@@ -101,6 +105,24 @@ function OrderSuccessContent() {
     window.print();
   };
 
+  const handleResendEmail = async () => {
+    if (!orderId || resendingEmail) return;
+    setResendingEmail(true);
+    setEmailStatus(null);
+    try {
+      const res = await resendOrderConfirmation(orderId);
+      if (res.success) {
+        setEmailStatus({ success: true, message: `✓ Confirmation email dispatched to ${order?.email || 'your email'}!` });
+      } else {
+        setEmailStatus({ success: false, message: res.error || 'Could not send email. Please check configuration.' });
+      }
+    } catch {
+      setEmailStatus({ success: false, message: 'Unexpected error sending email.' });
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
   const displayTotal = order?.total_amount
     ? formatINR(order.total_amount)
     : null;
@@ -151,10 +173,28 @@ function OrderSuccessContent() {
           <h1 className="text-3xl sm:text-4xl font-display font-medium text-[var(--color-ink)] mt-2 mb-2">
             Thank You, {customerName}
           </h1>
-          <p className="text-[var(--color-slate)] max-w-lg mx-auto text-sm sm:text-base mb-8">
+          <p className="text-[var(--color-slate)] max-w-lg mx-auto text-sm sm:text-base mb-4">
             Your handcrafted couture piece has been registered in our atelier queue. An official confirmation email with your invoice has been sent to{' '}
             <strong className="text-[var(--color-ink)] font-semibold">{order?.email || 'your email'}</strong>.
           </p>
+
+          {/* Email Resend Trigger */}
+          <div className="flex items-center justify-center gap-2 mb-8 print:hidden flex-wrap">
+            <button
+              type="button"
+              onClick={handleResendEmail}
+              disabled={resendingEmail || !orderId}
+              className="text-xs text-[var(--color-gold,#C9A84C)] hover:underline font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[var(--color-gold,#C9A84C)]/30 hover:bg-amber-50/50 transition-colors disabled:opacity-50"
+            >
+              <span>✉️</span>
+              <span>{resendingEmail ? 'Sending Email...' : 'Resend Confirmation Email'}</span>
+            </button>
+            {emailStatus && (
+              <span className={`text-xs font-medium px-2 py-0.5 rounded ${emailStatus.success ? 'text-emerald-800 bg-emerald-50' : 'text-amber-800 bg-amber-50'}`}>
+                {emailStatus.message}
+              </span>
+            )}
+          </div>
 
           {/* Luxury Order Reference Pill */}
           <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-[var(--color-white)] border border-[var(--color-gold)]/40 rounded-full shadow-sm mb-8 text-sm">

@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import type { ShopProductCard, ShopFilters } from './shop-types';
+import { matchesProductColor } from './shop-types';
 
 type CategoryRow = Database['public']['Tables']['categories']['Row'];
 
@@ -12,18 +13,7 @@ async function getSupabaseClient() {
 }
 
 function matchesColor(p: any, pRaw: any, color: string): boolean {
-  const text = `${p.name} ${p.slug} ${(pRaw?.tags || []).join(' ')} ${JSON.stringify(pRaw?.fabric || '')}`.toLowerCase();
-  if (text.includes(color)) return true;
-  if (color === 'red' && (text.includes('crimson') || text.includes('ruby') || text.includes('maroon') || text.includes('scarlet'))) return true;
-  if (color === 'blue' && (text.includes('indigo') || text.includes('navy') || text.includes('sapphire') || text.includes('teal'))) return true;
-  if (color === 'green' && (text.includes('emerald') || text.includes('olive') || text.includes('mint') || text.includes('pista'))) return true;
-  if (color === 'pink' && (text.includes('blush') || text.includes('rose') || text.includes('peach') || text.includes('coral'))) return true;
-  if (color === 'yellow' && (text.includes('mustard') || text.includes('haldi') || text.includes('gold') || text.includes('lemon'))) return true;
-  if (color === 'white' && (text.includes('ivory') || text.includes('cream') || text.includes('pearl') || text.includes('off-white'))) return true;
-  if (color === 'black' && (text.includes('noir') || text.includes('charcoal'))) return true;
-  if (color === 'purple' && (text.includes('lavender') || text.includes('violet') || text.includes('plum') || text.includes('mauve'))) return true;
-  if (color === 'gold' && (text.includes('zari') || text.includes('gota') || text.includes('golden') || text.includes('metallic'))) return true;
-  return false;
+  return matchesProductColor(pRaw || p, color) || matchesProductColor(p, color);
 }
 
 function matchesSize(pRaw: any, size: string): boolean {
@@ -75,7 +65,7 @@ function mapProductToCard(p: any): ShopProductCard {
 export async function getProductsByCategory(
   categorySlug: string,
   filters: ShopFilters = {},
-  sortBy: string = 'newest',
+  sortBy: string = 'featured',
   page: number = 1,
   pageSize: number = 24
 ): Promise<{ products: ShopProductCard[]; totalCount: number; totalPages: number }> {
@@ -126,7 +116,9 @@ export async function getProductsByCategory(
         query = query.eq('is_vidyas_pick', true);
       }
 
-      const res = await query.order('created_at', { ascending: false });
+      const res = await query
+        .order('is_featured', { ascending: false })
+        .order('created_at', { ascending: false });
       if (!res.error && res.data && res.data.length > 0) {
         rawProducts = res.data;
       }
@@ -347,8 +339,18 @@ export async function getProductsByCategory(
       mappedProducts.sort((a, b) => b.discount - a.discount);
       break;
     case 'newest':
-    default:
       mappedProducts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      break;
+    case 'featured':
+    default:
+      mappedProducts.sort((a, b) => {
+        // Featured products (starred by admin) appear first in that category
+        const aFeat = Boolean(a.is_featured);
+        const bFeat = Boolean(b.is_featured);
+        if (aFeat && !bFeat) return -1;
+        if (!aFeat && bFeat) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
       break;
   }
 
@@ -365,7 +367,7 @@ export async function getProductsByCategory(
 
 export async function getAllProducts(
   filters: ShopFilters = {},
-  sortBy: string = 'newest',
+  sortBy: string = 'featured',
   page: number = 1,
   pageSize: number = 24
 ): Promise<{ products: ShopProductCard[]; totalCount: number; totalPages: number }> {
@@ -397,7 +399,9 @@ export async function getAllProducts(
     query = query.eq('is_vidyas_pick', true);
   }
 
-  const { data: rawProducts, error } = await query.order('created_at', { ascending: false });
+  const { data: rawProducts, error } = await query
+    .order('is_featured', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error || !rawProducts) {
     console.error('Error fetching all products:', error);
@@ -519,8 +523,18 @@ export async function getAllProducts(
       mappedProducts.sort((a, b) => b.discount - a.discount);
       break;
     case 'newest':
-    default:
       mappedProducts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      break;
+    case 'featured':
+    default:
+      mappedProducts.sort((a, b) => {
+        // Featured products (starred by admin) appear first in that category
+        const aFeat = Boolean(a.is_featured);
+        const bFeat = Boolean(b.is_featured);
+        if (aFeat && !bFeat) return -1;
+        if (!aFeat && bFeat) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
       break;
   }
 

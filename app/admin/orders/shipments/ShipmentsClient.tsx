@@ -23,6 +23,8 @@ import {
   Sparkles,
   ArrowUpDown,
   Send,
+  Printer,
+  Radio,
 } from 'lucide-react';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -31,6 +33,14 @@ import {
   updateShipmentFulfillment,
   AdminOrder,
 } from '@/lib/actions/admin-orders';
+import {
+  createShiprocketOrderAction,
+  assignShiprocketAWBAction,
+  generateShiprocketPickupAction,
+  generateShiprocketLabelAction,
+  trackShiprocketAWBAction,
+  checkShiprocketStatusAction,
+} from '@/lib/actions/shiprocket-actions';
 
 const COURIER_OPTIONS = [
   'Blue Dart',
@@ -90,6 +100,17 @@ export default function ShipmentsClient({ initialOrders }: Props) {
   const [flashingOrderId, setFlashingOrderId] = useState<string | null>(null);
   const [copiedAwb, setCopiedAwb] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Shiprocket Integration State
+  const [processingSrOrderId, setProcessingSrOrderId] = useState<string | null>(null);
+  const [trackingModalAwb, setTrackingModalAwb] = useState<string | null>(null);
+  const [trackingModalData, setTrackingModalData] = useState<any>(null);
+  const [loadingTracking, setLoadingTracking] = useState(false);
+  const [srInfo, setSrInfo] = useState<{ isConfigured: boolean; pickupLocation: string; pickupPincode: string } | null>(null);
+
+  useEffect(() => {
+    checkShiprocketStatusAction().then((info) => setSrInfo(info));
+  }, []);
 
   // Dispatch / Edit Tracking Modal
   const [activeModalOrder, setActiveModalOrder] = useState<AdminOrder | null>(null);
@@ -237,8 +258,13 @@ export default function ShipmentsClient({ initialOrders }: Props) {
     } else {
       setActiveModalOrder(null);
       setFlashingOrderId(orderId);
+      const emailSuffix = res.emailSent
+        ? ' • Shipped email sent'
+        : res.emailNotice
+          ? ` • Email notice: ${res.emailNotice}`
+          : '';
       showToast(
-        `Order ${activeModalOrder.order_number} marked as ${targetStatus} via ${courier}`,
+        `Order ${activeModalOrder.order_number} marked as ${targetStatus} via ${courier}${emailSuffix}`,
         'success'
       );
       setTimeout(() => setFlashingOrderId(null), 3000);
@@ -275,6 +301,114 @@ export default function ShipmentsClient({ initialOrders }: Props) {
       setFlashingOrderId(order.id);
       showToast(`Order ${order.order_number} marked as Delivered`, 'success');
       setTimeout(() => setFlashingOrderId(null), 3000);
+    }
+  }
+
+  // Shiprocket 1-Click Operations
+  async function handlePushToShiprocket(order: AdminOrder) {
+    setProcessingSrOrderId(order.id);
+    try {
+      const res: any = await createShiprocketOrderAction(order.id);
+      if (res.success) {
+        showToast(`Order ${order.order_number} pushed to Shiprocket!`, 'success');
+        handleManualRefresh(false);
+      } else {
+        showToast(res.error || 'Failed to push order to Shiprocket', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Error communicating with Shiprocket', 'error');
+    } finally {
+      setProcessingSrOrderId(null);
+    }
+  }
+
+  async function handleAssignAWB(order: AdminOrder) {
+    const shipmentId = order.metadata?.['shiprocket_shipment_id'];
+    if (!shipmentId) {
+      showToast('No Shiprocket shipment ID found for this order', 'error');
+      return;
+    }
+    setProcessingSrOrderId(order.id);
+    try {
+      const res: any = await assignShiprocketAWBAction({
+        orderId: order.id,
+        shipmentId: Number(shipmentId),
+      });
+      if (res.success && res.awb_code) {
+        showToast(`AWB ${res.awb_code} generated via ${res.courier_name || 'Shiprocket'}!`, 'success');
+        handleManualRefresh(false);
+      } else {
+        showToast(res.error || 'Failed to assign AWB', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Error assigning AWB', 'error');
+    } finally {
+      setProcessingSrOrderId(null);
+    }
+  }
+
+  async function handleSchedulePickup(order: AdminOrder) {
+    const shipmentId = order.metadata?.['shiprocket_shipment_id'];
+    if (!shipmentId) {
+      showToast('No Shiprocket shipment ID found', 'error');
+      return;
+    }
+    setProcessingSrOrderId(order.id);
+    try {
+      const res: any = await generateShiprocketPickupAction({
+        orderId: order.id,
+        shipmentId: Number(shipmentId),
+      });
+      if (res.success) {
+        showToast(`Courier pickup scheduled for Order ${order.order_number}!`, 'success');
+        handleManualRefresh(false);
+      } else {
+        showToast(res.error || 'Failed to schedule pickup', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Error scheduling pickup', 'error');
+    } finally {
+      setProcessingSrOrderId(null);
+    }
+  }
+
+  async function handlePrintLabel(order: AdminOrder) {
+    const shipmentId = order.metadata?.['shiprocket_shipment_id'];
+    if (!shipmentId) {
+      showToast('No Shiprocket shipment ID found', 'error');
+      return;
+    }
+    setProcessingSrOrderId(order.id);
+    try {
+      const res: any = await generateShiprocketLabelAction(Number(shipmentId));
+      if (res.success && res.label_url) {
+        window.open(res.label_url, '_blank');
+        showToast('Shipping label opened', 'success');
+      } else {
+        showToast(res.error || 'Could not retrieve shipping label URL', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to print label', 'error');
+    } finally {
+      setProcessingSrOrderId(null);
+    }
+  }
+
+  async function handleOpenLiveTracking(awb: string) {
+    setTrackingModalAwb(awb);
+    setLoadingTracking(true);
+    setTrackingModalData(null);
+    try {
+      const res = await trackShiprocketAWBAction(awb);
+      if (res.success && res.data) {
+        setTrackingModalData(res.data);
+      } else {
+        showToast(res.error || 'Could not fetch tracking scans', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Tracking fetch failed', 'error');
+    } finally {
+      setLoadingTracking(false);
     }
   }
 
@@ -507,6 +641,23 @@ export default function ShipmentsClient({ initialOrders }: Props) {
               ></span>
             </span>
             <span>{realtimeStatus === 'SUBSCRIBED' ? 'Realtime Live' : 'Reconnecting...'}</span>
+          </div>
+
+          {/* Shiprocket Delivery Integration Status */}
+          <div
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+              srInfo?.isConfigured
+                ? 'bg-purple-50 text-purple-700 border-purple-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}
+            title={
+              srInfo?.isConfigured
+                ? `Shiprocket Connected (Pickup: ${srInfo.pickupLocation} - ${srInfo.pickupPincode})`
+                : 'Shiprocket Dev/Demo Mode (Add SHIPROCKET_API_EMAIL & PASSWORD to .env.local for production API dispatch)'
+            }
+          >
+            <Radio className="w-3.5 h-3.5" />
+            <span>{srInfo?.isConfigured ? 'Shiprocket Active' : 'Shiprocket (Ready)'}</span>
           </div>
 
           <button
@@ -868,22 +1019,19 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                     <td className="py-3.5 px-4">
                       {hasAwb ? (
                         <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-medium text-xs text-[var(--color-ink)] bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                               {order.courier_partner || 'Carrier'}
                             </span>
-                            {trackingUrl && (
-                              <a
-                                href={trackingUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[11px] font-medium text-[var(--color-gold)] hover:underline inline-flex items-center gap-0.5"
-                                title="Open Live Carrier Tracking"
-                              >
-                                <span>Track</span>
-                                <ExternalLink className="w-2.5 h-2.5" />
-                              </a>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenLiveTracking(order.tracking_number!)}
+                              className="text-[11px] font-medium text-[var(--color-gold)] hover:underline inline-flex items-center gap-0.5"
+                              title="Open Live Carrier Tracking"
+                            >
+                              <span>Track Live</span>
+                              <ExternalLink className="w-2.5 h-2.5" />
+                            </button>
                           </div>
                           <div className="flex items-center gap-1">
                             <span className="font-mono text-xs text-[var(--color-slate)] bg-[var(--color-snow)] px-2 py-0.5 rounded border border-[var(--color-whisper)]">
@@ -902,11 +1050,23 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                               )}
                             </button>
                           </div>
+                          {order.metadata?.['shiprocket_shipment_id'] && (
+                            <p className="text-[10px] text-purple-700 font-mono">
+                              SR #{order.metadata['shiprocket_shipment_id']}
+                            </p>
+                          )}
                         </div>
                       ) : (
-                        <span className="text-xs text-amber-700 font-medium bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 inline-block">
-                          AWB Unassigned
-                        </span>
+                        <div className="space-y-1">
+                          <span className="text-xs text-amber-700 font-medium bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 inline-block">
+                            AWB Unassigned
+                          </span>
+                          {order.metadata?.['shiprocket_shipment_id'] && (
+                            <p className="text-[10px] text-purple-700 font-mono">
+                              SR #{order.metadata['shiprocket_shipment_id']}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </td>
 
@@ -917,7 +1077,65 @@ export default function ShipmentsClient({ initialOrders }: Props) {
 
                     {/* Fulfillment Action */}
                     <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                        {/* 1. Shiprocket Push (if not yet in SR) */}
+                        {!order.metadata?.['shiprocket_shipment_id'] && order.status !== 'cancelled' && order.status !== 'delivered' && (
+                          <button
+                            type="button"
+                            disabled={processingSrOrderId === order.id}
+                            onClick={() => handlePushToShiprocket(order)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                            title="Push order to Shiprocket for fulfillment"
+                          >
+                            <Truck className="w-3 h-3" />
+                            <span>{processingSrOrderId === order.id ? 'Pushing...' : 'Push SR'}</span>
+                          </button>
+                        )}
+
+                        {/* 2. Shiprocket Assign AWB (if in SR but has no AWB) */}
+                        {order.metadata?.['shiprocket_shipment_id'] && !hasAwb && order.status !== 'cancelled' && (
+                          <button
+                            type="button"
+                            disabled={processingSrOrderId === order.id}
+                            onClick={() => handleAssignAWB(order)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-xs font-semibold transition-all disabled:opacity-50"
+                            title="Auto-assign fastest courier and generate AWB via Shiprocket"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>{processingSrOrderId === order.id ? 'Assigning...' : 'Assign AWB'}</span>
+                          </button>
+                        )}
+
+                        {/* 3. Shiprocket Label & Pickup (if has AWB) */}
+                        {order.metadata?.['shiprocket_shipment_id'] && hasAwb && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={processingSrOrderId === order.id}
+                              onClick={() => handlePrintLabel(order)}
+                              className="inline-flex items-center gap-1 px-2 py-1.5 bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                              title="Generate & print thermal shipping label"
+                            >
+                              <Printer className="w-3 h-3" />
+                              <span className="hidden sm:inline">Label</span>
+                            </button>
+
+                            {order.status !== 'shipped' && order.status !== 'delivered' && (
+                              <button
+                                type="button"
+                                disabled={processingSrOrderId === order.id}
+                                onClick={() => handleSchedulePickup(order)}
+                                className="inline-flex items-center gap-1 px-2 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-lg text-xs font-medium transition-all disabled:opacity-50"
+                                title="Schedule courier pickup with Shiprocket"
+                              >
+                                <Clock className="w-3 h-3" />
+                                <span className="hidden sm:inline">Pickup</span>
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {/* 4. Manual Modal Dispatch */}
                         {order.status !== 'delivered' && order.status !== 'cancelled' && (
                           <button
                             type="button"
@@ -925,10 +1143,11 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-gold)] text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-all shadow-xs"
                           >
                             <Send className="w-3 h-3" />
-                            <span>{hasAwb ? 'Update AWB' : 'Dispatch'}</span>
+                            <span>{hasAwb ? 'Edit' : 'Dispatch'}</span>
                           </button>
                         )}
 
+                        {/* 5. Mark Delivered Quick Action */}
                         {order.status === 'shipped' && (
                           <button
                             type="button"
@@ -1126,6 +1345,131 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Live Shiprocket Tracking Modal Dialog */}
+        {trackingModalAwb && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+              onClick={() => {
+                setTrackingModalAwb(null);
+                setTrackingModalData(null);
+              }}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-[var(--color-whisper)] p-6 z-10 space-y-4 max-h-[85vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between pb-3 border-b border-[var(--color-whisper)]">
+                <div>
+                  <h3 className="text-lg font-semibold text-[var(--color-ink)] flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-[var(--color-gold)]" />
+                    <span>Live Shiprocket Tracking</span>
+                  </h3>
+                  <p className="text-xs text-[var(--color-slate)] mt-0.5 font-mono">
+                    AWB: <strong>{trackingModalAwb}</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setTrackingModalAwb(null);
+                    setTrackingModalData(null);
+                  }}
+                  className="p-1 rounded-lg text-[var(--color-mist)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Status & Carrier Banner */}
+              {loadingTracking ? (
+                <div className="py-12 text-center text-[var(--color-slate)] space-y-2">
+                  <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[var(--color-gold)]" />
+                  <p className="text-xs font-medium">Connecting to Shiprocket courier API...</p>
+                </div>
+              ) : trackingModalData ? (
+                <div className="space-y-4">
+                  <div className="p-3.5 bg-[var(--color-snow)] rounded-xl border border-[var(--color-whisper)] flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-semibold text-[var(--color-mist)] uppercase tracking-wider block">
+                        Carrier Partner
+                      </span>
+                      <p className="font-semibold text-xs text-[var(--color-ink)]">
+                        {trackingModalData.courier_name || 'Shiprocket Express'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-semibold text-[var(--color-mist)] uppercase tracking-wider block">
+                        Current Status
+                      </span>
+                      <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                        {trackingModalData.current_status || 'IN TRANSIT'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Scans Timeline */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-semibold text-[var(--color-slate)] uppercase tracking-wider">
+                      Tracking Checkpoints
+                    </h4>
+                    {Array.isArray(trackingModalData.scans) && trackingModalData.scans.length > 0 ? (
+                      <div className="border border-[var(--color-whisper)] rounded-xl p-3 divide-y divide-[var(--color-whisper)] text-xs">
+                        {trackingModalData.scans.map((s: any, idx: number) => (
+                          <div key={idx} className="py-2.5 first:pt-0 last:pb-0 flex items-start justify-between gap-3">
+                            <div className="space-y-0.5">
+                              <p className="font-medium text-[var(--color-ink)]">
+                                {s.activity || s.status}
+                              </p>
+                              {s.location && (
+                                <p className="text-[11px] text-[var(--color-slate)] flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 text-[var(--color-mist)]" />
+                                  <span>{s.location}</span>
+                                </p>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-[var(--color-mist)] whitespace-nowrap">
+                              {s.date ? new Date(s.date).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-[var(--color-snow)] rounded-xl text-center text-xs text-[var(--color-slate)] border border-[var(--color-whisper)]">
+                        Shipment registered in courier network. Live scan events will appear as package arrives at transit hubs.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 text-center text-xs text-[var(--color-slate)]">
+                  No tracking events recorded yet.
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-[var(--color-whisper)] text-right">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTrackingModalAwb(null);
+                    setTrackingModalData(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--color-snow)] text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

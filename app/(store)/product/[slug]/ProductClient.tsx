@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -56,6 +56,20 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   const currentOriginalPrice = activeVariant?.compare_at_price ?? product.originalPrice;
   const discount = currentOriginalPrice ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100) : 0;
 
+  const availableStock = typeof activeVariant?.inventory_quantity === 'number'
+    ? activeVariant.inventory_quantity
+    : (product.inStock ? 10 : 0);
+  const isOutOfStock = availableStock <= 0;
+
+  // Auto-clamp quantity if availableStock is less than current quantity
+  useEffect(() => {
+    if (availableStock > 0 && quantity > availableStock) {
+      setQuantity(availableStock);
+    } else if (availableStock <= 0 && quantity !== 1) {
+      setQuantity(1);
+    }
+  }, [availableStock, quantity]);
+
   // Convert string arrays to proper types
   const galleryImages = ((currentColor.images?.length ?? 0) > 0 ? currentColor.images : product.images).map((src): { src: string; alt: string } => ({
     src,
@@ -64,10 +78,15 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
   const sizeOptions = product.sizes.map((size) => {
     const chart = product.sizeChart[size];
+    const vForSize = product.variants?.find((v) => v.size.toLowerCase() === size.toLowerCase());
+    const isSizeInStock = vForSize
+      ? (typeof vForSize.inventory_quantity === 'number' ? vForSize.inventory_quantity > 0 : true)
+      : product.inStock;
+
     return {
       value: size,
       label: size,
-      inStock: true,
+      inStock: isSizeInStock,
       measurements: chart ? {
         bust: chart.bust,
         waist: chart.waist,
@@ -79,18 +98,39 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
   const handleAddToBag = async () => {
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
+    const targetVariant = product.variants?.find((v) => v.size.toLowerCase() === sizeToUse.toLowerCase()) || activeVariant;
+    const stock = typeof targetVariant?.inventory_quantity === 'number'
+      ? targetVariant.inventory_quantity
+      : (product.inStock ? 10 : 0);
+
+    if (stock <= 0) {
+      toast.error('This product is currently out of stock.');
+      return;
+    }
+
+    if (quantity > stock) {
+      toast.error(`Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`);
+      setQuantity(stock);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await addItem(product.id, quantity, sizeToUse, {
+      const added = await addItem(targetVariant?.id || product.id, quantity, sizeToUse, {
         product_id: product.id,
+        variant_id: targetVariant?.id,
         product_name: product.name,
-        price: product.price,
+        price: targetVariant?.price || currentPrice,
         image: product.images?.[0] || '/images/collection-kurtis.jpg',
         size: sizeToUse,
         is_vidyas_pick: product.isVidhyasPick,
+        inventory_quantity: stock,
+        max_quantity: stock,
       });
-      setAddedToBag(true);
-      setTimeout(() => setAddedToBag(false), 3000);
+      if (added !== false) {
+        setAddedToBag(true);
+        setTimeout(() => setAddedToBag(false), 3000);
+      }
     } catch (err) {
       console.error('Failed to add to bag:', err);
     } finally {
@@ -100,16 +140,36 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
   const handleBuyNow = async () => {
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
+    const targetVariant = product.variants?.find((v) => v.size.toLowerCase() === sizeToUse.toLowerCase()) || activeVariant;
+    const stock = typeof targetVariant?.inventory_quantity === 'number'
+      ? targetVariant.inventory_quantity
+      : (product.inStock ? 10 : 0);
+
+    if (stock <= 0) {
+      toast.error('This product is currently out of stock.');
+      return;
+    }
+
+    if (quantity > stock) {
+      toast.error(`Only ${stock} unit${stock === 1 ? '' : 's'} available in stock.`);
+      setQuantity(stock);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await addItem(product.id, quantity, sizeToUse, {
+      const added = await addItem(targetVariant?.id || product.id, quantity, sizeToUse, {
         product_id: product.id,
+        variant_id: targetVariant?.id,
         product_name: product.name,
-        price: product.price,
+        price: targetVariant?.price || currentPrice,
         image: product.images?.[0] || '/images/collection-kurtis.jpg',
         size: sizeToUse,
         is_vidyas_pick: product.isVidhyasPick,
+        inventory_quantity: stock,
+        max_quantity: stock,
       });
+      if (added === false) return;
       if (!user) {
         setShowAuthModal(true);
         toast('Please sign in to proceed to checkout', { icon: '🛍️' });
@@ -354,31 +414,43 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
               {/* Quantity Selector */}
               <div className="border-t border-[var(--color-whisper)] pt-6">
                 <label className="block text-sm font-medium text-[var(--color-ink)] mb-3">Quantity</label>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <div className="flex items-center border border-[var(--color-whisper)] rounded-[var(--radius-md)] overflow-hidden">
                     <button
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="p-3 text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors"
+                      className="p-3 text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       aria-label="Decrease quantity"
-                      disabled={quantity <= 1}
+                      disabled={quantity <= 1 || isOutOfStock}
                     >
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                         <path d="M5 12h14" />
                       </svg>
                     </button>
-                    <span className="px-6 text-center font-mono tabular-nums text-[var(--color-ink)] min-w-[3rem]">{quantity}</span>
+                    <span className="px-6 text-center font-mono tabular-nums text-[var(--color-ink)] min-w-[3rem]">
+                      {isOutOfStock ? 0 : quantity}
+                    </span>
                     <button
-                      onClick={() => setQuantity(Math.min(10, quantity + 1))}
-                      className="p-3 text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors"
+                      onClick={() => setQuantity(Math.min(availableStock, quantity + 1))}
+                      className="p-3 text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       aria-label="Increase quantity"
-                      disabled={quantity >= 10}
+                      disabled={quantity >= availableStock || isOutOfStock}
                     >
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                         <path d="M12 5v14M5 12h14" />
                       </svg>
                     </button>
                   </div>
-                  <span className="text-sm text-[var(--color-mist)]">Max 10 per order</span>
+                  {isOutOfStock ? (
+                    <span className="text-sm font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-md border border-rose-200">
+                      Out of Stock
+                    </span>
+                  ) : availableStock <= 3 ? (
+                    <span className="text-sm font-semibold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
+                      Only {availableStock} left in stock — order soon!
+                    </span>
+                  ) : (
+                    <span className="text-sm text-[var(--color-mist)]">Max {Math.min(10, availableStock)} per order</span>
+                  )}
                 </div>
               </div>
 
@@ -386,13 +458,15 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
               <div className="flex flex-col sm:flex-row gap-4 border-t border-[var(--color-whisper)] pt-6">
                 <MagneticButton
                   size="xl"
-                  variant="gold"
-                  className="flex-1"
+                  variant={isOutOfStock ? 'outline' : 'gold'}
+                  className={cn("flex-1", isOutOfStock && "opacity-60 cursor-not-allowed")}
                   onClick={handleAddToBag}
-                  disabled={!selectedSize || !product.inStock}
+                  disabled={!selectedSize || isOutOfStock || isSubmitting}
                   strength={0.3}
                 >
-                  {addedToBag ? (
+                  {isOutOfStock ? (
+                    'Out of Stock'
+                  ) : addedToBag ? (
                     <>
                       <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -406,12 +480,12 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                 <MagneticButton
                   size="xl"
                   variant="outline"
-                  className="flex-1"
+                  className={cn("flex-1", isOutOfStock && "opacity-60 cursor-not-allowed")}
                   onClick={handleBuyNow}
-                  disabled={!selectedSize || !product.inStock}
+                  disabled={!selectedSize || isOutOfStock || isSubmitting}
                   strength={0.3}
                 >
-                  Buy Now
+                  {isOutOfStock ? 'Out of Stock' : 'Buy Now'}
                 </MagneticButton>
               </div>
 

@@ -1,47 +1,47 @@
 {
   "brandName": "Angelika",
   "brandTagline": "Fashions",
-  "logoUrl": " /images/logo.png",
+  "logoUrl": "/images/logo.png",
   "logoHref": "/",
   "navigation": [
     {
-      "id": "a3f7eb74-e49c-4aed-ab6d-0fa1c85cafae",
+      "id": "ed5cf1bb-511b-4ef1-8fdb-183677e702ac",
       "label": "KURTIS",
       "href": "/shop/kurtis",
       "is_active": true
     },
     {
-      "id": "28cf69e3-311b-4c05-9344-452bc5debb21",
+      "id": "cf3d3c85-a78b-41b5-8b73-d628423b048c",
       "label": "SALWARS",
       "href": "/shop/salwars",
       "is_active": true
     },
     {
-      "id": "7d69793a-5563-45a0-880b-6e2e36c67ba1",
+      "id": "c2d2a195-7f03-4592-b86e-34a5ded789f0",
       "label": "LEHENGAS",
       "href": "/shop/lehengas",
       "is_active": true
     },
     {
-      "id": "355d9208-cd95-4c59-89b8-7f8661f5c88a",
+      "id": "2a5b5075-8aa6-4c6c-a8e5-ad5f7e10834d",
       "label": "SAREES",
       "href": "/shop/sarees",
       "is_active": true
     },
     {
-      "id": "156518a1-86a1-4776-b636-460afbfe63c7",
+      "id": "4728af68-8fcf-4874-be8e-39caa17fd08c",
       "label": "DUPATTAS",
       "href": "/shop/dupattas",
       "is_active": true
     },
     {
-      "id": "ebd0d7e2-8c53-4a7e-aa28-6192e6bed909",
+      "id": "b59d49cf-bf74-4cf3-aef0-cfc2bafc070d",
       "label": "NEW ARRIVALS",
       "href": "/new-arrivals",
       "is_active": true
     },
     {
-      "id": "b77653e8-7d97-4053-9118-6568efcfccdb",
+      "id": "52a0e427-ba90-4c89-9c33-15ccf7f5ec7d",
       "label": "SALE",
       "href": "/sale",
       "is_active": true

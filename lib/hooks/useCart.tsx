@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { CartItem, CartState, AppliedCoupon } from '@/types/commerce';
 import { useAuth } from './useAuth';
 import { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } from '@/lib/data/store-catalogue';
+import { validateCouponAction } from '@/lib/actions/checkout';
 import toast from 'react-hot-toast';
 
 interface CartContextType extends CartState {
@@ -14,7 +15,7 @@ interface CartContextType extends CartState {
   removeItem: (itemId: string) => Promise<void>;
   clearCart: () => Promise<void>;
   syncCart: () => Promise<void>;
-  applyCoupon: (code: string) => Promise<{ valid: boolean; error?: string }>;
+  applyCoupon: (code: string, context?: { email?: string; phone?: string; userId?: string }) => Promise<{ valid: boolean; error?: string }>;
   removeCoupon: () => Promise<void>;
   validateCart: () => Promise<{ valid: boolean; errors: string[] }>;
 }
@@ -109,6 +110,84 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
+  // Reconcile items with real database inventory from product_variants
+  const reconcileWithDb = async (rawItems: CartItem[]): Promise<CartItem[]> => {
+    if (!rawItems || rawItems.length === 0) return rawItems;
+    try {
+      const variantIds = rawItems
+        .map(i => i.variant_id)
+        .filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+      const productIds = rawItems
+        .map(i => i.product_id)
+        .filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+      const names = rawItems.map(i => i.product_name).filter(Boolean);
+
+      let variants: any[] = [];
+      if (variantIds.length > 0) {
+        const { data } = await supabase
+          .from('product_variants')
+          .select('id, product_id, size, inventory_quantity, price')
+          .in('id', variantIds);
+        if (data) variants.push(...data);
+      }
+      if (productIds.length > 0) {
+        const { data } = await supabase
+          .from('product_variants')
+          .select('id, product_id, size, inventory_quantity, price')
+          .in('product_id', productIds);
+        if (data) variants.push(...data);
+      }
+      if (names.length > 0) {
+        const { data: prods } = await supabase
+          .from('products')
+          .select('id, name, product_variants(id, size, inventory_quantity, price)')
+          .in('name', names);
+        if (prods) {
+          prods.forEach((p: any) => {
+            (p.product_variants || []).forEach((pv: any) => {
+              variants.push({ ...pv, product_id: p.id, product_name: p.name });
+            });
+          });
+        }
+      }
+
+      let adjusted = false;
+      const reconciled = rawItems.map(item => {
+        const matched = variants.find(v =>
+          v.id === item.variant_id ||
+          (v.product_id === item.product_id && String(v.size || '').toLowerCase() === String(item.size || '').toLowerCase()) ||
+          (v.product_name && String(v.product_name).toLowerCase() === String(item.product_name).toLowerCase() && (!item.size || String(v.size || '').toLowerCase() === String(item.size || '').toLowerCase()))
+        );
+
+        if (matched && typeof matched.inventory_quantity === 'number') {
+          const liveStock = matched.inventory_quantity;
+          let qty = item.quantity;
+          if (liveStock > 0 && qty > liveStock) {
+            qty = liveStock;
+            adjusted = true;
+          }
+          return {
+            ...item,
+            variant_id: matched.id || item.variant_id,
+            inventory_quantity: liveStock,
+            max_quantity: Math.max(1, liveStock),
+            quantity: qty,
+          };
+        }
+        return item;
+      });
+
+      if (adjusted && typeof window !== 'undefined') {
+        localStorage.setItem('guest_cart', JSON.stringify(reconciled));
+        toast.error('Cart item quantities were adjusted to match current inventory.');
+      }
+      return reconciled;
+    } catch (err) {
+      console.warn('Reconcile error:', err);
+      return rawItems;
+    }
+  };
+
   const loadCart = async () => {
     // 1. Immediately read localStorage so cart & order load instantly with zero delay
     let localItems: CartItem[] = [];
@@ -132,19 +211,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
         ...totals,
         isLoading: false,
       }));
+
+      // In background, verify live stock and clamp quantities if stock changed
+      reconcileWithDb(localItems).then(reconciled => {
+        const hasDiff = JSON.stringify(reconciled) !== JSON.stringify(localItems);
+        if (hasDiff) {
+          const newTotals = calculateTotals(reconciled, state.appliedCoupon);
+          setState(prev => ({
+            ...prev,
+            items: reconciled,
+            ...newTotals,
+          }));
+        }
+      });
     } else {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
     }
 
     // If user is a guest, set local items and finish loading
     if (!user) {
-      const totals = calculateTotals(localItems, state.appliedCoupon);
-      setState(prev => ({
-        ...prev,
-        items: localItems,
-        ...totals,
-        isLoading: false,
-      }));
       return;
     }
 
@@ -314,6 +399,73 @@ export function CartProvider({ children }: { children: ReactNode }) {
       cleanPrice = 2999;
     }
 
+    // Resolve real available stock
+    let availableStock: number | undefined = undefined;
+    if (typeof productData?.inventory_quantity === 'number') {
+      availableStock = productData.inventory_quantity;
+    } else if (typeof productData?.max_quantity === 'number') {
+      availableStock = productData.max_quantity;
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variantId);
+    let resolvedVariant: any = null;
+
+    if (isUuid) {
+      try {
+        const { data: vById } = await supabase
+          .from('product_variants')
+          .select(`
+            id, price, inventory_quantity, size,
+            product:products!product_variants_product_id_fkey(
+              id, name, slug, is_vidyas_pick,
+              product_images!product_images_product_id_fkey(url, is_primary)
+            )
+          `)
+          .eq('id', variantId)
+          .maybeSingle();
+
+        if (vById) {
+          resolvedVariant = vById;
+          if (typeof vById.inventory_quantity === 'number') {
+            availableStock = vById.inventory_quantity;
+          }
+        } else {
+          const { data: vByProd } = await supabase
+            .from('product_variants')
+            .select(`
+              id, price, inventory_quantity, size,
+              product:products!product_variants_product_id_fkey(
+                id, name, slug, is_vidyas_pick,
+                product_images!product_images_product_id_fkey(url, is_primary)
+              )
+            `)
+            .eq('product_id', variantId)
+            .limit(1)
+            .maybeSingle();
+          if (vByProd) {
+            resolvedVariant = vByProd;
+            if (typeof vByProd.inventory_quantity === 'number') {
+              availableStock = vByProd.inventory_quantity;
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase variant lookup error in addItem:', err);
+      }
+    }
+
+    // If availableStock is resolved to 0 or less, reject immediately
+    if (availableStock !== undefined && availableStock <= 0) {
+      toast.error('Sorry, this product is currently out of stock.');
+      return false;
+    }
+
+    const maxStock = typeof availableStock === 'number' ? Math.max(0, availableStock) : 10;
+    if (maxStock <= 0) {
+      toast.error('Sorry, this product is currently out of stock.');
+      return false;
+    }
+
     // 1. Check if item is already in cart
     const existingIndex = state.items.findIndex(
       i => i.variant_id === variantId || (productData?.product_name && i.product_name.toLowerCase() === productData.product_name.toLowerCase())
@@ -322,9 +474,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
     let newItems: CartItem[];
 
     if (existingIndex >= 0) {
+      const existingItem = state.items[existingIndex]!;
+      const realMax = typeof availableStock === 'number'
+        ? availableStock
+        : (typeof existingItem.max_quantity === 'number' ? existingItem.max_quantity : (existingItem.inventory_quantity ?? 10));
+
+      if (realMax <= 0) {
+        toast.error('Sorry, this product is currently out of stock.');
+        return false;
+      }
+
+      if (existingItem.quantity >= realMax) {
+        toast.error(`Cannot add more. Only ${realMax} unit${realMax === 1 ? '' : 's'} available in stock.`);
+        return false;
+      }
+
+      const allowedToAdd = Math.min(quantity, realMax - existingItem.quantity);
+      if (allowedToAdd <= 0) {
+        toast.error(`Cannot add more. Only ${realMax} unit${realMax === 1 ? '' : 's'} available in stock.`);
+        return false;
+      }
+
       newItems = state.items.map((item, index) =>
         index === existingIndex
-          ? { ...item, quantity: Math.min(item.quantity + quantity, item.max_quantity || 10) }
+          ? {
+              ...item,
+              quantity: existingItem.quantity + allowedToAdd,
+              inventory_quantity: realMax,
+              max_quantity: realMax,
+            }
           : item
       );
       await persistCart(newItems);
@@ -332,13 +510,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    // 2. If productData has name, add immediately (zero network latency)
+    const cleanQty = Math.max(1, Math.min(quantity, maxStock));
+
+    // 2. If productData has name, add immediately with real maxStock
     if (productData?.product_name && cleanPrice > 0) {
       const newItem: CartItem = {
         id: generateCartItemId(),
         product_id: productData.product_id || variantId,
         variant_id: variantId,
-        quantity,
+        quantity: cleanQty,
         product_name: productData.product_name,
         size: size || productData.size || 'Free Size',
         color: productData.color || 'Default',
@@ -346,8 +526,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         price: cleanPrice,
         image: productData.image || '/images/collection-kurtis.jpg',
         is_vidyas_pick: Boolean(productData.is_vidyas_pick),
-        inventory_quantity: 10,
-        max_quantity: 10,
+        inventory_quantity: maxStock,
+        max_quantity: maxStock,
       };
 
       newItems = [...state.items, newItem];
@@ -368,7 +548,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         id: generateCartItemId(),
         product_id: catalogueMatch.id,
         variant_id: variantId,
-        quantity,
+        quantity: cleanQty,
         product_name: catalogueMatch.title,
         size: size || 'Free Size',
         color: catalogueMatch.color || 'Default',
@@ -376,8 +556,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         price: catalogueMatch.price || cleanPrice,
         image: catalogueMatch.image || '/images/collection-kurtis.jpg',
         is_vidyas_pick: Boolean(catalogueMatch.isVidhyasPick),
-        inventory_quantity: 10,
-        max_quantity: 10,
+        inventory_quantity: maxStock,
+        max_quantity: maxStock,
       };
 
       newItems = [...state.items, newItem];
@@ -386,69 +566,26 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    // 4. Remote lookup for valid UUIDs only (guarded with fast timeout)
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variantId);
-    let variant: any = null;
-
-    if (isUuid) {
-      try {
-        const fetchVariantPromise = async () => {
-          const { data: vById } = await supabase
-            .from('product_variants')
-            .select(`
-              id, price, inventory_quantity, size,
-              product:products!product_variants_product_id_fkey(
-                id, name, slug, is_vidyas_pick,
-                product_images!product_images_product_id_fkey(url, is_primary)
-              )
-            `)
-            .eq('id', variantId)
-            .maybeSingle();
-
-          if (vById) return vById;
-
-          const { data: vByProd } = await supabase
-            .from('product_variants')
-            .select(`
-              id, price, inventory_quantity, size,
-              product:products!product_variants_product_id_fkey(
-                id, name, slug, is_vidyas_pick,
-                product_images!product_images_product_id_fkey(url, is_primary)
-              )
-            `)
-            .eq('product_id', variantId)
-            .limit(1)
-            .maybeSingle();
-
-          return vByProd || null;
-        };
-
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000));
-        variant = await Promise.race([fetchVariantPromise(), timeoutPromise]);
-      } catch (err) {
-        console.warn('Supabase variant lookup error:', err);
-      }
-    }
-
-    if (variant) {
-      const primaryImg = variant.product?.product_images?.find((img: any) => img.is_primary)?.url ||
-        variant.product?.product_images?.[0]?.url ||
+    // 4. Remote lookup result
+    if (resolvedVariant) {
+      const primaryImg = resolvedVariant.product?.product_images?.find((img: any) => img.is_primary)?.url ||
+        resolvedVariant.product?.product_images?.[0]?.url ||
         '/images/collection-kurtis.jpg';
 
       const newItem: CartItem = {
         id: generateCartItemId(),
-        product_id: variant.product?.id || variant.product_id,
-        variant_id: variant.id,
-        quantity,
-        product_name: variant.product?.name || productData?.product_name || 'Handcrafted Luxury Couture',
-        size: size || variant.size || productData?.size || 'Free Size',
+        product_id: resolvedVariant.product?.id || resolvedVariant.product_id,
+        variant_id: resolvedVariant.id,
+        quantity: cleanQty,
+        product_name: resolvedVariant.product?.name || productData?.product_name || 'Handcrafted Luxury Couture',
+        size: size || resolvedVariant.size || productData?.size || 'Free Size',
         color: productData?.color || 'Default',
         color_hex: productData?.color_hex || '#C9A84C',
-        price: variant.price || cleanPrice,
+        price: resolvedVariant.price || cleanPrice,
         image: primaryImg,
-        is_vidyas_pick: variant.product?.is_vidyas_pick || productData?.is_vidyas_pick || false,
-        inventory_quantity: variant.inventory_quantity || 10,
-        max_quantity: variant.inventory_quantity || 10,
+        is_vidyas_pick: resolvedVariant.product?.is_vidyas_pick || productData?.is_vidyas_pick || false,
+        inventory_quantity: maxStock,
+        max_quantity: maxStock,
       };
 
       newItems = [...state.items, newItem];
@@ -457,7 +594,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         id: generateCartItemId(),
         product_id: variantId,
         variant_id: variantId,
-        quantity,
+        quantity: cleanQty,
         product_name: productData?.product_name || 'Handcrafted Luxury Couture',
         size: size || productData?.size || 'Free Size',
         color: productData?.color || 'Default',
@@ -465,8 +602,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         price: cleanPrice,
         image: productData?.image || '/images/collection-kurtis.jpg',
         is_vidyas_pick: Boolean(productData?.is_vidyas_pick),
-        inventory_quantity: 10,
-        max_quantity: 10,
+        inventory_quantity: maxStock,
+        max_quantity: maxStock,
       };
 
       newItems = [...state.items, fallbackItem];
@@ -483,7 +620,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const item = state.items.find(i => i.id === itemId || i.variant_id === itemId);
     if (!item) return;
 
-    const newQuantity = Math.min(quantity, item.max_quantity || 10);
+    const maxStock = typeof item.max_quantity === 'number'
+      ? item.max_quantity
+      : (typeof item.inventory_quantity === 'number' ? item.inventory_quantity : 10);
+
+    if (maxStock <= 0) {
+      toast.error(`${item.product_name} is currently out of stock.`);
+      return;
+    }
+
+    if (quantity > maxStock) {
+      toast.error(`Only ${maxStock} unit${maxStock === 1 ? '' : 's'} available in stock.`);
+    }
+
+    const newQuantity = Math.max(1, Math.min(quantity, Math.max(1, maxStock)));
     const newItems = state.items.map(i => (i.id === item.id || i.variant_id === item.variant_id) ? { ...i, quantity: newQuantity } : i);
     await persistCart(newItems);
   };
@@ -541,7 +691,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     },
   };
 
-  const applyCoupon = async (code: string): Promise<{ valid: boolean; error?: string }> => {
+  const applyCoupon = async (
+    code: string,
+    context?: { email?: string; phone?: string; userId?: string }
+  ): Promise<{ valid: boolean; error?: string }> => {
     const cleanCode = (code || '').trim().toUpperCase();
     if (!cleanCode) {
       return { valid: false, error: 'Please enter a coupon code' };
@@ -552,21 +705,49 @@ export function CartProvider({ children }: { children: ReactNode }) {
       0
     ) || state.subtotal;
 
-    // 1. Check Supabase database first so admin creations, edits, and status toggles take immediate effect
+    // 1. Validate authoritatively via server action (checks DB, validity dates, limits, and first-order eligibility)
     try {
-      const fetchCoupon = async () => {
-        const { data: coupon, error } = await supabase
-          .from('coupons')
-          .select('*')
-          .eq('code', cleanCode)
-          .maybeSingle();
+      const res = await validateCouponAction(cleanCode, {
+        subtotal: currentSubtotal,
+        email: context?.email || user?.email,
+        phone: context?.phone,
+        userId: context?.userId || user?.id,
+      });
 
-        if (error || !coupon) return null;
-        return coupon;
+      if (!res.valid || !res.coupon) {
+        return { valid: false, error: res.error || 'Invalid or expired coupon code' };
+      }
+
+      let discountAmount = res.coupon.discountAmount;
+      if (res.coupon.type === 'free_shipping') {
+        discountAmount = state.shippingCost;
+      }
+
+      const appliedCoupon: AppliedCoupon = {
+        code: res.coupon.code,
+        type: res.coupon.type,
+        value: res.coupon.value,
+        discountAmount,
+        first_order_only: Boolean(res.coupon.first_order_only),
       };
 
-      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
-      const coupon: any = await Promise.race([fetchCoupon(), timeoutPromise]);
+      const totals = calculateTotals(state.items, appliedCoupon);
+      setState(prev => ({ ...prev, appliedCoupon, ...totals }));
+      try {
+        toast.success(`Coupon ${appliedCoupon.code} applied!`);
+      } catch { }
+      return { valid: true };
+    } catch (err) {
+      console.warn('validateCouponAction failed, checking client fallback:', err);
+    }
+
+    // 2. Client fallback in case of transient network error
+    try {
+      const { data: coupon } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', cleanCode)
+        .maybeSingle();
 
       if (coupon) {
         if (!coupon.is_active) {
@@ -609,6 +790,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           type: coupon.type,
           value: Number(coupon.value),
           discountAmount,
+          first_order_only: Boolean(coupon.first_order_only),
         };
 
         const totals = calculateTotals(state.items, appliedCoupon);
@@ -619,44 +801,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return { valid: true };
       }
     } catch (e) {
-      console.warn('Supabase coupon check failed, checking fallback offers', e);
-    }
-
-    // 2. Fallback to default privilege vouchers if not in DB or Supabase query timed out
-    const offer = PRIVILEGE_OFFERS[cleanCode];
-    if (offer) {
-      if (offer.min_order_amount && currentSubtotal < offer.min_order_amount) {
-        return {
-          valid: false,
-          error: `Minimum order of ₹${offer.min_order_amount.toLocaleString('en-IN')} required for ${offer.code}`,
-        };
-      }
-
-      let discountAmount = 0;
-      if (offer.type === 'percentage') {
-        discountAmount = Math.round((currentSubtotal * offer.value) / 100);
-        if (offer.max_discount_amount) {
-          discountAmount = Math.min(discountAmount, offer.max_discount_amount);
-        }
-      } else if (offer.type === 'fixed') {
-        discountAmount = offer.value;
-      } else if (offer.type === 'free_shipping') {
-        discountAmount = state.shippingCost;
-      }
-
-      const appliedCoupon: AppliedCoupon = {
-        code: offer.code,
-        type: offer.type,
-        value: offer.value,
-        discountAmount,
-      };
-
-      const totals = calculateTotals(state.items, appliedCoupon);
-      setState(prev => ({ ...prev, appliedCoupon, ...totals }));
-      try {
-        toast.success(`Privilege voucher ${offer.code} applied!`);
-      } catch { }
-      return { valid: true };
+      console.warn('Supabase coupon check failed:', e);
     }
 
     return { valid: false, error: 'Invalid or expired coupon code' };
@@ -671,9 +816,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const validateCart = async () => {
     const errors: string[] = [];
 
-    for (const item of state.items) {
-      if (item.inventory_quantity < item.quantity) {
-        errors.push(`${item.product_name} (${item.size}, ${item.color}) only has ${item.inventory_quantity} in stock`);
+    // Reconcile with latest database inventory first
+    let currentItems = state.items;
+    try {
+      currentItems = await reconcileWithDb(state.items);
+      if (JSON.stringify(currentItems) !== JSON.stringify(state.items)) {
+        const newTotals = calculateTotals(currentItems, state.appliedCoupon);
+        setState(prev => ({ ...prev, items: currentItems, ...newTotals }));
+      }
+    } catch { }
+
+    for (const item of currentItems) {
+      if (typeof item.inventory_quantity === 'number' && item.inventory_quantity <= 0) {
+        errors.push(`${item.product_name} (${item.size}) is out of stock. Please remove it from your bag.`);
+      } else if (typeof item.inventory_quantity === 'number' && item.quantity > item.inventory_quantity) {
+        errors.push(`${item.product_name} (${item.size}) only has ${item.inventory_quantity} available in stock (you have ${item.quantity} in bag).`);
       }
       if (!item.price || item.price <= 0) {
         errors.push(`${item.product_name} has invalid pricing`);
@@ -681,14 +838,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     if (state.appliedCoupon) {
-      const { data: coupon } = await supabase
-        .from('coupons')
-        .select('*')
-        .eq('code', state.appliedCoupon.code)
-        .single();
+      try {
+        const res = await validateCouponAction(state.appliedCoupon.code, {
+          subtotal: state.subtotal,
+          userId: user?.id,
+          email: user?.email,
+        });
 
-      if (!coupon || !coupon.is_active) {
-        errors.push('Applied coupon is no longer valid');
+        if (!res.valid) {
+          errors.push(res.error || 'Applied coupon is no longer valid');
+          const totals = calculateTotals(state.items, null);
+          setState(prev => ({ ...prev, appliedCoupon: null, ...totals }));
+        }
+      } catch {
+        // Fallback to basic DB check
+        const { data: coupon } = await supabase
+          .from('coupons')
+          .select('*')
+          .eq('code', state.appliedCoupon.code)
+          .single();
+
+        if (!coupon || !coupon.is_active) {
+          errors.push('Applied coupon is no longer valid');
+          const totals = calculateTotals(state.items, null);
+          setState(prev => ({ ...prev, appliedCoupon: null, ...totals }));
+        }
       }
     }
 

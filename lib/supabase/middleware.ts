@@ -67,24 +67,24 @@ export async function updateSession(request: NextRequest) {
     });
   }
 
-  // Admin route protection
-  if (request.nextUrl.pathname.startsWith('/admin')) {
-    if (!user) {
-      const redirectUrl = new URL('/login', request.url);
-      redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (!profile || !['admin', 'manager', 'designer'].includes(profile.role)) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-  }
+  // Admin route protection disabled for now per user request
+  // if (request.nextUrl.pathname.startsWith('/admin')) {
+  //   if (!user) {
+  //     const redirectUrl = new URL('/login', request.url);
+  //     redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
+  //     return NextResponse.redirect(redirectUrl);
+  //   }
+  //
+  //   const { data: profile } = await supabase
+  //     .from('profiles')
+  //     .select('role')
+  //     .eq('id', user.id)
+  //     .maybeSingle();
+  //
+  //   if (!profile || !['admin', 'manager', 'designer'].includes(profile.role)) {
+  //     return NextResponse.redirect(new URL('/', request.url));
+  //   }
+  // }
 
   // Account route protection
   if (request.nextUrl.pathname.startsWith('/account') && !user) {

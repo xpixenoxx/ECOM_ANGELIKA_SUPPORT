@@ -15,6 +15,7 @@ import {
   duplicateProduct,
 } from '@/lib/actions/admin-products';
 import type { AdminProduct, AdminCategory, BulkProductInput } from '@/lib/actions/admin-products';
+import { SHOP_COLORS } from '@/lib/actions/shop-types';
 import {
   Search,
   Package,
@@ -109,7 +110,9 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         const matchesSku = (p.sku || '').toLowerCase().includes(q);
         const matchesCat = (p.category_name || '').toLowerCase().includes(q);
         const matchesTag = (p.tags || []).some((t) => t.toLowerCase().includes(q));
-        if (!matchesName && !matchesSlug && !matchesSku && !matchesCat && !matchesTag) {
+        const matchesFabric = (p.fabric || '').toLowerCase().includes(q);
+        const matchesColor = (p.colors || []).some((c) => c.toLowerCase().includes(q));
+        if (!matchesName && !matchesSlug && !matchesSku && !matchesCat && !matchesTag && !matchesFabric && !matchesColor) {
           return false;
         }
       }
@@ -162,7 +165,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         );
         showToast(`Failed to update: ${res.error}`, 'error');
       } else {
-        showToast(updated ? 'Garment featured on homepage' : 'Garment removed from homepage');
+        showToast(updated ? 'Product marked as Featured (appears first in category)' : 'Product removed from Featured');
       }
     });
   }
@@ -221,6 +224,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
           name: p.name,
           slug: p.slug,
           description: p.description,
+          fabric: p.fabric || null,
           price: 3999,
           compare_at_price: null,
           category_id: p.category_id,
@@ -308,6 +312,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
       'Name',
       'SKU',
       'Category',
+      'Fabric',
       'Price',
       'Compare At Price',
       'Stock',
@@ -321,6 +326,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
       `"${p.name.replace(/"/g, '""')}"`,
       `"${p.sku || ''}"`,
       `"${p.category_name || ''}"`,
+      `"${(p.fabric || '').replace(/"/g, '""')}"`,
       p.price,
       p.compare_at_price || '',
       p.total_inventory,
@@ -417,6 +423,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
       const headers = parseCSVLine(headerLine).map((h) => h.toLowerCase());
       const nameIdx = headers.findIndex((h) => h.includes('name') || h.includes('title'));
       const catIdx = headers.findIndex((h) => h.includes('cat'));
+      const fabIdx = headers.findIndex((h) => h.includes('fab') || h.includes('material'));
       const priceIdx = headers.findIndex((h) => h === 'price' || h.includes('price'));
       const compIdx = headers.findIndex((h) => h.includes('compare') || h.includes('mrp'));
       const invIdx = headers.findIndex((h) => h.includes('stock') || h.includes('inventory') || h.includes('qty'));
@@ -443,6 +450,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         const getCol = (idx: number) => (idx !== -1 && idx < row.length ? row[idx] || '' : '');
 
         const catName = getCol(catIdx) || 'Kurtis';
+        const fabVal = getCol(fabIdx);
         const priceStr = getCol(priceIdx);
         const price = priceStr ? Number(priceStr.replace(/[^0-9.]/g, '')) || 2999 : 2999;
         const compStr = getCol(compIdx);
@@ -464,6 +472,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         productsToCreate.push({
           name,
           category_name: catName,
+          fabric: fabVal || undefined,
           price,
           compare_at_price: compare,
           inventory_quantity: inventory,
@@ -892,12 +901,42 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
                     <p className="font-medium text-sm text-[var(--color-ink,#111111)] line-clamp-1" title={product.name}>
                       {product.name}
                     </p>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-xs text-[var(--color-slate,#666666)] font-medium">
-                        {product.category_name}
-                      </p>
+                    <div className="flex items-center justify-between mt-0.5 gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-xs text-[var(--color-slate,#666666)] font-medium truncate">
+                          {product.category_name}
+                        </p>
+                        {product.fabric && (
+                          <span
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-gold-light,#FAF6ED)] text-[var(--color-gold,#C9A84C)] border border-[var(--color-gold,#C9A84C)]/30 truncate"
+                            title={`Fabric: ${product.fabric}`}
+                          >
+                            {product.fabric}
+                          </span>
+                        )}
+                        {product.colors && product.colors.length > 0 && (
+                          <div className="flex items-center -space-x-1 shrink-0 ml-0.5" title={`Colors: ${product.colors.join(', ')}`}>
+                            {product.colors.slice(0, 4).map((colVal) => {
+                              const foundCol = SHOP_COLORS.find((c) => c.value === colVal);
+                              const bg = foundCol?.color || '#C9A84C';
+                              return (
+                                <span
+                                  key={colVal}
+                                  className="w-2.5 h-2.5 rounded-full border border-white shadow-xs inline-block"
+                                  style={bg.includes('gradient') ? { background: bg } : { backgroundColor: bg }}
+                                />
+                              );
+                            })}
+                            {product.colors.length > 4 && (
+                              <span className="text-[9px] text-[var(--color-slate,#666666)] pl-1">
+                                +{product.colors.length - 4}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       {product.sku && (
-                        <span className="text-[10px] text-[var(--color-mist,#999999)] font-mono">
+                        <span className="text-[10px] text-[var(--color-mist,#999999)] font-mono shrink-0">
                           {product.sku}
                         </span>
                       )}
@@ -918,6 +957,40 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
                         {product.total_inventory} in stock
                       </span>
                     </div>
+
+                    {/* Per-size inventory units breakdown */}
+                    {product.variants && product.variants.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-[var(--color-whisper,#E5E5E5)]">
+                        <div className="flex items-center justify-between text-[10px] text-[var(--color-slate,#666666)] mb-1">
+                          <span className="font-semibold uppercase tracking-wider">Units per Size:</span>
+                          <span className="font-mono text-[var(--color-ink,#111111)] font-medium">
+                            {product.variants.length} {product.variants.length === 1 ? 'size' : 'sizes'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {product.variants.map((v) => {
+                            const isOut = v.inventory_quantity === 0;
+                            const isCrit = v.inventory_quantity > 0 && v.inventory_quantity <= 3;
+                            return (
+                              <span
+                                key={v.id || v.size}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                                  isOut
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                    : isCrit
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-[var(--color-snow,#F9F9F9)] text-[var(--color-ink,#111111)] border-[var(--color-whisper,#E5E5E5)]'
+                                }`}
+                                title={`${v.size}: ${v.inventory_quantity} units available`}
+                              >
+                                <span className="font-bold">{v.size}:</span>
+                                <span>{v.inventory_quantity}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -950,14 +1023,14 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
                   <button
                     type="button"
                     onClick={() => handleToggleFeatured(product.id, product.is_featured)}
-                    className={`p-1.5 rounded-lg border transition-colors ${
+                    className={`p-1.5 rounded-lg border transition-all ${
                       product.is_featured
-                        ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
-                        : 'border-[var(--color-whisper,#E5E5E5)] text-[var(--color-mist,#999999)] hover:text-yellow-600'
+                        ? 'border-amber-300 bg-amber-50 text-amber-600 shadow-sm'
+                        : 'border-[var(--color-whisper,#E5E5E5)] text-[var(--color-mist,#999999)] hover:text-amber-500 hover:border-amber-200'
                     }`}
-                    title={product.is_featured ? 'Featured on Homepage' : 'Mark as Featured'}
+                    title={product.is_featured ? 'Featured (appears first in category) - Click to unfeature' : 'Feature Product (appear first in category)'}
                   >
-                    <Star className="w-3.5 h-3.5" />
+                    <Star className={`w-3.5 h-3.5 ${product.is_featured ? 'fill-amber-400 text-amber-500' : ''}`} />
                   </button>
 
                   {/* Heart: Toggle Vidhya's Pick */}

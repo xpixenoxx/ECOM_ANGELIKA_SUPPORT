@@ -706,6 +706,33 @@ export async function getSiteContent(): Promise<SiteContent> {
         ...DEFAULT_SITE_CONTENT.newsletter,
         ...(parsed.newsletter || {}),
       },
+      'checkout-address-page': {
+        ...DEFAULT_SITE_CONTENT['checkout-address-page']!,
+        ...(parsed['checkout-address-page'] || {}),
+        header: {
+          ...DEFAULT_SITE_CONTENT['checkout-address-page']!.header,
+          ...(parsed['checkout-address-page']?.header || {}),
+        },
+        contact: {
+          ...DEFAULT_SITE_CONTENT['checkout-address-page']!.contact,
+          ...(parsed['checkout-address-page']?.contact || {}),
+        },
+        shipping: {
+          ...DEFAULT_SITE_CONTENT['checkout-address-page']!.shipping,
+          ...(parsed['checkout-address-page']?.shipping || {}),
+          addressTypes: Array.isArray(parsed['checkout-address-page']?.shipping?.addressTypes) && parsed['checkout-address-page'].shipping.addressTypes.length > 0
+            ? parsed['checkout-address-page'].shipping.addressTypes
+            : DEFAULT_SITE_CONTENT['checkout-address-page']!.shipping.addressTypes,
+        },
+        deliveryAndGifting: {
+          ...DEFAULT_SITE_CONTENT['checkout-address-page']!.deliveryAndGifting,
+          ...(parsed['checkout-address-page']?.deliveryAndGifting || {}),
+        },
+        buttonsAndSecurity: {
+          ...DEFAULT_SITE_CONTENT['checkout-address-page']!.buttonsAndSecurity,
+          ...(parsed['checkout-address-page']?.buttonsAndSecurity || {}),
+        },
+      },
     };
   } catch (err) {
     return DEFAULT_SITE_CONTENT;
@@ -941,6 +968,7 @@ export async function updateSectionContent(
       revalidatePath('/contact');
       revalidatePath('/wholesale');
       revalidatePath('/about/vidhya');
+      revalidatePath('/checkout');
     } catch (e) {
       // Non-blocking
     }
@@ -950,4 +978,9 @@ export async function updateSectionContent(
     console.error(`Error updating section ${sectionId}:`, error);
     return { success: false, error: error.message || 'Failed to save section content' };
   }
+}
+
+export async function getCheckoutAddressPageContent() {
+  const content = await getSiteContent();
+  return content['checkout-address-page'] || DEFAULT_SITE_CONTENT['checkout-address-page']!;
 }

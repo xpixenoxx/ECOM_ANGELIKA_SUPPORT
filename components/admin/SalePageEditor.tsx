@@ -1,10 +1,31 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
+import toast from 'react-hot-toast';
+import {
+  Plus,
+  Search,
+  Check,
+  X,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+  Tag,
+  Percent,
+  Sparkles,
+  ExternalLink,
+  RefreshCw,
+  ShoppingBag,
+  SlidersHorizontal,
+  AlertCircle,
+  Package,
+  Layers,
+} from 'lucide-react';
+import { getAdminProducts, AdminProduct } from '@/lib/actions/admin-products';
 import type { SalePageContent, SaleProductItemPage, SaleEventItem, SalePolicyItem } from '@/lib/actions/site-content-types';
 
 const CATEGORY_OPTIONS = [
@@ -244,12 +265,16 @@ function ProductImageUploader({
 export function SalePageEditor({
   onCancel,
   onSaved,
+  initialCatalogProducts,
+  initialSaleData,
 }: {
   onCancel?: () => void;
   onSaved?: () => void;
+  initialCatalogProducts?: AdminProduct[];
+  initialSaleData?: SalePageContent | null;
 }) {
-  const [formData, setFormData] = useState<SalePageContent | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState<SalePageContent | null>(initialSaleData || null);
+  const [loading, setLoading] = useState(!initialSaleData);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'products' | 'header' | 'events' | 'policies' | 'seo'>('products');
   const [expandedProductIndex, setExpandedProductIndex] = useState<number | null>(0);
@@ -258,26 +283,53 @@ export function SalePageEditor({
   const [discountFilter, setDiscountFilter] = useState('All');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Store Catalog Products state for selection
+  const [catalogProducts, setCatalogProducts] = useState<AdminProduct[]>(initialCatalogProducts || []);
+  const [loadingCatalog, setLoadingCatalog] = useState(!initialCatalogProducts || initialCatalogProducts.length === 0);
+  const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState('All');
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(new Set());
+  const [defaultDiscount, setDefaultDiscount] = useState<number>(30);
+  const [customDiscounts, setCustomDiscounts] = useState<Record<string, number>>({});
+
   useEffect(() => {
     async function loadData() {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/admin/content');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.content && json.content['sale-page']) {
-            setFormData(json.content['sale-page']);
-            return;
+      // 1. Fetch sale-page data if not passed as prop
+      if (!initialSaleData) {
+        try {
+          setLoading(true);
+          const res = await fetch('/api/admin/content');
+          if (res.ok) {
+            const json = await res.json();
+            if (json.content && json.content['sale-page']) {
+              setFormData(json.content['sale-page']);
+            }
           }
+        } catch (err) {
+          console.error('Failed to load sale-page content:', err);
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        console.error('Failed to load sale-page content:', err);
-      } finally {
-        setLoading(false);
+      }
+
+      // 2. Fetch all products from store catalog if not passed
+      if (!initialCatalogProducts || initialCatalogProducts.length === 0) {
+        try {
+          setLoadingCatalog(true);
+          const res = await getAdminProducts();
+          if (res && res.products) {
+            setCatalogProducts(res.products);
+          }
+        } catch (err) {
+          console.error('Failed to load catalog products:', err);
+        } finally {
+          setLoadingCatalog(false);
+        }
       }
     }
     loadData();
-  }, []);
+  }, [initialSaleData, initialCatalogProducts]);
 
   const handleSave = async () => {
     if (!formData) return;
@@ -336,6 +388,100 @@ export function SalePageEditor({
       updated[index] = target;
       return { ...prev, products: updated };
     });
+  };
+
+  // Existing sale product slugs or IDs for checking already on sale
+  const existingSaleSlugs = useMemo(() => {
+    const set = new Set<string>();
+    (formData?.products || []).forEach((p) => {
+      if (p.slug) set.add(p.slug);
+      if (p.id) set.add(p.id.replace('sale-', ''));
+    });
+    return set;
+  }, [formData?.products]);
+
+  // Filtered catalog products in selection modal
+  const filteredCatalog = useMemo(() => {
+    return catalogProducts.filter((product) => {
+      if (catalogCategoryFilter !== 'All' && product.category_name !== catalogCategoryFilter) {
+        return false;
+      }
+      if (catalogSearch.trim()) {
+        const q = catalogSearch.toLowerCase();
+        const matchName = product.name?.toLowerCase().includes(q);
+        const matchSku = product.sku?.toLowerCase().includes(q);
+        const matchCat = product.category_name?.toLowerCase().includes(q);
+        if (!matchName && !matchSku && !matchCat) return false;
+      }
+      return true;
+    });
+  }, [catalogProducts, catalogCategoryFilter, catalogSearch]);
+
+  const handleAddProductsFromCatalog = () => {
+    if (!formData) return;
+    const toAdd = catalogProducts.filter((p) => selectedProductIds.has(p.id));
+    if (toAdd.length === 0) return;
+
+    const newSaleItems: SaleProductItemPage[] = toAdd.map((prod) => {
+      const discount: number = typeof customDiscounts[prod.id] === 'number' ? customDiscounts[prod.id]! : defaultDiscount;
+      const originalPrice = prod.compare_at_price && prod.compare_at_price > prod.price
+        ? prod.compare_at_price
+        : prod.price || 4999;
+      const discountedPrice = Math.max(1, Math.round(originalPrice * (1 - discount / 100)));
+      const isFinal = discount >= 50;
+
+      return {
+        id: `sale-${prod.id}`,
+        slug: prod.slug,
+        name: prod.name,
+        price: discountedPrice,
+        originalPrice: originalPrice,
+        image: prod.images?.[0] || '/images/placeholder.jpg',
+        color: prod.colors?.[0] || 'Default',
+        colorHex: '#C9A84C',
+        category: prod.category_name || 'Ethnic Wear',
+        discount: discount,
+        isFinalSale: isFinal,
+        inStock: prod.total_inventory > 0,
+        lowStock: prod.total_inventory > 0 && prod.total_inventory <= 3,
+      };
+    });
+
+    // Remove any existing duplicate items in formData.products that have matching slug or id
+    const existingIds = new Set(newSaleItems.map((p) => p.slug || p.id));
+    const keptExisting = formData.products.filter((p) => !existingIds.has(p.slug || p.id));
+
+    setFormData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        products: [...newSaleItems, ...keptExisting],
+      };
+    });
+
+    setIsCatalogModalOpen(false);
+    setSelectedProductIds(new Set());
+    setExpandedProductIndex(0);
+    toast.success(`Added ${newSaleItems.length} product${newSaleItems.length > 1 ? 's' : ''} to the Sale page!`);
+  };
+
+  const handleApplyBulkDiscount = (discountPercent: number) => {
+    if (!formData || formData.products.length === 0) return;
+    setFormData((prev) => {
+      if (!prev) return prev;
+      const updated = prev.products.map((p) => {
+        const orig = p.originalPrice || 4999;
+        const newPrice = Math.round(orig * (1 - discountPercent / 100));
+        return {
+          ...p,
+          discount: discountPercent,
+          price: newPrice,
+          isFinalSale: discountPercent >= 50,
+        };
+      });
+      return { ...prev, products: updated };
+    });
+    toast.success(`Applied ${discountPercent}% discount to all ${formData.products.length} sale products!`);
   };
 
   const handleAddProduct = () => {
@@ -666,15 +812,57 @@ export function SalePageEditor({
               </select>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddProduct}
-              className="text-xs font-semibold border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold-light)]/20 whitespace-nowrap"
-            >
-              + Add Sale Product
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="gold"
+                size="sm"
+                onClick={() => setIsCatalogModalOpen(true)}
+                className="text-xs font-bold shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Select from Store Catalog</span>
+                <span className="ml-1 px-1.5 py-0.2 rounded-full bg-black/20 text-white text-[10px]">
+                  {catalogProducts.length}
+                </span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddProduct}
+                className="text-xs font-medium border-[var(--color-whisper)] text-[var(--color-slate)] hover:bg-[var(--color-snow)]"
+                title="Create a custom sale entry manually"
+              >
+                Custom Entry
+              </Button>
+            </div>
           </div>
+
+          {/* Quick Bulk Discount Bar */}
+          {productsList.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-lg bg-[var(--color-snow)]/60 border border-[var(--color-whisper)] text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-[var(--color-slate)] flex items-center gap-1">
+                  <Percent className="w-3.5 h-3.5 text-[var(--color-gold)]" />
+                  <span>Bulk Apply Discount:</span>
+                </span>
+                <div className="flex items-center gap-1">
+                  {[20, 30, 40, 50, 60, 65].map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => handleApplyBulkDiscount(pct)}
+                      className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-[#E2D9CB] text-[var(--color-ink)] hover:border-[var(--color-gold)] hover:bg-[var(--color-gold-light)]/30 transition-all cursor-pointer"
+                    >
+                      {pct}% Off
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="text-[11px] text-[var(--color-slate)]">
+                Showing <strong>{filteredProducts.length}</strong> of <strong>{productsList.length}</strong> sale items
+              </div>
+            </div>
+          )}
 
           {/* Product Cards List */}
           <div className="space-y-3">
@@ -786,6 +974,32 @@ export function SalePageEditor({
                             )}
                           </div>
                         </div>
+                      </div>
+
+                      {/* Inline quick discount chips in collapsed row */}
+                      <div className="hidden lg:flex items-center gap-1 mr-2" onClick={(e) => e.stopPropagation()}>
+                        <span className="text-[10px] text-[var(--color-slate)] font-semibold">Discount:</span>
+                        {[20, 30, 40, 50, 60, 65].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => {
+                              handleUpdateProduct(originalIndex, 'discount', pct);
+                              const orig = product.originalPrice || 4999;
+                              const newPrice = Math.round(orig * (1 - pct / 100));
+                              handleUpdateProduct(originalIndex, 'price', newPrice);
+                              if (pct >= 50) handleUpdateProduct(originalIndex, 'isFinalSale', true);
+                            }}
+                            className={cn(
+                              'px-1.5 py-0.5 text-[10px] font-semibold rounded border transition-colors cursor-pointer',
+                              product.discount === pct
+                                ? 'bg-[var(--color-ink)] text-[var(--color-gold)] border-[var(--color-ink)] font-bold'
+                                : 'bg-white text-[var(--color-slate)] border-[#E2D9CB] hover:bg-[#FAF7F2]'
+                            )}
+                          >
+                            {pct}%
+                          </button>
+                        ))}
                       </div>
 
                       {/* Header Actions */}
@@ -1333,6 +1547,272 @@ export function SalePageEditor({
           </Button>
         </div>
       </div>
+
+      {/* CATALOG PRODUCT SELECTION MODAL */}
+      {isCatalogModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+          <div className="bg-white rounded-2xl border border-[var(--color-whisper)] shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-[var(--color-whisper)] flex items-center justify-between bg-gradient-to-r from-white to-[var(--color-snow)]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-[var(--color-gold-light)] text-[var(--color-gold)]">
+                    <ShoppingBag className="w-4 h-4" />
+                  </span>
+                  <h3 className="text-base font-bold text-[var(--color-ink)]">
+                    Select Products from Store Catalog
+                  </h3>
+                </div>
+                <p className="text-xs text-[var(--color-slate)] mt-0.5">
+                  Choose from {catalogProducts.length} garments in your Supabase database to add to the Sale page.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCatalogModalOpen(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Filters & Default Discount Bar */}
+            <div className="p-4 bg-[var(--color-snow)]/60 border-b border-[var(--color-whisper)] flex flex-wrap items-center justify-between gap-3">
+              {/* Search & Category */}
+              <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-[var(--color-slate)] absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Search by title, SKU, category..."
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-[var(--color-whisper)] bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)]"
+                  />
+                  {catalogSearch && (
+                    <button
+                      onClick={() => setCatalogSearch('')}
+                      className="absolute right-2 top-2 text-xs text-[var(--color-slate)] hover:text-black cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={catalogCategoryFilter}
+                  onChange={(e) => setCatalogCategoryFilter(e.target.value)}
+                  className="h-8 text-xs px-2.5 rounded-lg border border-[var(--color-whisper)] bg-white text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)]"
+                >
+                  <option value="All">All Categories</option>
+                  {Array.from(new Set(catalogProducts.map((p) => p.category_name).filter(Boolean))).map((cat) => (
+                    <option key={cat!} value={cat!}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Default Discount & Selection Shortcuts */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-[var(--color-whisper)] text-xs">
+                  <span className="text-[var(--color-slate)] font-medium">Default Discount:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="95"
+                    value={defaultDiscount}
+                    onChange={(e) => setDefaultDiscount(Math.max(1, Math.min(95, Number(e.target.value) || 0)))}
+                    className="w-12 h-6 text-center font-bold border border-[#E2D9CB] rounded text-xs focus:border-[var(--color-gold)]"
+                  />
+                  <span className="font-bold text-[var(--color-gold)]">%</span>
+                  <div className="flex items-center gap-0.5 ml-1">
+                    {[20, 30, 40, 50, 65].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setDefaultDiscount(preset)}
+                        className={cn(
+                          'px-1.5 py-0.5 text-[9px] rounded font-semibold transition-colors cursor-pointer',
+                          defaultDiscount === preset
+                            ? 'bg-[var(--color-ink)] text-[var(--color-gold)]'
+                            : 'hover:bg-[var(--color-snow)] text-[var(--color-slate)]'
+                        )}
+                      >
+                        {preset}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allIds = new Set(filteredCatalog.map((p) => p.id));
+                      setSelectedProductIds(allIds);
+                    }}
+                    className="px-2 py-1 rounded border border-[var(--color-whisper)] bg-white hover:bg-[var(--color-snow)] text-[var(--color-ink)] text-[11px] font-medium cursor-pointer"
+                  >
+                    Select All ({filteredCatalog.length})
+                  </button>
+                  {selectedProductIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedProductIds(new Set())}
+                      className="px-2 py-1 rounded text-red-600 hover:bg-red-50 text-[11px] font-medium cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Product List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 max-h-[50vh]">
+              {loadingCatalog ? (
+                <div className="py-12 flex flex-col items-center justify-center text-xs text-[var(--color-slate)]">
+                  <div className="w-5 h-5 border-2 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin mb-2" />
+                  Loading products from Supabase...
+                </div>
+              ) : filteredCatalog.length === 0 ? (
+                <div className="py-12 text-center text-xs text-[var(--color-slate)]">
+                  No products match your search or filter.
+                </div>
+              ) : (
+                filteredCatalog.map((product) => {
+                  const isSelected = selectedProductIds.has(product.id);
+                  const isAlreadyOnSale = existingSaleSlugs.has(product.slug);
+                  const currentDiscount: number = typeof customDiscounts[product.id] === 'number' ? customDiscounts[product.id]! : defaultDiscount;
+                  const originalPrice = product.compare_at_price && product.compare_at_price > product.price
+                    ? product.compare_at_price
+                    : product.price || 4999;
+                  const salePrice = Math.max(1, Math.round(originalPrice * (1 - currentDiscount / 100)));
+
+                  return (
+                    <div
+                      key={product.id}
+                      onClick={() => {
+                        const next = new Set(selectedProductIds);
+                        if (next.has(product.id)) {
+                          next.delete(product.id);
+                        } else {
+                          next.add(product.id);
+                        }
+                        setSelectedProductIds(next);
+                      }}
+                      className={cn(
+                        'p-3 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-all',
+                        isSelected
+                          ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/15 shadow-xs'
+                          : 'border-[var(--color-whisper)] bg-white hover:border-[#D5C9B7] hover:bg-[#FAF7F2]/40'
+                      )}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // handled by row click
+                          className="w-4 h-4 rounded text-[var(--color-gold)] focus:ring-[var(--color-gold)] accent-[var(--color-gold)] cursor-pointer"
+                        />
+                        <div className="w-12 h-14 rounded-lg overflow-hidden bg-[var(--color-snow)] border border-[var(--color-whisper)] flex-shrink-0 relative">
+                          <img
+                            src={product.images?.[0] || '/images/placeholder.jpg'}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs font-bold text-[var(--color-ink)] truncate max-w-[200px] sm:max-w-sm">
+                              {product.name}
+                            </h4>
+                            <span className="text-[10px] font-semibold text-[var(--color-gold)] bg-[var(--color-gold-light)]/40 px-1.5 py-0.5 rounded uppercase">
+                              {product.category_name}
+                            </span>
+                            {product.sku && (
+                              <span className="text-[10px] font-mono text-[var(--color-slate)] bg-[var(--color-snow)] px-1.5 py-0.5 rounded">
+                                {product.sku}
+                              </span>
+                            )}
+                            {isAlreadyOnSale && (
+                              <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300">
+                                Already on Sale
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-[11px] text-[var(--color-slate)]">
+                            <span>Stock: <strong className="text-[var(--color-ink)]">{product.total_inventory}</strong> units</span>
+                            <span>•</span>
+                            <span>Original: <strong className="text-[var(--color-ink)] font-mono">₹{originalPrice.toLocaleString()}</strong></span>
+                            <span>•</span>
+                            <span className="text-emerald-700 font-semibold">
+                              Sale: ₹{salePrice.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Custom discount setting for this item */}
+                      <div className="flex items-center gap-2 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[11px] text-[var(--color-slate)] font-medium">Discount:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="95"
+                            value={currentDiscount}
+                            onChange={(e) => {
+                              const val = Math.max(1, Math.min(95, Number(e.target.value) || 0));
+                              setCustomDiscounts((prev) => ({ ...prev, [product.id]: val }));
+                              if (!selectedProductIds.has(product.id)) {
+                                const next = new Set(selectedProductIds);
+                                next.add(product.id);
+                                setSelectedProductIds(next);
+                              }
+                            }}
+                            className="w-14 h-7 text-xs text-center font-bold border border-[#E2D9CB] rounded focus:border-[var(--color-gold)]"
+                          />
+                          <span className="text-xs font-bold text-[var(--color-gold)]">%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-[var(--color-snow)]/60 border-t border-[var(--color-whisper)] flex items-center justify-between gap-3">
+              <div className="text-xs text-[var(--color-slate)]">
+                {selectedProductIds.size === 0 ? (
+                  <span>No products selected. Click rows above to select.</span>
+                ) : (
+                  <span>
+                    <strong className="text-[var(--color-ink)]">{selectedProductIds.size}</strong> product{selectedProductIds.size > 1 ? 's' : ''} selected
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsCatalogModalOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="gold"
+                  size="sm"
+                  disabled={selectedProductIds.size === 0}
+                  onClick={handleAddProductsFromCatalog}
+                  className="font-semibold shadow-xs"
+                >
+                  Add {selectedProductIds.size > 0 ? selectedProductIds.size : ''} to Sale Page &rarr;
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

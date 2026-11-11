@@ -11,25 +11,64 @@ import {
   CustomerOrderItemReturn,
   submitCustomerOrderReview,
   submitCustomerReturnRequest,
+  cancelCustomerOrder,
 } from '@/lib/actions/customer-orders';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
 import toast from 'react-hot-toast';
-import { Star, CheckCircle, X, Sparkles, Edit3, RotateCcw, ArrowLeftRight, Truck, ShieldCheck, MapPin, AlertCircle, Package } from 'lucide-react';
+import { Star, CheckCircle, X, Sparkles, Edit3, RotateCcw, ArrowLeftRight, Truck, ShieldCheck, MapPin, AlertCircle, Package, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import DeliveryVanTracker from '@/components/orders/DeliveryVanTracker';
 
 interface OrderDetailClientProps {
   order: CustomerOrder;
 }
 
-const statusStyles: Record<string, string> = {
-  delivered: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
-  shipped: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
-  processing: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
-  confirmed: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-  cancelled: 'bg-[var(--color-error-bg)] text-[var(--color-error)]',
-  returned: 'bg-[var(--color-slate)]/10 text-[var(--color-slate)]',
+interface StatusConfig {
+  label: string;
+  badgeClass: string;
+  dotClass: string;
+  pulse: boolean;
+}
+
+const statusConfigMap: Record<string, StatusConfig> = {
+  confirmed: {
+    label: 'Confirmed',
+    badgeClass: 'bg-[#FAF5EC] text-[#8F6A1E] border-[#E8D7B8] shadow-2xs',
+    dotClass: 'bg-[#C9A84C]',
+    pulse: true,
+  },
+  processing: {
+    label: 'Processing',
+    badgeClass: 'bg-[#FFFBEB] text-[#9A5B0B] border-[#FDE68A] shadow-2xs',
+    dotClass: 'bg-[#D97706]',
+    pulse: true,
+  },
+  shipped: {
+    label: 'Shipped',
+    badgeClass: 'bg-[#F0FDF4] text-[#166534] border-[#BBF7D0] shadow-2xs',
+    dotClass: 'bg-[#16A34A]',
+    pulse: true,
+  },
+  delivered: {
+    label: 'Delivered',
+    badgeClass: 'bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0] shadow-2xs',
+    dotClass: 'bg-[#059669]',
+    pulse: false,
+  },
+  cancelled: {
+    label: 'Cancelled',
+    badgeClass: 'bg-[#FFF1F2] text-[#9F1239] border-[#FECDD3]',
+    dotClass: 'bg-[#E11D48]',
+    pulse: false,
+  },
+  returned: {
+    label: 'Returned',
+    badgeClass: 'bg-[#F8FAFC] text-[#475569] border-[#E2E8F0]',
+    dotClass: 'bg-[#64748B]',
+    pulse: false,
+  },
 };
 
 function formatPrice(amount: number): string {
@@ -38,8 +77,59 @@ function formatPrice(amount: number): string {
 }
 
 export default function OrderDetailClient({ order }: OrderDetailClientProps) {
-  const statusKey = (order.status || 'confirmed').toLowerCase();
-  const statusBadgeClass = statusStyles[statusKey] || 'bg-slate-100 text-slate-700';
+  const [currentOrder, setCurrentOrder] = useState<CustomerOrder>(order);
+  const statusKey = (currentOrder.status || 'confirmed').toLowerCase();
+  const statusConfig = statusConfigMap[statusKey] || {
+    label: currentOrder.status || 'Confirmed',
+    badgeClass: 'bg-[#FAF5EC] text-[#8F6A1E] border-[#E8D7B8] shadow-2xs',
+    dotClass: 'bg-[#C9A84C]',
+    pulse: true,
+  };
+
+  // Cancellation States
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('Changed mind / No longer needed');
+  const [cancelReasonDetail, setCancelReasonDetail] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const isCancellable =
+    ['pending', 'confirmed', 'processing'].includes(statusKey) &&
+    !currentOrder.shipped_at &&
+    statusKey !== 'shipped' &&
+    statusKey !== 'delivered' &&
+    statusKey !== 'cancelled' &&
+    statusKey !== 'returned';
+
+  const handleConfirmCancel = async () => {
+    setIsCancelling(true);
+    try {
+      const fullReason = cancelReasonDetail.trim()
+        ? `${cancelReason}: ${cancelReasonDetail.trim()}`
+        : cancelReason;
+
+      const res = await cancelCustomerOrder({
+        orderId: currentOrder.id,
+        reason: fullReason,
+      });
+
+      if (res.success) {
+        toast.success(`Order ${currentOrder.order_number} has been cancelled successfully.`);
+        setCurrentOrder((prev) => ({
+          ...prev,
+          status: 'cancelled',
+          cancelled_at: res.cancelled_at || new Date().toISOString(),
+          cancel_reason: fullReason,
+        }));
+        setShowCancelModal(false);
+      } else {
+        toast.error(res.error || 'Failed to cancel order.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error occurred while cancelling order.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   // Map initial reviews by item.id
   const initialMap: Record<string, CustomerOrderItemReview> = {};
@@ -248,41 +338,74 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
     }
   };
 
+  const shiprocketStatus = (currentOrder.metadata?.['shiprocket_status'] as string | undefined) || null;
+  const normalizedSrStatus = (shiprocketStatus || '').toUpperCase().replace(/[\s-]+/g, '_');
+  const isOutForDelivery = normalizedSrStatus === 'OUT_FOR_DELIVERY' || statusKey === 'out_for_delivery';
+
   // Build timeline from real timestamps
-  const timelineSteps = [
-    {
-      status: 'Order Placed',
-      date: order.created_at,
-      completed: true,
-      description: 'Your bespoke order was received and logged into our atelier.',
-    },
-    {
-      status: 'Confirmed',
-      date: order.created_at,
-      completed: true,
-      description: 'Order details verified & scheduled for master artisan preparation.',
-    },
-    {
-      status: 'Processing & Quality Check',
-      date: order.status === 'processing' || order.status === 'shipped' || order.status === 'delivered' ? order.created_at : null,
-      completed: ['processing', 'shipped', 'delivered'].includes(statusKey),
-      description: 'Garments undergo 3-tier fabric inspection & luxury gift packaging.',
-    },
-    {
-      status: 'Dispatched & In Transit',
-      date: order.shipped_at || (['shipped', 'delivered'].includes(statusKey) ? order.created_at : null),
-      completed: ['shipped', 'delivered'].includes(statusKey),
-      description: order.courier_partner
-        ? `Handed over to ${order.courier_partner}${order.tracking_number ? ` (AWB: ${order.tracking_number})` : ''}.`
-        : 'Dispatched via premium express courier partner.',
-    },
-    {
-      status: 'Delivered',
-      date: order.delivered_at,
-      completed: statusKey === 'delivered',
-      description: 'Handcrafted couture safely delivered to your doorstep.',
-    },
-  ];
+  const timelineSteps = statusKey === 'cancelled'
+    ? [
+        {
+          status: 'Order Placed',
+          date: currentOrder.created_at,
+          completed: true,
+          description: 'Your bespoke order was received and logged into our atelier.',
+        },
+        {
+          status: 'Order Cancelled',
+          date: currentOrder.cancelled_at,
+          completed: true,
+          description: currentOrder.cancel_reason
+            ? `Cancelled prior to shipment: ${currentOrder.cancel_reason}`
+            : 'Order cancelled prior to courier shipment.',
+        },
+      ]
+    : [
+        {
+          status: 'Order Placed',
+          date: currentOrder.created_at,
+          completed: true,
+          description: 'Your bespoke order was received and logged into our atelier.',
+        },
+        {
+          status: 'Confirmed',
+          date: currentOrder.created_at,
+          completed: true,
+          description: 'Order details verified & scheduled for master artisan preparation.',
+        },
+        {
+          status: 'Processing & Quality Check',
+          date: ['processing', 'shipped', 'delivered'].includes(statusKey) ? currentOrder.created_at : null,
+          completed: ['processing', 'shipped', 'delivered'].includes(statusKey),
+          description: 'Garments undergo 3-tier fabric inspection & luxury gift packaging.',
+        },
+        {
+          status: 'Dispatched from Atelier',
+          date: currentOrder.shipped_at || (['shipped', 'delivered'].includes(statusKey) ? currentOrder.created_at : null),
+          completed: ['shipped', 'delivered'].includes(statusKey),
+          description: currentOrder.courier_partner
+            ? `Handed over to ${currentOrder.courier_partner}${currentOrder.tracking_number ? ` (AWB: ${currentOrder.tracking_number})` : ''}.`
+            : 'Dispatched via premium express courier partner.',
+        },
+        {
+          status: 'In Transit',
+          date: currentOrder.shipped_at || null,
+          completed: statusKey === 'delivered' || (statusKey === 'shipped' && normalizedSrStatus !== 'PICKED_UP'),
+          description: 'En route through express courier network toward your destination hub.',
+        },
+        {
+          status: 'Out for Delivery',
+          date: statusKey === 'delivered' ? currentOrder.delivered_at : null,
+          completed: statusKey === 'delivered' || isOutForDelivery,
+          description: 'Local courier executive is on the way to your doorstep.',
+        },
+        {
+          status: 'Delivered',
+          date: currentOrder.delivered_at,
+          completed: statusKey === 'delivered',
+          description: 'Handcrafted couture safely delivered to your doorstep.',
+        },
+      ];
 
   const shippingAddr: any = order.shipping_address || {};
   const recipientName =
@@ -327,9 +450,45 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
               </h1>
             </div>
             <div className="flex items-center gap-3">
-              <span className={cn('px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full uppercase tracking-wider', statusBadgeClass)}>
-                {order.status}
-              </span>
+              <div
+                className={cn(
+                  'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wider uppercase border transition-all duration-200 select-none shadow-2xs',
+                  statusConfig.badgeClass
+                )}
+              >
+                <span className="relative flex h-2 w-2">
+                  {statusConfig.pulse && (
+                    <span
+                      className={cn(
+                        'animate-ping absolute inline-flex h-full w-full rounded-full opacity-75',
+                        statusConfig.dotClass
+                      )}
+                    />
+                  )}
+                  <span
+                    className={cn(
+                      'relative inline-flex rounded-full h-2 w-2',
+                      statusConfig.dotClass
+                    )}
+                  />
+                </span>
+                <span>{statusConfig.label}</span>
+              </div>
+
+              {/* Cancel Order Action - ONLY available until shipped */}
+              {isCancellable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCancelModal(true)}
+                  className="cursor-pointer border-rose-300 bg-rose-50/80 text-rose-800 hover:bg-rose-100 flex items-center gap-1.5 shadow-2xs"
+                  title="Cancel order before courier dispatch"
+                >
+                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Cancel Order</span>
+                </Button>
+              )}
+
               {statusKey === 'delivered' && order.items.some((i) => (i.is_return_eligible ?? true) && !itemReturns[i.id] && !i.existing_return) && (
                 <Button
                   variant="outline"
@@ -362,6 +521,39 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Left Column: Items & Timeline */}
             <div className="lg:col-span-2 space-y-6">
+              {/* Order Cancelled Alert Banner */}
+              {statusKey === 'cancelled' && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 shadow-xs">
+                  <XCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-rose-950">This Order Has Been Cancelled</h4>
+                    <p className="text-xs text-rose-800 mt-0.5">
+                      {currentOrder.cancelled_at && (
+                        <span>Cancelled on {new Date(currentOrder.cancelled_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}. </span>
+                      )}
+                      {currentOrder.cancel_reason ? `Reason: ${currentOrder.cancel_reason}` : 'Cancelled prior to courier dispatch.'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Shipped / Dispatch In-Transit Notification - Explicitly states why cancellation is closed */}
+              {statusKey === 'shipped' && (
+                <div className="p-4 bg-blue-50/90 border border-blue-200 rounded-2xl flex items-start sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center flex-shrink-0 font-bold shadow-xs">
+                      <Truck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-950">Package Handed Over to Courier &bull; In Transit</h4>
+                      <p className="text-xs text-blue-800 mt-0.5">
+                        This order has been dispatched via <strong>{currentOrder.courier_partner || 'Courier Partner'}</strong> and can no longer be cancelled. You can easily initiate a return or exchange once the package arrives at your doorstep.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Delivered Feedback Prompt Banner */}
               {statusKey === 'delivered' && (
                 <div className="p-4 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex items-center justify-between gap-4 shadow-xs">
@@ -569,7 +761,22 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
 
               {/* Order Timeline */}
               <Card variant="elevated" padding="lg" className="border border-[var(--color-whisper)] rounded-2xl">
-                <CardTitle className="text-[var(--font-display)] text-lg mb-6">Fulfillment Timeline</CardTitle>
+                <CardTitle className="text-[var(--font-display)] text-lg mb-4">Fulfillment Timeline</CardTitle>
+
+                {/* Animated 3D Angelika Delivery Van Route */}
+                <DeliveryVanTracker
+                  status={currentOrder.status}
+                  shiprocketStatus={shiprocketStatus}
+                  courierPartner={currentOrder.courier_partner}
+                  trackingNumber={currentOrder.tracking_number}
+                  createdAt={currentOrder.created_at}
+                  shippedAt={currentOrder.shipped_at}
+                  deliveredAt={currentOrder.delivered_at}
+                  cancelledAt={currentOrder.cancelled_at}
+                  destinationCity={shippingAddr.city || null}
+                  className="mb-6"
+                />
+
                 <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[var(--color-whisper)]">
                   {timelineSteps.map((step, idx) => (
                     <div key={idx} className="relative flex items-start gap-4">
@@ -1223,6 +1430,143 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Customer Order Cancellation Modal */}
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 backdrop-blur-xs"
+              onClick={() => !isCancelling && setShowCancelModal(false)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-[var(--color-whisper)] p-6 sm:p-8 z-10 space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-rose-600 block">
+                    Order Cancellation Request
+                  </span>
+                  <h3 className="text-xl font-serif text-[var(--color-ink)] mt-0.5">
+                    Cancel Order #{currentOrder.order_number}?
+                  </h3>
+                  <p className="text-xs text-[var(--color-slate)] mt-1">
+                    Your order is currently being prepared in our atelier and has not yet been handed over to our courier partner. You can cancel it now.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={isCancelling}
+                  onClick={() => setShowCancelModal(false)}
+                  className="p-1.5 rounded-full text-[var(--color-mist)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors disabled:opacity-50"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Order Summary Snapshot */}
+              <div className="p-3.5 bg-[var(--color-snow)] rounded-2xl border border-[var(--color-whisper)] flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-semibold text-[var(--color-ink)]">
+                    {currentOrder.items?.length ?? 1} item{((currentOrder.items?.length ?? 1) > 1) ? 's' : ''}
+                  </p>
+                  <p className="text-[11px] text-[var(--color-slate)]">
+                    Total Amount: <strong className="text-[var(--color-ink)]">₹{formatPrice(currentOrder.total_amount)}</strong>
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                  Ready to Cancel
+                </span>
+              </div>
+
+              {/* Reason Selection */}
+              <div className="space-y-3">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)]">
+                  Please select a reason for cancellation *
+                </label>
+                <div className="space-y-2">
+                  {[
+                    'Changed mind / No longer needed',
+                    'Ordered wrong size or color',
+                    'Want to change delivery address or phone',
+                    'Found another outfit or design',
+                    'Delivery date or processing time takes too long',
+                    'Other reason',
+                  ].map((r) => (
+                    <label
+                      key={r}
+                      className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                        cancelReason === r
+                          ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/40 text-[var(--color-ink)] font-semibold'
+                          : 'border-[var(--color-whisper)] hover:bg-[var(--color-snow)] text-[var(--color-slate)]'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="cancelReason"
+                        checked={cancelReason === r}
+                        onChange={() => setCancelReason(r)}
+                        className="text-[var(--color-gold)] focus:ring-[var(--color-gold)]"
+                      />
+                      <span>{r}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] mb-1">
+                    Additional notes (optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={cancelReasonDetail}
+                    onChange={(e) => setCancelReasonDetail(e.target.value)}
+                    placeholder="Provide any feedback for Vidhya's atelier..."
+                    className="w-full p-3 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] placeholder-[var(--color-mist)] focus:outline-none focus:border-[var(--color-gold)] bg-[var(--color-snow)]"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-whisper)]">
+                <button
+                  type="button"
+                  disabled={isCancelling}
+                  onClick={() => setShowCancelModal(false)}
+                  className="px-5 py-2.5 rounded-full text-xs font-semibold text-[var(--color-slate)] hover:bg-[var(--color-snow)] transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  disabled={isCancelling}
+                  onClick={handleConfirmCancel}
+                  className="px-6 py-2.5 rounded-full text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {isCancelling ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Cancelling Order...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Confirm Cancellation</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

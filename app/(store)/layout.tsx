@@ -60,6 +60,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
       <main className="flex-1 pt-16 md:pt-20">{children}</main>
       <Footer
         content={siteContent?.footer}
+        logoUrl={logoUrl}
         contactEmail={settings?.contact_email}
         contactPhone={settings?.contact_phone}
         contactWhatsapp={settings?.contact_whatsapp}

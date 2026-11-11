@@ -4,9 +4,313 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
 import type { CartItem, Address, CheckoutFormData, AppliedCoupon } from '@/types/commerce';
+import { sendOrderConfirmationEmail } from '@/lib/email/order-confirmation';
+import { createShiprocketOrder } from '@/lib/shipping/shiprocket';
 
 async function getSupabaseClient() {
   return createServerClient();
+}
+
+/**
+ * Checks whether a given customer (by userId, email, or phone) has any previous
+ * non-cancelled orders in the database.
+ */
+export async function checkCustomerFirstOrderEligibility(params: {
+  userId?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}): Promise<{
+  isFirstOrder: boolean;
+  orderCount: number;
+}> {
+  const conditions: string[] = [];
+  if (params.userId) {
+    conditions.push(`user_id.eq.${params.userId}`);
+  }
+  if (params.email && params.email.trim()) {
+    conditions.push(`email.ilike.${params.email.trim()}`);
+  }
+  const cleanPhone = (params.phone || '').replace(/[^0-9]/g, '');
+  if (cleanPhone.length >= 10) {
+    conditions.push(`phone.ilike.%${cleanPhone.slice(-10)}%`);
+  } else if (params.phone && params.phone.trim()) {
+    conditions.push(`phone.eq.${params.phone.trim()}`);
+  }
+
+  if (conditions.length === 0) {
+    return { isFirstOrder: true, orderCount: 0 };
+  }
+
+  const { count, error } = await supabaseAdmin
+    .from('orders')
+    .select('id', { count: 'exact', head: true })
+    .or(conditions.join(','))
+    .neq('status', 'cancelled');
+
+  if (error) {
+    console.warn('checkCustomerFirstOrderEligibility query error:', error);
+    return { isFirstOrder: true, orderCount: 0 };
+  }
+
+  const orderCount = count || 0;
+  return {
+    isFirstOrder: orderCount === 0,
+    orderCount,
+  };
+}
+
+/**
+ * Server action to validate a coupon against database rules, limits, and first-time customer eligibility.
+ */
+export async function validateCouponAction(
+  code: string,
+  context?: {
+    subtotal?: number;
+    email?: string;
+    phone?: string;
+    userId?: string;
+  }
+): Promise<{
+  valid: boolean;
+  error?: string;
+  coupon?: {
+    code: string;
+    type: 'percentage' | 'fixed' | 'free_shipping';
+    value: number;
+    discountAmount: number;
+    first_order_only?: boolean;
+    min_order_amount?: number;
+    max_discount_amount?: number;
+  };
+}> {
+  const cleanCode = (code || '').trim().toUpperCase();
+  if (!cleanCode) {
+    return { valid: false, error: 'Please enter a coupon code' };
+  }
+
+  // 1. Fetch coupon from database via supabaseAdmin
+  const { data: dbCoupon, error: couponErr } = await supabaseAdmin
+    .from('coupons')
+    .select('*')
+    .eq('code', cleanCode)
+    .maybeSingle();
+
+  if (couponErr) {
+    console.warn('validateCouponAction lookup warning:', couponErr);
+  }
+
+  if (dbCoupon) {
+    if (!dbCoupon.is_active) {
+      return { valid: false, error: `Coupon ${dbCoupon.code} is currently inactive` };
+    }
+
+    const now = new Date();
+    if (dbCoupon.valid_from && new Date(dbCoupon.valid_from) > now) {
+      return { valid: false, error: `Coupon ${dbCoupon.code} is not active yet` };
+    }
+
+    if (dbCoupon.valid_until && new Date(dbCoupon.valid_until) < now) {
+      return { valid: false, error: `Coupon ${dbCoupon.code} has expired` };
+    }
+
+    if (dbCoupon.usage_limit && (dbCoupon.usage_count || 0) >= dbCoupon.usage_limit) {
+      return { valid: false, error: `Coupon ${dbCoupon.code} total usage limit reached` };
+    }
+
+    const subtotal = context?.subtotal ?? 0;
+    const minOrder = dbCoupon.min_order_amount
+      ? (dbCoupon.min_order_amount > 50000 ? Math.round(dbCoupon.min_order_amount / 100) : dbCoupon.min_order_amount)
+      : 0;
+
+    if (minOrder > 0 && subtotal > 0 && subtotal < minOrder) {
+      return {
+        valid: false,
+        error: `Minimum order of ₹${minOrder.toLocaleString('en-IN')} required for ${dbCoupon.code}`,
+      };
+    }
+
+    // Resolve user details from context or active session
+    let customerUserId = context?.userId || null;
+    let customerEmail = context?.email || null;
+    if (!customerUserId || !customerEmail) {
+      try {
+        const userClient = await getSupabaseClient();
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          customerUserId = customerUserId || user.id;
+          customerEmail = customerEmail || user.email || null;
+        }
+      } catch {}
+    }
+
+    // Enforce First Order Only
+    if (dbCoupon.first_order_only) {
+      const { isFirstOrder, orderCount } = await checkCustomerFirstOrderEligibility({
+        userId: customerUserId,
+        email: customerEmail,
+        phone: context?.phone,
+      });
+
+      if (!isFirstOrder) {
+        return {
+          valid: false,
+          error: `Coupon "${dbCoupon.code}" is valid for first-time orders only. You have already placed ${orderCount} prior order${orderCount > 1 ? 's' : ''}.`,
+        };
+      }
+    }
+
+    // Enforce Per-Customer Limit
+    if (dbCoupon.user_limit && dbCoupon.user_limit > 0) {
+      const conditions: string[] = [];
+      if (customerUserId) conditions.push(`user_id.eq.${customerUserId}`);
+      if (customerEmail && customerEmail.trim()) conditions.push(`email.ilike.${customerEmail.trim()}`);
+      const cleanPhone = (context?.phone || '').replace(/[^0-9]/g, '');
+      if (cleanPhone.length >= 10) conditions.push(`phone.ilike.%${cleanPhone.slice(-10)}%`);
+
+      if (conditions.length > 0) {
+        const { data: pastOrders } = await supabaseAdmin
+          .from('orders')
+          .select('metadata')
+          .or(conditions.join(','))
+          .neq('status', 'cancelled');
+
+        if (pastOrders) {
+          const usedCount = pastOrders.filter((o: any) => {
+            const meta = o?.metadata;
+            return meta && typeof meta === 'object' && meta.coupon_code && String(meta.coupon_code).toUpperCase() === cleanCode;
+          }).length;
+
+          if (usedCount >= dbCoupon.user_limit) {
+            return {
+              valid: false,
+              error: `You have reached the per-customer usage limit (${dbCoupon.user_limit}) for coupon "${dbCoupon.code}".`,
+            };
+          }
+        }
+      }
+    }
+
+    let discountAmount = 0;
+    if (dbCoupon.type === 'percentage') {
+      discountAmount = Math.round((subtotal * Number(dbCoupon.value)) / 100);
+      if (dbCoupon.max_discount_amount) {
+        discountAmount = Math.min(discountAmount, Number(dbCoupon.max_discount_amount));
+      }
+    } else if (dbCoupon.type === 'fixed') {
+      discountAmount = Math.min(Number(dbCoupon.value), subtotal || Number(dbCoupon.value));
+    }
+
+    return {
+      valid: true,
+      coupon: {
+        code: dbCoupon.code,
+        type: dbCoupon.type as 'percentage' | 'fixed' | 'free_shipping',
+        value: Number(dbCoupon.value),
+        discountAmount,
+        first_order_only: Boolean(dbCoupon.first_order_only),
+        min_order_amount: minOrder,
+        max_discount_amount: dbCoupon.max_discount_amount || undefined,
+      },
+    };
+  }
+
+  // 2. Fallback privilege offers if not in DB
+  const PRIVILEGE_OFFERS: Record<string, {
+    code: string;
+    type: 'percentage' | 'fixed' | 'free_shipping';
+    value: number;
+    min_order_amount: number;
+    max_discount_amount?: number;
+    first_order_only?: boolean;
+  }> = {
+    FIRST10: {
+      code: 'FIRST10',
+      type: 'percentage',
+      value: 10,
+      min_order_amount: 1999,
+      max_discount_amount: 1500,
+      first_order_only: true,
+    },
+    ROYAL500: {
+      code: 'ROYAL500',
+      type: 'fixed',
+      value: 500,
+      min_order_amount: 4999,
+      first_order_only: false,
+    },
+    COUTURE15: {
+      code: 'COUTURE15',
+      type: 'percentage',
+      value: 15,
+      min_order_amount: 5999,
+      max_discount_amount: 2000,
+      first_order_only: false,
+    },
+  };
+
+  const offer = PRIVILEGE_OFFERS[cleanCode];
+  if (offer) {
+    if (offer.first_order_only) {
+      let customerUserId = context?.userId || null;
+      let customerEmail = context?.email || null;
+      if (!customerUserId || !customerEmail) {
+        try {
+          const userClient = await getSupabaseClient();
+          const { data: { user } } = await userClient.auth.getUser();
+          if (user) {
+            customerUserId = customerUserId || user.id;
+            customerEmail = customerEmail || user.email || null;
+          }
+        } catch {}
+      }
+
+      const { isFirstOrder, orderCount } = await checkCustomerFirstOrderEligibility({
+        userId: customerUserId,
+        email: customerEmail,
+        phone: context?.phone,
+      });
+
+      if (!isFirstOrder) {
+        return {
+          valid: false,
+          error: `Coupon "${cleanCode}" is valid for first-time orders only. You have already placed ${orderCount} prior order${orderCount > 1 ? 's' : ''}.`,
+        };
+      }
+    }
+
+    const subtotal = context?.subtotal ?? 0;
+    if (offer.min_order_amount && subtotal > 0 && subtotal < offer.min_order_amount) {
+      return {
+        valid: false,
+        error: `Minimum order of ₹${offer.min_order_amount.toLocaleString('en-IN')} required for ${offer.code}`,
+      };
+    }
+
+    let discountAmount = 0;
+    if (offer.type === 'percentage') {
+      discountAmount = Math.round((subtotal * offer.value) / 100);
+      if (offer.max_discount_amount) {
+        discountAmount = Math.min(discountAmount, offer.max_discount_amount);
+      }
+    } else if (offer.type === 'fixed') {
+      discountAmount = Math.min(offer.value, subtotal || offer.value);
+    }
+
+    return {
+      valid: true,
+      coupon: {
+        code: offer.code,
+        type: offer.type,
+        value: offer.value,
+        discountAmount,
+        first_order_only: offer.first_order_only,
+        min_order_amount: offer.min_order_amount,
+        max_discount_amount: offer.max_discount_amount,
+      },
+    };
+  }
+
+  return { valid: false, error: 'Invalid or expired coupon code' };
 }
 
 interface OrderData {
@@ -123,33 +427,110 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         const isValidDate = (!dbCoupon.valid_from || new Date(dbCoupon.valid_from) <= now) &&
                             (!dbCoupon.valid_until || new Date(dbCoupon.valid_until) >= now);
         const hasUsage = !dbCoupon.usage_limit || (dbCoupon.usage_count || 0) < dbCoupon.usage_limit;
-        const minOrder = dbCoupon.min_order_amount || 0;
+        const minOrder = dbCoupon.min_order_amount
+          ? (dbCoupon.min_order_amount > 50000 ? Math.round(dbCoupon.min_order_amount / 100) : dbCoupon.min_order_amount)
+          : 0;
 
-        if (isValidDate && hasUsage && subtotal >= minOrder) {
-          if (dbCoupon.type === 'percentage') {
-            discountAmount = Math.round((subtotal * Number(dbCoupon.value)) / 100);
-            if (dbCoupon.max_discount_amount) {
-              discountAmount = Math.min(discountAmount, Number(dbCoupon.max_discount_amount));
-            }
-          } else if (dbCoupon.type === 'fixed') {
-            discountAmount = Math.min(Number(dbCoupon.value), subtotal);
-          } else if (dbCoupon.type === 'free_shipping') {
-            isCouponFreeShipping = true;
+        if (!isValidDate) {
+          return { success: false, error: `Coupon "${dbCoupon.code}" is expired or not active yet.` };
+        }
+        if (!hasUsage) {
+          return { success: false, error: `Coupon "${dbCoupon.code}" total usage limit reached.` };
+        }
+        if (minOrder > 0 && subtotal < minOrder) {
+          return {
+            success: false,
+            error: `Minimum order of ₹${minOrder.toLocaleString('en-IN')} required for coupon "${dbCoupon.code}".`,
+          };
+        }
+
+        // ENFORCE FIRST ORDER ONLY
+        if (dbCoupon.first_order_only) {
+          const { isFirstOrder, orderCount } = await checkCustomerFirstOrderEligibility({
+            userId,
+            email: orderData.email || user?.email,
+            phone: orderData.phone || orderData.shippingAddress?.phone,
+          });
+
+          if (!isFirstOrder) {
+            return {
+              success: false,
+              error: `Coupon "${dbCoupon.code}" is valid for first-time orders only. You have already placed ${orderCount} prior order${orderCount > 1 ? 's' : ''}.`,
+            };
           }
         }
+
+        // ENFORCE PER-CUSTOMER LIMIT
+        if (dbCoupon.user_limit && dbCoupon.user_limit > 0) {
+          const conditions: string[] = [];
+          if (userId) conditions.push(`user_id.eq.${userId}`);
+          if (orderData.email) conditions.push(`email.ilike.${orderData.email.trim()}`);
+          const cleanP = (orderData.phone || orderData.shippingAddress?.phone || '').replace(/[^0-9]/g, '');
+          if (cleanP.length >= 10) conditions.push(`phone.ilike.%${cleanP.slice(-10)}%`);
+
+          if (conditions.length > 0) {
+            const { data: pastOrders } = await supabase
+              .from('orders')
+              .select('metadata')
+              .or(conditions.join(','))
+              .neq('status', 'cancelled');
+
+            if (pastOrders) {
+              const used = pastOrders.filter((o: any) => {
+                const meta = o?.metadata;
+                return meta && typeof meta === 'object' && meta.coupon_code && String(meta.coupon_code).toUpperCase() === cleanCode;
+              }).length;
+
+              if (used >= dbCoupon.user_limit) {
+                return {
+                  success: false,
+                  error: `You have reached the per-customer usage limit (${dbCoupon.user_limit}) for coupon "${dbCoupon.code}".`,
+                };
+              }
+            }
+          }
+        }
+
+        if (dbCoupon.type === 'percentage') {
+          discountAmount = Math.round((subtotal * Number(dbCoupon.value)) / 100);
+          if (dbCoupon.max_discount_amount) {
+            discountAmount = Math.min(discountAmount, Number(dbCoupon.max_discount_amount));
+          }
+        } else if (dbCoupon.type === 'fixed') {
+          discountAmount = Math.min(Number(dbCoupon.value), subtotal);
+        } else if (dbCoupon.type === 'free_shipping') {
+          isCouponFreeShipping = true;
+        }
       } else {
-        const PRIVILEGE_OFFERS: Record<string, { type: string; value: number; min_order: number; max?: number }> = {
-          FIRST10: { type: 'percentage', value: 10, min_order: 1999, max: 1500 },
-          ROYAL500: { type: 'fixed', value: 500, min_order: 4999 },
-          COUTURE15: { type: 'percentage', value: 15, min_order: 5999, max: 2000 },
+        const PRIVILEGE_OFFERS: Record<string, { type: string; value: number; min_order: number; max?: number; first_order_only?: boolean }> = {
+          FIRST10: { type: 'percentage', value: 10, min_order: 1999, max: 1500, first_order_only: true },
+          ROYAL500: { type: 'fixed', value: 500, min_order: 4999, first_order_only: false },
+          COUTURE15: { type: 'percentage', value: 15, min_order: 5999, max: 2000, first_order_only: false },
         };
         const offer = PRIVILEGE_OFFERS[cleanCode];
-        if (offer && subtotal >= offer.min_order) {
-          if (offer.type === 'percentage') {
-            discountAmount = Math.round((subtotal * offer.value) / 100);
-            if (offer.max) discountAmount = Math.min(discountAmount, offer.max);
-          } else if (offer.type === 'fixed') {
-            discountAmount = Math.min(offer.value, subtotal);
+        if (offer) {
+          if (offer.first_order_only) {
+            const { isFirstOrder, orderCount } = await checkCustomerFirstOrderEligibility({
+              userId,
+              email: orderData.email || user?.email,
+              phone: orderData.phone || orderData.shippingAddress?.phone,
+            });
+
+            if (!isFirstOrder) {
+              return {
+                success: false,
+                error: `Coupon "${cleanCode}" is valid for first-time orders only. You have already placed ${orderCount} prior order${orderCount > 1 ? 's' : ''}.`,
+              };
+            }
+          }
+
+          if (subtotal >= offer.min_order) {
+            if (offer.type === 'percentage') {
+              discountAmount = Math.round((subtotal * offer.value) / 100);
+              if (offer.max) discountAmount = Math.min(discountAmount, offer.max);
+            } else if (offer.type === 'fixed') {
+              discountAmount = Math.min(offer.value, subtotal);
+            }
           }
         }
       }
@@ -360,6 +741,20 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         .eq('id', order.id);
     }
 
+    // For COD orders, the order is confirmed immediately upon placement — dispatch confirmation email to user
+    if (orderData.paymentMethod === 'cod') {
+      try {
+        await sendOrderConfirmationEmail(order.id);
+      } catch (emailErr) {
+        console.warn('Order confirmation email notice (COD):', emailErr);
+      }
+
+      // Automatically sync order to Shiprocket for fulfillment
+      createShiprocketOrder(order.id).catch((srErr) => {
+        console.warn('[Shiprocket] Order auto-sync notice (COD):', srErr);
+      });
+    }
+
     return {
       success: true,
       orderId: order.id,
@@ -481,10 +876,33 @@ export async function verifyRazorpayPayment(
       })
       .eq('id', order.id);
 
+    // Send order confirmation email upon verified payment
+    try {
+      await sendOrderConfirmationEmail(order.id);
+    } catch (emailErr) {
+      console.warn('Order confirmation email notice (Online Payment):', emailErr);
+    }
+
+    // Automatically sync order to Shiprocket for fulfillment
+    createShiprocketOrder(order.id).catch((srErr) => {
+      console.warn('[Shiprocket] Order auto-sync notice (Online Payment):', srErr);
+    });
+
     return { success: true, orderId: order.id };
   } catch (error) {
     console.error('Verify payment error:', error);
     return { success: false, error: 'Payment verification failed' };
+  }
+}
+
+/**
+ * Manually re-dispatches order confirmation email to the user
+ */
+export async function resendOrderConfirmation(orderId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    return await sendOrderConfirmationEmail(orderId);
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to resend confirmation email' };
   }
 }
 
@@ -592,7 +1010,17 @@ export async function saveAddress(userId: string, address: Omit<Address, 'id'> &
       is_default: address.is_default ?? (existing.length === 0),
     };
 
-    const updated = [newAddr, ...existing.filter(a => a.id !== newAddressId).map(a => address.is_default ? { ...a, is_default: false } : a)];
+    let updated: any[];
+    if (address.id && existing.some(a => a.id === address.id)) {
+      updated = existing.map(a => {
+        if (a.id === address.id) {
+          return newAddr;
+        }
+        return address.is_default ? { ...a, is_default: false } : a;
+      });
+    } else {
+      updated = [newAddr, ...existing.map(a => address.is_default ? { ...a, is_default: false } : a)];
+    }
 
     await supabase
       .from('profiles')
@@ -608,6 +1036,43 @@ export async function saveAddress(userId: string, address: Omit<Address, 'id'> &
   } catch (err: any) {
     console.error('Failed to save address:', err);
     return { success: false, error: err?.message || 'Failed to save address' };
+  }
+}
+
+export async function deleteAddress(userId: string, addressId: string) {
+  try {
+    const supabase = supabaseAdmin;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('preferences')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const prefs = (profile?.preferences && typeof profile.preferences === 'object')
+      ? (profile.preferences as Record<string, any>)
+      : {};
+
+    const existing: any[] = Array.isArray(prefs['addresses']) ? prefs['addresses'] : [];
+    const updated = existing.filter(a => a.id !== addressId);
+
+    if (updated.length > 0 && !updated.some(a => a.is_default)) {
+      updated[0].is_default = true;
+    }
+
+    await supabase
+      .from('profiles')
+      .update({
+        preferences: {
+          ...prefs,
+          addresses: updated,
+        },
+      })
+      .eq('id', userId);
+
+    return { success: true, addresses: updated };
+  } catch (err: any) {
+    console.error('Failed to delete address:', err);
+    return { success: false, error: err?.message || 'Failed to delete address' };
   }
 }
 

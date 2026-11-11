@@ -28,9 +28,18 @@ export interface AdminProduct {
   is_vidyas_pick: boolean;
   images: string[];
   tags: string[] | null;
+  fabric?: string | null;
+  colors?: string[];
   return_window_days?: number;
   variant_count: number;
   total_inventory: number;
+  variants?: {
+    id: string;
+    size: string;
+    price: number;
+    compare_at_price?: number | null;
+    inventory_quantity: number;
+  }[];
   created_at: string;
   updated_at: string;
 }
@@ -77,7 +86,7 @@ export async function getAdminProducts(filters?: {
   const { data: rawProducts, error } = await supabase
     .from('products')
     .select(`
-      id, sku, name, slug, description,
+      id, sku, name, slug, description, fabric,
       category_id, is_active, is_featured, is_vidyas_pick, tags,
       created_at, updated_at,
       categories:categories!products_category_id_fkey ( name, slug ),
@@ -123,6 +132,23 @@ export async function getAdminProducts(filters?: {
       is_vidyas_pick: Boolean(p.is_vidyas_pick),
       images: images.length > 0 ? images : ['/images/placeholder.jpg'],
       tags: p.tags || [],
+      fabric: typeof p.fabric === 'object' && p.fabric !== null && 'name' in p.fabric
+        ? p.fabric.name
+        : (typeof p.fabric === 'string' ? p.fabric : null),
+      colors: (() => {
+        const found = new Set<string>();
+        (p.tags || []).forEach((t: string) => {
+          if (typeof t !== 'string') return;
+          const lower = t.toLowerCase().trim();
+          if (lower.startsWith('color:')) {
+            found.add(lower.replace('color:', '').trim());
+          }
+        });
+        if (typeof p.fabric === 'object' && p.fabric !== null && Array.isArray((p.fabric as any).colors)) {
+          (p.fabric as any).colors.forEach((c: string) => found.add(String(c).toLowerCase().trim()));
+        }
+        return Array.from(found);
+      })(),
       return_window_days: (() => {
         const tag = (p.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
         if (tag) {
@@ -133,6 +159,13 @@ export async function getAdminProducts(filters?: {
       })(),
       variant_count: variants.length,
       total_inventory: totalInventory,
+      variants: variants.map((v: any) => ({
+        id: v.id,
+        size: v.size || 'Free Size',
+        price: Number(v.price) || 0,
+        compare_at_price: v.compare_at_price ? Number(v.compare_at_price) : null,
+        inventory_quantity: Number(v.inventory_quantity) || 0,
+      })),
       created_at: p.created_at,
       updated_at: p.updated_at,
     };
@@ -216,6 +249,8 @@ export async function createProduct(payload: {
   is_vidyas_pick?: boolean;
   images?: string[];
   tags?: string[];
+  fabric?: string;
+  colors?: string[];
   sizes?: string[];
   return_window_days?: number;
   variants?: Array<{
@@ -232,9 +267,31 @@ export async function createProduct(payload: {
   const cleanSlug = payload.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/(^-|-$)/g, '');
   const sku = (payload.sku && payload.sku.trim()) || generateSKU(payload.name, payload.category_id);
 
-  const rawTags = (payload.tags || []).filter((t: string) => !t.startsWith('return-days:'));
+  const rawTags = (payload.tags || []).filter((t: string) => !t.startsWith('return-days:') && !t.startsWith('color:'));
+  if (payload.fabric && typeof payload.fabric === 'string' && payload.fabric.trim()) {
+    const fabName = payload.fabric.trim().toLowerCase();
+    if (!rawTags.some(t => t.toLowerCase() === fabName)) {
+      rawTags.push(fabName);
+    }
+  }
+  const selectedColors = (payload.colors || []).map(c => c.toLowerCase().trim()).filter(Boolean);
+  selectedColors.forEach(c => {
+    rawTags.push(`color:${c}`);
+    if (!rawTags.some(t => t.toLowerCase() === c)) {
+      rawTags.push(c);
+    }
+  });
+
   const returnDays = payload.return_window_days !== undefined ? payload.return_window_days : 7;
   const finalTags = [...rawTags, `return-days:${returnDays}`];
+
+  const fabricData = payload.fabric && typeof payload.fabric === 'string' && payload.fabric.trim()
+    ? {
+        name: payload.fabric.trim(),
+        care: ['Dry clean recommended', 'Iron on low heat'],
+        colors: selectedColors,
+      }
+    : (selectedColors.length > 0 ? { colors: selectedColors } : null);
 
   // 1. Insert product
   const { data: newProd, error: prodErr } = await supabase
@@ -245,6 +302,7 @@ export async function createProduct(payload: {
       sku: sku,
       category_id: payload.category_id,
       description: payload.description || '',
+      fabric: fabricData,
       is_active: payload.is_active ?? true,
       is_featured: payload.is_featured ?? false,
       is_vidyas_pick: payload.is_vidyas_pick ?? false,
@@ -323,6 +381,7 @@ export async function createProduct(payload: {
 
   revalidatePath('/admin/products');
   revalidatePath('/shop');
+  revalidatePath('/shop/[category]', 'page');
   revalidatePath('/');
   return { success: true, data: newProd };
 }
@@ -343,6 +402,8 @@ export async function updateProduct(
     is_vidyas_pick?: boolean;
     images?: string[];
     tags?: string[];
+    fabric?: string;
+    colors?: string[];
     sizes?: string[];
     return_window_days?: number;
     variants?: Array<{
@@ -367,13 +428,51 @@ export async function updateProduct(
   if (payload.is_active !== undefined) prodUpdates.is_active = payload.is_active;
   if (payload.is_featured !== undefined) prodUpdates.is_featured = payload.is_featured;
   if (payload.is_vidyas_pick !== undefined) prodUpdates.is_vidyas_pick = payload.is_vidyas_pick;
-  if (payload.tags !== undefined || payload.return_window_days !== undefined) {
+  if (payload.fabric !== undefined || payload.colors !== undefined) {
+    const { data: currP } = await supabase.from('products').select('fabric').eq('id', id).single();
+    const currFab: any = (currP?.fabric && typeof currP.fabric === 'object') ? currP.fabric : {};
+
+    const fabName = payload.fabric !== undefined
+      ? (typeof payload.fabric === 'string' ? payload.fabric.trim() : null)
+      : (currFab?.name || null);
+
+    const colorsList = payload.colors !== undefined
+      ? payload.colors.map(c => c.toLowerCase().trim()).filter(Boolean)
+      : (Array.isArray(currFab?.colors) ? currFab.colors : []);
+
+    if (fabName || colorsList.length > 0) {
+      prodUpdates.fabric = {
+        ...currFab,
+        ...(fabName ? { name: fabName, care: ['Dry clean recommended', 'Iron on low heat'] } : {}),
+        colors: colorsList,
+      };
+    } else {
+      prodUpdates.fabric = null;
+    }
+  }
+
+  if (payload.tags !== undefined || payload.return_window_days !== undefined || payload.fabric !== undefined || payload.colors !== undefined) {
     let currentTags = payload.tags;
     if (currentTags === undefined) {
       const { data: currentP } = await supabase.from('products').select('tags').eq('id', id).single();
       currentTags = currentP?.tags || [];
     }
-    const cleanTags = (currentTags || []).filter((t: string) => !t.startsWith('return-days:'));
+    const cleanTags = (currentTags || []).filter((t: string) => !t.startsWith('return-days:') && !t.startsWith('color:'));
+    if (payload.fabric && typeof payload.fabric === 'string' && payload.fabric.trim()) {
+      const fabName = payload.fabric.trim().toLowerCase();
+      if (!cleanTags.some(t => t.toLowerCase() === fabName)) {
+        cleanTags.push(fabName);
+      }
+    }
+    if (payload.colors !== undefined) {
+      const selectedColors = payload.colors.map(c => c.toLowerCase().trim()).filter(Boolean);
+      selectedColors.forEach(c => {
+        cleanTags.push(`color:${c}`);
+        if (!cleanTags.some(t => t.toLowerCase() === c)) {
+          cleanTags.push(c);
+        }
+      });
+    }
     const returnDays = payload.return_window_days !== undefined
       ? payload.return_window_days
       : (() => {
@@ -529,6 +628,7 @@ export async function updateProduct(
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${id}/edit`);
   revalidatePath('/shop');
+  revalidatePath('/shop/[category]', 'page');
   revalidatePath('/');
   return { success: true };
 }
@@ -560,6 +660,8 @@ export async function toggleProductFeatured(id: string, is_featured: boolean) {
   }
   revalidatePath('/admin/products');
   revalidatePath('/');
+  revalidatePath('/shop');
+  revalidatePath('/shop/[category]', 'page');
   return { error: null };
 }
 
@@ -656,6 +758,7 @@ export async function duplicateProduct(id: string) {
         sku: newSku,
         category_id: product.category_id,
         description: product.description,
+        fabric: product.fabric || null,
         is_active: false,
         is_featured: false,
         is_vidyas_pick: false,
@@ -713,6 +816,8 @@ export interface BulkProductInput {
   is_vidyas_pick?: boolean;
   images?: string[];
   tags?: string[];
+  fabric?: string;
+  colors?: string[];
   sizes?: string[];
 }
 
@@ -757,6 +862,7 @@ export async function bulkCreateProducts(products: BulkProductInput[]) {
           sku: sku,
           category_id: catId,
           description: p.description || '',
+          fabric: p.fabric ? { name: p.fabric.trim() } : null,
           is_active: p.is_active ?? true,
           is_featured: p.is_featured ?? false,
           is_vidyas_pick: p.is_vidyas_pick ?? false,
@@ -890,6 +996,7 @@ export async function generateBulkDemoProducts(count: number = 50, categoryId?: 
       is_vidyas_pick: i % 5 === 0,
       images: [template.img, template.img.replace('-1.jpg', '-2.jpg')],
       tags: [template.cat.toLowerCase(), fabric.toLowerCase().split(' ')[0] || 'luxury', 'luxury', 'handcrafted'],
+      fabric,
       sizes: ['S', 'M', 'L', 'XL', 'XXL'],
     });
   }

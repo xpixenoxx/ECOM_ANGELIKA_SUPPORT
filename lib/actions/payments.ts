@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { Database, Json } from '@/types/database';
+import { sendOrderConfirmationEmail } from '@/lib/email/order-confirmation';
 
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
@@ -573,22 +574,11 @@ async function sendOrderEmail(
   supabase: any,
   order: OrderRow & { order_items: (OrderItemRow & { product: any })[] }
 ) {
-  // TODO: Implement email sending using Resend/SendGrid/NodeMailer
-  // For now, log the email content
-  console.log('Sending order confirmation email to:', order.email);
-  console.log('Order:', order.id, 'Total:', order.total_amount / 100, order.currency);
-
-  // Store notification in database for later processing
-  await supabase
-    .from('notifications')
-    .insert({
-      user_id: order.user_id,
-      type: 'order_confirmation',
-      channel: 'email',
-      subject: `Order Confirmed - ${order.id}`,
-      content: generateOrderEmailContent(order),
-      status: 'pending',
-    });
+  try {
+    await sendOrderConfirmationEmail(order.id);
+  } catch (err) {
+    console.error('sendOrderConfirmationEmail failed in sendOrderEmail:', err);
+  }
 }
 
 async function sendOrderWhatsApp(

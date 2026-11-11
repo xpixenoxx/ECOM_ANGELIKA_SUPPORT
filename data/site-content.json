@@ -4684,5 +4684,73 @@
     "title": "Join the Angelika Circle",
     "subtitle": "Receive exclusive invitations to preview new arrivals, bespoke styling sessions, and private editorial drops.",
     "buttonText": "Subscribe"
+  },
+  "checkout-address-page": {
+    "header": {
+      "stepperDeliveryLabel": "Delivery",
+      "stepperDeliverySubtext": "Shipping address",
+      "stepperPaymentLabel": "Payment",
+      "stepperPaymentSubtext": "Choose payment method",
+      "contactSectionTitle": "1. Contact Details & Dispatch Updates"
+    },
+    "contact": {
+      "emailLabel": "Email Address *",
+      "emailPlaceholder": "you@example.com",
+      "phoneLabel": "Mobile Number *",
+      "phonePlaceholder": "10-digit number",
+      "phonePrefix": "IN +91",
+      "whatsappUpdatesText": "Send dispatch updates & live tracking photos via WhatsApp",
+      "whatsappDefaultChecked": true
+    },
+    "shipping": {
+      "sectionHeading": "2. Shipping Destination",
+      "firstNameLabel": "First Name *",
+      "firstNamePlaceholder": "e.g. Priya",
+      "lastNameLabel": "Last Name *",
+      "lastNamePlaceholder": "e.g. Sharma",
+      "address1Label": "Flat / House No., Apartment & Street Address *",
+      "address1Placeholder": "e.g. Flat 402, Lotus Residency, MG Road",
+      "address2Label": "Landmark / Floor (Optional)",
+      "address2Placeholder": "e.g. Near Indiranagar Metro Station",
+      "pincodeLabel": "Pincode *",
+      "pincodePlaceholder": "6-digit pincode",
+      "cityLabel": "City / District *",
+      "cityPlaceholder": "City",
+      "stateLabel": "State *",
+      "statePlaceholder": "Select state",
+      "addressTypeLabel": "Address Type",
+      "addressTypes": [
+        {
+          "id": "Home",
+          "label": "Home",
+          "icon": "🏠"
+        },
+        {
+          "id": "Office",
+          "label": "Office",
+          "icon": "🏢"
+        },
+        {
+          "id": "Other",
+          "label": "Other",
+          "icon": "✨"
+        }
+      ]
+    },
+    "deliveryAndGifting": {
+      "pincodeResolvingText": "Resolving...",
+      "deliveringToPrefix": "Delivering to",
+      "expectedDeliveryPrefix": "⚡ Expected delivery by",
+      "giftWrapTitle": "Complimentary Luxury Gift Packaging",
+      "giftWrapSubtitle": "Includes rigid keepsake box, personalized hand-calligraphed note card, and silk ribbon.",
+      "giftMessageLabel": "Gift Message on Handcrafted Card",
+      "giftMessagePlaceholder": "Wishing you radiant joy on your special day..."
+    },
+    "buttonsAndSecurity": {
+      "deliverToAddressButtonText": "Deliver to This Address",
+      "addNewAddressButtonText": "+ Add New Delivery Address",
+      "continueToPaymentButtonText": "Proceed to Payment",
+      "securityBadgeText": ""
+    }
   }
 }

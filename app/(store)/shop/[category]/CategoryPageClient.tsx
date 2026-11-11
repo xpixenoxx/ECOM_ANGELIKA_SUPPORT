@@ -22,7 +22,7 @@ import { useCart } from '@/lib/hooks/useCart';
 import { useWishlist } from '@/lib/hooks/useWishlist';
 import type { ShopProductCard, ShopFilters } from '@/lib/actions/shop-types';
 import type { SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent, ShopPageContent } from '@/lib/actions/site-content-types';
-import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES } from '@/lib/actions/shop-types';
+import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES, matchesProductColor } from '@/lib/actions/shop-types';
 import type { KurtisPageContent } from '@/lib/actions/site-content';
 
 interface CategoryPageClientProps {
@@ -98,7 +98,7 @@ export function CategoryPageClient({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filters, setFilters] = useState<ShopFilters>(initialFilters);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [localSortBy, setLocalSortBy] = useState(sortBy);
+  const [localSortBy, setLocalSortBy] = useState(sortBy || 'featured');
   const [isClientLoaded, setIsClientLoaded] = useState(false);
   const activeCategoryContent = shopContent || salwarsContent || lehengasContent || sareesContent || dupattasContent;
 
@@ -134,7 +134,7 @@ export function CategoryPageClient({
   // Convert custom Kurtis products from admin panel into ShopProductCard format
   const resolvedInitialProducts: ShopProductCard[] = useMemo(() => {
     if (isKurtis && Array.isArray(kurtisContent?.products) && kurtisContent.products.length > 0 && kurtisContent?.productsMode !== 'database') {
-      return kurtisContent.products.map((p) => ({
+      const customItems = kurtisContent.products.map((p) => ({
         id: p.id,
         slug: p.href ? p.href.replace('/product/', '') : p.id,
         name: p.name,
@@ -159,6 +159,13 @@ export function CategoryPageClient({
         tags: [p.fabric || 'Cotton', p.isVidhyasPick ? "Vidhya's Pick" : '', p.isNew ? 'New' : ''].filter(Boolean),
         occasion: ['Festive', 'Casual'],
       } as ShopProductCard));
+
+      if (initialProducts && initialProducts.length > 0) {
+        const customSlugs = new Set(customItems.map((c) => c.slug));
+        const dbItems = initialProducts.filter((p) => !customSlugs.has(p.slug));
+        return [...dbItems, ...customItems];
+      }
+      return customItems;
     }
 
     if (shopContent?.productsMode === 'custom' && Array.isArray(shopContent.products) && shopContent.products.length > 0) {
@@ -268,21 +275,7 @@ export function CategoryPageClient({
 
       // 5. Color filter
       if (filters.colors && filters.colors.length > 0) {
-        const selected = filters.colors.map((c: string) => c.toLowerCase());
-        const text = `${product.name} ${product.slug} ${(product.tags || []).join(' ')} ${JSON.stringify(product.fabric || '')}`.toLowerCase();
-        const matches = selected.some((color: string) => {
-          if (text.includes(color)) return true;
-          if (color === 'red' && (text.includes('crimson') || text.includes('ruby') || text.includes('maroon') || text.includes('scarlet'))) return true;
-          if (color === 'blue' && (text.includes('indigo') || text.includes('navy') || text.includes('sapphire') || text.includes('teal'))) return true;
-          if (color === 'green' && (text.includes('emerald') || text.includes('olive') || text.includes('mint') || text.includes('pista'))) return true;
-          if (color === 'pink' && (text.includes('blush') || text.includes('rose') || text.includes('peach') || text.includes('coral'))) return true;
-          if (color === 'yellow' && (text.includes('mustard') || text.includes('haldi') || text.includes('gold') || text.includes('lemon'))) return true;
-          if (color === 'white' && (text.includes('ivory') || text.includes('cream') || text.includes('pearl') || text.includes('off-white'))) return true;
-          if (color === 'black' && (text.includes('noir') || text.includes('charcoal'))) return true;
-          if (color === 'purple' && (text.includes('lavender') || text.includes('violet') || text.includes('plum') || text.includes('mauve'))) return true;
-          if (color === 'gold' && (text.includes('zari') || text.includes('gota') || text.includes('golden') || text.includes('metallic'))) return true;
-          return false;
-        });
+        const matches = filters.colors.some((color: string) => matchesProductColor(product, color));
         if (!matches) return false;
       }
 
@@ -309,6 +302,32 @@ export function CategoryPageClient({
         }
       }
 
+      // 8. Occasion filter (e.g. ?occasion=office, ?occasion=party, ?occasion=casual)
+      if (filters.occasion && filters.occasion.length > 0) {
+        const selectedOccasions = filters.occasion.map((o: string) => o.toLowerCase());
+        const occStr = Array.isArray(product.occasion)
+          ? product.occasion.join(' ').toLowerCase()
+          : String(product.occasion || '').toLowerCase();
+        const tagsStr = (product.tags || []).join(' ').toLowerCase();
+        const nameStr = (product.name || '').toLowerCase();
+        const matches = selectedOccasions.some((o: string) =>
+          occStr.includes(o) || tagsStr.includes(o) || nameStr.includes(o)
+        );
+        if (!matches) return false;
+      }
+
+      // 9. Type / Subcategory filter (e.g. ?type=coord-sets, ?type=anarkali)
+      const typeFilters = [...(filters.type || []), ...(filters.length || [])].map((t: string) => t.toLowerCase());
+      if (typeFilters.length > 0) {
+        const tagsStr = (product.tags || []).join(' ').toLowerCase();
+        const nameStr = (product.name || '').toLowerCase();
+        const slugStr = (product.slug || '').toLowerCase();
+        const matches = typeFilters.some((t: string) =>
+          tagsStr.includes(t) || nameStr.includes(t) || slugStr.includes(t)
+        );
+        if (!matches) return false;
+      }
+
       return true;
     });
   }, [allProducts, filters]);
@@ -318,16 +337,25 @@ export function CategoryPageClient({
     const sorted = [...filteredProducts];
     switch (localSortBy) {
       case 'price-asc':
-        return sorted.sort((a, b) => (a.price || 0) - (b.price || 0));
+        return sorted.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
       case 'price-desc':
-        return sorted.sort((a, b) => (b.price || 0) - (a.price || 0));
+        return sorted.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
       case 'popularity':
-        return sorted.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+        return sorted.sort((a, b) => (Number(b.review_count) || 0) - (Number(a.review_count) || 0));
       case 'discount':
-        return sorted.sort((a, b) => (b.discount || 0) - (a.discount || 0));
+        return sorted.sort((a, b) => (Number(b.discount) || 0) - (Number(a.discount) || 0));
       case 'newest':
-      default:
         return sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      case 'featured':
+      default:
+        return sorted.sort((a, b) => {
+          // Featured products (starred by admin) appear first in that category
+          const aFeat = Boolean(a.is_featured);
+          const bFeat = Boolean(b.is_featured);
+          if (aFeat && !bFeat) return -1;
+          if (!aFeat && bFeat) return 1;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
     }
   }, [filteredProducts, localSortBy]);
 
@@ -353,6 +381,14 @@ export function CategoryPageClient({
     return counts;
   }, [allProducts]);
 
+  const colorCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    SHOP_COLORS.forEach((col) => {
+      counts[col.value] = allProducts.filter((p) => matchesProductColor(p, col.value)).length;
+    });
+    return counts;
+  }, [allProducts]);
+
   const inStockCount = useMemo(() => {
     return allProducts.filter((p) => {
       const variants = p.variants || [];
@@ -374,7 +410,7 @@ export function CategoryPageClient({
 
   const handleRemoveFilter = (key: keyof ShopFilters, valueToRemove?: any) => {
     setFilters((prev) => {
-      if (key === 'categories' || key === 'fabrics' || key === 'colors' || key === 'sizes') {
+      if (key === 'categories' || key === 'fabrics' || key === 'colors' || key === 'sizes' || key === 'occasion' || key === 'type' || key === 'length') {
         const current = (prev[key] || []) as string[];
         return { ...prev, [key]: current.filter((item) => item !== valueToRemove) };
       }
@@ -409,6 +445,12 @@ export function CategoryPageClient({
       if (filters.sizes && filters.sizes.length > 0) {
         params.set('sizes', filters.sizes.join(','));
       }
+      if (filters.occasion && filters.occasion.length > 0) {
+        params.set('occasion', filters.occasion.join(','));
+      }
+      if (filters.type && filters.type.length > 0) {
+        params.set('type', filters.type.join(','));
+      }
       if (filters.priceRange && Array.isArray(filters.priceRange) && (filters.priceRange[0] > 0 || filters.priceRange[1] < 25000)) {
         params.set('priceRange', filters.priceRange.join(','));
       }
@@ -418,7 +460,7 @@ export function CategoryPageClient({
       if (filters.vidhyasPicksOnly) {
         params.set('vidhyasPicksOnly', 'true');
       }
-      if (localSortBy && localSortBy !== 'newest') {
+      if (localSortBy && localSortBy !== 'featured') {
         params.set('sort', localSortBy);
       }
       const basePath = categorySlug && categorySlug !== 'all' ? `/shop/${categorySlug}` : '/shop';
@@ -435,6 +477,9 @@ export function CategoryPageClient({
       fabrics: [],
       colors: [],
       sizes: [],
+      occasion: [],
+      type: [],
+      length: [],
       priceRange: [0, 25000],
       inStockOnly: false,
       vidhyasPicksOnly: false,
@@ -459,7 +504,7 @@ export function CategoryPageClient({
   // Convert products to ProductCard format
   const productsForGrid = sortedProducts.map((p) => ({
     ...p,
-    image: p.images[0]?.url || p.image || '/images/collection-kurtis.jpg',
+    image: p.images?.[0]?.url || (typeof p.image === 'string' ? p.image : undefined) || '/images/collection-kurtis.jpg',
     originalPrice: p.compare_at_price,
     category: p.category?.name || '',
     isNew: new Date(p.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
@@ -659,6 +704,7 @@ export function CategoryPageClient({
                     categoryName={category.name}
                     categoryCounts={categoryCounts}
                     fabricCounts={fabricCounts}
+                    colorCounts={colorCounts}
                     inStockCount={inStockCount}
                     vidhyasCount={vidhyasCount}
                     sidebarContent={activeCategoryContent?.sidebar}
@@ -687,6 +733,7 @@ export function CategoryPageClient({
                   categoryName={category.name}
                   categoryCounts={categoryCounts}
                   fabricCounts={fabricCounts}
+                  colorCounts={colorCounts}
                   inStockCount={inStockCount}
                   vidhyasCount={vidhyasCount}
                 />
@@ -710,8 +757,10 @@ export function CategoryPageClient({
                   Showing <span className="font-semibold text-[var(--color-ink)]">{sortedProducts.length}</span> of {allProducts.length} products
                 </p>
                 <div className="flex items-center gap-3">
-                  <Select value={localSortBy} onValueChange={handleSortChange} className="w-48">
-                    <SelectTrigger placeholder="Sort by" />
+                  <Select value={localSortBy} onValueChange={handleSortChange} className="w-52">
+                    <SelectTrigger placeholder="Sort by">
+                      {SHOP_SORT_OPTIONS.find((opt) => opt.value === localSortBy)?.label || 'Featured First'}
+                    </SelectTrigger>
                     <SelectContent>
                       {SHOP_SORT_OPTIONS.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
@@ -779,6 +828,28 @@ export function CategoryPageClient({
                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[var(--color-gold)] text-[var(--color-ink)] text-xs font-medium hover:bg-[var(--color-gold)]/10 transition-colors group shadow-sm"
                     >
                       <span>Size: {sizeVal}</span>
+                      <span className="text-[var(--color-gold)] group-hover:text-[var(--color-ink)] font-bold text-xs">✕</span>
+                    </button>
+                  ))}
+                  {/* Occasion Pills */}
+                  {filters.occasion?.map((occVal) => (
+                    <button
+                      key={`pill-occ-${occVal}`}
+                      onClick={() => handleRemoveFilter('occasion', occVal)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[var(--color-gold)] text-[var(--color-ink)] text-xs font-medium hover:bg-[var(--color-gold)]/10 transition-colors group shadow-sm capitalize"
+                    >
+                      <span>Occasion: {occVal}</span>
+                      <span className="text-[var(--color-gold)] group-hover:text-[var(--color-ink)] font-bold text-xs">✕</span>
+                    </button>
+                  ))}
+                  {/* Type / Subcategory Pills */}
+                  {filters.type?.map((typeVal) => (
+                    <button
+                      key={`pill-type-${typeVal}`}
+                      onClick={() => handleRemoveFilter('type', typeVal)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[var(--color-gold)] text-[var(--color-ink)] text-xs font-medium hover:bg-[var(--color-gold)]/10 transition-colors group shadow-sm capitalize"
+                    >
+                      <span>Type: {typeVal.replace(/-/g, ' ')}</span>
                       <span className="text-[var(--color-gold)] group-hover:text-[var(--color-ink)] font-bold text-xs">✕</span>
                     </button>
                   ))}
@@ -918,6 +989,7 @@ function CategoryFilterFields({
   categoryName,
   categoryCounts,
   fabricCounts,
+  colorCounts,
   inStockCount,
   vidhyasCount,
   sidebarContent,
@@ -930,6 +1002,7 @@ function CategoryFilterFields({
   categoryName?: string;
   categoryCounts?: Record<string, number>;
   fabricCounts?: Record<string, number>;
+  colorCounts?: Record<string, number>;
   inStockCount?: number;
   vidhyasCount?: number;
   sidebarContent?: any;
@@ -1074,8 +1147,8 @@ function CategoryFilterFields({
                     : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:scale-105'
                 )}
                 style={color.color.includes('gradient') ? { background: color.color } : { backgroundColor: color.color }}
-                title={color.label}
-                aria-label={color.label}
+                title={`${color.label} (${colorCounts?.[color.value] ?? 0})`}
+                aria-label={`${color.label} (${colorCounts?.[color.value] ?? 0})`}
               >
                 {isSelected && (
                   <span
@@ -1270,7 +1343,9 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
                     price={product.price}
                     originalPrice={product.originalPrice || product.compare_at_price}
                     category={product.category?.name || product.category || 'Ethnic Wear'}
-                    isNew={product.isNew || product.is_featured}
+                    isFeatured={Boolean(product.is_featured || product.isFeatured)}
+                    is_featured={Boolean(product.is_featured || product.isFeatured)}
+                    isNew={product.isNew}
                     isSale={product.isSale || (product.discount && product.discount > 0)}
                     isVidhyasPick={product.isVidhyasPick || product.is_vidyas_pick}
                     discount={product.discount}

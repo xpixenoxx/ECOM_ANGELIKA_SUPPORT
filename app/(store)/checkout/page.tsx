@@ -18,9 +18,11 @@ import { MagneticButton } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AuthModal } from '@/components/ui/AuthModal';
-import { createOrder, getUserAddresses, saveAddress, verifyRazorpayPayment } from '@/lib/actions/checkout';
+import { createOrder, getUserAddresses, saveAddress, deleteAddress, verifyRazorpayPayment, validateCouponAction } from '@/lib/actions/checkout';
 import { createClient } from '@/lib/supabase/client';
 import { lookupPincode, type PincodeDetails } from '@/lib/utils/pincode';
+import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
+import type { CheckoutAddressPageContent } from '@/lib/actions/site-content-types';
 import type { Address } from '@/types/commerce';
 
 // Local form interface extending Address with UI-specific fields
@@ -40,35 +42,51 @@ interface AddressFormData {
   isDefault?: boolean;
 }
 
-const toAddressForm = (addr: Address & { id?: string; is_default?: boolean; isDefault?: boolean }): AddressFormData => ({
-  id: addr.id,
-  firstName: addr.firstName,
-  lastName: addr.lastName,
-  address1: addr.address1,
-  address2: addr.address2,
-  city: addr.city,
-  state: addr.state,
-  postalCode: addr.postalCode,
-  country: addr.country,
-  phone: addr.phone,
-  email: addr.email,
-  isDefault: addr.is_default || addr.isDefault,
-});
+const toAddressForm = (addr: any): AddressFormData => {
+  const rawPhone = String(addr?.phone || addr?.mobile || addr?.phoneNumber || '');
+  const cleanDigits = rawPhone.replace(/\D/g, '');
+  const tenDigitPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
 
-const toAddress = (form: AddressFormData): Address => ({
-  firstName: form.firstName,
-  lastName: form.lastName,
-  address1: form.address1,
-  address2: form.address2 || '',
-  city: form.city,
-  state: form.state,
-  postalCode: form.postalCode,
-  country: form.country || 'India',
-  phone: form.phone,
-  email: form.email,
-});
+  return {
+    id: addr?.id,
+    firstName: addr?.firstName || addr?.first_name || '',
+    lastName: addr?.lastName || addr?.last_name || '',
+    address1: addr?.address1 || addr?.address || addr?.street || '',
+    address2: addr?.address2 || addr?.landmark || '',
+    city: addr?.city || '',
+    state: addr?.state || '',
+    postalCode: addr?.postalCode || addr?.pincode || addr?.postal_code || '',
+    country: addr?.country || 'India',
+    phone: tenDigitPhone || rawPhone,
+    email: addr?.email || '',
+    type: (addr?.type as any) || 'Home',
+    isDefault: Boolean(addr?.is_default || addr?.isDefault),
+  };
+};
 
-const steps = [
+const toAddress = (form: AddressFormData): Address & { id?: string; is_default?: boolean; type?: string } => {
+  const rawPhone = String(form.phone || '');
+  const cleanDigits = rawPhone.replace(/\D/g, '');
+  const tenDigitPhone = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
+
+  return {
+    id: form.id,
+    firstName: form.firstName,
+    lastName: form.lastName,
+    address1: form.address1,
+    address2: form.address2 || '',
+    city: form.city,
+    state: form.state,
+    postalCode: form.postalCode,
+    country: form.country || 'India',
+    phone: tenDigitPhone || form.phone,
+    email: form.email,
+    type: form.type || 'Home',
+    is_default: form.isDefault,
+  };
+};
+
+const DEFAULT_CHECKOUT_STEPS = [
   { id: 'delivery', label: 'Delivery', description: 'Shipping address' },
   { id: 'payment', label: 'Payment', description: 'Choose payment method' },
   { id: 'review', label: 'Review', description: 'Confirm your order' },
@@ -195,6 +213,10 @@ export default function CheckoutPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   // World-class luxury additions
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [addressNotice, setAddressNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [addressContent, setAddressContent] = useState<CheckoutAddressPageContent | null>(null);
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
   const [giftWrap, setGiftWrap] = useState(false);
   const [giftRecipient, setGiftRecipient] = useState('');
@@ -205,13 +227,96 @@ export default function CheckoutPage() {
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponNotice, setCouponNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const DEFAULT_OFFERS = [
-    { code: 'FIRST10', title: '10% OFF', desc: 'Welcome privilege on your couture order (min ₹1,999)', badge: 'VIP Welcome' },
-    { code: 'ROYAL500', title: '₹500 OFF', desc: 'Flat ₹500 off on heritage sets above ₹4,999', badge: 'Royal Edition' },
-    { code: 'COUTURE15', title: '15% OFF', desc: '15% festive luxury discount on orders above ₹5,999', badge: 'Festive Luxe' },
+  useEffect(() => {
+    async function loadAddressFormContent() {
+      try {
+        const res = await fetch('/api/content/checkout');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            setAddressContent(json.data);
+            if (typeof json.data.contact?.whatsappDefaultChecked === 'boolean') {
+              setWhatsappOptIn(json.data.contact.whatsappDefaultChecked);
+            }
+          }
+        }
+      } catch (err) {
+        // Fallback to default
+      }
+    }
+    loadAddressFormContent();
+  }, []);
+
+  const steps = [
+    {
+      id: 'delivery',
+      label: addressContent?.header?.stepperDeliveryLabel || 'Delivery',
+      description: addressContent?.header?.stepperDeliverySubtext || 'Shipping address',
+    },
+    {
+      id: 'payment',
+      label: addressContent?.header?.stepperPaymentLabel || 'Payment',
+      description: addressContent?.header?.stepperPaymentSubtext || 'Choose payment method',
+    },
+    { id: 'review', label: 'Review', description: 'Confirm your order' },
   ];
 
-  const [availableOffers, setAvailableOffers] = useState(DEFAULT_OFFERS);
+  const contactSectionHeading = addressContent?.header?.contactSectionTitle || '1. Contact Details (For order confirmation & tracking)';
+  const emailLabel = addressContent?.contact?.emailLabel || 'Email Address *';
+  const emailPlaceholder = addressContent?.contact?.emailPlaceholder || 'you@example.com';
+  const phoneLabel = addressContent?.contact?.phoneLabel || 'Mobile Number *';
+  const phonePlaceholder = addressContent?.contact?.phonePlaceholder || '10-digit number';
+  const phonePrefix = addressContent?.contact?.phonePrefix || 'IN +91';
+  const whatsappUpdatesText = addressContent?.contact?.whatsappUpdatesText || 'Send dispatch updates & live tracking photos via WhatsApp';
+
+  const shippingSectionHeading = addressContent?.shipping?.sectionHeading || '2. Shipping Destination';
+  const firstNameLabel = addressContent?.shipping?.firstNameLabel || 'First Name *';
+  const firstNamePlaceholder = addressContent?.shipping?.firstNamePlaceholder || 'e.g. Priya';
+  const lastNameLabel = addressContent?.shipping?.lastNameLabel || 'Last Name *';
+  const lastNamePlaceholder = addressContent?.shipping?.lastNamePlaceholder || 'e.g. Sharma';
+  const address1Label = addressContent?.shipping?.address1Label || 'Flat / House No., Apartment & Street Address *';
+  const address1Placeholder = addressContent?.shipping?.address1Placeholder || 'e.g. Flat 402, Lotus Residency, MG Road';
+  const address2Label = addressContent?.shipping?.address2Label || 'Landmark / Floor (Optional)';
+  const address2Placeholder = addressContent?.shipping?.address2Placeholder || 'e.g. Near Indiranagar Metro Station';
+  const pincodeLabel = addressContent?.shipping?.pincodeLabel || 'Pincode *';
+  const pincodePlaceholder = addressContent?.shipping?.pincodePlaceholder || '6-digit pincode';
+  const cityLabel = addressContent?.shipping?.cityLabel || 'City / District *';
+  const cityPlaceholder = addressContent?.shipping?.cityPlaceholder || 'City';
+  const stateLabel = addressContent?.shipping?.stateLabel || 'State *';
+  const statePlaceholder = addressContent?.shipping?.statePlaceholder || 'Select state';
+  const addressTypeLabel = addressContent?.shipping?.addressTypeLabel || 'Address Type';
+  const addressTypes = addressContent?.shipping?.addressTypes || [
+    { id: 'Home', label: 'Home', icon: '🏠' },
+    { id: 'Office', label: 'Office', icon: '🏢' },
+    { id: 'Other', label: 'Other', icon: '✨' },
+  ];
+
+  const giftWrapTitle = addressContent?.deliveryAndGifting?.giftWrapTitle || 'Complimentary Luxury Gift Packaging';
+  const giftWrapSubtitle = addressContent?.deliveryAndGifting?.giftWrapSubtitle || 'Includes rigid keepsake box, personalized hand-calligraphed note card, and silk ribbon.';
+  const giftMessageLabel = addressContent?.deliveryAndGifting?.giftMessageLabel || 'Personal Handwritten Note (Calligraphy)';
+  const giftMessagePlaceholder = addressContent?.deliveryAndGifting?.giftMessagePlaceholder || 'Wishing you radiant joy on your special day...';
+  const deliveringToPrefix = addressContent?.deliveryAndGifting?.deliveringToPrefix || 'Delivering to';
+  const expectedDeliveryPrefix = addressContent?.deliveryAndGifting?.expectedDeliveryPrefix || '⚡ Expected delivery by';
+  const pincodeResolvingText = addressContent?.deliveryAndGifting?.pincodeResolvingText || 'Resolving...';
+  const addNewAddressButtonText = addressContent?.buttonsAndSecurity?.addNewAddressButtonText || '+ Add Different Address';
+  const continueToPaymentButtonText = addressContent?.buttonsAndSecurity?.continueToPaymentButtonText || 'Continue';
+  const securityBadgeText = addressContent?.buttonsAndSecurity?.securityBadgeText || 'Secure Checkout';
+
+  interface OfferItem {
+    code: string;
+    title: string;
+    desc: string;
+    badge: string;
+    first_order_only?: boolean;
+  }
+
+  const DEFAULT_OFFERS: OfferItem[] = [
+    { code: 'FIRST10', title: '10% OFF', desc: 'Welcome privilege on your couture order (min ₹1,999)', badge: '1st Order Only', first_order_only: true },
+    { code: 'ROYAL500', title: '₹500 OFF', desc: 'Flat ₹500 off on heritage sets above ₹4,999', badge: 'Royal Edition', first_order_only: false },
+    { code: 'COUTURE15', title: '15% OFF', desc: '15% festive luxury discount on orders above ₹5,999', badge: 'Festive Luxe', first_order_only: false },
+  ];
+
+  const [availableOffers, setAvailableOffers] = useState<OfferItem[]>(DEFAULT_OFFERS);
 
   useEffect(() => {
     async function loadOffers() {
@@ -219,7 +324,7 @@ export default function CheckoutPage() {
         const supabase = createClient();
         const { data, error } = await supabase
           .from('coupons')
-          .select('code, name, type, value, min_order_amount, is_active')
+          .select('code, name, type, value, min_order_amount, is_active, first_order_only')
           .eq('is_active', true)
           .order('value', { ascending: false });
 
@@ -227,8 +332,9 @@ export default function CheckoutPage() {
           const mapped = data.map((c: any) => ({
             code: c.code,
             title: c.type === 'percentage' ? `${c.value}% OFF` : `₹${Number(c.value).toLocaleString('en-IN')} OFF`,
-            desc: c.name + (c.min_order_amount ? ` (min ₹${Number(c.min_order_amount).toLocaleString('en-IN')})` : ''),
-            badge: c.type === 'percentage' ? `${c.value}% Privilege` : 'Voucher',
+            desc: c.name + (c.first_order_only ? ' • First order only' : '') + (c.min_order_amount ? ` (min ₹${Number(c.min_order_amount).toLocaleString('en-IN')})` : ''),
+            badge: c.first_order_only ? '1st Order Only' : (c.type === 'percentage' ? `${c.value}% Privilege` : 'Voucher'),
+            first_order_only: Boolean(c.first_order_only),
           }));
           setAvailableOffers(mapped);
         }
@@ -237,6 +343,47 @@ export default function CheckoutPage() {
       }
     }
     loadOffers();
+  }, []);
+
+  // Re-verify first-order-only coupon eligibility when customer enters/changes their email or phone
+  useEffect(() => {
+    if (!appliedCoupon?.first_order_only) return;
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPhone = (phone || '').trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) return;
+
+    let isMounted = true;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await validateCouponAction(appliedCoupon.code, {
+          subtotal,
+          email: cleanEmail,
+          phone: cleanPhone,
+          userId: user?.id,
+        });
+        if (isMounted && !res.valid) {
+          await removeCoupon();
+          setCouponNotice({
+            type: 'error',
+            text: res.error || `Coupon "${appliedCoupon.code}" was removed: valid for first-time orders only.`,
+          });
+        }
+      } catch (err) {
+        console.warn('Coupon verification notice:', err);
+      }
+    }, 600);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [email, phone, appliedCoupon?.code, appliedCoupon?.first_order_only, subtotal, user?.id, removeCoupon]);
+
+  const [siteLogo, setSiteLogo] = useState<string>('/images/logo.png');
+  useEffect(() => {
+    getHomepageHeroData().then((d) => {
+      if (d?.logoUrl) setSiteLogo(d.logoUrl);
+    }).catch(() => {});
   }, []);
 
   const handleEmailChange = (val: string) => {
@@ -341,7 +488,11 @@ export default function CheckoutPage() {
     setCouponApplying(true);
     setCouponNotice(null);
     try {
-      const res = await applyCoupon(code);
+      const res = await applyCoupon(code, {
+        email: (email || newAddress.email || '').trim(),
+        phone: (phone || newAddress.phone || '').trim(),
+        userId: user?.id,
+      });
       if (res.valid) {
         setCouponNotice({ type: 'success', text: `Privilege voucher ${code} applied!` });
         setCouponCodeInput('');
@@ -383,6 +534,8 @@ export default function CheckoutPage() {
       setSavedAddresses(mapped);
       if (mapped.length > 0 && mapped[0]) {
         setSelectedAddressId(mapped[0].id || '');
+        if (mapped[0].phone) setPhone(mapped[0].phone);
+        if (mapped[0].email) setEmail(mapped[0].email);
         setShowNewAddressForm(false);
       } else {
         setShowNewAddressForm(true);
@@ -402,15 +555,159 @@ export default function CheckoutPage() {
       const result = await saveAddress(user.id, toAddress(addressData));
       if (result.success && result.address) {
         const newAddr = toAddressForm(result.address);
-        setSavedAddresses(prev => [newAddr, ...prev.filter(a => a.id !== newAddr.id)]);
+        setSavedAddresses(prev => {
+          const exists = addressData.id && prev.some(a => a.id === addressData.id);
+          if (exists) {
+            return prev.map(a => a.id === addressData.id ? newAddr : (newAddr.isDefault ? { ...a, isDefault: false } : a));
+          }
+          return [newAddr, ...prev.map(a => newAddr.isDefault ? { ...a, isDefault: false } : a)];
+        });
         setSelectedAddressId(newAddr.id || '');
+        if (newAddr.phone) setPhone(newAddr.phone);
+        if (newAddr.email) setEmail(newAddr.email);
         setShowNewAddressForm(false);
+        setEditingAddressId(null);
         if (result.address.is_default) {
           await refreshProfile();
         }
       }
     } catch (err) {
       console.warn('Address save notice:', err);
+    }
+  };
+
+  const handleStartEditAddress = (addr: AddressFormData) => {
+    setEditingAddressId(addr.id || null);
+    setNewAddress({
+      id: addr.id,
+      firstName: addr.firstName || '',
+      lastName: addr.lastName || '',
+      phone: addr.phone || '',
+      email: addr.email || email || user?.email || '',
+      address1: addr.address1 || '',
+      address2: addr.address2 || '',
+      city: addr.city || '',
+      state: addr.state || '',
+      postalCode: addr.postalCode || '',
+      country: addr.country || 'India',
+      type: addr.type || 'Home',
+      isDefault: Boolean(addr.isDefault),
+    });
+    if (addr.phone) setPhone(addr.phone);
+    if (addr.email) setEmail(addr.email);
+    setShowNewAddressForm(true);
+    setFieldErrors({});
+    setError('');
+    setAddressNotice(null);
+  };
+
+  const handleCancelEditAddress = () => {
+    setEditingAddressId(null);
+    if (savedAddresses.length > 0) {
+      setShowNewAddressForm(false);
+    }
+    setFieldErrors({});
+    setError('');
+    setAddressNotice(null);
+  };
+
+  const handleStartNewAddress = () => {
+    setEditingAddressId(null);
+    setNewAddress({
+      firstName: '',
+      lastName: '',
+      phone: profile?.phone || '',
+      email: profile?.email || user?.email || '',
+      address1: '',
+      address2: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: 'India',
+      type: 'Home',
+      isDefault: savedAddresses.length === 0,
+    });
+    setShowNewAddressForm(true);
+    setFieldErrors({});
+    setError('');
+    setAddressNotice(null);
+  };
+
+  const handleDeleteSavedAddress = async (addressId: string) => {
+    if (!user) return;
+    if (!confirm('Are you sure you want to remove this saved address?')) return;
+    try {
+      const res = await deleteAddress(user.id, addressId);
+      if (res.success && res.addresses) {
+        const mapped = res.addresses.map(toAddressForm);
+        setSavedAddresses(mapped);
+        if (selectedAddressId === addressId) {
+          const fallback = mapped[0];
+          setSelectedAddressId(fallback?.id || '');
+          if (fallback?.phone) setPhone(fallback.phone);
+          if (fallback?.email) setEmail(fallback.email);
+        }
+        if (editingAddressId === addressId) {
+          handleCancelEditAddress();
+        }
+        setAddressNotice({ type: 'success', text: 'Address removed successfully.' });
+      }
+    } catch (err) {
+      console.error('Delete address failed:', err);
+    }
+  };
+
+  const validateAddressForm = (): boolean => {
+    const newFieldErrors: Record<string, string> = {};
+    const emailErr = validateEmailValue(email || newAddress.email || user?.email || '');
+    if (emailErr) newFieldErrors['email'] = emailErr;
+
+    const phoneErr = validatePhoneValue(newAddress.phone || phone || '');
+    if (phoneErr) newFieldErrors['phone'] = phoneErr;
+
+    if (!newAddress.firstName?.trim()) {
+      newFieldErrors['firstName'] = 'First name is required';
+    }
+    if (!newAddress.lastName?.trim()) {
+      newFieldErrors['lastName'] = 'Last name is required';
+    }
+    if (!newAddress.address1?.trim()) {
+      newFieldErrors['address1'] = 'Flat / Street address is required';
+    }
+    const pinErr = validatePincodeValue(newAddress.postalCode || '');
+    if (pinErr) newFieldErrors['postalCode'] = pinErr;
+
+    if (!newAddress.city?.trim()) {
+      newFieldErrors['city'] = 'City is required';
+    }
+    if (!newAddress.state?.trim()) {
+      newFieldErrors['state'] = 'Please select a state';
+    }
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setFieldErrors(newFieldErrors);
+      setError('Please fill in all required fields marked with *');
+      return false;
+    }
+    setFieldErrors({});
+    return true;
+  };
+
+  const handleSaveCurrentAddressForm = async () => {
+    if (!validateAddressForm()) return;
+    setIsSavingAddress(true);
+    try {
+      await handleSaveAddress(newAddress);
+      setAddressNotice({
+        type: 'success',
+        text: editingAddressId ? 'Address updated successfully!' : 'New address saved and selected.',
+      });
+      setEditingAddressId(null);
+      setShowNewAddressForm(false);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save address');
+    } finally {
+      setIsSavingAddress(false);
     }
   };
 
@@ -423,8 +720,12 @@ export default function CheckoutPage() {
   const codFee = selectedPayment === 'cod' ? 49 : 0;
   const total = cartTotal + codFee;
 
-  const hasOutOfStockItems = items.some(item => item.inventory_quantity === 0);
-  const hasLowStockItems = items.some(item => item.inventory_quantity > 0 && item.inventory_quantity < item.quantity);
+  const hasOutOfStockItems = items.some(
+    item =>
+      (typeof item.inventory_quantity === 'number' && item.inventory_quantity <= 0) ||
+      (typeof item.inventory_quantity === 'number' && item.quantity > item.inventory_quantity)
+  );
+  const hasLowStockItems = items.some(item => typeof item.inventory_quantity === 'number' && item.inventory_quantity > 0 && item.inventory_quantity < item.quantity);
 
   const nextStep = () => {
     setError('');
@@ -472,6 +773,12 @@ export default function CheckoutPage() {
         if (!addr) {
           setError('Please select or add a delivery address');
           return;
+        }
+        if (addr.phone) {
+          setPhone(addr.phone);
+        }
+        if (addr.email && !email) {
+          setEmail(addr.email);
         }
       }
     }
@@ -529,8 +836,17 @@ export default function CheckoutPage() {
         shippingAddress = toAddress(addr);
       }
 
-      const finalEmail = email?.trim() || newAddress.email?.trim() || user?.email || '';
-      const finalPhone = phone?.trim() || newAddress.phone?.trim() || '';
+      const addrPhone = shippingAddress.phone || (shippingAddress as any).mobile || '';
+      const addrEmail = shippingAddress.email || '';
+
+      const finalEmail = email?.trim() || addrEmail?.trim() || newAddress.email?.trim() || user?.email || '';
+      const finalPhone = phone?.trim() || addrPhone?.trim() || newAddress.phone?.trim() || '';
+
+      // Ensure shippingAddress object carries the resolved contact info
+      shippingAddress.phone = finalPhone;
+      if (finalEmail) {
+        shippingAddress.email = finalEmail;
+      }
 
       const finalEmailErr = validateEmailValue(finalEmail);
       if (finalEmailErr) {
@@ -707,7 +1023,7 @@ export default function CheckoutPage() {
           <div className="flex items-center justify-between max-w-4xl mx-auto mb-3">
             <Link href="/" className="flex items-center gap-2" aria-label="Angelika Fashions - Home">
               <img
-                src="/images/logo.png"
+                src={siteLogo}
                 alt="Angelika Fashions"
                 className="h-8 md:h-10 w-auto object-contain rounded-sm"
               />
@@ -716,7 +1032,7 @@ export default function CheckoutPage() {
                   Angelika
                 </span>
                 <span className="text-[8px] tracking-[0.2em] text-[var(--color-gold)] uppercase font-semibold">
-                  Secure Checkout
+                  {securityBadgeText}
                 </span>
               </div>
             </Link>
@@ -794,33 +1110,163 @@ export default function CheckoutPage() {
                           {user && savedAddresses.length > 0 && (
                             <StaggerItem variant="default">
                               <div className="space-y-3">
-                                <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-gold)]">Saved Addresses</h4>
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-gold)]">
+                                    Saved Addresses ({savedAddresses.length})
+                                  </h4>
+                                  <span className="text-xs text-[var(--color-slate)]">
+                                    Select or edit your delivery address
+                                  </span>
+                                </div>
+
+                                {addressNotice && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -4 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className={cn(
+                                      'p-3 text-xs rounded-[var(--radius-md)] flex items-center justify-between',
+                                      addressNotice.type === 'success'
+                                        ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                                        : 'bg-red-50 border border-red-200 text-red-800'
+                                    )}
+                                  >
+                                    <span>{addressNotice.text}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setAddressNotice(null)}
+                                      className="text-xs font-semibold ml-2 hover:underline cursor-pointer"
+                                    >
+                                      ✕
+                                    </button>
+                                  </motion.div>
+                                )}
+
                                 <div className="space-y-3">
-                                  {savedAddresses.map((addr, index) => (
-                                    <StaggerItem key={addr.id || index} variant="slide" style={{ transitionDelay: `${index * 0.08}s` }}>
-                                      <Radio
-                                        checked={selectedAddressId === addr.id}
-                                        onChange={() => setSelectedAddressId(addr.id || '')}
-                                        label={`${addr.firstName} ${addr.lastName}`}
-                                        description={`${addr.address1}${addr.address2 ? ', ' + addr.address2 : ''}, ${addr.city}, ${addr.state} - ${addr.postalCode} | Phone: ${addr.phone}`}
-                                        className={cn(
-                                          'relative p-4 border rounded-[var(--radius-lg)] transition-all duration-200 block',
-                                          selectedAddressId === addr.id
-                                            ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-[var(--shadow-gold)]'
-                                            : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]'
-                                        )}
-                                      >
-                                        {addr.isDefault && (
-                                          <span className="absolute top-2 right-2 px-2 py-0.5 text-xs font-medium bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-sm)]">
-                                            Default
-                                          </span>
-                                        )}
-                                        <span className="absolute top-2 right-2 text-sm text-[var(--color-gold)] font-medium capitalize" style={{ right: addr.isDefault ? '70px' : '10px' }}>
-                                          {addr.type}
-                                        </span>
-                                      </Radio>
-                                    </StaggerItem>
-                                  ))}
+                                  {savedAddresses.map((addr, index) => {
+                                    const isSelected = selectedAddressId === addr.id;
+                                    const isCurrentlyEditing = editingAddressId === addr.id && showNewAddressForm;
+
+                                    return (
+                                      <StaggerItem key={addr.id || index} variant="slide" style={{ transitionDelay: `${index * 0.08}s` }}>
+                                        <div
+                                          role="button"
+                                          tabIndex={0}
+                                          onClick={() => {
+                                            setSelectedAddressId(addr.id || '');
+                                            if (addr.phone) setPhone(addr.phone);
+                                            if (addr.email) setEmail(addr.email);
+                                            setError('');
+                                            setFieldErrors({});
+                                            if (editingAddressId && editingAddressId !== addr.id) {
+                                              handleCancelEditAddress();
+                                            }
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                              setSelectedAddressId(addr.id || '');
+                                              if (addr.phone) setPhone(addr.phone);
+                                              if (addr.email) setEmail(addr.email);
+                                              setError('');
+                                              setFieldErrors({});
+                                            }
+                                          }}
+                                          className={cn(
+                                            'relative p-4 border rounded-[var(--radius-lg)] transition-all duration-200 block text-left cursor-pointer select-none',
+                                            isSelected
+                                              ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-[var(--shadow-gold)] ring-1 ring-[var(--color-gold)]/40'
+                                              : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]/60 bg-[var(--color-white)]'
+                                          )}
+                                        >
+                                          <div className="flex items-start justify-between gap-3">
+                                            {/* Left: Custom Radio circle + Details */}
+                                            <div className="flex items-start gap-3 flex-1 min-w-0">
+                                              <div
+                                                className={cn(
+                                                  'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all',
+                                                  isSelected
+                                                    ? 'border-[var(--color-gold)] bg-[var(--color-gold)]'
+                                                    : 'border-[var(--color-whisper)]'
+                                                )}
+                                              >
+                                                {isSelected && (
+                                                  <div className="w-2 h-2 rounded-full bg-[var(--color-ink)]" />
+                                                )}
+                                              </div>
+
+                                              <div className="space-y-1 flex-1 min-w-0">
+                                                <div className="flex items-center flex-wrap gap-2">
+                                                  <span className="font-semibold text-sm text-[var(--color-ink)]">
+                                                    {addr.firstName} {addr.lastName}
+                                                  </span>
+                                                  {addr.type && (
+                                                    <span className="px-2 py-0.5 text-[10px] font-semibold bg-[var(--color-gold-light)] text-[var(--color-gold)] rounded-full border border-[var(--color-gold)]/20 capitalize">
+                                                      {addr.type === 'Home' ? '🏠 Home' : addr.type === 'Office' ? '🏢 Office' : `✨ ${addr.type}`}
+                                                    </span>
+                                                  )}
+                                                  {addr.isDefault && (
+                                                    <span className="px-2 py-0.5 text-[10px] font-bold bg-[var(--color-gold)] text-[var(--color-ink)] rounded-full uppercase tracking-wider">
+                                                      Default
+                                                    </span>
+                                                  )}
+                                                </div>
+
+                                                <p className="text-xs text-[var(--color-slate)] leading-relaxed">
+                                                  {addr.address1}
+                                                  {addr.address2 ? `, ${addr.address2}` : ''}, {addr.city}, {addr.state} -{' '}
+                                                  <span className="font-medium text-[var(--color-ink)]">{addr.postalCode}</span>
+                                                </p>
+
+                                                <div className="flex items-center gap-2 text-xs text-[var(--color-slate)] pt-0.5">
+                                                  <span>📞 +91 {addr.phone}</span>
+                                                  {addr.email && (
+                                                    <>
+                                                      <span>•</span>
+                                                      <span className="truncate">✉️ {addr.email}</span>
+                                                    </>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Right: Actions (Edit & Delete buttons) */}
+                                            <div className="flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleStartEditAddress(addr)}
+                                                className={cn(
+                                                  'px-3 py-1.5 text-xs font-semibold rounded-[var(--radius-md)] border transition-all flex items-center gap-1.5 shadow-xs cursor-pointer',
+                                                  isCurrentlyEditing
+                                                    ? 'border-[var(--color-gold)] bg-[var(--color-gold)] text-[var(--color-ink)] font-bold'
+                                                    : 'border-[var(--color-gold)]/40 text-[var(--color-gold)] bg-[var(--color-white)] hover:bg-[var(--color-gold-light)]/40 hover:border-[var(--color-gold)]'
+                                                )}
+                                                aria-label={`Edit saved address for ${addr.firstName}`}
+                                              >
+                                                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                                </svg>
+                                                <span>{isCurrentlyEditing ? 'Editing...' : 'Edit'}</span>
+                                              </button>
+
+                                              {savedAddresses.length > 1 && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => handleDeleteSavedAddress(addr.id || '')}
+                                                  className="p-1.5 text-xs text-[var(--color-slate)] hover:text-red-600 hover:bg-red-50 rounded-[var(--radius-md)] transition-colors cursor-pointer"
+                                                  title="Delete address"
+                                                  aria-label="Delete address"
+                                                >
+                                                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                                  </svg>
+                                                </button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </StaggerItem>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </StaggerItem>
@@ -830,11 +1276,17 @@ export default function CheckoutPage() {
                           {user && savedAddresses.length > 0 && (
                             <div className="border-t border-[var(--color-whisper)] pt-4">
                               <Button
-                                variant={showNewAddressForm ? 'secondary' : 'outline'}
+                                variant={showNewAddressForm && !editingAddressId ? 'secondary' : 'outline'}
                                 className="w-full"
-                                onClick={() => setShowNewAddressForm(!showNewAddressForm)}
+                                onClick={() => {
+                                  if (showNewAddressForm && !editingAddressId) {
+                                    handleCancelEditAddress();
+                                  } else {
+                                    handleStartNewAddress();
+                                  }
+                                }}
                               >
-                                {showNewAddressForm ? 'Cancel New Address' : '+ Add Different Address'}
+                                {showNewAddressForm && !editingAddressId ? 'Cancel New Address' : addNewAddressButtonText}
                               </Button>
                             </div>
                           )}
@@ -843,37 +1295,63 @@ export default function CheckoutPage() {
                           <AnimatePresence>
                             {(showNewAddressForm || !user || savedAddresses.length === 0) && (
                               <motion.div
-                                key="new-address"
+                                key={editingAddressId ? `edit-${editingAddressId}` : 'new-address'}
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}
                                 transition={{ duration: 0.3 }}
                                 className="space-y-5"
                               >
+                                {user && savedAddresses.length > 0 && (
+                                  <div className="flex items-center justify-between p-3.5 bg-[var(--color-gold-light)]/20 border border-[var(--color-gold)]/30 rounded-[var(--radius-lg)]">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-base">{editingAddressId ? '✏️' : '📍'}</span>
+                                      <div>
+                                        <p className="text-xs font-semibold text-[var(--color-ink)] uppercase tracking-wider">
+                                          {editingAddressId ? 'Edit Delivery Address' : 'New Delivery Address'}
+                                        </p>
+                                        <p className="text-xs text-[var(--color-slate)]">
+                                          {editingAddressId
+                                            ? `Editing saved address for ${newAddress.firstName || 'selected recipient'}`
+                                            : 'Add a new shipping address to your account'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={handleCancelEditAddress}
+                                      className="text-xs text-[var(--color-slate)] hover:text-[var(--color-ink)]"
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                )}
                                 {/* 1. Contact Info */}
                                 <div className="space-y-3 pb-2">
                                   <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                                    1. Contact Details (For order confirmation &amp; tracking)
+                                    {contactSectionHeading}
                                   </h4>
                                   <div className="grid sm:grid-cols-2 gap-4">
                                     <div>
-                                      <label htmlFor="email" className="input-label">Email Address *</label>
+                                      <label htmlFor="email" className="input-label">{emailLabel}</label>
                                       <Input
                                         id="email"
                                         type="email"
                                         value={email || newAddress.email || ''}
                                         onChange={(e) => handleEmailChange(e.target.value)}
                                         onBlur={handleEmailBlur}
-                                        placeholder="you@example.com"
+                                        placeholder={emailPlaceholder}
                                         error={fieldErrors['email']}
                                         required
                                       />
                                     </div>
                                     <div>
-                                      <label htmlFor="phone" className="input-label">Mobile Number *</label>
+                                      <label htmlFor="phone" className="input-label">{phoneLabel}</label>
                                       <div className="relative">
                                         <span className="absolute left-3 top-3.5 text-sm font-medium text-[var(--color-slate)] select-none z-10 pointer-events-none">
-                                          🇮🇳 +91
+                                          {phonePrefix}
                                         </span>
                                         <Input
                                           id="phone"
@@ -882,7 +1360,7 @@ export default function CheckoutPage() {
                                           value={phone || newAddress.phone || ''}
                                           onChange={(e) => handlePhoneChange(e.target.value)}
                                           onBlur={handlePhoneBlur}
-                                          placeholder="10-digit number"
+                                          placeholder={phonePlaceholder}
                                           error={fieldErrors['phone']}
                                           required
                                           maxLength={10}
@@ -902,7 +1380,7 @@ export default function CheckoutPage() {
                                           <svg className="w-4 h-4 text-[#25D366] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
                                           </svg>
-                                          Send dispatch updates &amp; live tracking photos via WhatsApp
+                                          {whatsappUpdatesText}
                                         </span>
                                       }
                                     />
@@ -912,11 +1390,11 @@ export default function CheckoutPage() {
                                 {/* 2. Shipping Address */}
                                 <div className="space-y-4 pt-2 border-t border-[var(--color-whisper)]">
                                   <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                                    2. Shipping Destination
+                                    {shippingSectionHeading}
                                   </h4>
                                   <div className="grid sm:grid-cols-2 gap-4">
                                     <div>
-                                      <label htmlFor="firstName" className="input-label">First Name *</label>
+                                      <label htmlFor="firstName" className="input-label">{firstNameLabel}</label>
                                       <Input
                                         id="firstName"
                                         value={newAddress.firstName || ''}
@@ -925,13 +1403,13 @@ export default function CheckoutPage() {
                                           if (fieldErrors['firstName']) setFieldErrors(prev => ({ ...prev, firstName: '' }));
                                         }}
                                         onBlur={handleFirstNameBlur}
-                                        placeholder="e.g. Priya"
+                                        placeholder={firstNamePlaceholder}
                                         error={fieldErrors['firstName']}
                                         required
                                       />
                                     </div>
                                     <div>
-                                      <label htmlFor="lastName" className="input-label">Last Name *</label>
+                                      <label htmlFor="lastName" className="input-label">{lastNameLabel}</label>
                                       <Input
                                         id="lastName"
                                         value={newAddress.lastName || ''}
@@ -940,7 +1418,7 @@ export default function CheckoutPage() {
                                           if (fieldErrors['lastName']) setFieldErrors(prev => ({ ...prev, lastName: '' }));
                                         }}
                                         onBlur={handleLastNameBlur}
-                                        placeholder="e.g. Sharma"
+                                        placeholder={lastNamePlaceholder}
                                         error={fieldErrors['lastName']}
                                         required
                                       />
@@ -948,7 +1426,7 @@ export default function CheckoutPage() {
                                   </div>
 
                                   <div>
-                                    <label htmlFor="address1" className="input-label">Flat / House No., Apartment &amp; Street Address *</label>
+                                    <label htmlFor="address1" className="input-label">{address1Label}</label>
                                     <Input
                                       id="address1"
                                       value={newAddress.address1 || ''}
@@ -957,19 +1435,19 @@ export default function CheckoutPage() {
                                         if (fieldErrors['address1']) setFieldErrors(prev => ({ ...prev, address1: '' }));
                                       }}
                                       onBlur={handleAddress1Blur}
-                                      placeholder="e.g. Flat 402, Lotus Residency, MG Road"
+                                      placeholder={address1Placeholder}
                                       error={fieldErrors['address1']}
                                       required
                                     />
                                   </div>
 
                                   <div>
-                                    <label htmlFor="address2" className="input-label">Landmark / Floor (Optional)</label>
+                                    <label htmlFor="address2" className="input-label">{address2Label}</label>
                                     <Input
                                       id="address2"
                                       value={newAddress.address2 || ''}
                                       onChange={(e) => setNewAddress({ ...newAddress, address2: e.target.value })}
-                                      placeholder="e.g. Near Indiranagar Metro Station"
+                                      placeholder={address2Placeholder}
                                     />
                                   </div>
 
@@ -977,10 +1455,10 @@ export default function CheckoutPage() {
                                   <div className="grid sm:grid-cols-3 gap-4">
                                     <div>
                                       <div className="flex items-center justify-between">
-                                        <label htmlFor="postalCode" className="input-label">Pincode *</label>
+                                        <label htmlFor="postalCode" className="input-label">{pincodeLabel}</label>
                                         {isResolvingPin && (
                                           <span className="text-[10px] text-[var(--color-gold)] animate-pulse">
-                                            Resolving...
+                                            {pincodeResolvingText}
                                           </span>
                                         )}
                                       </div>
@@ -990,14 +1468,14 @@ export default function CheckoutPage() {
                                         value={newAddress.postalCode || ''}
                                         onChange={(e) => handlePincodeChange(e.target.value)}
                                         onBlur={handlePincodeBlur}
-                                        placeholder="6-digit pincode"
+                                        placeholder={pincodePlaceholder}
                                         error={fieldErrors['postalCode']}
                                         required
                                         maxLength={6}
                                       />
                                     </div>
                                     <div>
-                                      <label htmlFor="city" className="input-label">City / District *</label>
+                                      <label htmlFor="city" className="input-label">{cityLabel}</label>
                                       <Input
                                         id="city"
                                         value={newAddress.city || ''}
@@ -1006,15 +1484,15 @@ export default function CheckoutPage() {
                                           if (fieldErrors['city']) setFieldErrors(prev => ({ ...prev, city: '' }));
                                         }}
                                         onBlur={handleCityBlur}
-                                        placeholder="City"
+                                        placeholder={cityPlaceholder}
                                         error={fieldErrors['city']}
                                         required
                                       />
                                     </div>
                                     <div>
-                                      <label htmlFor="state" className="input-label">State *</label>
+                                      <label htmlFor="state" className="input-label">{stateLabel}</label>
                                       <Select value={newAddress.state || ''} onValueChange={(value) => setNewAddress({ ...newAddress, state: value })} required>
-                                        <SelectTrigger placeholder="Select state" />
+                                        <SelectTrigger placeholder={statePlaceholder} />
                                         <SelectContent>
                                           {indianStates.map(s => (
                                             <SelectItem key={s} value={s}>{s}</SelectItem>
@@ -1044,33 +1522,36 @@ export default function CheckoutPage() {
                                           ✓
                                         </span>
                                         <span className="font-medium text-[var(--color-ink)]">
-                                          Delivering to {newAddress.city || pincodeInfo.city}, {newAddress.state || pincodeInfo.state}
+                                          {deliveringToPrefix} {newAddress.city || pincodeInfo.city}, {newAddress.state || pincodeInfo.state}
                                         </span>
                                       </div>
                                       <span className="text-[var(--color-gold)] font-semibold flex items-center gap-1">
-                                        ⚡ Expected delivery by {pincodeInfo.estimatedDateFormatted}
+                                        {expectedDeliveryPrefix} {pincodeInfo.estimatedDateFormatted}
                                       </span>
                                     </motion.div>
                                   )}
 
                                   <div>
-                                    <label htmlFor="type" className="input-label">Address Type</label>
+                                    <label htmlFor="type" className="input-label">{addressTypeLabel}</label>
                                     <div className="flex items-center gap-3">
-                                      {(['Home', 'Office', 'Other'] as const).map((t) => (
-                                        <button
-                                          key={t}
-                                          type="button"
-                                          onClick={() => setNewAddress({ ...newAddress, type: t })}
-                                          className={cn(
-                                            'px-4 py-2 text-xs font-medium rounded-[var(--radius-md)] border transition-all',
-                                            newAddress.type === t
-                                              ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)] text-[var(--color-gold)] font-semibold shadow-sm'
-                                              : 'border-[var(--color-whisper)] text-[var(--color-slate)] hover:border-[var(--color-gold)]/50'
-                                          )}
-                                        >
-                                          {t === 'Home' ? '🏠 Home' : t === 'Office' ? '🏢 Office' : '✨ Other'}
-                                        </button>
-                                      ))}
+                                      {addressTypes.map((t) => {
+                                        const typeVal = (t.label || t.id) as any;
+                                        return (
+                                          <button
+                                            key={t.id || t.label}
+                                            type="button"
+                                            onClick={() => setNewAddress({ ...newAddress, type: typeVal })}
+                                            className={cn(
+                                              'px-4 py-2 text-xs font-medium rounded-[var(--radius-md)] border transition-all',
+                                              newAddress.type === typeVal
+                                                ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)] text-[var(--color-gold)] font-semibold shadow-sm'
+                                                : 'border-[var(--color-whisper)] text-[var(--color-slate)] hover:border-[var(--color-gold)]/50'
+                                            )}
+                                          >
+                                            {t.icon ? `${t.icon} ` : ''}{t.label}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 </div>
@@ -1088,10 +1569,10 @@ export default function CheckoutPage() {
                                       <span className="text-xl">🎁</span>
                                       <div>
                                         <p className="text-sm font-semibold text-[var(--color-ink)]">
-                                          Complimentary Luxury Gift Packaging
+                                          {giftWrapTitle}
                                         </p>
                                         <p className="text-xs text-[var(--color-slate)]">
-                                          Signature gilded keepsake box, gold wax seal &amp; handwritten calligraphy note
+                                          {giftWrapSubtitle}
                                         </p>
                                       </div>
                                     </div>
@@ -1112,7 +1593,7 @@ export default function CheckoutPage() {
                                       className="pt-3 border-t border-[var(--color-whisper)] space-y-3"
                                     >
                                       <div>
-                                        <label htmlFor="giftRecipient" className="input-label">Recipient's Name (Optional)</label>
+                                        <label htmlFor="giftRecipient" className="input-label">Recipient&apos;s Name (Optional)</label>
                                         <Input
                                           id="giftRecipient"
                                           value={giftRecipient}
@@ -1121,12 +1602,12 @@ export default function CheckoutPage() {
                                         />
                                       </div>
                                       <div>
-                                        <label htmlFor="giftMessage" className="input-label">Personal Handwritten Note (Calligraphy)</label>
+                                        <label htmlFor="giftMessage" className="input-label">{giftMessageLabel}</label>
                                         <textarea
                                           id="giftMessage"
                                           value={giftMessage}
                                           onChange={(e) => setGiftMessage(e.target.value)}
-                                          placeholder="Write your wishes... (e.g. Wishing you a season filled with beauty and joy!)"
+                                          placeholder={giftMessagePlaceholder}
                                           className="input min-h-[70px] resize-none text-sm"
                                           rows={2}
                                           maxLength={150}
@@ -1137,13 +1618,41 @@ export default function CheckoutPage() {
                                 </div>
 
                                 {user && (
-                                  <div className="flex items-center gap-3 pt-2">
-                                    <Checkbox
-                                      checked={newAddress.isDefault || false}
-                                      onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
-                                      id="save-info"
-                                      label="Save as default address in my account"
-                                    />
+                                  <div className="space-y-4 pt-3 border-t border-[var(--color-whisper)]">
+                                    <div className="flex items-center gap-3">
+                                      <Checkbox
+                                        checked={newAddress.isDefault || false}
+                                        onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
+                                        id="save-info"
+                                        label="Save as default address in my account"
+                                      />
+                                    </div>
+
+                                    {savedAddresses.length > 0 && (
+                                      <div className="flex flex-wrap items-center gap-3 pt-2">
+                                        <Button
+                                          type="button"
+                                          variant="primary"
+                                          onClick={handleSaveCurrentAddressForm}
+                                          disabled={isSavingAddress}
+                                          className="px-6 py-2.5 text-xs font-semibold shadow-sm cursor-pointer"
+                                        >
+                                          {isSavingAddress
+                                            ? 'Saving...'
+                                            : editingAddressId
+                                            ? 'Save Address Changes'
+                                            : 'Save & Deliver to This Address'}
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          variant="secondary"
+                                          onClick={handleCancelEditAddress}
+                                          className="px-4 py-2.5 text-xs cursor-pointer"
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </motion.div>
@@ -1408,6 +1917,12 @@ export default function CheckoutPage() {
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-[var(--color-ink)] truncate">{item.product_name}</p>
                                     <p className="text-xs text-[var(--color-slate)]">{item.color} • Size: {item.size} • Qty: {item.quantity}</p>
+                                    {typeof item.inventory_quantity === 'number' && item.inventory_quantity === 0 && (
+                                      <span className="text-[11px] font-semibold text-rose-600 block mt-0.5">Out of stock</span>
+                                    )}
+                                    {typeof item.inventory_quantity === 'number' && item.inventory_quantity > 0 && item.quantity > item.inventory_quantity && (
+                                      <span className="text-[11px] font-semibold text-amber-600 block mt-0.5">Only {item.inventory_quantity} available in stock</span>
+                                    )}
                                     <p className="text-xs font-semibold text-[var(--color-ink)] mt-1">{formatPrice(item.price * item.quantity)}</p>
                                   </div>
                                 </div>
@@ -1485,7 +2000,7 @@ export default function CheckoutPage() {
                                 Securing Your Couture Order...
                               </>
                             ) : hasOutOfStockItems ? (
-                              'Resolve Out of Stock Items'
+                              'Resolve Stock Quantity Issues'
                             ) : (
                               `Place Order • ${formatPrice(total)}`
                             )}
@@ -1517,7 +2032,7 @@ export default function CheckoutPage() {
                   </MagneticButton>
                   {currentStep < steps.length - 1 ? (
                     <MagneticButton variant="primary" strength={0.3} onClick={nextStep}>
-                      Continue
+                      {currentStep === 0 ? continueToPaymentButtonText : 'Continue'}
                       <svg className="h-4 w-4 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                         <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>
@@ -1544,6 +2059,12 @@ export default function CheckoutPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-[var(--color-ink)] truncate">{item.product_name}</p>
                             <p className="text-xs text-[var(--color-slate)]">{item.color} • {item.size} × {item.quantity}</p>
+                            {typeof item.inventory_quantity === 'number' && item.inventory_quantity === 0 && (
+                              <span className="text-[11px] font-semibold text-rose-600 block mt-0.5">Out of stock</span>
+                            )}
+                            {typeof item.inventory_quantity === 'number' && item.inventory_quantity > 0 && item.quantity > item.inventory_quantity && (
+                              <span className="text-[11px] font-semibold text-amber-600 block mt-0.5">Only {item.inventory_quantity} available in stock</span>
+                            )}
                           </div>
                           <span className="text-sm font-medium text-[var(--color-ink)]">{formatPrice(item.price * item.quantity)}</span>
                         </div>
@@ -1563,8 +2084,13 @@ export default function CheckoutPage() {
 
                       {appliedCoupon ? (
                         <div className="flex items-center justify-between p-2.5 bg-[var(--color-success-bg)] border border-[var(--color-success)]/30 rounded-[var(--radius-md)]">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-xs font-bold text-[var(--color-success)]">✓ {appliedCoupon.code}</span>
+                            {appliedCoupon.first_order_only && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                1st Order Only
+                              </span>
+                            )}
                             <span className="text-xs text-[var(--color-slate)]">(-{formatPrice(discountAmount)})</span>
                           </div>
                           <button
@@ -1611,7 +2137,12 @@ export default function CheckoutPage() {
                                 <div className="min-w-0 pr-2">
                                   <div className="flex items-center gap-1.5">
                                     <span className="text-xs font-bold text-[var(--color-gold)]">{offer.code}</span>
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-[var(--color-gold)]/10 text-[var(--color-gold)] font-medium rounded-full">
+                                    <span className={cn(
+                                      "text-[9px] px-1.5 py-0.2 font-medium rounded-full",
+                                      offer.first_order_only
+                                        ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                        : "bg-[var(--color-gold)]/10 text-[var(--color-gold)]"
+                                    )}>
                                       {offer.badge}
                                     </span>
                                   </div>

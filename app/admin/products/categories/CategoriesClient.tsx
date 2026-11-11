@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useRef, useTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tag,
@@ -16,7 +16,11 @@ import {
   Package,
   Layers,
   Sparkles,
+  Upload,
+  Image as ImageIcon,
+  Loader2,
 } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
 import {
   createCategory,
@@ -47,6 +51,102 @@ export default function CategoriesClient({ initialCategories }: Props) {
   const [form, setForm] = useState({ ...EMPTY_CATEGORY });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  async function uploadSelectedFile(file: File) {
+    if (!file) return;
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('target', 'category');
+
+      const res = await fetch('/api/admin/content/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to upload image');
+      }
+
+      if (data.url) {
+        setForm((f) => ({ ...f, image_url: data.url }));
+      }
+    } catch (err: any) {
+      console.error('Category image upload failed:', err);
+      // Fallback to local Data URL so the user is never blocked
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setForm((f) => ({ ...f, image_url: reader.result as string }));
+        }
+      };
+      reader.readAsDataURL(file);
+      setUploadError(err.message ? `Note: ${err.message}` : null);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
+  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadSelectedFile(file);
+    }
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      uploadSelectedFile(file);
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item && item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            uploadSelectedFile(file);
+            return;
+          }
+        }
+      }
+    }
+    const text = e.clipboardData?.getData('text');
+    if (text && (text.startsWith('http') || text.startsWith('/') || text.startsWith('data:image'))) {
+      setForm((f) => ({ ...f, image_url: text.trim() }));
+    }
+  }
 
   const filtered = categories.filter(
     (c) =>
@@ -58,6 +158,8 @@ export default function CategoriesClient({ initialCategories }: Props) {
   function openCreate() {
     setEditingCategory(null);
     setForm({ ...EMPTY_CATEGORY });
+    setUploadError(null);
+    setIsUploading(false);
     setShowModal(true);
   }
 
@@ -70,6 +172,8 @@ export default function CategoriesClient({ initialCategories }: Props) {
       image_url: c.image_url || '/images/collection-kurtis.jpg',
       is_active: c.is_active,
     });
+    setUploadError(null);
+    setIsUploading(false);
     setShowModal(true);
   }
 
@@ -449,16 +553,151 @@ export default function CategoriesClient({ initialCategories }: Props) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                      Category Card Image URL
-                    </label>
-                    <input
-                      type="text"
-                      value={form.image_url}
-                      onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
-                      placeholder="/images/collection-kurtis.jpg"
-                      className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
-                    />
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-[var(--color-slate,#666666)]">
+                        Category Card Image
+                      </label>
+                      <span className="text-[10px] text-[var(--color-slate,#666666)]">
+                        Upload from device or enter URL
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {/* Upload Box + Live Thumbnail */}
+                      <div className="flex gap-3 items-stretch">
+                        {/* Live Thumbnail Preview */}
+                        <div className="relative w-16 h-20 rounded-xl overflow-hidden bg-[var(--color-snow,#F9F9F9)] border border-[var(--color-whisper,#E5E5E5)] shrink-0 flex items-center justify-center group">
+                          {form.image_url ? (
+                            <img
+                              src={form.image_url}
+                              alt="Category preview"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/images/collection-kurtis.jpg';
+                              }}
+                            />
+                          ) : (
+                            <ImageIcon className="w-6 h-6 text-gray-300" />
+                          )}
+                          {form.image_url && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, image_url: '' }))}
+                              className="absolute inset-0 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-medium"
+                              title="Clear image"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Local File Upload Dropzone */}
+                        <div className="flex-1">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/svg+xml,image/avif,image/gif"
+                            onChange={handleFileInputChange}
+                            className="hidden"
+                          />
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onPaste={handlePaste}
+                            tabIndex={0}
+                            className={cn(
+                              "h-20 border-2 border-dashed rounded-xl px-3 py-2 bg-white cursor-pointer transition-all flex items-center justify-between gap-3 text-left focus:outline-none focus:border-[var(--color-gold,#C9A84C)]",
+                              isDragging
+                                ? "border-[var(--color-gold,#C9A84C)] bg-[var(--color-gold,#C9A84C)]/10"
+                                : "border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)] hover:bg-[var(--color-snow,#F9F9F9)]"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-[var(--color-gold,#C9A84C)]/10 text-[var(--color-gold,#C9A84C)] flex items-center justify-center shrink-0">
+                                <Upload className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-[var(--color-ink,#111111)] truncate">
+                                  {isUploading ? 'Uploading image...' : 'Choose from Local Device'}
+                                </p>
+                                <p className="text-[10px] text-[var(--color-slate,#666666)] truncate">
+                                  Drag & drop, browse, or Ctrl+V paste
+                                </p>
+                              </div>
+                            </div>
+                            {isUploading ? (
+                              <Loader2 className="w-4 h-4 text-[var(--color-gold,#C9A84C)] animate-spin shrink-0" />
+                            ) : (
+                              <span className="text-[11px] font-medium text-[var(--color-gold,#C9A84C)] bg-[var(--color-gold,#C9A84C)]/10 px-2 py-1 rounded-lg shrink-0">
+                                Browse
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Direct URL Input */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] font-medium text-[var(--color-slate,#666666)]">
+                            Or paste / edit Image URL:
+                          </span>
+                          {form.image_url && (
+                            <button
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, image_url: '' }))}
+                              className="text-[10px] text-red-500 hover:underline"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={form.image_url}
+                          onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
+                          placeholder="/images/collection-kurtis.jpg or https://..."
+                          className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
+                        />
+                      </div>
+
+                      {/* Quick Presets */}
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-[var(--color-slate,#666666)] font-semibold mb-1">
+                          Suggested Presets:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { label: 'Kurtis', url: '/images/collection-kurtis.jpg' },
+                            { label: 'Salwars', url: '/images/collection-salwars.jpg' },
+                            { label: 'Lehengas', url: '/images/collection-lehengas.jpg' },
+                            { label: 'Sarees', url: '/images/collection-sarees.jpg' },
+                            { label: 'Dupattas', url: '/images/collection-dupattas.jpg' },
+                            { label: 'Couture', url: '/images/hero-new-couture.jpg' },
+                          ].map((preset) => (
+                            <button
+                              key={preset.label}
+                              type="button"
+                              onClick={() => setForm((f) => ({ ...f, image_url: preset.url }))}
+                              className={cn(
+                                "px-2 py-0.5 rounded-md text-[10px] font-medium border transition-colors",
+                                form.image_url === preset.url
+                                  ? "bg-[var(--color-gold,#C9A84C)] text-white border-[var(--color-gold,#C9A84C)]"
+                                  : "bg-white text-[var(--color-slate,#666666)] border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)]"
+                              )}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {uploadError && (
+                        <p className="text-[11px] text-amber-600">{uploadError}</p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-2">

@@ -1151,6 +1151,65 @@ export interface VidhyasPicksPageContent {
   };
 }
 
+export interface CheckoutAddressTypeOption {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+export interface CheckoutAddressPageContent {
+  header: {
+    stepperDeliveryLabel: string;
+    stepperDeliverySubtext: string;
+    stepperPaymentLabel: string;
+    stepperPaymentSubtext: string;
+    contactSectionTitle: string;
+  };
+  contact: {
+    emailLabel: string;
+    emailPlaceholder: string;
+    phoneLabel: string;
+    phonePlaceholder: string;
+    phonePrefix: string;
+    whatsappUpdatesText: string;
+    whatsappDefaultChecked: boolean;
+  };
+  shipping: {
+    sectionHeading: string;
+    firstNameLabel: string;
+    firstNamePlaceholder: string;
+    lastNameLabel: string;
+    lastNamePlaceholder: string;
+    address1Label: string;
+    address1Placeholder: string;
+    address2Label: string;
+    address2Placeholder: string;
+    pincodeLabel: string;
+    pincodePlaceholder: string;
+    cityLabel: string;
+    cityPlaceholder: string;
+    stateLabel: string;
+    statePlaceholder: string;
+    addressTypeLabel: string;
+    addressTypes: CheckoutAddressTypeOption[];
+  };
+  deliveryAndGifting: {
+    pincodeResolvingText: string;
+    deliveringToPrefix: string;
+    expectedDeliveryPrefix: string;
+    giftWrapTitle: string;
+    giftWrapSubtitle: string;
+    giftMessageLabel: string;
+    giftMessagePlaceholder: string;
+  };
+  buttonsAndSecurity: {
+    deliverToAddressButtonText: string;
+    addNewAddressButtonText: string;
+    continueToPaymentButtonText: string;
+    securityBadgeText: string;
+  };
+}
+
 export interface SiteContent {
   hero: HeroContent;
   features: {
@@ -1158,6 +1217,7 @@ export interface SiteContent {
   };
   'vidhyas-picks'?: VidhyasPicksSection;
   'vidhyas-picks-page'?: VidhyasPicksPageContent;
+  'checkout-address-page'?: CheckoutAddressPageContent;
   categories?: CategoriesContent;
   'new-arrivals'?: NewArrivalsContent;
   'shop-the-look'?: ShopTheLookSection;

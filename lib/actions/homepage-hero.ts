@@ -131,6 +131,17 @@ export async function saveHomepageHeroData(
           secondaryCtaLink: data.secondaryCtaLink || scContent.hero?.secondaryCtaLink || '/vidhyas-picks',
           backgroundImage: data.backgroundImage || scContent.hero?.backgroundImage || '/images/hero-new-couture.jpg',
         };
+
+        // Sync brand logo and names to footer as well
+        if (data.logoUrl) {
+          scContent.footer = {
+            ...(scContent.footer || {}),
+            logoUrl: data.logoUrl,
+            brandName: data.brandName || scContent.footer?.brandName || 'Angelika',
+            brandTagline: data.brandTagline || scContent.footer?.brandTagline || 'Fashions',
+          };
+        }
+
         fs.writeFileSync(siteContentPath, JSON.stringify(scContent, null, 2), 'utf8');
       }
     } catch (scErr) {

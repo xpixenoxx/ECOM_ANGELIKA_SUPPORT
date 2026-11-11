@@ -37,6 +37,16 @@ function fmt(n: number) {
   return '₹' + Number(n).toLocaleString('en-IN');
 }
 
+function formatOrderDate(d: string | null | undefined): string {
+  if (!d) return '—';
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '—';
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
 function timeAgo(d: string) {
   if (!d) return '—';
   const m = Math.floor((Date.now() - new Date(d).getTime()) / 60000);
@@ -349,9 +359,12 @@ export default function OrdersClient({ initialOrders }: { initialOrders: AdminOr
                     </td>
 
                     {/* Date Column */}
-                    <td className="px-4 py-3.5">
-                      <span className="text-xs font-medium text-[var(--color-slate)]" title={new Date(order.created_at).toLocaleString('en-IN')}>
-                        {timeAgo(order.created_at)}
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <span
+                        className="text-xs font-medium text-[var(--color-slate)] font-mono"
+                        title={`${new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} (${timeAgo(order.created_at)})`}
+                      >
+                        {formatOrderDate(order.created_at)}
                       </span>
                     </td>
 

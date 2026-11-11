@@ -293,6 +293,9 @@ export default function HomePageClient({
       : Number(String(rawPrice || '').replace(/[^0-9.]/g, '')) || 2999;
     const isVP = Boolean(product.isVidhyasPick || product.is_vidyas_pick);
     const prodName = product.name || product.title || 'Handcrafted Ethnic Ensemble';
+    const stockVal = typeof product.inventory_quantity === 'number'
+      ? product.inventory_quantity
+      : (typeof product.stock === 'number' ? product.stock : undefined);
 
     return await addItem(targetId, 1, 'Free Size', {
       product_id: product.id || targetId,
@@ -300,6 +303,8 @@ export default function HomePageClient({
       price: priceVal,
       image: imgUrl,
       is_vidyas_pick: isVP,
+      inventory_quantity: stockVal,
+      max_quantity: stockVal,
     });
   };
 

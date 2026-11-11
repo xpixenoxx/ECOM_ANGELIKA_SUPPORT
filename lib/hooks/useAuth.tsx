@@ -149,13 +149,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithOAuth = async (provider: 'google' | 'github' | 'facebook') => {
     const origin = typeof window !== 'undefined' ? window.location.origin : (process.env['NEXT_PUBLIC_SITE_URL'] || 'http://localhost:3000');
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${origin}/auth/callback`,
+        skipBrowserRedirect: true,
       },
     });
-    return { error: error ? new Error(error.message) : null };
+
+    if (error) {
+      return { error: new Error(error.message) };
+    }
+
+    if (data?.url) {
+      try {
+        const probe = await fetch(data.url, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+
+        if (!probe.ok && probe.status === 400) {
+          const body = await probe.json().catch(() => null);
+          if (body?.msg?.includes('not enabled') || body?.error_code === 'validation_failed') {
+            return {
+              error: new Error('Google Sign-In is not enabled yet in your Supabase project. Please enable Google provider in your Supabase Dashboard (Auth > Providers > Google), or sign in with your email and password.'),
+            };
+          }
+        }
+      } catch {
+        // If probing is prevented by CORS or network, proceed to browser redirect
+      }
+
+      window.location.assign(data.url);
+      return { error: null };
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {

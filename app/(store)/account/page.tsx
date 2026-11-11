@@ -45,7 +45,7 @@ const statusStyles: Record<string, string> = {
   delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
   shipped: 'bg-blue-50 text-blue-700 border border-blue-200',
   processing: 'bg-amber-50 text-amber-700 border border-amber-200',
-  confirmed: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+  confirmed: 'bg-[#FAF5EC] text-[#8F6A1E] border border-[#E8D7B8]',
   cancelled: 'bg-rose-50 text-rose-700 border border-rose-200',
   returned: 'bg-slate-100 text-slate-700 border border-slate-200',
 };

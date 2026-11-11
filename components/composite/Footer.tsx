@@ -31,6 +31,7 @@ export interface SocialLink {
 export interface FooterProps {
   content?: FooterContent;
   logo?: React.ReactNode;
+  logoUrl?: string;
   tagline?: string;
   columns?: FooterColumn[];
   socialLinks?: SocialLink[];
@@ -253,6 +254,7 @@ function ExchangeGuaranteeBadge({ text }: { text?: string } = {}) {
 export function Footer({
   content,
   logo,
+  logoUrl,
   tagline = 'Modern Indian luxury — rooted in craft, elevated for today.',
   columns = defaultColumns,
   socialLinks,
@@ -324,7 +326,7 @@ export function Footer({
   const effectiveBrand = content?.brandName || siteName;
   const effectiveBrandSub = content?.brandTagline || 'Fashions';
   const effectiveTagline = content?.tagline || tagline;
-  const effectiveLogoUrl = content?.logoUrl || '/images/logo.png';
+  const effectiveLogoUrl = logoUrl || content?.logoUrl || '/images/logo.png';
   const showAtelierCard = content ? content.showAtelierDesk !== false : true;
   const effectiveAtelierBadge = content?.atelierBadge || "Vidhya's Styling Atelier";
   const effectiveAtelierStatus = content?.atelierStatusText || 'Concierge Active';
@@ -384,7 +386,7 @@ export function Footer({
               {logo || (
                 <div className="flex items-center gap-3">
                   <img
-                    src="/images/logo.png"
+                    src={effectiveLogoUrl || "/images/logo.png"}
                     alt={siteName}
                     className="h-10 w-auto object-contain rounded"
                   />

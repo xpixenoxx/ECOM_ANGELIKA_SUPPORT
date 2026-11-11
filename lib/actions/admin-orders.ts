@@ -2,6 +2,17 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
+import { sendOrderShippedEmail } from '@/lib/email/order-shipped';
+
+async function dispatchShippedEmailIfNeeded(orderId: string, status: string) {
+  if (status !== 'shipped') return null;
+  try {
+    return await sendOrderShippedEmail(orderId);
+  } catch (emailErr) {
+    console.warn('[admin-orders] Order shipped email notice:', emailErr);
+    return null;
+  }
+}
 
 export interface OrderItem {
   id: string;
@@ -149,6 +160,8 @@ export async function updateOrderStatus(
       return { success: false, error: error.message };
     }
 
+    await dispatchShippedEmailIfNeeded(id, status);
+
     revalidatePath('/admin');
     revalidatePath('/admin/orders');
     revalidatePath('/admin/orders/shipments');
@@ -168,7 +181,7 @@ export async function updateShipmentFulfillment(
     trackingNumber: string;
     status?: 'shipped' | 'delivered';
   }
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; emailSent?: boolean; emailNotice?: string }> {
   try {
     const targetStatus = data.status || 'shipped';
     const updates: Record<string, any> = {
@@ -191,12 +204,18 @@ export async function updateShipmentFulfillment(
       return { success: false, error: error.message };
     }
 
+    const emailResult = await dispatchShippedEmailIfNeeded(orderId, targetStatus);
+
     revalidatePath('/admin');
     revalidatePath('/admin/orders/shipments');
     revalidatePath('/admin/orders');
     revalidatePath(`/admin/orders/${orderId}`);
     revalidatePath('/account/orders');
-    return { success: true };
+    return {
+      success: true,
+      emailSent: Boolean(emailResult?.success && !emailResult?.skipped),
+      emailNotice: emailResult && !emailResult.success ? emailResult.error : undefined,
+    };
   } catch (err: any) {
     console.error('updateShipmentFulfillment error:', err);
     return { success: false, error: err?.message || 'Failed to update shipment' };

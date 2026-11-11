@@ -14,6 +14,7 @@ import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { toast } from '@/components/ui/Toast';
 import { sendSignupOtp, verifySignupOtp } from '@/lib/actions/auth-otp';
+import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 
 type FormErrors = {
   fullName?: string;
@@ -55,6 +56,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [socialNotice, setSocialNotice] = useState<string | null>(null);
 
   // Signup OTP Verification State
   const [signupOtpStep, setSignupOtpStep] = useState(false);
@@ -78,6 +80,13 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
       toast.success('You have been signed out safely.');
     }
   }, [isLogout]);
+
+  const [siteLogo, setSiteLogo] = useState<string>('/images/logo.png');
+  useEffect(() => {
+    getHomepageHeroData().then((d) => {
+      if (d?.logoUrl) setSiteLogo(d.logoUrl);
+    }).catch(() => {});
+  }, []);
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
@@ -238,18 +247,22 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
 
   const handleGoogleAuth = async () => {
     setIsSubmitting(true);
+    setSocialNotice(null);
     try {
       const { error } = await signInWithOAuth('google');
       if (error) {
         const msg = error.message.toLowerCase();
         if (msg.includes('not enabled') || msg.includes('unsupported provider')) {
-          toast.info('Google Sign-In', 'Google sign-in is currently undergoing setup. Please sign in or register with email and password below.');
+          const detail = 'Google Sign-In requires the Google OAuth provider to be enabled in your Supabase Dashboard (Authentication > Providers > Google). In the meantime, please sign in or create an account with your email and password below.';
+          setSocialNotice(detail);
+          toast.info('Google Sign-In', 'Please use email and password or enable Google provider in Supabase.');
         } else {
           toast.error('Authentication Error', error.message);
         }
       }
     } catch {
-      toast.info('Google Sign-In', 'Please use email and password while social provider setup is finalized.');
+      setSocialNotice('Please use email and password while Google provider configuration is finalized in Supabase.');
+      toast.info('Google Sign-In', 'Please use email and password below.');
     } finally {
       setIsSubmitting(false);
     }
@@ -262,7 +275,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex flex-col items-center gap-1.5 mb-4 group" aria-label="Angelika Fashions - Home">
             <img
-              src="/images/logo.png"
+              src={siteLogo}
               alt="Angelika Fashions"
               className="h-14 w-auto object-contain rounded-sm transition-transform duration-200 group-hover:scale-105"
             />
@@ -430,6 +443,22 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                   </svg>
                   <span className="text-sm font-medium text-[var(--color-ink)]">Continue with Google</span>
                 </Button>
+
+                {socialNotice && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 p-3 bg-amber-50/90 border border-amber-200/80 rounded-xl text-left"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-amber-600 text-xs shrink-0 mt-0.5">ℹ️</span>
+                      <div className="text-xs text-amber-900 leading-relaxed">
+                        <p className="font-semibold text-amber-950 mb-0.5">Google Sign-In Needs Supabase Configuration</p>
+                        <p className="text-[11px] text-amber-800">{socialNotice}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
 
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center">

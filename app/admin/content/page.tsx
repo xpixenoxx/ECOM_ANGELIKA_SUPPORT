@@ -59,6 +59,7 @@ import { ContactPageEditor } from '@/components/admin/ContactPageEditor';
 import { WholesalePageEditor } from '@/components/admin/WholesalePageEditor';
 import { DesignerVidhyaPageEditor } from '@/components/admin/DesignerVidhyaPageEditor';
 import { VidhyasPicksPageEditor } from '@/components/admin/VidhyasPicksPageEditor';
+import { CheckoutAddressFormEditor } from '@/components/admin/CheckoutAddressFormEditor';
 
 // Modular Homepage & Global Layout Sections (ONLY modular sections on homepage)
 interface ContentSectionMeta {
@@ -110,12 +111,6 @@ const homepageSections: ContentSectionMeta[] = [
     label: '#MyAngelikaLook UGC Gallery',
     type: 'social',
     description: 'Customer community Instagram styling gallery and photo submissions',
-  },
-  {
-    id: 'size-finder-page',
-    label: 'Couture Fit Studio (Size Finder)',
-    type: 'studio',
-    description: 'Interactive garment fitting studio with personalized size recommendation and measurement charts',
   },
   {
     id: 'footer',
@@ -253,6 +248,13 @@ const staticPagesList: StaticPageMeta[] = [
     path: '/accessibility',
     category: 'Legal Policy',
     description: 'WCAG 2.1 AA digital accessibility commitments and assistive tech support',
+  },
+  {
+    id: 'checkout-address-page',
+    name: 'Checkout Address & Delivery Form',
+    path: '/checkout',
+    category: 'Customer Care',
+    description: 'Shipping destination inputs, placeholders, WhatsApp dispatch updates, and gift packaging options',
   },
 ];
 
@@ -745,17 +747,6 @@ export default function AdminContentPage() {
           <FooterEditor
             onCancel={() => setEditingSection(null)}
             onSaved={() => toast.success('Footer saved successfully!')}
-          />
-        </Card>
-      );
-    }
-
-    if (editingSection === 'size-finder-page') {
-      return (
-        <Card variant="elevated" padding="lg">
-          <SizeFinderPageEditor
-            onCancel={() => setEditingSection(null)}
-            onSaved={() => toast.success('Couture Fit Studio (Size Finder) saved successfully!')}
           />
         </Card>
       );
@@ -1310,6 +1301,13 @@ export default function AdminContentPage() {
           <AccessibilityPageEditor
             onCancel={() => setEditingStaticPage(null)}
             onSaved={() => toast.success('Accessibility Statement updated successfully!')}
+          />
+        );
+      case 'checkout-address-page':
+        return (
+          <CheckoutAddressFormEditor
+            onCancel={() => setEditingStaticPage(null)}
+            onSaved={() => toast.success('Checkout Address Form updated successfully!')}
           />
         );
       default:

@@ -208,7 +208,7 @@ export default function CartPage() {
     );
   }
 
-  const hasOutOfStockItems = items.some(item => item.inventory_quantity === 0);
+  const hasOutOfStockItems = items.some(item => (typeof item.inventory_quantity === 'number' && item.inventory_quantity <= 0) || (typeof item.inventory_quantity === 'number' && item.quantity > item.inventory_quantity));
 
   return (
     <div className="min-h-screen bg-[var(--color-white)]">
@@ -267,19 +267,24 @@ export default function CartPage() {
                               <span>Size: {item.size}</span>
                             </div>
                             {item.inventory_quantity === 0 && (
-                              <p className="text-sm text-[var(--color-error)] mt-1 flex items-center gap-1">
-                                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <p className="text-sm text-[var(--color-error)] mt-1 flex items-center gap-1 font-medium">
+                                <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-7a1 1 0 10-2 0v4a1 1 0 102 0V11zm0-2a1 1 0 10-2 0v2a1 1 0 102 0V9z" clipRule="evenodd" />
                                 </svg>
                                 This item is currently out of stock
                               </p>
                             )}
-                            {item.inventory_quantity > 0 && item.inventory_quantity < 5 && item.inventory_quantity < item.quantity && (
-                              <p className="text-sm text-[var(--color-warning)] mt-1 flex items-center gap-1">
-                                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            {typeof item.inventory_quantity === 'number' && item.inventory_quantity > 0 && item.quantity > item.inventory_quantity && (
+                              <p className="text-sm text-[var(--color-error)] mt-1 flex items-center gap-1 font-medium">
+                                <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                 </svg>
-                                Only {item.inventory_quantity} left in stock
+                                Only {item.inventory_quantity} available in stock. Please select {item.inventory_quantity} or fewer.
+                              </p>
+                            )}
+                            {typeof item.inventory_quantity === 'number' && item.inventory_quantity > 0 && item.inventory_quantity <= 3 && item.quantity <= item.inventory_quantity && (
+                              <p className="text-xs text-amber-700 bg-amber-50 rounded px-2 py-0.5 inline-flex items-center gap-1 mt-1 font-medium">
+                                Only {item.inventory_quantity} left in stock — order soon!
                               </p>
                             )}
                           </div>
@@ -302,12 +307,31 @@ export default function CartPage() {
                                 value={item.quantity}
                                 onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
                                 disabled={item.inventory_quantity === 0}
-                                className="input py-1.5 px-3 text-sm w-auto"
+                                className="input py-1.5 px-3 text-sm w-auto disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 aria-label={`Quantity for ${item.product_name}`}
                               >
-                                {Array.from({ length: item.max_quantity }, (_, i) => i + 1).map(q => (
-                                  <option key={q} value={q}>{q}</option>
-                                ))}
+                                {(() => {
+                                  const maxAllowed = Math.max(
+                                    1,
+                                    Math.min(
+                                      10,
+                                      typeof item.inventory_quantity === 'number'
+                                        ? item.inventory_quantity
+                                        : (item.max_quantity || 1)
+                                    )
+                                  );
+                                  const count = item.inventory_quantity === 0 ? 1 : Math.max(item.quantity, maxAllowed);
+                                  return Array.from({ length: count }, (_, i) => i + 1).map(q => (
+                                    <option
+                                      key={q}
+                                      value={q}
+                                      disabled={typeof item.inventory_quantity === 'number' && item.inventory_quantity > 0 && q > item.inventory_quantity}
+                                    >
+                                      {item.inventory_quantity === 0 ? '0 (Out of stock)' : q}
+                                      {typeof item.inventory_quantity === 'number' && item.inventory_quantity > 0 && q > item.inventory_quantity ? ' (Exceeds stock)' : ''}
+                                    </option>
+                                  ));
+                                })()}
                               </select>
                             </label>
                           </div>
@@ -335,7 +359,14 @@ export default function CartPage() {
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
                     <div>
-                      <p className="font-medium text-[var(--color-ink)]">{appliedCoupon.code} applied</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-[var(--color-ink)]">{appliedCoupon.code} applied</p>
+                        {appliedCoupon.first_order_only && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                            1st Order
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-[var(--color-success)]">
                         {appliedCoupon.type === 'percentage'
                           ? `${appliedCoupon.value}% off`
@@ -441,7 +472,7 @@ export default function CartPage() {
                       onClick={proceedToCheckout}
                       disabled={hasOutOfStockItems}
                     >
-                      {hasOutOfStockItems ? 'Resolve Out of Stock Items' : 'Proceed to Checkout'}
+                      {hasOutOfStockItems ? 'Resolve Stock Quantity Issues' : 'Proceed to Checkout'}
                     </Button>
 
                     <LinkButton variant="outline" href="/shop" className="w-full">Continue Shopping</LinkButton>

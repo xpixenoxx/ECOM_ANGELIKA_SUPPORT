@@ -55,7 +55,7 @@ function mapSalwarItemToProductCard(item: SalwarProductItem, index: number): Sho
       updated_at: new Date().toISOString(),
     } as any,
     discount,
-    is_featured: true,
+    is_featured: Boolean((item as any).isFeatured || (item as any).is_featured),
     is_vidyas_pick: Boolean(item.isVidhyasPick),
     created_at: new Date(Date.now() - index * 86400000).toISOString(),
     rating: typeof item.rating === 'number' ? item.rating : 4.8,
@@ -76,22 +76,23 @@ export default async function CategoryPage({
   const { category: categorySlug } = await params;
   const sp = await searchParams;
 
+  const siteContent = await getSiteContent();
   let salwarsContent: SalwarsPageContent | null = null;
   let lehengasContent: LehengasPageContent | null = null;
   let sareesContent: SareesPageContent | null = null;
   let dupattasContent: DupattasPageContent | null = null;
+  let kurtisContent: any = null;
+
   if (categorySlug === 'salwars') {
-    const siteContent = await getSiteContent();
     salwarsContent = siteContent['salwars-page'] || null;
   } else if (categorySlug === 'lehengas') {
-    const siteContent = await getSiteContent();
     lehengasContent = siteContent['lehengas-page'] || null;
   } else if (categorySlug === 'sarees') {
-    const siteContent = await getSiteContent();
     sareesContent = siteContent['sarees-page'] || null;
   } else if (categorySlug === 'dupattas') {
-    const siteContent = await getSiteContent();
     dupattasContent = siteContent['dupattas-page'] || null;
+  } else if (categorySlug === 'kurtis') {
+    kurtisContent = siteContent['kurtis-page'] || null;
   }
 
   // Get category info
@@ -135,7 +136,7 @@ export default async function CategoryPage({
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as any;
-    } else if (!category && categorySlug === 'dupattas') {
+  } else if (!category && categorySlug === 'dupattas') {
     category = {
       id: 'cat-dupattas',
       name: dupattasContent?.hero?.title || 'Dupattas',
@@ -148,8 +149,38 @@ export default async function CategoryPage({
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as any;
+  } else if (!category && categorySlug === 'kurtis') {
+    category = {
+      id: 'cat-kurtis',
+      name: kurtisContent?.title || 'Kurtis',
+      slug: 'kurtis',
+      description: kurtisContent?.description || 'Discover our complete range of handcrafted Indian ethnic kurtis, tunics, and anarkalis, thoughtfully made with artisanal perfection.',
+      parent_id: null,
+      image_url: kurtisContent?.cardImage || kurtisContent?.heroImage || '/images/collection-kurtis.jpg',
+      sort_order: 1,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any;
   } else if (!category) {
-    notFound();
+    // Universal fallback for any custom category slug configured in admin Category Showcase
+    const formattedName = categorySlug
+      .split('-')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+    category = {
+      id: `cat-${categorySlug}`,
+      name: formattedName,
+      slug: categorySlug,
+      description: `Handcrafted luxury collection of ${formattedName}. Rooted in craft, elevated for today.`,
+      parent_id: null,
+      image_url: '/images/hero-new-couture.jpg',
+      sort_order: 10,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any;
   }
 
   // Parse filters from search params
@@ -196,7 +227,7 @@ export default async function CategoryPage({
     vidhyasPicksOnly: vidhyasPicksOnlyParam === 'true',
   };
 
-  const sortBy = (sortParam as string) || 'newest';
+  const sortBy = (sortParam as string) || 'featured';
   const page = Number(pageParam) || 1;
 
   let { products, totalCount, totalPages } = await getProductsByCategory(
@@ -207,30 +238,47 @@ export default async function CategoryPage({
     48
   );
 
-  const siteContent = await getSiteContent();
-  const kurtisContent = (categorySlug || '').toLowerCase() === 'kurtis' ? (siteContent as any)?.['kurtis-page'] : undefined;
+  // Admin-curated content products for fallback or catalog augmentation
+  let categoryContentProducts: SalwarProductItem[] | undefined;
+  if (categorySlug === 'salwars') {
+    categoryContentProducts = salwarsContent?.products;
+  } else if (categorySlug === 'lehengas') {
+    categoryContentProducts = lehengasContent?.products;
+  } else if (categorySlug === 'sarees') {
+    categoryContentProducts = sareesContent?.products;
+  } else if (categorySlug === 'dupattas') {
+    categoryContentProducts = dupattasContent?.products;
+  } else if (categorySlug === 'kurtis' && kurtisContent?.productsMode !== 'database') {
+    categoryContentProducts = kurtisContent?.products;
+  }
 
-  // If viewing salwars, lehengas, sarees, or dupattas and admin-managed products exist, populate the complete admin catalog
-  if (categorySlug === 'salwars' && salwarsContent?.products && salwarsContent.products.length > 0) {
-    const adminProducts = salwarsContent.products.map(mapSalwarItemToProductCard);
-    products = adminProducts;
-    totalCount = adminProducts.length;
-    totalPages = 1;
-  } else if (categorySlug === 'lehengas' && lehengasContent?.products && lehengasContent.products.length > 0) {
-    const adminProducts = lehengasContent.products.map(mapSalwarItemToProductCard);
-    products = adminProducts;
-    totalCount = adminProducts.length;
-    totalPages = 1;
-  } else if (categorySlug === 'sarees' && sareesContent?.products && sareesContent.products.length > 0) {
-    const adminProducts = sareesContent.products.map(mapSalwarItemToProductCard);
-    products = adminProducts;
-    totalCount = adminProducts.length;
-    totalPages = 1;
-  } else if (categorySlug === 'dupattas' && dupattasContent?.products && dupattasContent.products.length > 0) {
-    const adminProducts = dupattasContent.products.map(mapSalwarItemToProductCard);
-    products = adminProducts;
-    totalCount = adminProducts.length;
-    totalPages = 1;
+  if (categoryContentProducts && categoryContentProducts.length > 0) {
+    const adminProducts = categoryContentProducts.map(mapSalwarItemToProductCard);
+
+    if (!products || products.length === 0) {
+      products = adminProducts;
+      totalCount = adminProducts.length;
+      totalPages = 1;
+    } else {
+      // Database products exist (e.g. newly created products from /admin/products)
+      // Deduplicate against admin-curated items by slug and ID so all database products are preserved
+      const existingSlugs = new Set(products.map((p) => p.slug));
+      const existingIds = new Set(products.map((p) => p.id));
+      const additional = adminProducts.filter(
+        (ap) => !existingSlugs.has(ap.slug) && !existingIds.has(ap.id)
+      );
+      if (additional.length > 0) {
+        products = [...products, ...additional];
+      }
+      // Ensure featured products (starred by admin) appear first in the category
+      products.sort((a, b) => {
+        if (a.is_featured && !b.is_featured) return -1;
+        if (!a.is_featured && b.is_featured) return 1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      totalCount = products.length;
+      totalPages = Math.ceil(totalCount / 48) || 1;
+    }
   }
 
   return (

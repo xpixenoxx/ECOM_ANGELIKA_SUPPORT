@@ -10,6 +10,12 @@ export async function getAdminClient() {
   try {
     const supabase = createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    // Allow direct admin access during local development
+    if (process.env.NODE_ENV !== 'production') {
+      return { supabase: supabaseAdmin, isAdmin: true, userId: user?.id || null };
+    }
+
     if (authError || !user) {
       return { supabase: supabaseAdmin, isAdmin: false, userId: null };
     }

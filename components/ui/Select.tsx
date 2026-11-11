@@ -222,8 +222,8 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
         onKeyDown={handleKeyDown}
         {...props}
       >
-        <span className={cn('truncate flex-1 text-left flex items-center gap-2', value ? '' : 'text-[var(--color-mist)]')}>
-          {value || children || placeholder || 'Select...'}
+        <span className={cn('truncate flex-1 text-left flex items-center gap-2', (children || value) ? '' : 'text-[var(--color-mist)]')}>
+          {children || value || placeholder || 'Select...'}
         </span>
         <motion.svg
           className="w-5 h-5 text-[var(--color-slate)] flex-shrink-0 ml-2 transition-transform duration-200"
@@ -254,8 +254,8 @@ export function SelectValue({ placeholder, children, className = '' }: SelectVal
   const { value } = useSelectContext();
 
   return (
-    <span className={cn('truncate block', value ? '' : 'text-[var(--color-mist)]', className)}>
-      {value || children || placeholder}
+    <span className={cn('truncate block', (children || value) ? '' : 'text-[var(--color-mist)]', className)}>
+      {children || value || placeholder}
     </span>
   );
 }

@@ -72,6 +72,7 @@ export interface AppliedCoupon {
   type: 'percentage' | 'fixed' | 'free_shipping' | 'buy_x_get_y';
   value: number;
   discountAmount: number;
+  first_order_only?: boolean;
 }
 
 export interface CheckoutFormData {

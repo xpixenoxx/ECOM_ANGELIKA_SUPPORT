@@ -155,6 +155,8 @@ export interface ProductCardProps {
   isNew?: boolean;
   isSale?: boolean;
   isVidhyasPick?: boolean;
+  isFeatured?: boolean;
+  is_featured?: boolean;
   rating?: number;
   reviewCount?: number;
   onQuickView?: () => void;
@@ -164,6 +166,9 @@ export interface ProductCardProps {
   badge?: 'new' | 'sale' | 'limited' | 'exclusive';
   discount?: number;
   isWishlisted?: boolean;
+  inStock?: boolean;
+  inventory_quantity?: number;
+  stock?: number;
   className?: string;
   [key: string]: any;
 }
@@ -180,6 +185,8 @@ export function ProductCard({
   isNew,
   isSale,
   isVidhyasPick,
+  isFeatured,
+  is_featured,
   rating = 5.0,
   reviewCount,
   onQuickView,
@@ -189,6 +196,9 @@ export function ProductCard({
   badge,
   discount,
   isWishlisted,
+  inStock,
+  inventory_quantity,
+  stock,
   className = '',
   ...rest
 }: ProductCardProps) {
@@ -196,13 +206,21 @@ export function ProductCard({
   const [isAdded, setIsAdded] = useState(false);
   const cart = useCart();
 
+  const isOutOfStock =
+    inStock === false ||
+    inventory_quantity === 0 ||
+    stock === 0 ||
+    rest['inStock'] === false ||
+    rest['inventory_quantity'] === 0 ||
+    rest['stock'] === 0;
+
   const calculatedDiscount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : discount;
   const isValidHref = Boolean(href && !href.includes('/undefined') && href !== '#');
 
   const handleAddToBag = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isAdding) return;
+    if (isAdding || isOutOfStock) return;
     setIsAdding(true);
     try {
       let added = false;
@@ -217,12 +235,17 @@ export function ProductCard({
           ? price
           : Number(String(price || '').replace(/[^0-9.]/g, '')) || 2999;
         const targetId = id || (rest['slug'] as string) || (rest['defaultVariantId'] as string) || (rest['variant_id'] as string) || name || 'prod-1';
+        const stockVal = typeof inventory_quantity === 'number'
+          ? inventory_quantity
+          : (typeof stock === 'number' ? stock : (typeof rest['inventory_quantity'] === 'number' ? rest['inventory_quantity'] : undefined));
         const res = await cart.addItem(targetId, 1, 'Free Size', {
           product_id: targetId,
           product_name: name,
           price: cleanPrice,
           image: image || '/images/collection-kurtis.jpg',
           is_vidyas_pick: Boolean(isVidhyasPick),
+          inventory_quantity: stockVal,
+          max_quantity: stockVal,
         });
         if (res !== false) {
           added = true;
@@ -255,13 +278,17 @@ export function ProductCard({
     onAddToWishlist?.();
   };
 
+  const isProductFeatured = Boolean(isFeatured || is_featured);
+
   const badgeText = badge
     ? badge.toUpperCase()
-    : isNew || isVidhyasPick
-      ? 'NEW ARRIVAL'
-      : isSale && calculatedDiscount
-        ? `SALE ${calculatedDiscount}%`
-        : 'NEW ARRIVAL';
+    : isProductFeatured
+      ? 'FEATURED'
+      : isNew || isVidhyasPick
+        ? 'NEW ARRIVAL'
+        : isSale && calculatedDiscount
+          ? `SALE ${calculatedDiscount}%`
+          : 'NEW ARRIVAL';
 
   const cardContent = (
     <div className={cn("group relative flex flex-col w-[320px] max-w-full mx-auto bg-white", className)}>
@@ -321,8 +348,11 @@ export function ProductCard({
           </button>
         )}
 
-        {/* Bottom-Left Badge: NEW ARRIVAL (Wine-Red #A84557) */}
-        <div className="absolute bottom-0 left-0 bg-[#A84557] text-white px-2.5 py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider z-10 pointer-events-none">
+        {/* Bottom-Left Badge: FEATURED (Gold #B38E36) / NEW ARRIVAL (Wine-Red #A84557) */}
+        <div className={cn(
+          "absolute bottom-0 left-0 text-white px-2.5 py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider z-10 pointer-events-none",
+          isProductFeatured && !badge ? "bg-[#B38E36]" : "bg-[#A84557]"
+        )}>
           {badgeText}
         </div>
       </div>
@@ -331,7 +361,7 @@ export function ProductCard({
       <button
         type="button"
         onClick={handleAddToBag}
-        disabled={isAdding}
+        disabled={isAdding || isOutOfStock}
         style={{
           width: '320px',
           height: '33.8px',
@@ -341,15 +371,21 @@ export function ProductCard({
           boxSizing: 'border-box',
         }}
         className={cn(
-          "btn-add-to-cart group/btn relative w-[320px] max-w-full h-[33.8px] py-[10px] px-0 text-[13px] font-bold uppercase tracking-[0.18em] flex items-center justify-center gap-1.5 focus:outline-hidden shrink-0 mx-auto leading-[13.8px] overflow-hidden cursor-pointer transition-colors duration-200",
-          isAdded
-            ? "bg-emerald-700 text-white"
-            : isAdding
-              ? "bg-[#111111] text-[#FBF4EC] opacity-85"
-              : "bg-[#FBF4EC] text-[#111111]"
+          "btn-add-to-cart group/btn relative w-[320px] max-w-full h-[33.8px] py-[10px] px-0 text-[13px] font-bold uppercase tracking-[0.18em] flex items-center justify-center gap-1.5 focus:outline-hidden shrink-0 mx-auto leading-[13.8px] overflow-hidden transition-colors duration-200",
+          isOutOfStock
+            ? "bg-[#EAE5DE] text-[#8C827A] cursor-not-allowed pointer-events-none"
+            : isAdded
+              ? "bg-emerald-700 text-white cursor-pointer"
+              : isAdding
+                ? "bg-[#111111] text-[#FBF4EC] opacity-85 cursor-pointer"
+                : "bg-[#FBF4EC] text-[#111111] cursor-pointer"
         )}
       >
-        {isAdded ? (
+        {isOutOfStock ? (
+          <span className="relative z-10 leading-none text-[12px] font-semibold text-[#8C827A]">
+            OUT OF STOCK
+          </span>
+        ) : isAdded ? (
           <span className="relative z-10 leading-none text-[12px] flex items-center gap-1 text-white">
             <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

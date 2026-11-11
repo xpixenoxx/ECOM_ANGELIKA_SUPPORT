@@ -3,6 +3,7 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { cancelShiprocketOrder } from '@/lib/shipping/shiprocket';
 
 export interface CustomerOrderItemReview {
   id: string;
@@ -82,6 +83,7 @@ export interface CustomerOrder {
   notes?: string | null;
   created_at: string;
   updated_at?: string;
+  metadata?: Record<string, any> | null;
   items_count: number;
   items: CustomerOrderItem[];
   customer_name?: string;
@@ -193,6 +195,7 @@ export async function getCustomerOrders(options?: {
         notes: order.notes || null,
         created_at: order.created_at,
         updated_at: order.updated_at,
+        metadata: order.metadata || null,
         items_count: itemsCount,
         items,
         customer_name: customerName,
@@ -447,6 +450,7 @@ export async function getCustomerOrderById(
       notes: order.notes || null,
       created_at: order.created_at,
       updated_at: order.updated_at,
+      metadata: order.metadata || null,
       items_count: itemsCount,
       items,
       customer_name: customerName,
@@ -808,5 +812,152 @@ export async function submitCustomerReturnRequest(data: {
   } catch (err: any) {
     console.error('submitCustomerReturnRequest error:', err);
     return { success: false, error: err?.message || 'Failed to submit return request' };
+  }
+}
+
+/**
+ * Customer Self-Service Order Cancellation Action
+ *
+ * Rules:
+ * 1. An order can ONLY be cancelled until it is shipped (e.g. pending, confirmed, processing).
+ * 2. Once the order status is 'shipped' (or 'delivered'), cancellation is strictly prohibited.
+ * 3. Automatically restores variant inventory quantities in Supabase.
+ * 4. Automatically syncs cancellation to Shiprocket if an order was created.
+ */
+export async function cancelCustomerOrder(data: {
+  orderId: string;
+  reason?: string;
+}): Promise<{ success: boolean; error?: string; cancelled_at?: string }> {
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.orderId);
+    let orderQuery = supabaseAdmin.from('orders').select('*, order_items(*)');
+    if (isUuid) {
+      orderQuery = orderQuery.eq('id', data.orderId);
+    } else {
+      orderQuery = orderQuery.eq('order_number', data.orderId);
+    }
+    const { data: order, error: oErr } = await orderQuery.maybeSingle();
+
+    if (oErr || !order) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    // Check optional authenticated user permissions
+    try {
+      const supabaseUser = await createServerClient();
+      const { data: { user } } = await supabaseUser.auth.getUser();
+      if (user && order.user_id && user.id !== order.user_id && user.email?.toLowerCase() !== order.email?.toLowerCase()) {
+        return { success: false, error: 'You are not authorized to cancel this order' };
+      }
+    } catch {
+      // Continue if session read fails (e.g. guest verification)
+    }
+
+    const currentStatus = (order.status || '').toLowerCase();
+
+    // STRICT CANCELLATION RESTRICTIONS
+    if (currentStatus === 'shipped') {
+      return {
+        success: false,
+        error: 'Your order has already been shipped and handed over to our courier partner. It can no longer be cancelled. You can request a return or exchange once it arrives at your doorstep.',
+      };
+    }
+
+    if (currentStatus === 'delivered') {
+      return {
+        success: false,
+        error: 'This order has already been delivered and cannot be cancelled. You can initiate a return or exchange for your item.',
+      };
+    }
+
+    if (currentStatus === 'cancelled') {
+      return {
+        success: false,
+        error: 'This order has already been cancelled.',
+      };
+    }
+
+    if (currentStatus === 'returned') {
+      return {
+        success: false,
+        error: 'This order has already been returned and cannot be cancelled.',
+      };
+    }
+
+    const cancelledAt = new Date().toISOString();
+    const reason = data.reason?.trim() || 'Customer requested cancellation prior to shipment';
+
+    // 1. Update Order in Supabase
+    const { error: updateErr } = await supabaseAdmin
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_at: cancelledAt,
+        cancel_reason: reason,
+        updated_at: cancelledAt,
+        metadata: {
+          ...(typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata)
+            ? order.metadata
+            : {}),
+          cancelled_by: 'customer',
+          cancellation_recorded_at: cancelledAt,
+        },
+      })
+      .eq('id', order.id);
+
+    if (updateErr) {
+      console.error('Failed to update order to cancelled:', updateErr);
+      return { success: false, error: updateErr.message || 'Failed to cancel order' };
+    }
+
+    // 2. Restore Inventory Quantities for each variant in the order
+    if (Array.isArray(order.order_items)) {
+      for (const item of order.order_items) {
+        if (item.variant_id && item.quantity > 0) {
+          try {
+            const { data: v } = await supabaseAdmin
+              .from('product_variants')
+              .select('inventory_quantity')
+              .eq('id', item.variant_id)
+              .maybeSingle();
+
+            if (v && v.inventory_quantity !== null) {
+              await supabaseAdmin
+                .from('product_variants')
+                .update({ inventory_quantity: v.inventory_quantity + item.quantity })
+                .eq('id', item.variant_id);
+            }
+          } catch (invErr) {
+            console.warn('[Inventory Restore Notice on Cancellation]:', invErr);
+          }
+        }
+      }
+    }
+
+    // 3. Notify / Cancel in Shiprocket if an adhoc order was already generated
+    const srOrderId = order.metadata?.['shiprocket_order_id'];
+    if (srOrderId) {
+      try {
+        await cancelShiprocketOrder(srOrderId);
+      } catch (srErr) {
+        console.warn('[Shiprocket Cancellation Notice]:', srErr);
+      }
+    }
+
+    // 4. Revalidate all customer and admin views
+    revalidatePath('/account/orders');
+    revalidatePath(`/account/orders/${order.id}`);
+    revalidatePath(`/account/orders/${order.order_number}`);
+    revalidatePath('/admin/orders');
+    revalidatePath('/admin/orders/shipments');
+    revalidatePath(`/admin/orders/${order.id}`);
+
+    return {
+      success: true,
+      cancelled_at: cancelledAt,
+    };
+  } catch (err: any) {
+    console.error('cancelCustomerOrder error:', err);
+    return { success: false, error: err?.message || 'Failed to cancel order' };
   }
 }
