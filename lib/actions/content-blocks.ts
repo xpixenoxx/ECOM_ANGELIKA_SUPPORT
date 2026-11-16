@@ -1,8 +1,7 @@
 'use server';
 
-import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { getAdminClient } from '@/lib/supabase/admin-auth';
+import { CONTENT_ADMIN_ROLES, getAdminClient, logAdminAction } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
 import {
   ContentBlock,
@@ -26,7 +25,7 @@ import {
  */
 export async function getContentBlocksAdmin(): Promise<ContentBlockListResult> {
   try {
-    const { supabase, isAdmin } = await getAdminClient();
+    const { supabase, isAdmin } = await getAdminClient(CONTENT_ADMIN_ROLES);
 
     if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
@@ -55,7 +54,7 @@ export async function getContentBlocksAdmin(): Promise<ContentBlockListResult> {
  */
 export async function getPublishedContentBlocks(): Promise<ContentBlockListResult> {
   try {
-    const { supabase } = await getAdminClient();
+    const supabase = createClient();
 
     const { data: blocks, error } = await supabase
       .from('content_blocks')
@@ -83,7 +82,7 @@ export async function getPublishedContentBlocks(): Promise<ContentBlockListResul
  */
 export async function getContentBlock(id: string): Promise<ContentBlockSingleResult> {
   try {
-    const { supabase, isAdmin } = await getAdminClient();
+    const { supabase, isAdmin } = await getAdminClient(CONTENT_ADMIN_ROLES);
 
     if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
@@ -145,6 +144,14 @@ export async function createContentBlock(input: ContentBlockInput): Promise<Cont
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: userId,
+      action: 'create_content_block',
+      entityType: 'content_block',
+      entityId: block.id,
+      afterState: { key: block.key, type: block.type },
+    });
+
     revalidatePath('/admin/content/blocks');
     revalidatePath('/');
 
@@ -200,6 +207,21 @@ export async function updateContentBlock(id: string, input: Partial<ContentBlock
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: userId,
+      action: 'create_content_block',
+      entityType: 'content_block',
+      entityId: block.id,
+      afterState: { key: block.key, type: block.type },
+    });
+
+    await logAdminAction({
+      actorId: userId,
+      action: 'update_content_block',
+      entityType: 'content_block',
+      entityId: id,
+    });
+
     revalidatePath('/admin/content/blocks');
     revalidatePath('/');
 
@@ -215,7 +237,7 @@ export async function updateContentBlock(id: string, input: Partial<ContentBlock
  */
 export async function deleteContentBlock(id: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { supabase, isAdmin } = await getAdminClient();
+    const { supabase, isAdmin, userId } = await getAdminClient(CONTENT_ADMIN_ROLES);
 
     if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
@@ -230,6 +252,13 @@ export async function deleteContentBlock(id: string): Promise<{ success: boolean
       console.error('Delete content block error:', error);
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: userId,
+      action: 'delete_content_block',
+      entityType: 'content_block',
+      entityId: id,
+    });
 
     revalidatePath('/admin/content/blocks');
     revalidatePath('/');
@@ -246,7 +275,7 @@ export async function deleteContentBlock(id: string): Promise<{ success: boolean
  */
 export async function reorderContentBlocks(blockIds: string[]): Promise<{ success: boolean; error?: string }> {
   try {
-    const { supabase, isAdmin, userId } = await getAdminClient();
+    const { supabase, isAdmin, userId } = await getAdminClient(CONTENT_ADMIN_ROLES);
 
     if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
@@ -268,6 +297,13 @@ export async function reorderContentBlocks(blockIds: string[]): Promise<{ succes
       return { success: false, error: 'Some blocks failed to reorder' };
     }
 
+    await logAdminAction({
+      actorId: userId,
+      action: 'reorder_content_blocks',
+      entityType: 'content_block',
+      afterState: { blockIds },
+    });
+
     revalidatePath('/admin/content/blocks');
     revalidatePath('/');
 
@@ -283,7 +319,7 @@ export async function reorderContentBlocks(blockIds: string[]): Promise<{ succes
  */
 export async function toggleContentBlockStatus(id: string, isActive: boolean, publish: boolean = false): Promise<ContentBlockMutationResult> {
   try {
-    const { supabase, isAdmin, userId } = await getAdminClient();
+    const { supabase, isAdmin, userId } = await getAdminClient(CONTENT_ADMIN_ROLES);
 
     if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };
@@ -315,6 +351,22 @@ export async function toggleContentBlockStatus(id: string, isActive: boolean, pu
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: userId,
+      action: 'create_content_block',
+      entityType: 'content_block',
+      entityId: block.id,
+      afterState: { key: block.key, type: block.type },
+    });
+
+    await logAdminAction({
+      actorId: userId,
+      action: 'toggle_content_block',
+      entityType: 'content_block',
+      entityId: id,
+      afterState: { isActive, publish },
+    });
+
     revalidatePath('/admin/content/blocks');
     revalidatePath('/');
 
@@ -330,7 +382,7 @@ export async function toggleContentBlockStatus(id: string, isActive: boolean, pu
  */
 export async function duplicateContentBlock(id: string): Promise<ContentBlockMutationResult> {
   try {
-    const { supabase, isAdmin, userId } = await getAdminClient();
+    const { supabase, isAdmin, userId } = await getAdminClient(CONTENT_ADMIN_ROLES);
 
     if (!isAdmin) {
       return { success: false, error: 'Unauthorized' };

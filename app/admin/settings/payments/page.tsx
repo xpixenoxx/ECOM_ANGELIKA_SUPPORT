@@ -1,36 +1,66 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  CreditCard,
-  Save,
-  Check,
-  ShieldCheck,
-  AlertCircle,
-  ExternalLink,
-} from 'lucide-react';
+import toast from 'react-hot-toast';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
+import {
+  getExtendedStoreSettings,
+  saveExtendedStoreSettings,
+} from '@/lib/actions/store-settings';
 
 export default function PaymentsSettingsPage() {
-  const [razorpayKey, setRazorpayKey] = useState('rzp_live_9281a8c9b');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const [razorpayConfigured, setRazorpayConfigured] = useState(false);
+  const [razorpayWebhookConfigured, setRazorpayWebhookConfigured] = useState(false);
+  const [stripeConfigured, setStripeConfigured] = useState(false);
+
   const [codEnabled, setCodEnabled] = useState(true);
   const [codMaxAmount, setCodMaxAmount] = useState('10000');
-  const [codFee, setCodFee] = useState('0');
+  const [codFee, setCodFee] = useState('49');
   const [upiEnabled, setUpiEnabled] = useState(true);
-  const [intlEnabled, setIntlEnabled] = useState(true);
+  const [intlEnabled, setIntlEnabled] = useState(false);
 
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    getExtendedStoreSettings()
+      .then((res) => {
+        setRazorpayConfigured(res.serviceHealth.razorpayConfigured);
+        setRazorpayWebhookConfigured(res.serviceHealth.razorpayWebhookConfigured);
+        setStripeConfigured(res.serviceHealth.stripeConfigured);
+        setCodMaxAmount(String(res.codMaxAmount));
+        setCodEnabled(res.extended.payments.codEnabled);
+        setCodFee(String(res.extended.payments.codFee));
+        setUpiEnabled(res.extended.payments.upiEnabled);
+        setIntlEnabled(res.extended.payments.intlEnabled);
+        if (!res.success && res.error) setErrorMsg(res.error);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
+    setErrorMsg(null);
+    try {
+      const res = await saveExtendedStoreSettings('payments', {
+        codEnabled,
+        codMaxAmount: Number(codMaxAmount) || 0,
+        codFee: Number(codFee) || 0,
+        upiEnabled,
+        intlEnabled,
+      });
+      if (!res.success) {
+        setErrorMsg(res.error || 'Could not save payment settings.');
+        toast.error(res.error || 'Could not save payment settings.');
+        return;
+      }
+      toast.success('Payment configuration saved to Supabase!');
+    } finally {
       setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    }, 600);
+    }
   }
 
   return (
@@ -43,125 +73,125 @@ export default function PaymentsSettingsPage() {
             </h1>
             <AdminSectionInfo
               title="Payment Processing Configuration"
-              purpose="Configure domestic Indian gateways (Razorpay, UPI, Net Banking), Cash on Delivery risk controls, and international card processors."
-              storefrontImpact="Directly controls the available payment options on the checkout page (/checkout) and payment verification during order placement."
+              purpose="View server environment gateway status (Razorpay, Stripe) and configure Cash on Delivery limits, UPI, and international card availability."
+              storefrontImpact="Controls payment rules enforced during checkout order validation (/checkout)."
               targets={[
-                { name: 'Storefront Checkout', path: '/checkout', description: 'Payment method options & COD validation' },
-                { name: 'Cart Summary', path: '/cart', description: 'Payment trust badges' },
+                { name: 'Storefront Checkout', path: '/checkout', description: 'Payment method options & COD limits' },
+                { name: 'Webhook Listeners', path: '/admin/settings/webhooks', description: 'Payment webhook signature verification' },
               ]}
             />
           </div>
           <p className="text-sm text-[var(--color-slate,#666666)] mt-1">
-            Configure Razorpay, UPI QR, and Cash on Delivery rules
+            Gateway credentials are stored strictly in server environment variables; checkout rules persist in Supabase
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || loading}
           className="flex items-center gap-2 bg-[var(--color-gold,#C9A84C)] text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:opacity-90 shadow-sm transition-opacity self-start sm:self-auto disabled:opacity-50"
         >
-          {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Payment Settings'}
+          {saving ? 'Saving...' : 'Save Payment Settings'}
         </button>
       </div>
 
+      {errorMsg && (
+        <div role="alert" className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+          {errorMsg}
+        </div>
+      )}
+
       <div className="space-y-5">
-        {/* Razorpay Integration */}
         <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[var(--color-whisper,#E5E5E5)]">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--color-whisper,#E5E5E5)]">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
                 R
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-[var(--color-ink,#111111)]">Razorpay Payment Gateway</h3>
-                <p className="text-xs text-[var(--color-slate,#666666)]">Credit/Debit Cards, Net Banking &amp; Wallets</p>
+                <p className="text-xs text-[var(--color-slate,#666666)]">Cards, UPI, Net Banking &amp; Wallets (INR)</p>
               </div>
             </div>
-            <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-green-50 text-green-700 border border-green-200">
-              Active / Live
+            <span
+              className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                razorpayConfigured
+                  ? 'bg-green-50 text-green-700 border-green-200'
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}
+            >
+              {razorpayConfigured ? 'ENV Keys Configured' : 'Needs ENV Credentials'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                Razorpay Key ID
-              </label>
-              <input
-                type="text"
-                value={razorpayKey}
-                onChange={(e) => setRazorpayKey(e.target.value)}
-                className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-[var(--color-snow,#F9F9F9)] border border-[var(--color-whisper,#E5E5E5)]">
+              <p className="font-semibold text-[var(--color-ink)]">RAZORPAY_KEY_ID / SECRET</p>
+              <p className="text-[var(--color-slate)] mt-1">
+                {razorpayConfigured
+                  ? 'Server gateway credentials detected in environment.'
+                  : 'Set NEXT_PUBLIC_RAZORPAY_KEY_ID, RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET in deployment environment.'}
+              </p>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                Razorpay Key Secret
-              </label>
-              <input
-                type="password"
-                value="••••••••••••••••••••••••••••"
-                readOnly
-                className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm font-mono bg-[var(--color-snow,#F9F9F9)] text-[var(--color-mist,#999999)]"
-              />
+            <div className="p-3.5 rounded-xl bg-[var(--color-snow,#F9F9F9)] border border-[var(--color-whisper,#E5E5E5)]">
+              <p className="font-semibold text-[var(--color-ink)]">RAZORPAY_WEBHOOK_SECRET &amp; Stripe</p>
+              <p className="text-[var(--color-slate)] mt-1">
+                Webhook Secret: <strong>{razorpayWebhookConfigured ? 'Configured' : 'Missing'}</strong> · Stripe Intl: <strong>{stripeConfigured ? 'Configured' : 'Not Configured'}</strong>
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Cash on Delivery (COD) */}
-        <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-[var(--color-whisper,#E5E5E5)]">
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--color-ink,#111111)]">Cash on Delivery (COD)</h3>
-              <p className="text-xs text-[var(--color-slate,#666666)]">Customer pays cash to courier agent upon doorstep delivery</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setCodEnabled(!codEnabled)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                codEnabled ? 'bg-[var(--color-gold,#C9A84C)]' : 'bg-gray-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  codEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-          </div>
+        <form onSubmit={handleSave} className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-5">
+          <h3 className="text-sm font-semibold text-[var(--color-ink,#111111)]">
+            Checkout Method Policies
+          </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                Maximum COD Order Amount (₹)
+              <label htmlFor="codMaxAmount" className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+                Maximum COD Order Total (₹)
               </label>
               <input
+                id="codMaxAmount"
                 type="number"
+                min={0}
                 value={codMaxAmount}
                 onChange={(e) => setCodMaxAmount(e.target.value)}
-                placeholder="10000"
                 className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
               />
-              <p className="text-[11px] text-[var(--color-slate,#666666)] mt-1">Orders above this amount must pay online</p>
             </div>
-
             <div>
-              <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                Additional COD Handling Fee (₹)
+              <label htmlFor="codFee" className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+                Cash on Delivery Convenience Fee (₹)
               </label>
               <input
+                id="codFee"
                 type="number"
+                min={0}
                 value={codFee}
                 onChange={(e) => setCodFee(e.target.value)}
-                placeholder="0"
                 className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
               />
-              <p className="text-[11px] text-[var(--color-slate,#666666)] mt-1">Leave 0 for free COD</p>
             </div>
           </div>
-        </div>
+
+          <div className="space-y-3 pt-2 border-t border-[var(--color-whisper,#E5E5E5)] text-sm">
+            <label className="flex items-center justify-between cursor-pointer">
+              <span>Enable Cash on Delivery (COD)</span>
+              <input type="checkbox" checked={codEnabled} onChange={(e) => setCodEnabled(e.target.checked)} className="h-4 w-4 accent-[var(--color-gold)]" />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer">
+              <span>Enable UPI Payments</span>
+              <input type="checkbox" checked={upiEnabled} onChange={(e) => setUpiEnabled(e.target.checked)} className="h-4 w-4 accent-[var(--color-gold)]" />
+            </label>
+            <label className="flex items-center justify-between cursor-pointer">
+              <span>Enable International Card Checkout (requires Stripe ENV keys)</span>
+              <input type="checkbox" checked={intlEnabled} onChange={(e) => setIntlEnabled(e.target.checked)} className="h-4 w-4 accent-[var(--color-gold)]" />
+            </label>
+          </div>
+        </form>
       </div>
     </motion.div>
   );

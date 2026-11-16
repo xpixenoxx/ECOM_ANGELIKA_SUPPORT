@@ -1,6 +1,8 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
+import type { Json } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 import fs from 'fs';
 import path from 'path';
@@ -110,6 +112,10 @@ export async function saveHomepageHeroData(
   data: HomepageHeroData
 ): Promise<{ success: boolean; data?: HomepageHeroData; error?: string }> {
   try {
+    const auth = await requireAdminRole(CONTENT_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     // 1. Always write to local JSON backup
     writeLocalBackup(data);
 
@@ -151,7 +157,7 @@ export async function saveHomepageHeroData(
           .update({
             title: 'Homepage Hero & Header',
             type: 'hero',
-            content: data,
+            content: data as unknown as Json,
             is_active: true,
             published_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -164,7 +170,7 @@ export async function saveHomepageHeroData(
             key: 'homepage_hero',
             type: 'hero',
             title: 'Homepage Hero & Header',
-            content: data,
+            content: data as unknown as Json,
             is_active: true,
             published_at: new Date().toISOString(),
           });
@@ -209,7 +215,14 @@ export async function saveHomepageHeroData(
       console.warn('Failed to sync navbar_items:', nErr);
     }
 
-    // 5. Revalidate storefront and admin paths
+    // 5. Audit & revalidate storefront and admin paths
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'update_homepage_hero',
+      entityType: 'content_block',
+      entityId: 'homepage_hero',
+    });
+
     revalidatePath('/');
     revalidatePath('/admin/content');
     revalidatePath('/admin');

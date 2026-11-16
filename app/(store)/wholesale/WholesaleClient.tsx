@@ -3,13 +3,15 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
+import { submitWholesaleInquiry } from '@/lib/actions/inquiries';
 import type { WholesalePageContent } from '@/lib/actions/site-content-types';
 
 interface WholesaleClientProps {
   content: WholesalePageContent;
+  configuredWhatsapp?: string;
 }
 
-export function WholesaleClient({ content }: WholesaleClientProps) {
+export function WholesaleClient({ content, configuredWhatsapp }: WholesaleClientProps) {
   const {
     header = {
       eyebrow: 'GLOBAL BOUTIQUE & RETAIL PARTNERSHIPS',
@@ -27,30 +29,75 @@ export function WholesaleClient({ content }: WholesaleClientProps) {
       successDescription:
         "Our wholesale director and designer Vidhya's team will review your boutique requirements and reach out with our seasonal lookbook and B2B line sheets within 24 hours.",
       whatsappDeskButtonText: 'Expedite Inquiry via WhatsApp B2B Desk →',
-      whatsappDeskLink: 'https://wa.me/919876543210',
+      whatsappDeskLink: '',
     },
     footerSupport = {
       prefixText: 'Prefer direct communication?',
       linkText: 'Connect directly with our B2B Director on WhatsApp →',
-      whatsappLink:
-        'https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20like%20to%20discuss%20a%20wholesale%20partnership.',
+      whatsappLink: '',
     },
   } = content || {};
 
+  const cleanWhatsapp = (configuredWhatsapp || '').replace(/[^0-9]/g, '');
+  const resolvedWhatsappDeskLink =
+    form.whatsappDeskLink && !form.whatsappDeskLink.includes('919876543210')
+      ? form.whatsappDeskLink
+      : cleanWhatsapp.length >= 8
+        ? `https://wa.me/${cleanWhatsapp}`
+        : '';
+  const resolvedFooterWhatsappLink =
+    footerSupport?.whatsappLink && !footerSupport.whatsappLink.includes('919876543210')
+      ? footerSupport.whatsappLink
+      : cleanWhatsapp.length >= 8
+        ? `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(
+            'Hi Vidhya, I would like to discuss a wholesale partnership.'
+          )}`
+        : '';
+
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [referenceId, setReferenceId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     businessName: '',
     contactName: '',
     email: '',
     phone: '',
     cityCountry: '',
+    gstin: '',
     approxQuantity: form.tiers[0]?.value || '15 – 30 pieces',
     message: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await submitWholesaleInquiry({
+        businessName: formData.businessName.trim(),
+        contactName: formData.contactName.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        city: formData.cityCountry.trim(),
+        gstin: formData.gstin.trim() || undefined,
+        estimatedOrderVolume: formData.approxQuantity,
+        notes: formData.message.trim() || undefined,
+      });
+
+      if (!res.success) {
+        setSubmitError(res.error || 'Unable to submit your wholesale request.');
+        return;
+      }
+
+      setReferenceId(res.referenceId || null);
+      setSubmitted(true);
+    } catch {
+      setSubmitError('Network error submitting wholesale inquiry. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -118,28 +165,43 @@ export function WholesaleClient({ content }: WholesaleClientProps) {
               <h3 className="font-serif text-2xl text-[var(--color-ink)]">
                 {form.successTitle || 'Thank You for Your Wholesale Inquiry'}
               </h3>
+              {referenceId && (
+                <p className="text-xs font-mono text-[var(--color-gold-hover)]">
+                  Partner Reference: {referenceId}
+                </p>
+              )}
               <p className="text-sm text-[var(--color-slate)] max-w-md mx-auto leading-relaxed">
                 {form.successDescription ||
                   "Our wholesale director and designer Vidhya's team will review your boutique requirements and reach out with our seasonal lookbook and B2B line sheets within 24 hours."}
               </p>
-              <div className="pt-2">
-                <a
-                  href={`https://wa.me/919876543210?text=${encodeURIComponent(
-                    `Hi Vidhya, I submitted a B2B wholesale inquiry for ${formData.businessName || 'my boutique'}.`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[var(--color-ink)] text-white text-xs font-medium tracking-wide hover:bg-[#25221E] transition-colors"
-                >
-                  {form.whatsappDeskButtonText || 'Expedite Inquiry via WhatsApp B2B Desk →'}
-                </a>
-              </div>
+              {resolvedWhatsappDeskLink && (
+                <div className="pt-2">
+                  <a
+                    href={`${resolvedWhatsappDeskLink}?text=${encodeURIComponent(
+                      `Hi Vidhya, I submitted a B2B wholesale inquiry (${referenceId || 'new'}) for ${formData.businessName || 'my boutique'}.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-[var(--color-ink)] text-white text-xs font-medium tracking-wide hover:bg-[#25221E] transition-colors"
+                  >
+                    {form.whatsappDeskButtonText || 'Expedite Inquiry via WhatsApp B2B Desk →'}
+                  </a>
+                </div>
+              )}
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <h3 className="font-serif text-xl text-[var(--color-ink)] font-normal border-b border-[#EAE4D9] pb-3">
                 {form.title || 'Wholesale Partner Registration'}
               </h3>
+              {submitError && (
+                <div
+                  role="alert"
+                  className="p-3.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B]"
+                >
+                  {submitError}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -258,6 +320,24 @@ export function WholesaleClient({ content }: WholesaleClientProps) {
 
               <div>
                 <label
+                  htmlFor="gstin"
+                  className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)] mb-1"
+                >
+                  Indian GSTIN (Optional)
+                </label>
+                <input
+                  id="gstin"
+                  type="text"
+                  maxLength={15}
+                  value={formData.gstin}
+                  onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                  placeholder="15-character GSTIN (if registered in India)"
+                  className="w-full px-4 py-2.5 rounded-lg border border-[#E5DFD5] text-sm text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)] focus:ring-1 focus:ring-[var(--color-gold)] bg-[#FCFAF7]"
+                />
+              </div>
+
+              <div>
+                <label
                   htmlFor="message"
                   className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)] mb-1"
                 >
@@ -279,9 +359,12 @@ export function WholesaleClient({ content }: WholesaleClientProps) {
                 </span>
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-8 py-3 rounded-lg bg-[var(--color-ink)] hover:bg-[#25221E] text-white text-xs font-medium tracking-wide border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] transition-all duration-200 cursor-pointer"
+                  disabled={submitting}
+                  className="w-full sm:w-auto px-8 py-3 rounded-lg bg-[var(--color-ink)] hover:bg-[#25221E] text-white text-xs font-medium tracking-wide border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] transition-all duration-200 cursor-pointer disabled:opacity-50"
                 >
-                  {form.submitButtonText || 'Submit Wholesale Request'}
+                  {submitting
+                    ? 'Submitting Request...'
+                    : form.submitButtonText || 'Submit Wholesale Request'}
                 </button>
               </div>
             </form>
@@ -289,12 +372,12 @@ export function WholesaleClient({ content }: WholesaleClientProps) {
         </div>
 
         {/* Instant WhatsApp Support */}
-        {footerSupport && (
+        {footerSupport && resolvedFooterWhatsappLink && (
           <div className="mt-8 text-center">
             <p className="text-xs text-[var(--color-slate)]">
               {footerSupport.prefixText || 'Prefer direct communication?'}{' '}
               <a
-                href={footerSupport.whatsappLink}
+                href={resolvedFooterWhatsappLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium text-[var(--color-gold-hover)] underline hover:text-[var(--color-gold)]"

@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
-import { getSiteContent, DEFAULT_SITE_CONTENT } from '@/lib/actions/site-content';
+import { getSiteContent } from '@/lib/actions/site-content';
+import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
+import { getStoreSettings } from '@/lib/actions/store-settings';
+import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import { WholesaleClient } from './WholesaleClient';
 
 export const revalidate = 60;
@@ -20,9 +23,15 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function WholesalePage() {
-  const siteContent = await getSiteContent();
+  const [siteContent, settings, heroData] = await Promise.all([
+    getSiteContent(),
+    getStoreSettings(),
+    getHomepageHeroData(),
+  ]);
   const wholesaleContent =
     siteContent?.['wholesale-page'] || DEFAULT_SITE_CONTENT['wholesale-page']!;
+  const configuredWhatsapp =
+    heroData?.conciergeWhatsApp || settings?.contact_whatsapp || '';
 
-  return <WholesaleClient content={wholesaleContent} />;
+  return <WholesaleClient content={wholesaleContent} configuredWhatsapp={configuredWhatsapp} />;
 }

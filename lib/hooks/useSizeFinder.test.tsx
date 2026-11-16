@@ -61,7 +61,7 @@ describe('useSizeFinder', () => {
     { size: 'XL', bust_min: 38, bust_max: 40, waist_min: 32, waist_max: 34, hip_min: 40, hip_max: 42 },
   ];
 
-  it('should initialize with no profile', () => {
+  it('should initialize with no profile', async () => {
     mockSupabase.from.mockReturnValue({
       select: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
@@ -71,6 +71,10 @@ describe('useSizeFinder', () => {
     });
 
     const { result } = renderHook(() => useSizeFinder('user1'), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
 
     expect(result.current.profile).toBeNull();
     expect(result.current.loading).toBe(false);

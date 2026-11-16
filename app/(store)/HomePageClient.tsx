@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Header } from '@/components/composite/Header';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { ProductCard } from '@/components/ui/Card';
@@ -420,6 +419,36 @@ export default function HomePageClient({
         </motion.div>
       </section>
 
+      {/* Trust & Craft Assurances (from siteContent.features) */}
+      {activeFeatures.length > 0 && (
+        <section className="border-b border-[var(--color-whisper)] bg-white py-8">
+          <div className="container-custom px-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+              {activeFeatures.map((feat, idx) => (
+                <div
+                  key={`${feat.title}-${idx}`}
+                  className="flex items-start gap-3.5 p-3 rounded-xl bg-[var(--color-snow)]/60 border border-[var(--color-whisper)]/70"
+                >
+                  <div className="w-10 h-10 rounded-full bg-[var(--color-gold-light)]/60 text-[var(--color-gold-text)] flex items-center justify-center flex-shrink-0 border border-[var(--color-gold)]/20">
+                    {feat.icon}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)]">
+                      {feat.title}
+                    </h3>
+                    {feat.description && (
+                      <p className="text-xs text-[var(--color-slate)] mt-0.5 leading-snug">
+                        {feat.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Explore Collections: Editorial Magazine Grid */}
       <ExploreCollections
         categoriesContent={siteContent?.categories}
@@ -478,15 +507,35 @@ export default function HomePageClient({
                 </StaggerItem>
               ))
             ) : (
-              Array.from({ length: 4 }).map((_, i) => (
-                <StaggerItem key={`skeleton-vp-${i}`} delay={i * 0.08} variant="scale">
-                  <SkeletonProductCard />
-                </StaggerItem>
-              ))
+              <div className="col-span-full w-full py-12 px-6 rounded-2xl border border-dashed border-[var(--color-whisper)] bg-[var(--color-snow)]/60 text-center space-y-3">
+                <p className="text-sm text-[var(--color-slate)]">
+                  Vidhya&apos;s curated seasonal picks are being updated.
+                </p>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/shop">Explore Full Collection →</Link>
+                </Button>
+              </div>
             )}
           </StaggerContainer>
         </div>
       </section>
+
+      {/* Shop the Look Editorial Hotspots */}
+      {(looks.length > 0 || siteContent?.['shop-the-look']?.lifestyle_image_url) && (
+        <section className="section bg-[var(--color-snow)]/70 border-y border-[var(--color-whisper)]">
+          <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+            <div className="text-center mb-8">
+              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)] block mb-2">
+                {siteContent?.['shop-the-look']?.badge || 'Curated Ensemble'}
+              </span>
+              <h2 className="text-[var(--font-display)] text-3xl md:text-4xl font-medium text-[var(--color-ink)]">
+                {siteContent?.['shop-the-look']?.title || 'Shop the Look'}
+              </h2>
+            </div>
+            <ShopTheLookClient initialLook={looks?.[0] || siteContent?.['shop-the-look']} />
+          </div>
+        </section>
+      )}
 
       {/* New Arrivals: Reference Style */}
       {(() => {
@@ -549,11 +598,14 @@ export default function HomePageClient({
                     );
                   })
                 ) : (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <StaggerItem key={`skeleton-na-${i}`} delay={i * 0.08} variant="scale">
-                      <SkeletonProductCard />
-                    </StaggerItem>
-                  ))
+                  <div className="col-span-full w-full py-12 px-6 rounded-2xl border border-dashed border-[var(--color-whisper)] bg-[var(--color-snow)]/60 text-center space-y-3">
+                    <p className="text-sm text-[var(--color-slate)]">
+                      New collection pieces are arriving shortly.
+                    </p>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/shop">Browse Existing Collections →</Link>
+                    </Button>
+                  </div>
                 )}
               </StaggerContainer>
             </div>
@@ -582,7 +634,12 @@ export default function HomePageClient({
         const primaryCtaText = bs?.primaryCtaText || 'Read Our Story';
         const primaryCtaLink = bs?.primaryCtaLink || '/about';
         const whatsappCtaText = bs?.whatsappCtaText || 'Chat with Vidhya';
-        const whatsappLink = bs?.whatsappLink || "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey";
+        const rawBrandWa = bs?.whatsappLink || '';
+        const whatsappLink =
+          rawBrandWa && !rawBrandWa.includes('XXXXXXXXXX') && !rawBrandWa.includes('919876543210')
+            ? rawBrandWa
+            : '/contact';
+        const isExternalWa = whatsappLink.startsWith('http');
 
         return (
           <section className="section bg-[var(--color-white)]">
@@ -606,7 +663,7 @@ export default function HomePageClient({
                   <div className="absolute -top-6 -left-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
                 </div>
                 <div>
-                  <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-semibold uppercase tracking-wider mb-4">
+                  <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold-text)] text-xs font-semibold uppercase tracking-wider mb-4">
                     {badge}
                   </span>
                   <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-6">
@@ -629,10 +686,14 @@ export default function HomePageClient({
                     <Button variant="primary" asChild>
                       <Link href={primaryCtaLink}>{primaryCtaText}</Link>
                     </Button>
-                    <Button variant="whatsapp" asChild>
-                      <Link href={whatsappLink} target="_blank" rel="noopener noreferrer">
-                        <SocialIcon platform="whatsapp" size="sm" className="mr-2" />
-                        {whatsappCtaText}
+                    <Button variant={isExternalWa ? 'whatsapp' : 'outline'} asChild>
+                      <Link
+                        href={whatsappLink}
+                        target={isExternalWa ? '_blank' : undefined}
+                        rel={isExternalWa ? 'noopener noreferrer' : undefined}
+                      >
+                        {isExternalWa && <SocialIcon platform="whatsapp" size="sm" className="mr-2" />}
+                        {isExternalWa ? whatsappCtaText : 'Message Our Stylists'}
                       </Link>
                     </Button>
                   </motion.div>
@@ -816,19 +877,11 @@ export default function HomePageClient({
                 </StaggerItem>
               ))
             ) : (
-              Array.from({ length: 8 }).map((_, i) => (
-                <StaggerItem key={i} delay={i * 0.05} variant="scale" className="aspect-square relative overflow-hidden rounded-[var(--radius-lg)] group">
-                  <div className="absolute inset-0 bg-[var(--color-whisper)] skeleton" />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/0 transition-colors duration-300 flex items-center justify-center">
-                    <MagneticButton
-                      className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300"
-                      strength={0.3}
-                    >
-                      Shop this look
-                    </MagneticButton>
-                  </div>
-                </StaggerItem>
-              ))
+              <div className="col-span-full py-10 px-6 rounded-2xl border border-dashed border-[var(--color-whisper)] bg-[var(--color-snow)]/60 text-center space-y-2">
+                <p className="text-sm text-[var(--color-slate)]">
+                  Share your Angelika look with <span className="font-semibold text-[var(--color-ink)]">{lookTag}</span> to be featured in our gallery.
+                </p>
+              </div>
             )}
           </StaggerContainer>
           <div className="text-center mt-10">

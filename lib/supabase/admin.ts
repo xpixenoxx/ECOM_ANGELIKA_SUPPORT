@@ -1,9 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database';
+
+if (typeof window !== 'undefined' && !process.env['VITEST']) {
+  throw new Error('lib/supabase/admin must never be imported in client/browser bundles.');
+}
 
 const supabaseUrl = process.env['NEXT_PUBLIC_SUPABASE_URL'] || 'https://placeholder.supabase.co';
 const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || 'placeholder-service-key';
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
@@ -93,14 +98,14 @@ export async function adminCreateSignedUrl(bucket: string, path: string, expires
 
 // Database admin helpers
 export async function adminQuery<T>(table: string, query: (q: any) => any) {
-  const q = supabaseAdmin.from(table);
+  const q = (supabaseAdmin as any).from(table);
   const result = await query(q);
   if (result.error) throw result.error;
   return result.data as T;
 }
 
 export async function adminRPC<T>(fn: string, params?: Record<string, any>) {
-  const { data, error } = await supabaseAdmin.rpc(fn, params);
+  const { data, error } = await (supabaseAdmin as any).rpc(fn, params);
   if (error) throw error;
   return data as T;
 }

@@ -86,3 +86,12 @@ export const SHOP_COLORS = [
 ];
 
 export const SHOP_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'Free Size'];
+
+export const SHOP_OCCASIONS = [
+  { value: 'festive', label: 'Festive' },
+  { value: 'wedding', label: 'Wedding & Bridal' },
+  { value: 'party', label: 'Party & Reception' },
+  { value: 'puja', label: 'Puja & Ceremony' },
+  { value: 'casual', label: 'Casual & Daytime' },
+  { value: 'evening', label: 'Evening Couture' },
+];

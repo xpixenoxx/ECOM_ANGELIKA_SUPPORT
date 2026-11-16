@@ -1,6 +1,7 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
 import { createTransport } from 'nodemailer';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
@@ -40,6 +41,17 @@ export async function sendCircleEmailBroadcast(params: {
   cta_link?: string | null;
   recipients: string[];
 }): Promise<EmailDispatchReport> {
+  const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+  if (!auth.authorized) {
+    return {
+      sent: false,
+      recipientsCount: 0,
+      recipients: [],
+      status: 'failed',
+      error: auth.error || 'Unauthorized',
+      smtpConfigured: false,
+    };
+  }
   const { title, subject, content, cta_text, cta_link, recipients } = params;
   const cleanRecipients = Array.from(new Set(recipients.map((r) => r.trim().toLowerCase()))).filter(
     (e) => e && e.includes('@')
@@ -355,6 +367,21 @@ export async function subscribeToAngelikaCircle(
  */
 export async function getCircleDashboardData(): Promise<CircleDashboardData> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return {
+        subscribers: [],
+        updates: [],
+        stats: {
+          totalSubscribers: 0,
+          activeSubscribers: 0,
+          totalUpdatesSent: 0,
+          latestUpdateDate: null,
+          smtpConfigured: false,
+          senderEmail: '',
+        },
+      };
+    }
     const { data: rows, error } = await supabaseAdmin
       .from('content_blocks')
       .select('*')
@@ -509,6 +536,10 @@ export async function publishCircleUpdate(data: {
   dispatchReport?: EmailDispatchReport;
 }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const title = data.title.trim();
     const subject = data.subject.trim();
     const bodyContent = data.content.trim();
@@ -644,6 +675,10 @@ export async function resendCircleUpdate(
   id: string
 ): Promise<{ success: boolean; dispatchReport?: EmailDispatchReport; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const { data: block, error } = await supabaseAdmin
       .from('content_blocks')
       .select('id, title, content')
@@ -748,6 +783,10 @@ export async function toggleSubscriberStatus(
   newStatus: 'active' | 'unsubscribed'
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const { data: block } = await supabaseAdmin
       .from('content_blocks')
       .select('id, content')
@@ -769,6 +808,14 @@ export async function toggleSubscriberStatus(
         .eq('id', id);
     }
 
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'toggle_circle_subscriber',
+      entityType: 'circle_subscriber',
+      entityId: id,
+      afterState: { status: newStatus },
+    });
+
     revalidatePath('/admin/customers/circle');
     return { success: true };
   } catch (err: any) {
@@ -783,10 +830,21 @@ export async function deleteCircleUpdate(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     await supabaseAdmin
       .from('content_blocks')
       .delete()
       .eq('id', id);
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'delete_circle_update',
+      entityType: 'circle_update',
+      entityId: id,
+    });
 
     revalidatePath('/admin/customers/circle');
     return { success: true };

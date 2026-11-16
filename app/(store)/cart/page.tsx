@@ -155,11 +155,11 @@ export default function CartPage() {
                 Your Bag is Empty
               </h1>
               <p className="text-[var(--color-slate)] mb-8">
-                Looks like you haven't added anything to your bag yet. Start exploring our handcrafted collection!
+                Looks like you haven&apos;t added anything to your bag yet. Start exploring our handcrafted collection!
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <MagneticLinkButton size="lg" variant="primary" href="/shop">Continue Shopping</MagneticLinkButton>
-                <MagneticLinkButton size="lg" variant="outline" href="/vidhyas-picks">View Vidhya's Picks</MagneticLinkButton>
+                <MagneticLinkButton size="lg" variant="outline" href="/vidhyas-picks">View Vidhya&apos;s Picks</MagneticLinkButton>
               </div>
             </ScrollReveal>
 
@@ -168,7 +168,7 @@ export default function CartPage() {
               <div className="mt-16 pt-12 border-t border-[var(--color-whisper)]">
                 <ScrollReveal variant="fadeUp" className="flex items-center justify-between mb-8">
                   <div>
-                    <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-gold)] mb-1 block">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-gold-text)] mb-1 block">
                       Curated Masterpieces
                     </span>
                     <h2 className="text-[var(--font-display)] text-2xl md:text-3xl font-medium text-[var(--color-ink)]">
@@ -421,7 +421,7 @@ export default function CartPage() {
                               transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
                             />
                           </div>
-                          <p className="text-xs text-[var(--color-gold)] mt-1 text-center">
+                          <p className="text-xs text-[var(--color-gold-text)] mt-1 text-center font-medium">
                             Add {formatPrice(amountForFreeShipping)} more for free shipping!
                           </p>
                         </div>

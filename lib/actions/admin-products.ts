@@ -1,16 +1,13 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import {
+  CONTENT_ADMIN_ROLES,
+  OPS_ADMIN_ROLES,
+  getAdminClient,
+  logAdminAction,
+} from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
-
-// Helper to get administrative database client that bypasses RLS
-function getAdminDb() {
-  if (process.env['SUPABASE_SERVICE_ROLE_KEY']) {
-    return supabaseAdmin;
-  }
-  return createClient();
-}
 
 export interface AdminProduct {
   id: string;
@@ -72,7 +69,10 @@ export async function getAdminProducts(filters?: {
   category?: string;
   status?: string;
 }) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) {
+    return { products: [], error: authError || 'Unauthorized' };
+  }
 
   const { data: rawProducts, error } = await supabase
     .from('products')
@@ -163,7 +163,10 @@ export async function getAdminProducts(filters?: {
 }
 
 export async function getProductById(id: string) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) {
+    return { product: null, error: authError || 'Unauthorized' };
+  }
   const { data: product, error } = await supabase
     .from('products')
     .select(`
@@ -227,7 +230,10 @@ export async function createProduct(payload: {
     is_active?: boolean;
   }>;
 }) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) {
+    return { success: false, error: authError || 'Unauthorized' };
+  }
 
   const cleanSlug = payload.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/(^-|-$)/g, '');
   const sku = (payload.sku && payload.sku.trim()) || generateSKU(payload.name, payload.category_id);
@@ -321,6 +327,14 @@ export async function createProduct(payload: {
     }
   }
 
+  await logAdminAction({
+    actorId: userId,
+    action: 'create_product',
+    entityType: 'product',
+    entityId: newProd.id,
+    afterState: { name: newProd.name, slug: newProd.slug, sku: newProd.sku },
+  });
+
   revalidatePath('/admin/products');
   revalidatePath('/shop');
   revalidatePath('/');
@@ -355,7 +369,8 @@ export async function updateProduct(
     }>;
   }
 ) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
 
   // 1. Update product table
   const prodUpdates: any = { updated_at: new Date().toISOString() };
@@ -488,6 +503,7 @@ export async function updateProduct(
         const stockPerVar = Math.max(0, Math.floor(payload.inventory_quantity / existingVariants.length));
         for (let i = 0; i < existingVariants.length; i++) {
           const v = existingVariants[i];
+          if (!v) continue;
           const stock = i === 0 ? payload.inventory_quantity - stockPerVar * (existingVariants.length - 1) : stockPerVar;
           await supabase
             .from('product_variants')
@@ -526,6 +542,14 @@ export async function updateProduct(
     }
   }
 
+  await logAdminAction({
+    actorId: userId,
+    action: 'update_product',
+    entityType: 'product',
+    entityId: id,
+    afterState: prodUpdates,
+  });
+
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${id}/edit`);
   revalidatePath('/shop');
@@ -534,7 +558,8 @@ export async function updateProduct(
 }
 
 export async function toggleProductActive(id: string, is_active: boolean) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { error: authError || 'Unauthorized' };
   const { error } = await supabase
     .from('products')
     .update({ is_active, updated_at: new Date().toISOString() })
@@ -543,13 +568,15 @@ export async function toggleProductActive(id: string, is_active: boolean) {
     console.error('toggleProductActive error:', error);
     return { error: error.message };
   }
+  await logAdminAction({ actorId: userId, action: 'toggle_product_active', entityType: 'product', entityId: id, afterState: { is_active } });
   revalidatePath('/admin/products');
   revalidatePath('/shop');
   return { error: null };
 }
 
 export async function toggleProductFeatured(id: string, is_featured: boolean) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { error: authError || 'Unauthorized' };
   const { error } = await supabase
     .from('products')
     .update({ is_featured, updated_at: new Date().toISOString() })
@@ -558,13 +585,15 @@ export async function toggleProductFeatured(id: string, is_featured: boolean) {
     console.error('toggleProductFeatured error:', error);
     return { error: error.message };
   }
+  await logAdminAction({ actorId: userId, action: 'toggle_product_featured', entityType: 'product', entityId: id, afterState: { is_featured } });
   revalidatePath('/admin/products');
   revalidatePath('/');
   return { error: null };
 }
 
 export async function toggleProductVidyasPick(id: string, is_vidyas_pick: boolean) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { error: authError || 'Unauthorized' };
   const { error } = await supabase
     .from('products')
     .update({ is_vidyas_pick, updated_at: new Date().toISOString() })
@@ -573,6 +602,7 @@ export async function toggleProductVidyasPick(id: string, is_vidyas_pick: boolea
     console.error('toggleProductVidyasPick error:', error);
     return { error: error.message };
   }
+  await logAdminAction({ actorId: userId, action: 'toggle_product_vidyas_pick', entityType: 'product', entityId: id, afterState: { is_vidyas_pick } });
   revalidatePath('/admin/products');
   revalidatePath('/');
   revalidatePath('/vidhyas-picks');
@@ -580,14 +610,15 @@ export async function toggleProductVidyasPick(id: string, is_vidyas_pick: boolea
 }
 
 export async function deleteProduct(id: string) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   try {
-    // Delete variants and images first to honor foreign keys
     await supabase.from('product_variants').delete().eq('product_id', id);
     await supabase.from('product_images').delete().eq('product_id', id);
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) throw error;
 
+    await logAdminAction({ actorId: userId, action: 'delete_product', entityType: 'product', entityId: id });
     revalidatePath('/admin/products');
     revalidatePath('/shop');
     return { success: true, error: null };
@@ -599,13 +630,15 @@ export async function deleteProduct(id: string) {
 
 export async function bulkDeleteProducts(ids: string[]) {
   if (!ids || ids.length === 0) return { success: true, count: 0 };
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   try {
     await supabase.from('product_variants').delete().in('product_id', ids);
     await supabase.from('product_images').delete().in('product_id', ids);
     const { error } = await supabase.from('products').delete().in('id', ids);
     if (error) throw error;
 
+    await logAdminAction({ actorId: userId, action: 'bulk_delete_products', entityType: 'product', afterState: { ids, count: ids.length } });
     revalidatePath('/admin/products');
     revalidatePath('/shop');
     return { success: true, count: ids.length };
@@ -620,7 +653,8 @@ export async function bulkUpdateProducts(
   updates: { is_active?: boolean; is_featured?: boolean; is_vidyas_pick?: boolean }
 ) {
   if (!ids || ids.length === 0) return { success: true, count: 0 };
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   try {
     const payload: any = { updated_at: new Date().toISOString() };
     if (updates.is_active !== undefined) payload.is_active = updates.is_active;
@@ -630,6 +664,7 @@ export async function bulkUpdateProducts(
     const { error } = await supabase.from('products').update(payload).in('id', ids);
     if (error) throw error;
 
+    await logAdminAction({ actorId: userId, action: 'bulk_update_products', entityType: 'product', afterState: { ids, updates } });
     revalidatePath('/admin/products');
     revalidatePath('/shop');
     return { success: true, count: ids.length };
@@ -640,7 +675,8 @@ export async function bulkUpdateProducts(
 }
 
 export async function duplicateProduct(id: string) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   try {
     const { product } = await getProductById(id);
     if (!product) throw new Error('Original product not found');
@@ -690,6 +726,14 @@ export async function duplicateProduct(id: string) {
       await supabase.from('product_images').insert(imgs);
     }
 
+    await logAdminAction({
+      actorId: userId,
+      action: 'duplicate_product',
+      entityType: 'product',
+      entityId: newProd.id,
+      metadata: { sourceProductId: id },
+    });
+
     revalidatePath('/admin/products');
     return { success: true, data: newProd };
   } catch (err: any) {
@@ -719,7 +763,8 @@ export interface BulkProductInput {
 // Bulk insert products (efficient batching for 50, 100, 500+ items)
 export async function bulkCreateProducts(products: BulkProductInput[]) {
   if (!products || products.length === 0) return { success: true, count: 0 };
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
 
   try {
     // 1. Fetch categories map
@@ -738,7 +783,7 @@ export async function bulkCreateProducts(products: BulkProductInput[]) {
       const batch = products.slice(i, i + BATCH_SIZE);
 
       const productsToInsert = batch.map((p, idx) => {
-        let catId = p.category_id;
+        let catId: string | null | undefined = p.category_id;
         if (!catId && p.category_name) {
           catId = catNameToId[p.category_name.toLowerCase()] || defaultCategoryId;
         }
@@ -855,7 +900,8 @@ const MOCK_TYPES = [
 ];
 
 export async function generateBulkDemoProducts(count: number = 50, categoryId?: string) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   const { data: cats } = await supabase.from('categories').select('id, name');
   const catMap: Record<string, string> = {};
   (cats || []).forEach((c) => {
@@ -899,7 +945,8 @@ export async function generateBulkDemoProducts(count: number = 50, categoryId?: 
 
 // ---------------- CATEGORIES CRUD ----------------
 export async function getCategories(): Promise<AdminCategory[]> {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return [];
   const { data: categories, error } = await supabase
     .from('categories')
     .select('*')
@@ -930,10 +977,10 @@ export async function createCategory(payload: {
   image_url?: string;
   is_active?: boolean;
 }) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   const slug = payload.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-');
 
-  // get max sort_order
   const { data: existing } = await supabase.from('categories').select('sort_order').order('sort_order', { ascending: false }).limit(1);
   const nextOrder = (existing?.[0]?.sort_order || 0) + 1;
 
@@ -951,6 +998,7 @@ export async function createCategory(payload: {
     .single();
 
   if (error) return { success: false, error: error.message };
+  await logAdminAction({ actorId: userId, action: 'create_category', entityType: 'category', entityId: data.id, afterState: { name: data.name, slug: data.slug } });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
   revalidatePath('/');
@@ -967,7 +1015,8 @@ export async function updateCategory(
     is_active?: boolean;
   }
 ) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   const updates: any = { updated_at: new Date().toISOString() };
   if (payload.name !== undefined) updates.name = payload.name;
   if (payload.slug !== undefined) updates.slug = payload.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-');
@@ -977,6 +1026,7 @@ export async function updateCategory(
 
   const { error } = await supabase.from('categories').update(updates).eq('id', id);
   if (error) return { success: false, error: error.message };
+  await logAdminAction({ actorId: userId, action: 'update_category', entityType: 'category', entityId: id, afterState: updates });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
   revalidatePath('/');
@@ -984,21 +1034,25 @@ export async function updateCategory(
 }
 
 export async function toggleCategoryActive(id: string, is_active: boolean) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { error: authError || 'Unauthorized' };
   const { error } = await supabase
     .from('categories')
     .update({ is_active, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) return { error: error.message };
+  await logAdminAction({ actorId: userId, action: 'toggle_category_active', entityType: 'category', entityId: id, afterState: { is_active } });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
   return { error: null };
 }
 
 export async function deleteCategory(id: string) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { error: authError || 'Unauthorized' };
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if (error) return { error: error.message };
+  await logAdminAction({ actorId: userId, action: 'delete_category', entityType: 'category', entityId: id });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
   return { error: null };
@@ -1006,7 +1060,8 @@ export async function deleteCategory(id: string) {
 
 // ---------------- COLLECTIONS / LOOKS CRUD ----------------
 export async function getAdminCollections(): Promise<AdminCollection[]> {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return [];
   const { data: looks, error } = await supabase
     .from('looks')
     .select('*, look_hotspots(id)')
@@ -1030,22 +1085,26 @@ export async function getAdminCollections(): Promise<AdminCollection[]> {
 }
 
 export async function toggleCollectionActive(id: string, is_active: boolean) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { error: authError || 'Unauthorized' };
   const { error } = await supabase
     .from('looks')
     .update({ is_active, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) return { error: error.message };
+  await logAdminAction({ actorId: userId, action: 'toggle_collection_active', entityType: 'look', entityId: id, afterState: { is_active } });
   revalidatePath('/admin/products/collections');
   revalidatePath('/');
   return { error: null };
 }
 
 export async function deleteCollection(id: string) {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { error: authError || 'Unauthorized' };
   await supabase.from('look_hotspots').delete().eq('look_id', id);
   const { error } = await supabase.from('looks').delete().eq('id', id);
   if (error) return { error: error.message };
+  await logAdminAction({ actorId: userId, action: 'delete_collection', entityType: 'look', entityId: id });
   revalidatePath('/admin/products/collections');
   revalidatePath('/');
   return { error: null };
@@ -1079,7 +1138,8 @@ export async function getInventoryAlerts(options?: { scope?: 'alerts' | 'all' })
   variants: AdminInventoryVariant[];
   error: string | null;
 }> {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { variants: [], error: authError || 'Unauthorized' };
   let query = supabase
     .from('product_variants')
     .select(`
@@ -1162,7 +1222,8 @@ export async function updateVariantInventory(variantId: string, quantity: number
   updated?: { id: string; inventory_quantity: number; updated_at: string } | null;
   error: string | null;
 }> {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
 
   if (typeof quantity !== 'number' || isNaN(quantity) || quantity < 0) {
     return { success: false, error: 'Quantity must be a valid non-negative number' };
@@ -1185,7 +1246,7 @@ export async function updateVariantInventory(variantId: string, quantity: number
     return { success: false, error: error.message };
   }
 
-  // Revalidate paths for instant storefront & admin reflection
+  await logAdminAction({ actorId: userId, action: 'update_variant_inventory', entityType: 'product_variant', entityId: variantId, afterState: { inventory_quantity: cleanQuantity } });
   revalidatePath('/admin/products/inventory');
   revalidatePath('/admin/products');
   revalidatePath('/admin');
@@ -1202,7 +1263,8 @@ export async function bulkUpdateVariantInventory(
   count: number;
   error: string | null;
 }> {
-  const supabase = getAdminDb();
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, count: 0, error: authError || 'Unauthorized' };
   if (!updates || updates.length === 0) return { success: true, count: 0, error: null };
 
   const validUpdates = updates.filter(
@@ -1219,6 +1281,8 @@ export async function bulkUpdateVariantInventory(
         })
         .eq('id', item.id);
     }
+
+    await logAdminAction({ actorId: userId, action: 'bulk_update_inventory', entityType: 'product_variant', afterState: { count: validUpdates.length } });
 
     revalidatePath('/admin/products/inventory');
     revalidatePath('/admin/products');

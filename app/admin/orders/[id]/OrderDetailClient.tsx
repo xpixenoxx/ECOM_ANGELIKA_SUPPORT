@@ -454,7 +454,7 @@ export default function OrderDetailClient({ order, items }: Props) {
               {order.gift_message && (
                 <div>
                   <p className="text-xs font-medium text-amber-900">Gift Card Message:</p>
-                  <p className="text-xs text-amber-800 italic mt-0.5">"{order.gift_message}"</p>
+                  <p className="text-xs text-amber-800 italic mt-0.5">&ldquo;{order.gift_message}&rdquo;</p>
                 </div>
               )}
               {order.notes && (

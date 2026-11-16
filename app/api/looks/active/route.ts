@@ -1,11 +1,17 @@
-import { createClient } from '@/lib/supabase/server';
+import { createPublicClient } from '@/lib/supabase/server';
+import { hasValidSupabaseConfig } from '@/lib/env';
 import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic';
-
 export async function GET() {
+  if (!hasValidSupabaseConfig()) {
+    return NextResponse.json(null, {
+      status: 200,
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    });
+  }
+
   try {
-    const supabase = createClient();
+    const supabase = createPublicClient();
 
     const { data: look, error } = await supabase
       .from('looks')
@@ -36,7 +42,10 @@ export async function GET() {
       .single();
 
     if (error || !look) {
-      return NextResponse.json(null, { status: 404 });
+      return NextResponse.json(null, {
+        status: 200,
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+      });
     }
 
     // Reshape into the format ShopTheLookClient expects

@@ -1,9 +1,12 @@
 'use client';
 
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, ReactNode } from 'react';
+import { vi } from 'vitest';
 import { User, Session } from '@supabase/supabase-js';
-import { Profile } from '@/types/database';
-import { CartItem, CartState, AppliedCoupon } from '@/types/commerce';
+import type { Database } from '@/types/database';
+import { CartItem, CartState } from '@/types/commerce';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 // ============================================
 // Mock Auth Context
@@ -35,13 +38,21 @@ export function MockAuthProvider({ children }: { children: ReactNode }) {
     role: 'authenticated',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  } as User;
+  } as unknown as User;
 
   const mockProfile: Profile = {
     id: 'test-user-id',
     email: 'test@example.com',
     full_name: 'Test User',
     phone: '9876543210',
+    avatar_url: null,
+    role: 'customer',
+    loyalty_points: 0,
+    loyalty_tier: 'bronze',
+    measurements: null,
+    preferences: {},
+    referral_code: null,
+    referred_by: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -204,6 +215,4 @@ export function TestProviders({ children }: { children: ReactNode }) {
   );
 }
 
-// Re-export vi for use in test files
-import { vi } from 'vitest';
 export { vi };

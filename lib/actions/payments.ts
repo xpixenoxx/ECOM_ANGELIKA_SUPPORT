@@ -1,17 +1,48 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import crypto from 'crypto';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { getOptionalEnv } from '@/lib/env';
+import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
+import { fromPaise, toPaise } from '@/lib/pricing';
+import { escapeHtml } from '@/lib/validators/commerce';
+import { normalizeAddress } from '@/lib/utils/address';
 import type { Database, Json } from '@/types/database';
 
 type OrderRow = Database['public']['Tables']['orders']['Row'];
 type OrderItemRow = Database['public']['Tables']['order_items']['Row'];
 
-// Helper to safely access JSON properties
-function getJsonValue<T>(json: Json, key: string): T | undefined {
+function parseMeta(json: Json): Record<string, unknown> {
   if (json && typeof json === 'object' && !Array.isArray(json)) {
-    return json[key as keyof typeof json] as T;
+    return json as Record<string, unknown>;
   }
-  return undefined;
+  return {};
+}
+
+async function claimWebhookEvent(
+  provider: 'razorpay' | 'stripe' | 'delhivery' | 'whatsapp',
+  eventId: string,
+  eventType: string,
+  payload: unknown
+): Promise<{ alreadyProcessed: boolean }> {
+  if (!eventId) return { alreadyProcessed: false };
+  const { error } = await supabaseAdmin.from('webhook_events').insert({
+    provider,
+    event_id: eventId,
+    event_type: eventType,
+    payload: payload as Json,
+    status: 'processed',
+  });
+
+  if (error) {
+    // 23505 = unique_violation on (provider, event_id)
+    if (error.code === '23505') {
+      return { alreadyProcessed: true };
+    }
+    console.error('[claimWebhookEvent] error:', error.message);
+  }
+  return { alreadyProcessed: false };
 }
 
 // ============================================
@@ -21,7 +52,7 @@ function getJsonValue<T>(json: Json, key: string): T | undefined {
 interface RazorpayPaymentEntity {
   id: string;
   order_id: string;
-  amount: number;
+  amount: number; // in paise
   currency: string;
   status: string;
   method: string;
@@ -49,7 +80,7 @@ interface RazorpayOrderEntity {
 interface RazorpayRefundEntity {
   id: string;
   payment_id: string;
-  amount: number;
+  amount: number; // in paise
   currency: string;
   status: string;
 }
@@ -66,42 +97,57 @@ interface RazorpayWebhookEvent {
 
 export async function handleRazorpayWebhook(
   payload: string,
-  signature: string
-): Promise<{ success: boolean; error?: string }> {
+  signature: string,
+  deliveryEventId?: string | null
+): Promise<{ success: boolean; error?: string; duplicate?: boolean }> {
   try {
-    const keySecret = process.env['RAZORPAY_KEY_SECRET'];
-    if (!keySecret) {
-      return { success: false, error: 'Razorpay not configured' };
+    // Razorpay webhooks MUST verify against RAZORPAY_WEBHOOK_SECRET (never key secret)
+    const webhookSecret = getOptionalEnv('RAZORPAY_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      return { success: false, error: 'Razorpay webhook secret not configured' };
     }
 
-    // Verify webhook signature
-    const crypto = await import('crypto');
     const expectedSignature = crypto
-      .createHmac('sha256', keySecret)
+      .createHmac('sha256', webhookSecret)
       .update(payload)
       .digest('hex');
 
-    if (expectedSignature !== signature) {
+    if (expectedSignature.length !== signature.length) {
+      return { success: false, error: 'Invalid signature' };
+    }
+
+    const sigMatches = crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, 'hex'),
+      Buffer.from(signature, 'hex')
+    );
+    if (!sigMatches) {
       console.error('Invalid Razorpay webhook signature');
       return { success: false, error: 'Invalid signature' };
     }
 
     const event: RazorpayWebhookEvent = JSON.parse(payload);
-    const supabase = await getSupabaseClient();
+    const derivedEventId =
+      deliveryEventId ||
+      `${event.event}:${event.payload.payment?.entity?.id || event.payload.refund?.entity?.id || event.payload.order?.entity?.id || event.created_at}`;
+
+    const claim = await claimWebhookEvent('razorpay', derivedEventId, event.event, event);
+    if (claim.alreadyProcessed) {
+      return { success: true, duplicate: true };
+    }
 
     switch (event.event) {
       case 'payment.captured':
-        await handlePaymentCaptured(supabase, event.payload.payment?.entity);
+        await handlePaymentCaptured(event.payload.payment?.entity);
         break;
       case 'payment.failed':
-        await handlePaymentFailed(supabase, event.payload.payment?.entity);
+        await handlePaymentFailed(event.payload.payment?.entity);
         break;
       case 'order.paid':
-        await handleOrderPaid(supabase, event.payload.order?.entity);
+        await handleOrderPaid(event.payload.order?.entity);
         break;
       case 'refund.created':
       case 'refund.processed':
-        await handleRefund(supabase, event.payload.refund?.entity);
+        await handleRazorpayRefundEvent(event.payload.refund?.entity);
         break;
       default:
         console.log(`Unhandled Razorpay event: ${event.event}`);
@@ -114,193 +160,175 @@ export async function handleRazorpayWebhook(
   }
 }
 
-async function handlePaymentCaptured(
-  supabase: any,
-  payment: RazorpayPaymentEntity | undefined
-) {
-  if (!payment) return;
+async function confirmAndMarkOrderPaid(params: {
+  order: Pick<OrderRow, 'id' | 'email' | 'total_amount' | 'payment_status' | 'status' | 'metadata'>;
+  provider: 'razorpay' | 'stripe';
+  paymentId: string;
+}) {
+  const { order, provider, paymentId } = params;
+  const existingMeta = parseMeta(order.metadata);
 
-  // payment_id column holds the Razorpay order ID (set during order creation)
-  const { data: order } = await supabase
-    .from('orders')
-    .select('id, user_id, email, phone, total_amount, currency, metadata, whatsapp_opt_in')
-    .eq('payment_id', payment.order_id)
-    .single();
+  if (order.payment_status === 'paid') {
+    return;
+  }
 
-  if (!order) return;
+  const confirmRes = await supabaseAdmin.rpc('confirm_order_inventory', { p_order_id: order.id });
+  const confirmData = confirmRes.data as { confirmed?: boolean; stock_conflict?: boolean } | null;
 
-  const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
-    ? (order.metadata as Record<string, unknown>)
-    : {};
+  if (confirmRes.error || confirmData?.stock_conflict) {
+    // Late webhook arrived after 15m TTL expired and stock was bought by someone else -> auto-refund
+    await supabaseAdmin
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancel_reason: 'Stock unavailable when late payment settled — automatic refund initiated',
+        cancelled_at: new Date().toISOString(),
+        metadata: {
+          ...existingMeta,
+          stock_conflict: true,
+          [`${provider}_payment_id`]: paymentId,
+          late_payment_detected_at: new Date().toISOString(),
+        } as unknown as Json,
+      })
+      .eq('id', order.id);
 
-  // Update order payment status — store payment details in metadata
-  await supabase
+    await executeGatewayRefund(order.id, order.total_amount, 'Stock conflict after reservation expiry');
+    return;
+  }
+
+  await supabaseAdmin
     .from('orders')
     .update({
       payment_status: 'paid',
+      status: 'confirmed',
       metadata: {
         ...existingMeta,
-        razorpay_payment_id: payment.id,
+        [`${provider}_payment_id`]: paymentId,
         paid_at: new Date().toISOString(),
-      },
+      } as unknown as Json,
     })
     .eq('id', order.id);
 
-  // Send confirmation notifications
   await sendOrderConfirmation(order.id);
 }
 
-async function handlePaymentFailed(
-  supabase: any,
-  payment: RazorpayPaymentEntity | undefined
-) {
+async function handlePaymentCaptured(payment: RazorpayPaymentEntity | undefined) {
   if (!payment) return;
 
-  // payment_id column holds the Razorpay order ID (set during order creation)
-  const { data: order } = await supabase
+  const { data: order } = await supabaseAdmin
     .from('orders')
-    .select('id, metadata')
+    .select('id, email, total_amount, payment_status, status, metadata')
     .eq('payment_id', payment.order_id)
-    .single();
+    .maybeSingle();
 
   if (!order) return;
 
-  const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
-    ? (order.metadata as Record<string, unknown>)
-    : {};
+  await confirmAndMarkOrderPaid({
+    order,
+    provider: 'razorpay',
+    paymentId: payment.id,
+  });
+}
 
-  await supabase
+async function handlePaymentFailed(payment: RazorpayPaymentEntity | undefined) {
+  if (!payment) return;
+
+  const { data: order } = await supabaseAdmin
+    .from('orders')
+    .select('id, payment_status, status, metadata')
+    .eq('payment_id', payment.order_id)
+    .maybeSingle();
+
+  if (!order) return;
+
+  // Never downgrade an already-paid order from an out-of-order failed retry event
+  if (order.payment_status === 'paid' || order.payment_status === 'refunded') {
+    return;
+  }
+
+  const existingMeta = parseMeta(order.metadata);
+
+  await supabaseAdmin
     .from('orders')
     .update({
       payment_status: 'failed',
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      cancel_reason: payment.error_description || payment.error_code || 'Payment failed',
       metadata: {
         ...existingMeta,
         payment_failed_at: new Date().toISOString(),
         payment_failure_reason: payment.error_description || payment.error_code || 'Payment failed',
-      },
+      } as unknown as Json,
     })
     .eq('id', order.id);
 
-  // Restore inventory
-  await restoreInventoryForOrder(supabase, order.id);
+  await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
 }
 
-async function handleOrderPaid(
-  supabase: any,
-  orderData: RazorpayOrderEntity | undefined
-) {
+async function handleOrderPaid(orderData: RazorpayOrderEntity | undefined) {
   if (!orderData) return;
 
-  // This is a fallback - payment.captured should handle it
-  // payment_id column holds the Razorpay order ID (set during order creation)
-  const { data: order } = await supabase
+  const { data: order } = await supabaseAdmin
     .from('orders')
-    .select('id, metadata')
+    .select('id, email, total_amount, payment_status, status, metadata')
     .eq('payment_id', orderData.id)
-    .single();
+    .maybeSingle();
 
   if (!order) return;
 
-  if (orderData.amount_paid >= orderData.amount) {
-    const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
-      ? (order.metadata as Record<string, unknown>)
-      : {};
-
-    await supabase
-      .from('orders')
-      .update({
-        payment_status: 'paid',
-        metadata: {
-          ...existingMeta,
-          paid_at: new Date().toISOString(),
-        },
-      })
-      .eq('id', order.id);
-
-    await sendOrderConfirmation(order.id);
+  const expectedPaise = toPaise(Number(order.total_amount));
+  if (orderData.amount_paid >= expectedPaise) {
+    await confirmAndMarkOrderPaid({
+      order,
+      provider: 'razorpay',
+      paymentId: orderData.id,
+    });
   }
 }
 
-async function handleRefund(
-  supabase: any,
-  refund: RazorpayRefundEntity | undefined
-) {
+async function handleRazorpayRefundEvent(refund: RazorpayRefundEntity | undefined) {
   if (!refund) return;
 
-  // razorpay_payment_id is stored inside the metadata JSON column
-  const { data: orders } = await supabase
+  // Search paid or partially_refunded orders whose metadata.razorpay_payment_id matches
+  const { data: orders } = await supabaseAdmin
     .from('orders')
-    .select('id, total_amount, metadata')
+    .select('id, total_amount, payment_status, metadata')
     .eq('payment_method', 'razorpay')
-    .eq('payment_status', 'paid');
+    .in('payment_status', ['paid', 'partially_refunded']);
 
   if (!orders || orders.length === 0) return;
 
-  // Find the order whose metadata.razorpay_payment_id matches
-  const order = orders.find((o: any) => {
-    const meta = (typeof o.metadata === 'object' && o.metadata !== null && !Array.isArray(o.metadata))
-      ? (o.metadata as Record<string, unknown>)
-      : {};
+  const order = orders.find((o) => {
+    const meta = parseMeta(o.metadata);
     return meta['razorpay_payment_id'] === refund.payment_id;
   });
 
   if (!order) return;
 
-  const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
-    ? (order.metadata as Record<string, unknown>)
-    : {};
+  const existingMeta = parseMeta(order.metadata);
+  const refundedInr = fromPaise(refund.amount);
+  const previousRefundedInr = Number(existingMeta['refund_amount'] || 0);
+  const cumulativeRefundedInr = Math.min(Number(order.total_amount), Math.max(previousRefundedInr, refundedInr));
+  const isFullRefund = cumulativeRefundedInr >= Number(order.total_amount);
 
-  await supabase
+  await supabaseAdmin
     .from('orders')
     .update({
-      payment_status: refund.amount >= order.total_amount ? 'refunded' : 'partially_refunded',
+      payment_status: isFullRefund ? 'refunded' : 'partially_refunded',
+      ...(isFullRefund ? { status: 'cancelled', cancelled_at: new Date().toISOString() } : {}),
       metadata: {
         ...existingMeta,
-        refund_amount: refund.amount,
+        refund_id: refund.id,
+        refund_amount: cumulativeRefundedInr,
+        refund_amount_paise: refund.amount,
         refunded_at: new Date().toISOString(),
-      },
+      } as unknown as Json,
     })
     .eq('id', order.id);
 
-  // Restore inventory for refunded items
-  await restoreInventoryForOrder(supabase, order.id);
-}
-
-async function restoreInventoryForOrder(supabase: any, orderId: string) {
-  const { data: items } = await supabase
-    .from('order_items')
-    .select('variant_id, quantity')
-    .eq('order_id', orderId);
-
-  if (!items) return;
-
-  for (const item of items) {
-    if (!item.variant_id) continue;
-    try {
-      // Try the RPC first (atomic increment)
-      const { error: rpcError } = await supabase.rpc('increase_inventory', {
-        variant_id: item.variant_id,
-        quantity: item.quantity,
-      });
-
-      // Edge case #5: If the RPC doesn't exist or fails, fall back to a direct read-then-update
-      if (rpcError) {
-        console.warn('increase_inventory RPC failed, using direct update fallback:', rpcError.message);
-        const { data: v } = await supabase
-          .from('product_variants')
-          .select('inventory_quantity')
-          .eq('id', item.variant_id)
-          .maybeSingle();
-        if (v && v.inventory_quantity !== null) {
-          await supabase
-            .from('product_variants')
-            .update({ inventory_quantity: v.inventory_quantity + item.quantity })
-            .eq('id', item.variant_id);
-        }
-      }
-    } catch (err) {
-      console.error('restoreInventory error for variant', item.variant_id, err);
-    }
+  if (isFullRefund) {
+    await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
   }
 }
 
@@ -309,10 +337,10 @@ async function restoreInventoryForOrder(supabase: any, orderId: string) {
 // ============================================
 
 interface StripePaymentIntentParams {
-  amount: number;
+  amount: number; // in minor units (paise/cents)
   currency: string;
   orderId: string;
-  userId: string;
+  userId?: string;
   email: string;
   metadata?: Record<string, string>;
 }
@@ -328,7 +356,7 @@ export async function createStripePaymentIntent(
   params: StripePaymentIntentParams
 ): Promise<StripePaymentIntentResult> {
   try {
-    const secretKey = process.env['STRIPE_SECRET_KEY'];
+    const secretKey = getOptionalEnv('STRIPE_SECRET_KEY');
     if (!secretKey) {
       return { success: false, error: 'Stripe not configured' };
     }
@@ -342,18 +370,29 @@ export async function createStripePaymentIntent(
       automatic_payment_methods: { enabled: true },
       metadata: {
         order_id: params.orderId,
-        user_id: params.userId,
+        user_id: params.userId || 'guest',
         ...params.metadata,
       },
       receipt_email: params.email,
     });
 
-    // Store payment intent ID in order
-    const supabase = await getSupabaseClient();
-    await supabase
+    const { data: existingOrder } = await supabaseAdmin
       .from('orders')
-      .update({ stripe_payment_intent_id: paymentIntent.id })
-      .eq('id', params.orderId as string);
+      .select('metadata')
+      .eq('id', params.orderId)
+      .maybeSingle();
+    const existingMeta = parseMeta(existingOrder?.metadata ?? {});
+
+    await supabaseAdmin
+      .from('orders')
+      .update({
+        payment_id: paymentIntent.id,
+        metadata: {
+          ...existingMeta,
+          stripe_payment_intent_id: paymentIntent.id,
+        } as unknown as Json,
+      })
+      .eq('id', params.orderId);
 
     return {
       success: true,
@@ -370,7 +409,7 @@ export async function verifyStripePayment(
   paymentIntentId: string
 ): Promise<{ success: boolean; orderId?: string; error?: string }> {
   try {
-    const secretKey = process.env['STRIPE_SECRET_KEY'];
+    const secretKey = getOptionalEnv('STRIPE_SECRET_KEY');
     if (!secretKey) {
       return { success: false, error: 'Stripe not configured' };
     }
@@ -389,17 +428,21 @@ export async function verifyStripePayment(
       return { success: false, error: 'Order ID not found in payment metadata' };
     }
 
-    const supabase = await getSupabaseClient();
-    await supabase
+    const { data: orderRow } = await supabaseAdmin
       .from('orders')
-      .update({
-        payment_status: 'paid',
-        stripe_payment_id: paymentIntent.id,
-        paid_at: new Date().toISOString(),
-      })
-      .eq('id', orderId);
+      .select('id, email, total_amount, payment_status, status, metadata')
+      .eq('id', orderId)
+      .maybeSingle();
 
-    await sendOrderConfirmation(orderId);
+    if (!orderRow) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    await confirmAndMarkOrderPaid({
+      order: orderRow,
+      provider: 'stripe',
+      paymentId: paymentIntent.id,
+    });
 
     return { success: true, orderId };
   } catch (error) {
@@ -411,52 +454,71 @@ export async function verifyStripePayment(
 export async function handleStripeWebhook(
   payload: string,
   signature: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; duplicate?: boolean }> {
   try {
-    const webhookSecret = process.env['STRIPE_WEBHOOK_SECRET'];
-    if (!webhookSecret) {
+    const webhookSecret = getOptionalEnv('STRIPE_WEBHOOK_SECRET');
+    const secretKey = getOptionalEnv('STRIPE_SECRET_KEY');
+    if (!webhookSecret || !secretKey) {
       return { success: false, error: 'Stripe webhook not configured' };
     }
 
     const Stripe = (await import('stripe')).default;
-    const stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, { apiVersion: '2024-04-10' });
+    const stripe = new Stripe(secretKey, { apiVersion: '2024-04-10' });
 
     const event = stripe.webhooks.constructEvent(payload, signature, webhookSecret);
 
-    const supabase = await getSupabaseClient();
+    const claim = await claimWebhookEvent('stripe', event.id, event.type, event);
+    if (claim.alreadyProcessed) {
+      return { success: true, duplicate: true };
+    }
 
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as any;
-        const metadata = paymentIntent.metadata as Record<string, string> | undefined;
-        const orderId = metadata ? metadata['order_id'] : undefined;
+        const orderId = paymentIntent?.metadata?.['order_id'] as string | undefined;
         if (orderId) {
-          await supabase
+          const { data: orderRow } = await supabaseAdmin
             .from('orders')
-            .update({
-              payment_status: 'paid',
-              stripe_payment_id: paymentIntent.id,
-              paid_at: new Date().toISOString(),
-            })
-            .eq('id', orderId);
-          await sendOrderConfirmation(orderId);
+            .select('id, email, total_amount, payment_status, status, metadata')
+            .eq('id', orderId)
+            .maybeSingle();
+          if (orderRow) {
+            await confirmAndMarkOrderPaid({
+              order: orderRow,
+              provider: 'stripe',
+              paymentId: paymentIntent.id,
+            });
+          }
         }
         break;
       }
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as any;
-        const metadata = paymentIntent.metadata as Record<string, string> | undefined;
-        const orderId = metadata ? metadata['order_id'] : undefined;
+        const orderId = paymentIntent?.metadata?.['order_id'] as string | undefined;
         if (orderId) {
-          await supabase
+          const { data: orderRow } = await supabaseAdmin
             .from('orders')
-            .update({
-              payment_status: 'failed',
-              payment_failed_at: new Date().toISOString(),
-              payment_failure_reason: paymentIntent.last_payment_error?.message || 'Payment failed',
-            })
-            .eq('id', orderId);
-          await restoreInventoryForOrder(supabase, orderId);
+            .select('id, payment_status, metadata')
+            .eq('id', orderId)
+            .maybeSingle();
+          if (orderRow && orderRow.payment_status !== 'paid') {
+            const existingMeta = parseMeta(orderRow.metadata);
+            await supabaseAdmin
+              .from('orders')
+              .update({
+                payment_status: 'failed',
+                status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
+                cancel_reason: paymentIntent.last_payment_error?.message || 'Payment failed',
+                metadata: {
+                  ...existingMeta,
+                  payment_failed_at: new Date().toISOString(),
+                  payment_failure_reason: paymentIntent.last_payment_error?.message || 'Payment failed',
+                } as unknown as Json,
+              })
+              .eq('id', orderId);
+            await supabaseAdmin.rpc('release_order_inventory', { p_order_id: orderId });
+          }
         }
         break;
       }
@@ -465,18 +527,35 @@ export async function handleStripeWebhook(
         const paymentIntentId = charge.payment_intent;
         if (paymentIntentId) {
           const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-          const metadata = paymentIntent.metadata as Record<string, string> | undefined;
-        const orderId = metadata ? metadata['order_id'] : undefined;
+          const orderId = paymentIntent.metadata['order_id'];
           if (orderId) {
-            await supabase
+            const { data: orderRow } = await supabaseAdmin
               .from('orders')
-              .update({
-                payment_status: 'refunded',
-                refund_amount: charge.amount_refunded,
-                refunded_at: new Date().toISOString(),
-              })
-              .eq('id', orderId);
-            await restoreInventoryForOrder(supabase, orderId);
+              .select('id, total_amount, metadata')
+              .eq('id', orderId)
+              .maybeSingle();
+            if (orderRow) {
+              const existingMeta = parseMeta(orderRow.metadata);
+              const refundedInr = fromPaise(Number(charge.amount_refunded || 0));
+              const totalAmount = Number(orderRow.total_amount || 0);
+              const isFullRefund = refundedInr >= totalAmount;
+              await supabaseAdmin
+                .from('orders')
+                .update({
+                  payment_status: isFullRefund ? 'refunded' : 'partially_refunded',
+                  ...(isFullRefund ? { status: 'cancelled', cancelled_at: new Date().toISOString() } : {}),
+                  metadata: {
+                    ...existingMeta,
+                    refund_amount: refundedInr,
+                    refund_amount_paise: charge.amount_refunded,
+                    refunded_at: new Date().toISOString(),
+                  } as unknown as Json,
+                })
+                .eq('id', orderId);
+              if (isFullRefund) {
+                await supabaseAdmin.rpc('release_order_inventory', { p_order_id: orderId });
+              }
+            }
           }
         }
         break;
@@ -484,51 +563,12 @@ export async function handleStripeWebhook(
     }
 
     return { success: true };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Stripe webhook error:', error);
-    return { success: false, error: 'Webhook processing failed' };
-  }
-}
-
-// ============================================
-// COD ORDER CONFIRMATION
-// ============================================
-
-export async function confirmCodOrder(
-  orderId: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = await getSupabaseClient();
-
-    const { data: order, error } = await supabase
-      .from('orders')
-      .select('id, payment_method, status')
-      .eq('id', orderId)
-      .single();
-
-    if (error || !order) {
-      return { success: false, error: 'Order not found' };
-    }
-
-    if (order.payment_method !== 'cod') {
-      return { success: false, error: 'Not a COD order' };
-    }
-
-    // COD orders are confirmed immediately, payment collected on delivery
-    await supabase
-      .from('orders')
-      .update({
-        payment_status: 'pending',
-        status: 'confirmed',
-      })
-      .eq('id', orderId);
-
-    await sendOrderConfirmation(orderId);
-
-    return { success: true };
-  } catch (error) {
-    console.error('COD confirmation error:', error);
-    return { success: false, error: 'Failed to confirm COD order' };
+    return {
+      success: false,
+      error: error?.type === 'StripeSignatureVerificationError' ? 'Invalid signature' : 'Webhook processing failed',
+    };
   }
 }
 
@@ -538,9 +578,7 @@ export async function confirmCodOrder(
 
 async function sendOrderConfirmation(orderId: string) {
   try {
-    const supabase = await getSupabaseClient();
-
-    const { data: order } = await supabase
+    const { data: order } = await supabaseAdmin
       .from('orders')
       .select(`
         *,
@@ -554,54 +592,49 @@ async function sendOrderConfirmation(orderId: string) {
 
     if (!order) return;
 
-    // Send email confirmation
-    await sendOrderEmail(supabase, order);
+    await sendOrderEmail(order);
 
-    // Send WhatsApp confirmation if opted in
     if (order.whatsapp_opt_in) {
-      await sendOrderWhatsApp(supabase, order);
+      await sendOrderWhatsApp(order);
     }
 
-    // Send admin notification
-    await sendAdminOrderNotification(supabase, order);
+    await sendAdminOrderNotification(order);
   } catch (error) {
     console.error('Order confirmation error:', error);
   }
 }
 
 async function sendOrderEmail(
-  supabase: any,
   order: OrderRow & { order_items: (OrderItemRow & { product: any })[] }
 ) {
-  // TODO: Implement email sending using Resend/SendGrid/NodeMailer
-  // For now, log the email content
-  console.log('Sending order confirmation email to:', order.email);
-  console.log('Order:', order.id, 'Total:', order.total_amount / 100, order.currency);
+  const html = generateOrderEmailContent(order);
 
-  // Store notification in database for later processing
-  await supabase
+  if (isResendConfigured()) {
+    await sendEmailViaResend({
+      to: order.email,
+      subject: `Order Confirmed — #${order.order_number} | Angelika Fashions`,
+      html,
+      text: `Namaste, your Angelika Fashions order #${order.order_number} for ₹${Number(order.total_amount).toLocaleString('en-IN')} is confirmed.`,
+    });
+  }
+
+  await supabaseAdmin
     .from('notifications')
     .insert({
       user_id: order.user_id,
       type: 'order_confirmation',
       channel: 'email',
-      subject: `Order Confirmed - ${order.id}`,
-      content: generateOrderEmailContent(order),
-      status: 'pending',
+      subject: `Order Confirmed - ${order.order_number}`,
+      content: html,
+      status: isResendConfigured() ? 'sent' : 'pending',
+      metadata: { order_id: order.id, order_number: order.order_number },
     });
 }
 
 async function sendOrderWhatsApp(
-  supabase: any,
   order: OrderRow & { order_items: (OrderItemRow & { product: any })[] }
 ) {
-  // TODO: Implement WhatsApp Business API integration
-  // For now, log the WhatsApp message
-  console.log('Sending WhatsApp confirmation to:', order.phone);
-  console.log('Order:', order.id);
-
-  // Store notification in database for later processing
-  await supabase
+  await supabaseAdmin
     .from('notifications')
     .insert({
       user_id: order.user_id,
@@ -609,25 +642,22 @@ async function sendOrderWhatsApp(
       channel: 'whatsapp',
       content: generateWhatsAppOrderContent(order),
       status: 'pending',
+      metadata: { order_id: order.id, phone: order.phone },
     });
 }
 
 async function sendAdminOrderNotification(
-  supabase: any,
   order: OrderRow & { order_items: (OrderItemRow & { product: any })[] }
 ) {
-  // Notify admin team
-  console.log('New order received:', order.id);
-
-  await supabase
+  await supabaseAdmin
     .from('notifications')
     .insert({
-      user_id: null, // Admin notification
-      type: 'new_order',
+      type: 'admin_new_order',
       channel: 'email',
-      subject: `New Order: ${order.id}`,
+      subject: `New Order #${order.order_number}`,
       content: generateAdminOrderEmailContent(order),
       status: 'pending',
+      metadata: { order_id: order.id, total: order.total_amount },
     });
 }
 
@@ -636,32 +666,33 @@ function generateOrderEmailContent(
 ): string {
   const itemsHtml = order.order_items
     .map((item) => {
-      const variantDetails = (item.variant_details as Json) as Record<string, any> | null;
-      const size = (variantDetails?.['size'] as string) || '';
-      const color = (variantDetails?.['color'] as string) || '';
+      const variantDetails = parseMeta(item.variant_details);
+      const size = escapeHtml(variantDetails['size'] || '');
+      const color = escapeHtml(variantDetails['color'] || '');
       return `
     <tr>
       <td style="padding: 12px; border-bottom: 1px solid #eee;">
-        ${item.product_name} (${size}, ${color})
+        <strong>${escapeHtml(item.product_name)}</strong><br/>
+        <small>${size} &bull; ${color}</small>
       </td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: center;">
-        ${item.quantity}
+        ${Number(item.quantity)}
       </td>
       <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">
-        ₹${(item.unit_price / 100).toLocaleString()}
+        ₹${Number(item.unit_price).toLocaleString('en-IN')}
       </td>
     </tr>
   `;
     })
     .join('');
 
-  const shippingAddress = (order.shipping_address as Json) as Record<string, any> | null;
-  const firstName = (shippingAddress?.['firstName'] as string) || 'Customer';
+  const addr = normalizeAddress(order.shipping_address);
+  const firstName = escapeHtml(addr.firstName || 'Customer');
 
   return `
     <h1>Order Confirmed!</h1>
     <p>Hi ${firstName},</p>
-    <p>Your order <strong>${order.id}</strong> has been confirmed.</p>
+    <p>Your order <strong>${escapeHtml(order.order_number)}</strong> has been confirmed.</p>
     <table style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background: #f5f5f5;">
@@ -675,7 +706,7 @@ function generateOrderEmailContent(
       </tbody>
     </table>
     <p style="text-align: right; font-size: 18px; font-weight: bold;">
-      Total: ₹${(order.total_amount / 100).toLocaleString()}
+      Total: ₹${Number(order.total_amount).toLocaleString('en-IN')}
     </p>
     <p>We'll notify you when your order ships.</p>
     <p>Thank you for shopping with Angelika Fashions!</p>
@@ -687,19 +718,19 @@ function generateWhatsAppOrderContent(
 ): string {
   const itemsText = order.order_items
     .map((item) => {
-      const variantDetails = (item.variant_details as Json) as Record<string, any> | null;
-      const size = (variantDetails?.['size'] as string) || '';
-      const color = (variantDetails?.['color'] as string) || '';
-      return `• ${item.product_name} (${size}, ${color}) x${item.quantity} - ₹${(item.unit_price / 100).toLocaleString()}`;
+      const variantDetails = parseMeta(item.variant_details);
+      const size = String(variantDetails['size'] || '');
+      const color = String(variantDetails['color'] || '');
+      return `• ${item.product_name} (${size}, ${color}) x${item.quantity} - ₹${Number(item.unit_price).toLocaleString('en-IN')}`;
     })
     .join('\n');
 
   return `🎉 *Order Confirmed!*
 
-Order: ${order.id}
+Order: ${order.order_number}
 ${itemsText}
 
-*Total: ₹${(order.total_amount / 100).toLocaleString()}*
+*Total: ₹${Number(order.total_amount).toLocaleString('en-IN')}*
 
 We'll notify you when your order ships.
 
@@ -711,20 +742,20 @@ function generateAdminOrderEmailContent(
 ): string {
   const itemsText = order.order_items
     .map((item) => {
-      const variantDetails = (item.variant_details as Json) as Record<string, any> | null;
-      const size = (variantDetails?.['size'] as string) || '';
-      const color = (variantDetails?.['color'] as string) || '';
-      return `${item.product_name} (${size}, ${color}) x${item.quantity} - ₹${(item.unit_price / 100).toLocaleString()}`;
+      const variantDetails = parseMeta(item.variant_details);
+      const size = String(variantDetails['size'] || '');
+      const color = String(variantDetails['color'] || '');
+      return `${item.product_name} (${size}, ${color}) x${item.quantity} - ₹${Number(item.unit_price).toLocaleString('en-IN')}`;
     })
     .join('\n');
 
-  const shippingAddress = (order.shipping_address as Json) as Record<string, any> | null;
+  const addr = normalizeAddress(order.shipping_address);
 
   return `
 New order received!
 
-Order ID: ${order.id}
-Customer: ${(shippingAddress?.['firstName'] as string) || ''} ${(shippingAddress?.['lastName'] as string) || ''}
+Order ID: ${order.order_number}
+Customer: ${addr.fullName}
 Email: ${order.email}
 Phone: ${order.phone}
 Payment: ${order.payment_method}
@@ -733,28 +764,21 @@ Status: ${order.status}
 Items:
 ${itemsText}
 
-Total: ₹${(order.total_amount / 100).toLocaleString()}
+Total: ₹${Number(order.total_amount).toLocaleString('en-IN')}
   `;
 }
 
-async function getSupabaseClient() {
-  const { createClient } = await import('@/lib/supabase/server');
-  return createClient();
-}
-
 // ============================================
-// PAYMENT REFUND
+// PAYMENT REFUND (Gateway Execution & RBAC Guarded Action)
 // ============================================
 
-export async function processRefund(
+export async function executeGatewayRefund(
   orderId: string,
-  amount?: number, // in paise, partial refund if specified
+  amountInr?: number,
   reason?: string
 ): Promise<{ success: boolean; refundId?: string; error?: string }> {
   try {
-    const supabase = await getSupabaseClient();
-
-    const { data: order } = await supabase
+    const { data: order } = await supabaseAdmin
       .from('orders')
       .select('id, payment_method, payment_status, total_amount, metadata, currency, payment_id')
       .eq('id', orderId)
@@ -764,24 +788,35 @@ export async function processRefund(
       return { success: false, error: 'Order not found' };
     }
 
-    if ((order as any).payment_status !== 'paid') {
-      return { success: false, error: 'Order not paid' };
+    if (order.payment_status !== 'paid' && order.payment_status !== 'partially_refunded') {
+      return { success: false, error: 'Order has not been paid' };
     }
 
-    const refundAmount = amount || order.total_amount;
+    const meta = parseMeta(order.metadata);
+    const alreadyRefundedInr = Number(meta['refund_amount'] || 0);
+    const maxRefundableInr = Math.max(0, Number(order.total_amount) - alreadyRefundedInr);
+    const requestedInr = amountInr !== undefined ? Number(amountInr) : maxRefundableInr;
 
-    // Extract razorpay_payment_id from metadata JSON
-    const meta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
-      ? (order.metadata as Record<string, unknown>)
-      : {};
+    if (!Number.isFinite(requestedInr) || requestedInr <= 0) {
+      return { success: false, error: 'Refund amount must be positive' };
+    }
+    if (requestedInr > maxRefundableInr) {
+      return { success: false, error: `Refund exceeds remaining refundable amount (₹${maxRefundableInr})` };
+    }
+
+    const refundAmountPaise = toPaise(requestedInr);
+    const newCumulativeRefunded = alreadyRefundedInr + requestedInr;
+    const isFullRefund = newCumulativeRefunded >= Number(order.total_amount);
+
     const razorpayPaymentId = meta['razorpay_payment_id'] as string | undefined;
-    const stripePaymentIntentId = meta['stripe_payment_intent_id'] as string | undefined;
+    const stripePaymentIntentId = (meta['stripe_payment_intent_id'] || order.payment_id) as string | undefined;
 
     if (order.payment_method === 'razorpay' && razorpayPaymentId) {
-      const keySecret = process.env['RAZORPAY_KEY_SECRET'];
-      if (!keySecret) return { success: false, error: 'Razorpay not configured' };
+      const keySecret = getOptionalEnv('RAZORPAY_KEY_SECRET');
+      const keyId = getOptionalEnv('RAZORPAY_KEY_ID');
+      if (!keySecret || !keyId) return { success: false, error: 'Razorpay not configured' };
 
-      const auth = Buffer.from(`${process.env['RAZORPAY_KEY_ID']}:${keySecret}`).toString('base64');
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
       const response = await fetch(`https://api.razorpay.com/v1/payments/${razorpayPaymentId}/refund`, {
         method: 'POST',
         headers: {
@@ -789,7 +824,7 @@ export async function processRefund(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: refundAmount,
+          amount: refundAmountPaise,
           notes: { reason: reason || 'Customer requested refund' },
         }),
       });
@@ -799,52 +834,90 @@ export async function processRefund(
         return { success: false, error: data.error?.description || 'Refund failed' };
       }
 
-      await supabase
+      await supabaseAdmin
         .from('orders')
         .update({
-          payment_status: refundAmount >= order.total_amount ? 'refunded' : 'partially_refunded',
+          payment_status: isFullRefund ? 'refunded' : 'partially_refunded',
+          ...(isFullRefund ? { status: 'cancelled', cancelled_at: new Date().toISOString() } : {}),
           metadata: {
             ...meta,
             refund_id: data.id,
-            refund_amount: refundAmount,
+            refund_amount: newCumulativeRefunded,
+            refund_amount_paise: toPaise(newCumulativeRefunded),
             refunded_at: new Date().toISOString(),
-          },
+          } as unknown as Json,
         })
         .eq('id', orderId);
+
+      if (isFullRefund) {
+        await supabaseAdmin.rpc('release_order_inventory', { p_order_id: orderId });
+      }
 
       return { success: true, refundId: data.id };
     }
 
     if (order.payment_method === 'stripe' && stripePaymentIntentId) {
+      const secretKey = getOptionalEnv('STRIPE_SECRET_KEY');
+      if (!secretKey) return { success: false, error: 'Stripe not configured' };
+
       const Stripe = (await import('stripe')).default;
-      const stripe = new Stripe(process.env['STRIPE_SECRET_KEY']!, { apiVersion: '2024-04-10' });
+      const stripe = new Stripe(secretKey, { apiVersion: '2024-04-10' });
 
       const refund = await stripe.refunds.create({
         payment_intent: stripePaymentIntentId,
-        amount: refundAmount,
+        amount: refundAmountPaise,
         reason: 'requested_by_customer',
         metadata: { reason: reason || 'Customer requested refund' },
       });
 
-      await supabase
+      await supabaseAdmin
         .from('orders')
         .update({
-          payment_status: refundAmount >= order.total_amount ? 'refunded' : 'partially_refunded',
+          payment_status: isFullRefund ? 'refunded' : 'partially_refunded',
+          ...(isFullRefund ? { status: 'cancelled', cancelled_at: new Date().toISOString() } : {}),
           metadata: {
             ...meta,
             refund_id: refund.id,
-            refund_amount: refundAmount,
+            refund_amount: newCumulativeRefunded,
+            refund_amount_paise: toPaise(newCumulativeRefunded),
             refunded_at: new Date().toISOString(),
-          },
+          } as unknown as Json,
         })
         .eq('id', orderId);
+
+      if (isFullRefund) {
+        await supabaseAdmin.rpc('release_order_inventory', { p_order_id: orderId });
+      }
 
       return { success: true, refundId: refund.id };
     }
 
-    return { success: false, error: 'Unsupported payment method for refund' };
+    return { success: false, error: 'Unsupported payment method or missing gateway payment reference for refund' };
   } catch (error) {
     console.error('Refund error:', error);
     return { success: false, error: 'Refund processing failed' };
   }
+}
+
+export async function processRefund(
+  orderId: string,
+  amount?: number,
+  reason?: string
+): Promise<{ success: boolean; refundId?: string; error?: string }> {
+  const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error || 'Unauthorized' };
+  }
+
+  const res = await executeGatewayRefund(orderId, amount, reason);
+  if (res.success) {
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'process_order_refund',
+      entityType: 'order',
+      entityId: orderId,
+      afterState: { amountInr: amount, reason, refundId: res.refundId },
+    });
+  }
+  return res;
 }

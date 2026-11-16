@@ -542,7 +542,7 @@ export function AccessibilityPageEditor({
             <div className="flex items-center justify-between border-b border-[var(--color-whisper)] pb-3">
               <div>
                 <h3 className="font-serif font-bold text-sm text-[var(--color-ink)] flex items-center gap-2">
-                  <span>Vidhya's Direct Concierge Desk Box</span>
+                  <span>Vidhya&apos;s Direct Concierge Desk Box</span>
                   <Badge variant="outline" className="text-[var(--color-gold)] border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 text-[10px]">
                     Featured Contact Card
                   </Badge>

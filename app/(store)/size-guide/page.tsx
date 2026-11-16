@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { getSiteContent, DEFAULT_SITE_CONTENT } from '@/lib/actions/site-content';
+import { getSiteContent } from '@/lib/actions/site-content';
+import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
 import { SizeGuideClient } from './SizeGuideClient';
 
 export const revalidate = 60;

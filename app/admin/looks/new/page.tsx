@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { createAdminLook } from '@/lib/actions/admin-looks';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -158,11 +159,34 @@ export default function LookNewPage() {
       try {
         const { data, error } = await supabase
           .from('products')
-          .select('id, name, slug, price, thumbnail_url, images')
+          .select(`
+            id,
+            name,
+            slug,
+            product_variants!product_variants_product_id_fkey(price, is_active, sort_order),
+            product_images!product_images_product_id_fkey(url, is_primary, sort_order)
+          `)
           .eq('is_active', true)
           .order('name');
         if (error) throw error;
-        setProducts(data || []);
+        const mapped: Product[] = (data || []).map((p: any) => {
+          const activeVars = (p.product_variants || []).filter((v: any) => v.is_active !== false);
+          const sortedVars = [...activeVars].sort(
+            (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || Number(a.price) - Number(b.price)
+          );
+          const imgs = (p.product_images || [])
+            .sort((a: any, b: any) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) || (a.sort_order ?? 0) - (b.sort_order ?? 0))
+            .map((i: any) => i.url);
+          return {
+            id: p.id,
+            name: p.name,
+            slug: p.slug,
+            price: Number(sortedVars[0]?.price || 0),
+            thumbnail_url: imgs[0] || '/images/placeholder.jpg',
+            images: imgs,
+          };
+        });
+        setProducts(mapped);
       } catch (error) {
         console.error(error);
         addToast({ title: 'Error', message: 'Failed to load products', type: 'error' });
@@ -252,7 +276,7 @@ export default function LookNewPage() {
     setHotspots((prev) => prev.filter((h) => h.id !== hotspotId).map((h, i) => ({ ...h, display_order: i })));
   }, []);
 
-  // Save new look
+  // Save new look via authenticated Admin Server Action
   const handleSave = async () => {
     if (!look.name || !look.lifestyle_image_url) {
       addToast({ title: 'Missing fields', message: 'Name and image URL are required', type: 'error' });
@@ -260,33 +284,23 @@ export default function LookNewPage() {
     }
     setSaving(true);
     try {
-      const { data: newLook, error: lookError } = await supabase
-        .from('looks')
-        .insert({
-          name: look.name,
-          lifestyle_image_url: look.lifestyle_image_url,
-          lifestyle_image_alt: look.lifestyle_image_alt,
-          is_active: look.is_active,
-          display_order: look.display_order,
-        })
-        .select('id')
-        .single();
+      const res = await createAdminLook({
+        name: look.name,
+        lifestyle_image_url: look.lifestyle_image_url,
+        lifestyle_image_alt: look.lifestyle_image_alt,
+        is_active: look.is_active,
+        display_order: look.display_order,
+        hotspots: hotspots.map((h, i) => ({
+          product_id: h.product_id,
+          x_percent: h.x_percent,
+          y_percent: h.y_percent,
+          display_order: i,
+        })),
+      });
 
-      if (lookError) throw lookError;
-      if (!newLook) throw new Error('Failed to create look');
-
-      const validHotspots = hotspots.filter((h) => !h.id?.toString().startsWith('temp-'));
-      if (validHotspots.length > 0) {
-        const { error: hotspotError } = await supabase.from('look_hotspots').insert(
-          validHotspots.map((h, i) => ({
-            look_id: newLook.id,
-            product_id: h.product_id,
-            x_percent: h.x_percent,
-            y_percent: h.y_percent,
-            display_order: i,
-          }))
-        );
-        if (hotspotError) throw hotspotError;
+      if (!res.success) {
+        addToast({ title: 'Error', message: res.error || 'Failed to create look', type: 'error' });
+        return;
       }
 
       addToast({ title: 'Created', message: 'Look created successfully', type: 'success' });

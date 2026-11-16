@@ -190,7 +190,15 @@ export default function AboutPageClient({
               </div>
               {founderNote.ctaText && (
                 <MagneticButton variant="whatsapp" size="lg" strength={0.3} className="gap-2" asChild>
-                  <Link href={founderNote.ctaLink || 'https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya'} target="_blank" rel="noopener noreferrer">
+                  <Link
+                    href={
+                      founderNote.ctaLink && !founderNote.ctaLink.includes('91XXXXXXXXXX')
+                        ? founderNote.ctaLink
+                        : '/contact'
+                    }
+                    target={founderNote.ctaLink && !founderNote.ctaLink.includes('91XXXXXXXXXX') ? '_blank' : undefined}
+                    rel={founderNote.ctaLink && !founderNote.ctaLink.includes('91XXXXXXXXXX') ? 'noopener noreferrer' : undefined}
+                  >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.48-1.653-1.653-.173-.173-.447-.298-.644-.075-.198.199-.867.868-.967 1.164-.199.297-.247.496-.15.67.098.272.816.99 1.065 1.28.148.198.298.347.496.471.198.198.471.297.67.149l.767-.693c.272-.248.495-.373.57-.373.148 0 .297.149.372.373.149.423.448 1.272.94 1.988.463.68 1.255 1.165 1.475 1.288.198.124.272.223.397.198.149-.025.422-.248.57-.471.148-.223.172-.57.074-.766-.124-.198-.522-.692-1.018-1.307-.448-.57-1.14-1.294-1.717-1.815-.547-.5-.838-.766-.966-.866-.128-.099-.273-.099-.423 0-.15.074-.322.223-.495.372-.173.149-.347.198-.52.198-.174 0-.347-.099-.52-.247-.173-.148-.322-.247-.495-.247-.199 0-.372.098-.52.247l-.645.618c-.15.148-.173.297-.024.471.1.1.247.223.372.322.15.1.323.149.496.149.199 0 .397-.05.546-.149.148-.099.247-.248.296-.423.048-.173 0-.397-.024-.57-.024-.173-.024-.347-.074-.52-.149zM20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                     </svg>
@@ -380,7 +388,15 @@ export default function AboutPageClient({
               )}
               {bottomCta.whatsappText && (
                 <MagneticButton variant="whatsapp" size="lg" strength={0.3} asChild>
-                  <Link href={bottomCta.whatsappLink || 'https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya'} target="_blank" rel="noopener noreferrer">
+                  <Link
+                    href={
+                      bottomCta.whatsappLink && !bottomCta.whatsappLink.includes('91XXXXXXXXXX')
+                        ? bottomCta.whatsappLink
+                        : '/contact'
+                    }
+                    target={bottomCta.whatsappLink && !bottomCta.whatsappLink.includes('91XXXXXXXXXX') ? '_blank' : undefined}
+                    rel={bottomCta.whatsappLink && !bottomCta.whatsappLink.includes('91XXXXXXXXXX') ? 'noopener noreferrer' : undefined}
+                  >
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.48-1.653-1.653-.173-.173-.447-.298-.644-.075-.198.199-.867.868-.967 1.164-.199.297-.247.496-.15.67.098.272.816.99 1.065 1.28.148.198.298.347.496.471.198.198.471.297.67.149l.767-.693c.272-.248.495-.373.57-.373.148 0 .297.149.372.373.149.423.448 1.272.94 1.988.463.68 1.255 1.165 1.475 1.288.198.124.272.223.397.198.149-.025.422-.248.57-.471.148-.223.172-.57.074-.766-.124-.198-.522-.692-1.018-1.307-.448-.57-1.14-1.294-1.717-1.815-.547-.5-.838-.766-.966-.866-.128-.099-.273-.099-.423 0-.15.074-.322.223-.495.372-.173.149-.347.198-.52.198-.174 0-.347-.099-.52-.247-.173-.148-.322-.247-.495-.247-.199 0-.372.098-.52.247l-.645.618c-.15.148-.173.297-.024.471.1.1.247.223.372.322.15.1.323.149.496.149.199 0 .397-.05.546-.149.148-.099.247-.248.296-.423.048-.173 0-.397-.024-.57-.024-.173-.024-.347-.074-.52-.149zM20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                     </svg>

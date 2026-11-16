@@ -1,6 +1,7 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
 
 export interface AdminProductReview {
@@ -55,6 +56,14 @@ export async function getAllProductsWithReviews(): Promise<{
   };
 }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return {
+        products: [],
+        allReviews: [],
+        stats: { totalProducts: 0, totalReviews: 0, publishedReviews: 0, averageRating: 0 },
+      };
+    }
     // 1. Fetch all products with primary images
     let rawProductsData: any[] = [];
     const { data: rawProducts, error: pErr } = await supabaseAdmin
@@ -236,6 +245,10 @@ export async function updateAdminReview(
   }
 ): Promise<{ success: boolean; error?: string; data?: AdminProductReview }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     // 1. Fetch current review to preserve measurements
     const { data: current, error: cErr } = await supabaseAdmin
       .from('reviews')
@@ -247,13 +260,14 @@ export async function updateAdminReview(
       return { success: false, error: 'Review not found in database' };
     }
 
-    const currentMeasurements = (current.user_measurements && typeof current.user_measurements === 'object')
-      ? current.user_measurements
-      : {};
+    const currentMeasurements: Record<string, any> =
+      current.user_measurements && typeof current.user_measurements === 'object' && !Array.isArray(current.user_measurements)
+        ? (current.user_measurements as Record<string, any>)
+        : {};
 
     const updatedMeasurements = {
       ...currentMeasurements,
-      reviewer_name: (data.reviewer_name || '').trim() || currentMeasurements.reviewer_name || 'Customer',
+      reviewer_name: (data.reviewer_name || '').trim() || String(currentMeasurements['reviewer_name'] || '') || 'Customer',
     };
 
     const updates: Record<string, any> = {
@@ -328,6 +342,10 @@ export async function createAdminReview(
   }
 ): Promise<{ success: boolean; error?: string; data?: AdminProductReview }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const reviewerName = (data.reviewer_name || '').trim() || 'Verified Customer';
 
     const insertPayload = {
@@ -393,6 +411,10 @@ export async function toggleReviewPublished(
   product_slug?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const { error } = await supabaseAdmin
       .from('reviews')
       .update({ is_published, updated_at: new Date().toISOString() })
@@ -401,6 +423,14 @@ export async function toggleReviewPublished(
     if (error) {
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'toggle_review_published',
+      entityType: 'review',
+      entityId: reviewId,
+      afterState: { is_published },
+    });
 
     revalidatePath('/admin/products/reviews');
     if (product_slug) {
@@ -418,6 +448,10 @@ export async function deleteAdminReview(
   product_slug?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const { error } = await supabaseAdmin
       .from('reviews')
       .delete()
@@ -426,6 +460,13 @@ export async function deleteAdminReview(
     if (error) {
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'delete_review',
+      entityType: 'review',
+      entityId: reviewId,
+    });
 
     revalidatePath('/admin/products/reviews');
     if (product_slug) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
 import {
   getReturnStats,
   getReturns,
@@ -16,6 +16,9 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdminApi(request, OPS_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get('action');
@@ -46,13 +49,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(reasons);
       }
       default: {
-        // List returns with filters
         const page = parseInt(searchParams.get('page') || '1');
         const limit = parseInt(searchParams.get('limit') || '20');
         const filters = {
           status: searchParams.get('status') || undefined,
-          type: searchParams.get('type') as any || undefined,
-          reason: searchParams.get('reason') as any || undefined,
+          type: (searchParams.get('type') as any) || undefined,
+          reason: (searchParams.get('reason') as any) || undefined,
           dateFrom: searchParams.get('dateFrom') || undefined,
           dateTo: searchParams.get('dateTo') || undefined,
           search: searchParams.get('search') || undefined,
@@ -69,6 +71,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdminApi(request, OPS_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await request.json();
     const { action } = body;
@@ -80,6 +85,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
         const result = await updateReturnStatus(id, status, adminNotes);
+        if (result.success) {
+          await logAdminAction({
+            actorId: guard.auth.userId,
+            action: 'update_return_status',
+            entityType: 'return',
+            entityId: id,
+            afterState: { status, adminNotes },
+          });
+        }
         return NextResponse.json(result, { status: result.success ? 200 : 400 });
       }
       case 'schedule-pickup': {
@@ -88,6 +102,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
         const result = await schedulePickup({ returnId, courierPartner, pickupAddress, scheduledAt });
+        if (result.success) {
+          await logAdminAction({
+            actorId: guard.auth.userId,
+            action: 'schedule_return_pickup',
+            entityType: 'return',
+            entityId: returnId,
+            afterState: { courierPartner, scheduledAt },
+          });
+        }
         return NextResponse.json(result, { status: result.success ? 200 : 400 });
       }
       case 'process-refund': {
@@ -96,6 +119,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
         const result = await processRefund({ returnId, refundAmount, paymentMethod, notes });
+        if (result.success) {
+          await logAdminAction({
+            actorId: guard.auth.userId,
+            action: 'process_return_refund',
+            entityType: 'return',
+            entityId: returnId,
+            afterState: { refundAmount, paymentMethod },
+          });
+        }
         return NextResponse.json(result, { status: result.success ? 200 : 400 });
       }
       case 'process-exchange': {
@@ -104,6 +136,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
         const result = await processExchange({ returnId, exchangeVariantId, notes });
+        if (result.success) {
+          await logAdminAction({
+            actorId: guard.auth.userId,
+            action: 'process_return_exchange',
+            entityType: 'return',
+            entityId: returnId,
+            afterState: { exchangeVariantId },
+          });
+        }
         return NextResponse.json(result, { status: result.success ? 200 : 400 });
       }
       default:

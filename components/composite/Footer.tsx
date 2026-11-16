@@ -144,7 +144,7 @@ function RuPayEmblem() {
   return (
     <div className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <span className="text-xs font-bold text-[#097938]">Ru</span>
-      <span className="text-xs font-bold text-[#F37021]">Pay</span>
+      <span className="text-xs font-bold text-[#B54708]">Pay</span>
     </div>
   );
 }
@@ -176,7 +176,7 @@ function CodEmblem() {
 function AmexEmblem() {
   return (
     <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <span className="text-xs font-black tracking-wider text-[#006FCF]">AMEX</span>
+      <span className="text-xs font-black tracking-wider text-[#0052A3]">AMEX</span>
     </div>
   );
 }
@@ -279,47 +279,52 @@ export function Footer({
     copyright ||
     `© ${currentYear} ${siteName}. All rights reserved. Handcrafted with reverence for Indian heritage.`;
 
-  // Resolved dynamic contact details
-  const activeEmail = contactEmail || 'care@angelikafashions.com';
-  const activePhone = contactPhone || '+91 98765 43210';
+  // Resolved dynamic contact details (never fabricate placeholder phone numbers)
+  const activeEmail = contactEmail?.trim() || '';
+  const activePhone = contactPhone?.trim() || '';
   const rawWhatsapp = (contactWhatsapp || activePhone).replace(/[^0-9]/g, '');
-  const activeWhatsappLink = `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent(
-    'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.'
-  )}`;
+  const activeWhatsappLink =
+    rawWhatsapp.length >= 8
+      ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent(
+          'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.'
+        )}`
+      : '';
 
-  // Resolved social links
-  const resolvedSocialLinks: SocialLink[] = socialLinks || [
-    {
+  // Resolved social links — only include channels actually configured in Store Settings
+  const defaultConfiguredSocials: SocialLink[] = [];
+  if (socialInstagram) {
+    defaultConfiguredSocials.push({
       platform: 'instagram',
-      href: socialInstagram || 'https://instagram.com/angelikafashions',
+      href: socialInstagram,
       label: 'Instagram',
       handle: '@angelikafashions',
-    },
-    {
+    });
+  }
+  if (socialWhatsapp || activeWhatsappLink) {
+    defaultConfiguredSocials.push({
       platform: 'whatsapp',
       href: socialWhatsapp || activeWhatsappLink,
       label: 'WhatsApp Concierge',
       handle: 'Chat with Vidhya',
-    },
-    {
+    });
+  }
+  if (socialFacebook) {
+    defaultConfiguredSocials.push({
       platform: 'facebook',
-      href: socialFacebook || 'https://facebook.com/angelikafashions',
+      href: socialFacebook,
       label: 'Facebook',
       handle: 'Angelika Fashions',
-    },
-    {
-      platform: 'pinterest',
-      href: 'https://pinterest.com/angelikafashions',
-      label: 'Pinterest',
-      handle: 'Angelika Haute Couture',
-    },
-    {
+    });
+  }
+  if (socialYoutube) {
+    defaultConfiguredSocials.push({
       platform: 'youtube',
-      href: socialYoutube || 'https://youtube.com/angelikafashions',
+      href: socialYoutube,
       label: 'YouTube',
       handle: 'Angelika Atelier',
-    },
-  ];
+    });
+  }
+  const resolvedSocialLinks: SocialLink[] = socialLinks || defaultConfiguredSocials;
 
   const effectiveBrand = content?.brandName || siteName;
   const effectiveBrandSub = content?.brandTagline || 'Fashions';
@@ -331,15 +336,22 @@ export function Footer({
   const effectiveAtelierTitle = content?.atelierTitle || 'Personal Styling & Drape Consultation';
   const effectiveAtelierDesc = content?.atelierDescription || 'Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.';
   const effectiveAtelierCta = content?.atelierWhatsappCta || 'Connect with Vidhya on WhatsApp';
-  const effectiveAtelierPhone = content?.atelierPhone || activePhone;
-  const effectiveAtelierEmail = content?.atelierEmail || activeEmail;
+  const effectiveAtelierPhone = content?.atelierPhone?.trim() || activePhone;
+  const effectiveAtelierEmail = content?.atelierEmail?.trim() || activeEmail;
   const effectiveAtelierSchedule = content?.atelierSchedule || 'Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response';
-  const effectiveWhatsappUrl = content?.atelierWhatsappNumber
-    ? ('https://wa.me/' + content.atelierWhatsappNumber.replace(/[^0-9]/g, '') + '?text=' + encodeURIComponent(content.atelierWhatsappMessage || 'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.'))
-    : activeWhatsappLink;
+  const cmsWhatsappDigits = (content?.atelierWhatsappNumber || '').replace(/[^0-9]/g, '');
+  const effectiveWhatsappUrl =
+    cmsWhatsappDigits.length >= 8 && cmsWhatsappDigits !== '919876543210'
+      ? `https://wa.me/${cmsWhatsappDigits}?text=${encodeURIComponent(
+          content?.atelierWhatsappMessage ||
+            'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.'
+        )}`
+      : activeWhatsappLink;
   const effectiveSocialTitle = content?.socialTitle || 'Connect With Us';
   const effectiveSocialLinks = content?.socialLinks && content.socialLinks.length > 0
-    ? content.socialLinks.filter((s) => s.enabled !== false)
+    ? content.socialLinks.filter(
+        (s) => s.enabled !== false && !s.href.includes('919876543210') && !s.href.includes('91XXXXXXXXXX')
+      )
     : resolvedSocialLinks;
   const effectiveColumns = content?.columns && content.columns.length > 0 ? content.columns : columns;
   const effectivePaymentLabel = content?.paymentLabel || 'Payment Options:';
@@ -389,10 +401,10 @@ export function Footer({
                     className="h-10 w-auto object-contain rounded"
                   />
                   <div className="flex flex-col">
-                    <span className="font-display text-2xl font-bold tracking-tight text-[var(--color-ink)] leading-none group-hover:text-[var(--color-gold)] transition-colors">
+                    <span className="font-display text-2xl font-bold tracking-tight text-[var(--color-ink)] leading-none group-hover:text-[var(--color-gold-text)] transition-colors">
                       Angelika
                     </span>
-                    <span className="text-[10px] tracking-[0.26em] text-[var(--color-gold)] uppercase font-semibold mt-0.5">
+                    <span className="text-[10px] tracking-[0.26em] text-[var(--color-gold-text)] uppercase font-semibold mt-0.5">
                       Fashions
                     </span>
                   </div>
@@ -421,7 +433,7 @@ export function Footer({
                     <path d="M12 2c-2 3-4 6-4 9a4 4 0 008 0c0-3-2-6-4-9z" />
                     <path d="M12 11c-3-2-6-3-9-2 2 3 5 5 9 5s7-2 9-5c-3-1-6 0-9 2z" />
                   </svg>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold)]">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)]">
                     {effectiveAtelierBadge}
                   </span>
                 </div>
@@ -442,50 +454,58 @@ export function Footer({
               </div>
 
               {/* Direct WhatsApp Concierge CTA */}
-              <div className="mt-4 pt-1">
-                <a
-                  href={effectiveWhatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--color-ink)] hover:bg-[#25221E] text-white text-xs font-medium tracking-wide border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] transition-all duration-200 shadow-sm group"
-                >
-                  <span className="text-[#25D366] group-hover:scale-110 transition-transform">
-                    <SocialIcon platform="whatsapp" size="sm" />
-                  </span>
-                  <span>{effectiveAtelierCta}</span>
-                  <svg className="w-3.5 h-3.5 text-[var(--color-gold)] transition-transform group-hover:translate-x-0.5 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </a>
-              </div>
+              {effectiveWhatsappUrl && (
+                <div className="mt-4 pt-1">
+                  <a
+                    href={effectiveWhatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--color-ink)] hover:bg-[#25221E] text-white text-xs font-medium tracking-wide border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] transition-all duration-200 shadow-sm group"
+                  >
+                    <span className="text-[#25D366] group-hover:scale-110 transition-transform">
+                      <SocialIcon platform="whatsapp" size="sm" />
+                    </span>
+                    <span>{effectiveAtelierCta}</span>
+                    <svg className="w-3.5 h-3.5 text-[var(--color-gold)] transition-transform group-hover:translate-x-0.5 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </a>
+                </div>
+              )}
 
               {/* Secondary Atelier Channels (Hotline & Email) */}
-              <div className="mt-3.5 pt-3 border-t border-[#EAE4D9]/70 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <a
-                  href={`tel:${activePhone.replace(/\s+/g, '')}`}
-                  className="inline-flex items-center gap-2 text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors py-0.5"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-gold)] flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                    </svg>
-                  </span>
-                  <span className="truncate">{effectiveAtelierPhone}</span>
-                </a>
+              {(effectiveAtelierPhone || effectiveAtelierEmail) && (
+                <div className="mt-3.5 pt-3 border-t border-[#EAE4D9]/70 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  {effectiveAtelierPhone && (
+                    <a
+                      href={`tel:${effectiveAtelierPhone.replace(/\s+/g, '')}`}
+                      className="inline-flex items-center gap-2 text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors py-0.5"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-gold)] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                        </svg>
+                      </span>
+                      <span className="truncate">{effectiveAtelierPhone}</span>
+                    </a>
+                  )}
 
-                <a
-                  href={`mailto:${activeEmail}`}
-                  className="inline-flex items-center gap-2 text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors py-0.5"
-                >
-                  <span className="w-5 h-5 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-gold)] flex items-center justify-center flex-shrink-0">
-                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                      <polyline points="22,6 12,13 2,6" />
-                    </svg>
-                  </span>
-                  <span className="truncate">{effectiveAtelierEmail}</span>
-                </a>
-              </div>
+                  {effectiveAtelierEmail && (
+                    <a
+                      href={`mailto:${effectiveAtelierEmail}`}
+                      className="inline-flex items-center gap-2 text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors py-0.5"
+                    >
+                      <span className="w-5 h-5 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-gold)] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                          <polyline points="22,6 12,13 2,6" />
+                        </svg>
+                      </span>
+                      <span className="truncate">{effectiveAtelierEmail}</span>
+                    </a>
+                  )}
+                </div>
+              )}
 
               {/* Atelier Operating Schedule */}
               <div className="mt-2.5 text-[11px] text-[var(--color-mist)] flex items-center gap-1.5 font-light">
@@ -499,26 +519,28 @@ export function Footer({
             )}
 
             {/* Social Media Channels */}
-            <div className="space-y-2.5 pt-1">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold)] block">
-                {effectiveSocialTitle}
-              </span>
-              <div className="flex items-center gap-2.5 flex-wrap" role="list" aria-label="Social media channels">
-                {effectiveSocialLinks.map((social, sIdx) => (
-                  <a
-                    key={social.id || `${social.platform}-${sIdx}`}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-8 h-8 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-slate)] hover:bg-[var(--color-gold)] hover:text-white hover:border-[var(--color-gold)] flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-xs"
-                    aria-label={social.label || social.platform}
-                    title={social.handle || social.label || social.platform}
-                  >
-                    <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
-                  </a>
-                ))}
+            {effectiveSocialLinks.length > 0 && (
+              <div className="space-y-2.5 pt-1">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)] block">
+                  {effectiveSocialTitle}
+                </span>
+                <nav className="flex items-center gap-2.5 flex-wrap" aria-label="Social media channels">
+                  {effectiveSocialLinks.map((social, sIdx) => (
+                    <a
+                      key={social.id || `${social.platform}-${sIdx}`}
+                      href={social.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-slate)] hover:bg-[var(--color-gold)] hover:text-white hover:border-[var(--color-gold)] flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-xs"
+                      aria-label={social.label || social.platform}
+                      title={social.handle || social.label || social.platform}
+                    >
+                      <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
+                    </a>
+                  ))}
+                </nav>
               </div>
-            </div>
+            )}
           </div>
 
           {/* =============================================================
@@ -553,7 +575,7 @@ export function Footer({
                               className={cn(
                                 'text-[9px] font-medium tracking-[0.14em] uppercase px-1.5 py-0.5 rounded-xs border',
                                 link.badge === 'New'
-                                  ? 'bg-[var(--color-gold-light)]/50 text-[var(--color-gold-hover)] border-[var(--color-gold)]/30'
+                                  ? 'bg-[var(--color-gold-light)]/50 text-[var(--color-gold-text)] border-[var(--color-gold)]/30'
                                   : link.badge === 'Sale'
                                     ? 'bg-[#FEE2E2]/60 text-[#B91C1C] border-[#FCA5A5]/40'
                                     : 'bg-[#F3F4F6] text-[var(--color-slate)] border-[#E5E7EB]'
@@ -620,7 +642,7 @@ export function Footer({
             <button
               type="button"
               onClick={scrollToTop}
-              className="inline-flex items-center gap-1 text-[var(--color-gold)] hover:text-[var(--color-gold-hover)] font-medium transition-colors cursor-pointer ml-2"
+              className="inline-flex items-center gap-1 text-[var(--color-gold-text)] hover:underline font-medium transition-colors cursor-pointer ml-2"
               aria-label="Scroll back to top"
             >
               <span>Top</span>

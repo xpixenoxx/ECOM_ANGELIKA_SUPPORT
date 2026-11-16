@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
@@ -41,6 +41,10 @@ export interface DashboardData {
 }
 
 export async function getDashboardData(timeRange: DashboardTimeRange = '30d'): Promise<DashboardData> {
+  const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+  if (!auth.authorized) {
+    throw new Error(auth.error || 'Unauthorized');
+  }
   const supabase = supabaseAdmin;
   const now = new Date();
 
@@ -214,6 +218,8 @@ export interface Coupon {
 
 export async function getCoupons(): Promise<Coupon[]> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) return [];
     const { data, error } = await supabaseAdmin
       .from('coupons')
       .select('*')
@@ -232,6 +238,10 @@ export async function getCoupons(): Promise<Coupon[]> {
 
 export async function createCoupon(data: Omit<Coupon, 'id' | 'usage_count' | 'created_at'>): Promise<{ success: boolean; error?: string; data?: Coupon }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const code = (data.code || '').trim().toUpperCase();
     if (!code) {
       return { success: false, error: 'Coupon code is required' };
@@ -258,6 +268,9 @@ export async function createCoupon(data: Omit<Coupon, 'id' | 'usage_count' | 'cr
         ...data,
         code,
         usage_count: 0,
+        min_order_amount: data.min_order_amount ?? 0,
+        user_limit: data.user_limit ?? 1,
+        valid_from: data.valid_from ?? new Date().toISOString(),
       })
       .select()
       .single();
@@ -266,6 +279,14 @@ export async function createCoupon(data: Omit<Coupon, 'id' | 'usage_count' | 'cr
       console.error('createCoupon error:', error);
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'create_coupon',
+      entityType: 'coupon',
+      entityId: created.id,
+      afterState: { code: created.code, type: created.type, value: created.value },
+    });
 
     revalidatePath('/admin/products/coupons');
     return { success: true, data: created as Coupon };
@@ -277,6 +298,10 @@ export async function createCoupon(data: Omit<Coupon, 'id' | 'usage_count' | 'cr
 
 export async function updateCoupon(id: string, updates: Partial<Coupon>): Promise<{ success: boolean; error?: string; data?: Coupon }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     if (updates.code) {
       const code = updates.code.trim().toUpperCase();
       updates.code = code;
@@ -294,9 +319,17 @@ export async function updateCoupon(id: string, updates: Partial<Coupon>): Promis
       }
     }
 
+    const { min_order_amount, user_limit, valid_from, ...restUpdates } = updates;
+    const sanitizedUpdates = {
+      ...restUpdates,
+      ...(min_order_amount !== undefined ? { min_order_amount: min_order_amount ?? 0 } : {}),
+      ...(user_limit !== undefined ? { user_limit: user_limit ?? 1 } : {}),
+      ...(valid_from !== undefined ? { valid_from: valid_from ?? new Date().toISOString() } : {}),
+    };
+
     const { data: updated, error } = await supabaseAdmin
       .from('coupons')
-      .update(updates)
+      .update(sanitizedUpdates)
       .eq('id', id)
       .select()
       .single();
@@ -305,6 +338,14 @@ export async function updateCoupon(id: string, updates: Partial<Coupon>): Promis
       console.error('updateCoupon error:', error);
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'update_coupon',
+      entityType: 'coupon',
+      entityId: id,
+      afterState: { code: updated.code, is_active: updated.is_active },
+    });
 
     revalidatePath('/admin/products/coupons');
     return { success: true, data: updated as Coupon };
@@ -316,6 +357,11 @@ export async function updateCoupon(id: string, updates: Partial<Coupon>): Promis
 
 export async function deleteCoupon(id: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
     const { error } = await supabaseAdmin
       .from('coupons')
       .delete()
@@ -325,6 +371,13 @@ export async function deleteCoupon(id: string): Promise<{ success: boolean; erro
       console.error('deleteCoupon error:', error);
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'delete_coupon',
+      entityType: 'coupon',
+      entityId: id,
+    });
 
     revalidatePath('/admin/products/coupons');
     return { success: true };
@@ -336,6 +389,11 @@ export async function deleteCoupon(id: string): Promise<{ success: boolean; erro
 
 export async function toggleCouponActive(id: string, is_active: boolean): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
     const { error } = await supabaseAdmin
       .from('coupons')
       .update({ is_active })
@@ -345,6 +403,14 @@ export async function toggleCouponActive(id: string, is_active: boolean): Promis
       console.error('toggleCouponActive error:', error);
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'toggle_coupon_active',
+      entityType: 'coupon',
+      entityId: id,
+      afterState: { is_active },
+    });
 
     revalidatePath('/admin/products/coupons');
     return { success: true };

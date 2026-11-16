@@ -59,6 +59,12 @@ import { ContactPageEditor } from '@/components/admin/ContactPageEditor';
 import { WholesalePageEditor } from '@/components/admin/WholesalePageEditor';
 import { DesignerVidhyaPageEditor } from '@/components/admin/DesignerVidhyaPageEditor';
 import { VidhyasPicksPageEditor } from '@/components/admin/VidhyasPicksPageEditor';
+import { SalwarsPageEditor } from '@/components/admin/SalwarsPageEditor';
+import { LehengasPageEditor } from '@/components/admin/LehengasPageEditor';
+import { SareesPageEditor } from '@/components/admin/SareesPageEditor';
+import { DupattasPageEditor } from '@/components/admin/DupattasPageEditor';
+import { NewArrivalsPageEditor } from '@/components/admin/NewArrivalsPageEditor';
+import { getAdminBlogPosts, saveAdminBlogPosts, type AdminBlogPost } from '@/lib/actions/site-content';
 
 // Modular Homepage & Global Layout Sections (ONLY modular sections on homepage)
 interface ContentSectionMeta {
@@ -148,6 +154,41 @@ const staticPagesList: StaticPageMeta[] = [
     path: '/shop/kurtis',
     category: 'Catalog',
     description: 'Dedicated handcrafted Kurtis, tunics, and anarkali showcase',
+  },
+  {
+    id: 'salwars-page',
+    name: 'Salwars Collection Page',
+    path: '/shop/salwars',
+    category: 'Catalog',
+    description: 'Handcrafted Salwar suits, anarkalis, and palazzo ensembles',
+  },
+  {
+    id: 'lehengas-page',
+    name: 'Lehengas Collection Page',
+    path: '/shop/lehengas',
+    category: 'Catalog',
+    description: 'Bridal and festive embroidered lehenga couture showcase',
+  },
+  {
+    id: 'sarees-page',
+    name: 'Sarees Collection Page',
+    path: '/shop/sarees',
+    category: 'Catalog',
+    description: 'Banarasi, Kanjivaram, Chanderi and heirloom silk sarees',
+  },
+  {
+    id: 'dupattas-page',
+    name: 'Dupattas Collection Page',
+    path: '/shop/dupattas',
+    category: 'Catalog',
+    description: 'Artisanal embroidered and woven dupattas and stoles',
+  },
+  {
+    id: 'new-arrivals-page',
+    name: 'New Arrivals Full Page',
+    path: '/new-arrivals',
+    category: 'Catalog',
+    description: 'Dedicated New Arrivals editorial storefront showcase and filters',
   },
   {
     id: 'about-page',
@@ -332,50 +373,6 @@ const defaultMockContent: Record<string, any> = {
   },
 };
 
-interface BlogPost {
-  id: string;
-  title: string;
-  slug: string;
-  author: string;
-  category: string;
-  date: string;
-  status: 'Published' | 'Draft';
-  excerpt: string;
-}
-
-const initialBlogPosts: BlogPost[] = [
-  {
-    id: 'post-1',
-    title: 'The Art of Hand Block Printing: Centuries of Indian Heritage',
-    slug: 'the-art-of-hand-block-printing',
-    author: 'Vidhya',
-    category: 'Craft & Technique',
-    date: 'Jan 15, 2026',
-    status: 'Published',
-    excerpt: 'Explore how master artisans in Bagru and Sanganer craft organic wooden blocks with natural earthen dyes.',
-  },
-  {
-    id: 'post-2',
-    title: 'Chanderi Silk: The Royal Weave of Madhya Pradesh',
-    slug: 'chanderi-silk-royal-weave',
-    author: 'Vidhya',
-    category: 'Textile Heritage',
-    date: 'Feb 02, 2026',
-    status: 'Published',
-    excerpt: 'Lightweight luxury drapes featuring pure zari borders, woven since the Vedic era for royalty.',
-  },
-  {
-    id: 'post-3',
-    title: 'Festive Styling Guide: Straight-Cut Suits vs Flared Anarkalis',
-    slug: 'festive-styling-guide',
-    author: 'Vidhya',
-    category: 'Styling & Fit',
-    date: 'Feb 18, 2026',
-    status: 'Published',
-    excerpt: 'Vidhya reveals tailoring secrets to achieve the most flattering silhouette for traditional ceremonies.',
-  },
-];
-
 // Helper Image Uploader with Drag-and-Drop and Paste
 function ImageUploadField({
   imageUrl,
@@ -395,19 +392,6 @@ function ImageUploadField({
     setIsUploading(true);
     setUploadError(null);
 
-    const useLocalDataUrl = () => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onChange(reader.result);
-          setPasteSuccess(true);
-          setTimeout(() => setPasteSuccess(false), 3000);
-        }
-      };
-      reader.onerror = () => setUploadError('Failed to read image');
-      reader.readAsDataURL(file);
-    };
-
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -418,20 +402,18 @@ function ImageUploadField({
         body: fd,
       });
 
-      if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
-        const data = await res.json();
-        if (data.success && data.url) {
-          onChange(data.url);
-          setPasteSuccess(true);
-          toast.success('Image uploaded successfully!');
-          setTimeout(() => setPasteSuccess(false), 3000);
-          return;
-        }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.url) {
+        onChange(data.url);
+        setPasteSuccess(true);
+        toast.success('Image uploaded successfully!');
+        setTimeout(() => setPasteSuccess(false), 3000);
+        return;
       }
 
-      useLocalDataUrl();
+      setUploadError(data.error || 'Image upload failed. Please check file format/size or paste a URL.');
     } catch {
-      useLocalDataUrl();
+      setUploadError('Network error uploading image. Please paste an image URL instead.');
     } finally {
       setIsUploading(false);
     }
@@ -564,11 +546,12 @@ export default function AdminContentPage() {
   const [pageSearch, setPageSearch] = useState('');
   const [pageCategoryFilter, setPageCategoryFilter] = useState<string>('all');
 
-  // Blog posts state
-  const [blogList, setBlogList] = useState<BlogPost[]>(initialBlogPosts);
+  // Blog posts state (persisted in Supabase content_blocks: blog_posts)
+  const [blogList, setBlogList] = useState<AdminBlogPost[]>([]);
   const [blogSearch, setBlogSearch] = useState('');
   const [isCreatingPost, setIsCreatingPost] = useState(false);
-  const [newPostData, setNewPostData] = useState<Omit<BlogPost, 'id'>>({
+  const [isSavingBlog, setIsSavingBlog] = useState(false);
+  const [newPostData, setNewPostData] = useState<Omit<AdminBlogPost, 'id'>>({
     title: '',
     slug: '',
     author: 'Vidhya',
@@ -578,7 +561,7 @@ export default function AdminContentPage() {
     excerpt: '',
   });
 
-  // Load saved content on mount
+  // Load saved content and persisted blog posts on mount
   useEffect(() => {
     let isMounted = true;
     fetch('/api/admin/content')
@@ -597,6 +580,14 @@ export default function AdminContentPage() {
         }
       })
       .catch((err) => console.error('Error loading content:', err));
+
+    getAdminBlogPosts()
+      .then((res) => {
+        if (isMounted && res.success) {
+          setBlogList(res.posts);
+        }
+      })
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -642,15 +633,15 @@ export default function AdminContentPage() {
     }
   };
 
-  // Blog creation handler
-  const handleCreatePost = (e: React.FormEvent) => {
+  // Blog creation handler (persisted to Supabase content_blocks)
+  const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPostData.title.trim()) {
       toast.error('Post title is required');
       return;
     }
 
-    const post: BlogPost = {
+    const post: AdminBlogPost = {
       id: `post-${Date.now()}`,
       ...newPostData,
       slug:
@@ -661,25 +652,41 @@ export default function AdminContentPage() {
           .replace(/^-|-$/g, ''),
     };
 
-    setBlogList((prev) => [post, ...prev]);
-    setIsCreatingPost(false);
-    setNewPostData({
-      title: '',
-      slug: '',
-      author: 'Vidhya',
-      category: 'Craft & Technique',
-      date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-      status: 'Published',
-      excerpt: '',
-    });
-    toast.success(`Article "${post.title}" published!`);
+    const nextList = [post, ...blogList];
+    setIsSavingBlog(true);
+    try {
+      const res = await saveAdminBlogPosts(nextList);
+      if (!res.success) {
+        toast.error(res.error || 'Failed to save blog post.');
+        return;
+      }
+      setBlogList(nextList);
+      setIsCreatingPost(false);
+      setNewPostData({
+        title: '',
+        slug: '',
+        author: 'Vidhya',
+        category: 'Craft & Technique',
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+        status: 'Published',
+        excerpt: '',
+      });
+      toast.success(`Article "${post.title}" saved and published!`);
+    } finally {
+      setIsSavingBlog(false);
+    }
   };
 
-  const handleDeletePost = (id: string, title: string) => {
-    if (confirm(`Delete blog post "${title}"?`)) {
-      setBlogList((prev) => prev.filter((p) => p.id !== id));
-      toast.success(`Deleted "${title}"`);
+  const handleDeletePost = async (id: string, title: string) => {
+    if (!confirm(`Delete blog post "${title}"?`)) return;
+    const nextList = blogList.filter((p) => p.id !== id);
+    const res = await saveAdminBlogPosts(nextList);
+    if (!res.success) {
+      toast.error(res.error || 'Failed to delete blog post.');
+      return;
     }
+    setBlogList(nextList);
+    toast.success(`Deleted "${title}"`);
   };
 
   // Render the active Section Editor
@@ -771,7 +778,7 @@ export default function AdminContentPage() {
                 HOMEPAGE EDITORIAL
               </Badge>
               <CardTitle className="text-[var(--font-display)] text-lg">
-                Vidhya's Picks Showcase (Homepage)
+                Vidhya&apos;s Picks Showcase (Homepage)
               </CardTitle>
             </div>
             <div className="flex gap-2">
@@ -1207,6 +1214,41 @@ export default function AdminContentPage() {
             onSaved={() => toast.success('Kurtis Page updated successfully!')}
           />
         );
+      case 'salwars-page':
+        return (
+          <SalwarsPageEditor
+            onCancel={() => setEditingStaticPage(null)}
+            onSaved={() => toast.success('Salwars Page updated successfully!')}
+          />
+        );
+      case 'lehengas-page':
+        return (
+          <LehengasPageEditor
+            onCancel={() => setEditingStaticPage(null)}
+            onSaved={() => toast.success('Lehengas Page updated successfully!')}
+          />
+        );
+      case 'sarees-page':
+        return (
+          <SareesPageEditor
+            onCancel={() => setEditingStaticPage(null)}
+            onSaved={() => toast.success('Sarees Page updated successfully!')}
+          />
+        );
+      case 'dupattas-page':
+        return (
+          <DupattasPageEditor
+            onCancel={() => setEditingStaticPage(null)}
+            onSaved={() => toast.success('Dupattas Page updated successfully!')}
+          />
+        );
+      case 'new-arrivals-page':
+        return (
+          <NewArrivalsPageEditor
+            onCancel={() => setEditingStaticPage(null)}
+            onSaved={() => toast.success('New Arrivals Page updated successfully!')}
+          />
+        );
       case 'about-page':
         return (
           <AboutPageEditor
@@ -1627,7 +1669,7 @@ export default function AdminContentPage() {
                         {filteredPages.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={5} className="text-center py-8 text-xs text-[var(--color-slate)]">
-                              No pages matching "{pageSearch}".
+                              No pages matching &ldquo;{pageSearch}&rdquo;.
                             </TableCell>
                           </TableRow>
                         )}
@@ -1756,12 +1798,13 @@ export default function AdminContentPage() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      disabled={isSavingBlog}
                       onClick={() => setIsCreatingPost(false)}
                     >
                       Cancel
                     </Button>
-                    <Button type="submit" variant="primary" size="sm">
-                      Publish Article
+                    <Button type="submit" variant="primary" size="sm" disabled={isSavingBlog}>
+                      {isSavingBlog ? 'Publishing...' : 'Publish Article'}
                     </Button>
                   </div>
                 </form>
@@ -1829,7 +1872,7 @@ export default function AdminContentPage() {
                     {filteredBlogPosts.length === 0 && (
                       <TableRow>
                         <TableCell colSpan={6} className="text-center py-8 text-xs text-[var(--color-slate)]">
-                          No blog posts found matching "{blogSearch}".
+                          No blog posts found matching &ldquo;{blogSearch}&rdquo;.
                         </TableCell>
                       </TableRow>
                     )}

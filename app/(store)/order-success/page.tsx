@@ -13,6 +13,7 @@ import { formatINR } from '@/lib/utils/currency';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id');
+  const receiptToken = searchParams.get('token');
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -38,7 +39,7 @@ function OrderSuccessContent() {
         return;
       }
       try {
-        const data = await getOrderById(orderId);
+        const data = await getOrderById(orderId, receiptToken);
         if (data) {
           setOrder(data);
         }
@@ -50,7 +51,7 @@ function OrderSuccessContent() {
     }
 
     loadOrder();
-  }, [orderId]);
+  }, [orderId, receiptToken]);
 
   const copyOrderId = () => {
     const idToCopy = order?.order_number || orderId;
@@ -63,8 +64,8 @@ function OrderSuccessContent() {
 
   const handleCreateVipAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!vipPassword || vipPassword.length < 6) {
-      setVipStatus({ type: 'error', message: 'Password must be at least 6 characters' });
+    if (!vipPassword || vipPassword.length < 8) {
+      setVipStatus({ type: 'error', message: 'Password must be at least 8 characters' });
       return;
     }
     const emailToUse = order?.email || order?.shipping_address?.email;
@@ -80,6 +81,7 @@ function OrderSuccessContent() {
         orderId,
         email: emailToUse,
         password: vipPassword,
+        receiptToken,
       });
 
       if (res.success) {
@@ -412,7 +414,7 @@ function OrderSuccessContent() {
                   )}
                   {order.gift_message && (
                     <p className="text-[var(--color-slate)] italic mt-1 font-serif text-sm">
-                      "{order.gift_message}"
+                      &ldquo;{order.gift_message}&rdquo;
                     </p>
                   )}
                 </div>

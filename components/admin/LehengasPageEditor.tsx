@@ -83,59 +83,27 @@ function LehengaProductImageUploader({
     setIsUploading(true);
     setUploadError(null);
 
-    const useLocalDataUrl = () => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onChange(reader.result);
-          setPasteSuccess(true);
-          setTimeout(() => setPasteSuccess(false), 3000);
-        }
-      };
-      reader.onerror = () => setUploadError('Failed to read image');
-      reader.readAsDataURL(file);
-    };
-
     try {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('target', 'lehengas');
 
-      let res: Response | null = null;
-      try {
-        res = await fetch('/api/admin/content/upload', {
-          method: 'POST',
-          body: fd,
-        });
-      } catch {
-        // try fallback
+      const res = await fetch('/api/admin/content/upload', {
+        method: 'POST',
+        body: fd,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.url) {
+        onChange(data.url);
+        setPasteSuccess(true);
+        setTimeout(() => setPasteSuccess(false), 3000);
+        return;
       }
 
-      if (!res || !res.ok) {
-        try {
-          const fallbackRes = await fetch('/api/admin/content/upload-icon', {
-            method: 'POST',
-            body: fd,
-          });
-          if (fallbackRes.ok) res = fallbackRes;
-        } catch {
-          // ignore
-        }
-      }
-
-      if (res && res.ok && res.headers.get('content-type')?.includes('application/json')) {
-        const data = await res.json();
-        if (data.success && data.url) {
-          onChange(data.url);
-          setPasteSuccess(true);
-          setTimeout(() => setPasteSuccess(false), 3000);
-          return;
-        }
-      }
-
-      useLocalDataUrl();
+      setUploadError(data.error || 'Image upload failed. Paste an image URL instead.');
     } catch {
-      useLocalDataUrl();
+      setUploadError('Image upload failed. Paste an image URL instead.');
     } finally {
       setIsUploading(false);
     }

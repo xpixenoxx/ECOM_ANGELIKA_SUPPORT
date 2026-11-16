@@ -36,6 +36,7 @@ import type { ReturnWithDetails, ReturnStatus, ReturnFilters, ReturnType, Return
 import {
   getReturns,
   updateReturnStatus,
+  inspectReturn,
   schedulePickup,
   processRefund,
   processExchange,
@@ -118,12 +119,13 @@ export default function ReturnsClient({
   const [detailDialog, setDetailDialog] = useState<{ open: boolean; return: ReturnWithDetails | null }>({ open: false, return: null });
   const [actionDialog, setActionDialog] = useState<{
     open: boolean;
-    action: 'status' | 'pickup' | 'refund' | 'exchange' | null;
+    action: 'status' | 'pickup' | 'inspect' | 'refund' | 'exchange' | null;
     return: ReturnWithDetails | null;
   }>({ open: false, action: null, return: null });
   const [actionForm, setActionForm] = useState({
     status: '',
     adminNotes: '',
+    qcPassed: true,
     courierPartner: '',
     pickupAddress: {
       name: '',
@@ -181,6 +183,14 @@ export default function ReturnsClient({
           });
           break;
         }
+        case 'inspect': {
+          result = await inspectReturn(
+            returnId,
+            actionForm.qcPassed,
+            actionForm.adminNotes || undefined
+          );
+          break;
+        }
         case 'refund': {
           result = await processRefund({
             returnId,
@@ -217,11 +227,12 @@ export default function ReturnsClient({
     }
   };
 
-  const openActionDialog = (action: 'status' | 'pickup' | 'refund' | 'exchange', returnData: ReturnWithDetails) => {
+  const openActionDialog = (action: 'status' | 'pickup' | 'inspect' | 'refund' | 'exchange', returnData: ReturnWithDetails) => {
     setActionDialog({ open: true, action, return: returnData });
     setActionForm({
       status: '',
       adminNotes: '',
+      qcPassed: true,
       courierPartner: '',
       pickupAddress: {
         name: returnData.user?.full_name || (returnData.pickup_address as any)?.name || '',
@@ -261,11 +272,18 @@ export default function ReturnsClient({
     if (!statusConfig) return [];
 
     const actions: string[] = [];
-    if (statusConfig.allowedActions.includes('approve') || statusConfig.allowedActions.includes('schedule_pickup')) {
+    if (
+      statusConfig.allowedActions.includes('approve') ||
+      statusConfig.allowedActions.includes('schedule_pickup') ||
+      statusConfig.allowedActions.includes('mark_received')
+    ) {
       actions.push('status');
     }
     if (statusConfig.allowedActions.includes('schedule_pickup')) {
       actions.push('pickup');
+    }
+    if (statusConfig.allowedActions.includes('inspect')) {
+      actions.push('inspect');
     }
     if (statusConfig.allowedActions.includes('process_refund')) {
       actions.push('refund');
@@ -481,8 +499,13 @@ export default function ReturnsClient({
                             </Button>
                           )}
                           {getAllowedActions(ret).includes('pickup') && (
-                            <Button variant="ghost" size="sm" onClick={() => openActionDialog('pickup', ret)}>
+                            <Button variant="ghost" size="sm" onClick={() => openActionDialog('pickup', ret)} title="Schedule Pickup">
                               <Truck className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {getAllowedActions(ret).includes('inspect') && (
+                            <Button variant="ghost" size="sm" onClick={() => openActionDialog('inspect', ret)} title="Quality Inspection">
+                              <CheckCircle className="h-4 w-4 text-amber-600" />
                             </Button>
                           )}
                           {getAllowedActions(ret).includes('refund') && (
@@ -641,9 +664,10 @@ export default function ReturnsClient({
                     >
                       {action === 'status' && <RotateCcw className="h-4 w-4 mr-2" />}
                       {action === 'pickup' && <Truck className="h-4 w-4 mr-2" />}
+                      {action === 'inspect' && <CheckCircle className="h-4 w-4 mr-2" />}
                       {action === 'refund' && <CreditCard className="h-4 w-4 mr-2" />}
                       {action === 'exchange' && <Package className="h-4 w-4 mr-2" />}
-                      {action.charAt(0).toUpperCase() + action.slice(1)}
+                      {action === 'inspect' ? 'Quality Inspection' : action.charAt(0).toUpperCase() + action.slice(1)}
                     </Button>
                   ))}
                 </div>
@@ -773,6 +797,76 @@ export default function ReturnsClient({
             <Button variant="outline" onClick={() => setActionDialog({ open: false, action: null, return: null })}>Cancel</Button>
             <Button onClick={handleAction} disabled={isLoading}>
               {isLoading ? 'Scheduling...' : 'Schedule Pickup'}
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {actionDialog.open && actionDialog.return && actionDialog.action === 'inspect' && (
+        <Modal
+          isOpen={actionDialog.open}
+          onClose={() => setActionDialog({ open: false, action: null, return: null })}
+          title="Quality Control Inspection"
+          description={`Order: ${actionDialog.return.order?.order_number} · ${actionDialog.return.order_item?.product_name || ''}`}
+          size="md"
+        >
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[var(--color-ink)]">Inspection Outcome</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActionForm((f) => ({ ...f, qcPassed: true }))}
+                  className={cn(
+                    'p-3 rounded-xl border text-left transition-all cursor-pointer',
+                    actionForm.qcPassed
+                      ? 'border-emerald-500 bg-emerald-50 text-emerald-900'
+                      : 'border-[var(--color-whisper)] bg-white text-[var(--color-slate)]'
+                  )}
+                >
+                  <div className="flex items-center gap-2 font-semibold text-xs">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    QC Passed &amp; Restock
+                  </div>
+                  <p className="text-[11px] mt-1 opacity-80">
+                    Tags intact; restores variant inventory and enables refund/exchange.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionForm((f) => ({ ...f, qcPassed: false }))}
+                  className={cn(
+                    'p-3 rounded-xl border text-left transition-all cursor-pointer',
+                    !actionForm.qcPassed
+                      ? 'border-rose-500 bg-rose-50 text-rose-900'
+                      : 'border-[var(--color-whisper)] bg-white text-[var(--color-slate)]'
+                  )}
+                >
+                  <div className="flex items-center gap-2 font-semibold text-xs">
+                    <XCircle className="w-4 h-4 text-rose-600" />
+                    QC Failed (Reject)
+                  </div>
+                  <p className="text-[11px] mt-1 opacity-80">
+                    Damaged/worn by customer; rejects return without restocking.
+                  </p>
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-ink)] mb-1">Inspection Notes</label>
+              <Input
+                value={actionForm.adminNotes}
+                onChange={(e) => setActionForm((f) => ({ ...f, adminNotes: e.target.value }))}
+                placeholder="Fabric & tag check observations..."
+              />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setActionDialog({ open: false, action: null, return: null })}>
+              Cancel
+            </Button>
+            <Button onClick={handleAction} disabled={isLoading}>
+              {isLoading ? 'Saving...' : actionForm.qcPassed ? 'Approve QC & Restock' : 'Reject Return (Failed QC)'}
             </Button>
           </div>
         </Modal>

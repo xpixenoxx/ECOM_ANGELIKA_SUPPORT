@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, orderId: result.orderId });
+    return NextResponse.json({
+      success: true,
+      orderId: result.orderId,
+      receiptToken: result.receiptToken,
+    });
   } catch (error) {
     console.error('Razorpay verification error:', error);
     return NextResponse.json({ error: 'Payment verification failed' }, { status: 500 });

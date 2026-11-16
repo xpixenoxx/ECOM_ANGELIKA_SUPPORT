@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { Accordion, AccordionSection } from './Accordion';
+import { Button } from './Button';
 
 const meta: Meta<typeof Accordion> = {
   title: 'Components/Accordion',
@@ -81,7 +82,7 @@ const faqItems = [
     content: (
       <p className="text-[var(--color-slate)]">
         Yes! We offer free alterations within 30 days of purchase through our partner
-        tailor network. Book a video consultation, and we'll arrange doorstep pickup
+        tailor network. Book a video consultation, and we&apos;ll arrange doorstep pickup
         and delivery. Available in major metros.
       </p>
     ),

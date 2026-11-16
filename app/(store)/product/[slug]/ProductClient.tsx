@@ -51,10 +51,25 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   const [showCompareModal, setShowCompareModal] = useState(false);
 
   const currentColor = product.colors[selectedColor] ?? product.colors[0] ?? { name: '', value: '', hex: '#CCCCCC', images: [] };
-  const activeVariant = product.variants?.find((v) => v.size.toLowerCase() === selectedSize?.toLowerCase()) || product.variants?.[0];
+  const activeVariant =
+    product.variants?.find(
+      (v) =>
+        v.size.toLowerCase() === (selectedSize || '').toLowerCase() &&
+        (!currentColor?.name ||
+          currentColor.name === 'Default' ||
+          !v.colorName ||
+          v.colorName.toLowerCase() === currentColor.name.toLowerCase())
+    ) ||
+    product.variants?.find((v) => v.size.toLowerCase() === (selectedSize || '').toLowerCase()) ||
+    product.variants?.[0];
   const currentPrice = activeVariant?.price ?? product.price;
   const currentOriginalPrice = activeVariant?.compare_at_price ?? product.originalPrice;
   const discount = currentOriginalPrice ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100) : 0;
+
+  const displayRating = reviewSummary?.totalReviews
+    ? reviewSummary.averageRating
+    : product.rating || 0;
+  const displayReviewCount = reviewSummary?.totalReviews ?? product.reviewCount ?? 0;
 
   // Convert string arrays to proper types
   const galleryImages = ((currentColor.images?.length ?? 0) > 0 ? currentColor.images : product.images).map((src): { src: string; alt: string } => ({
@@ -64,10 +79,17 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
   const sizeOptions = product.sizes.map((size) => {
     const chart = product.sizeChart[size];
+    const sizeVariants = (product.variants || []).filter(
+      (v) => v.size.toLowerCase() === size.toLowerCase()
+    );
+    const sizeInStock =
+      sizeVariants.length === 0
+        ? product.inStock
+        : sizeVariants.some((v) => (v.inventory_quantity ?? 0) > 0);
     return {
       value: size,
       label: size,
-      inStock: true,
+      inStock: sizeInStock,
       measurements: chart ? {
         bust: chart.bust,
         waist: chart.waist,
@@ -79,14 +101,16 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
   const handleAddToBag = async () => {
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
+    const targetVariantId = activeVariant?.id || product.id;
     setIsSubmitting(true);
     try {
-      await addItem(product.id, quantity, sizeToUse, {
+      await addItem(targetVariantId, quantity, sizeToUse, {
         product_id: product.id,
         product_name: product.name,
-        price: product.price,
-        image: product.images?.[0] || '/images/collection-kurtis.jpg',
+        price: currentPrice,
+        image: galleryImages[0]?.src || product.images?.[0] || '/images/collection-kurtis.jpg',
         size: sizeToUse,
+        color: currentColor?.name && currentColor.name !== 'Default' ? currentColor.name : undefined,
         is_vidyas_pick: product.isVidhyasPick,
       });
       setAddedToBag(true);
@@ -100,33 +124,30 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
 
   const handleBuyNow = async () => {
     const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
+    const targetVariantId = activeVariant?.id || product.id;
     setIsSubmitting(true);
     try {
-      await addItem(product.id, quantity, sizeToUse, {
+      await addItem(targetVariantId, quantity, sizeToUse, {
         product_id: product.id,
         product_name: product.name,
-        price: product.price,
-        image: product.images?.[0] || '/images/collection-kurtis.jpg',
+        price: currentPrice,
+        image: galleryImages[0]?.src || product.images?.[0] || '/images/collection-kurtis.jpg',
         size: sizeToUse,
+        color: currentColor?.name && currentColor.name !== 'Default' ? currentColor.name : undefined,
         is_vidyas_pick: product.isVidhyasPick,
       });
-      if (!user) {
-        setShowAuthModal(true);
-        toast('Please sign in to proceed to checkout', { icon: '🛍️' });
-      } else {
-        router.push('/checkout');
-      }
+      router.push('/checkout');
     } catch (err) {
       console.error('Failed to process buy now:', err);
-      router.push('/checkout');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const shareOnWhatsApp = () => {
-    const url = `https://wa.me/91XXXXXXXXXX?text=${encodeURIComponent(
-      `Hi Vidhya, I'm interested in "${product.name}" (${selectedSize ? `Size: ${selectedSize}, ` : ''}₹${currentPrice.toLocaleString()}). Product ID: ${product.sku}`
+    const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const url = `https://wa.me/?text=${encodeURIComponent(
+      `Check out "${product.name}" (${selectedSize ? `Size: ${selectedSize}, ` : ''}₹${currentPrice.toLocaleString()}) from Angelika Fashions ${pageUrl}`
     )}`;
     window.open(url, '_blank');
   };
@@ -232,24 +253,27 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                 <StaggerContainer variant="default" className="flex flex-wrap gap-2">
                   {product.colors.map((color, index) => (
                     <StaggerItem key={color.value} delay={index * 0.03} variant="scale">
-                      <MagneticIcon
-                        onClick={() => setSelectedColor(index)}
-                        className={cn(
-                          'relative w-10 h-10 sm:w-12 sm:h-12 rounded-full border-3 transition-all duration-200 flex-shrink-0',
-                          'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--color-gold)]/40 focus-visible:ring-offset-2',
-                          `bg-[${color.hex}]`,
-                          selectedColor === index
-                            ? 'border-[var(--color-gold)] shadow-[var(--shadow-md)]'
-                            : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]'
-                        )}
-                        strength={0.4}
-                        maxDistance={50}
-                      >
-                        {selectedColor === index && (
-                          <svg className="absolute inset-0 m-auto h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
+                      <MagneticIcon strength={0.4} maxDistance={50}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedColor(index)}
+                          className={cn(
+                            'relative w-10 h-10 sm:w-12 sm:h-12 rounded-full border-3 transition-all duration-200 flex-shrink-0 cursor-pointer',
+                            'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--color-gold)]/40 focus-visible:ring-offset-2',
+                            selectedColor === index
+                              ? 'border-[var(--color-gold)] shadow-[var(--shadow-md)]'
+                              : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]'
+                          )}
+                          style={{ backgroundColor: color.hex }}
+                          aria-label={`Select color ${color.name}`}
+                          aria-pressed={selectedColor === index}
+                        >
+                          {selectedColor === index && (
+                            <svg className="absolute inset-0 m-auto h-5 w-5 text-white drop-shadow" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
                       </MagneticIcon>
                     </StaggerItem>
                   ))}
@@ -297,7 +321,7 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                 )}
                 {product.isVidhyasPick && (
                   <span className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-ink)] text-[var(--color-gold)] rounded-[var(--radius-sm)]">
-                    Vidhya's Pick
+                    Vidhya&apos;s Pick
                   </span>
                 )}
                 {discount > 0 && (
@@ -318,9 +342,15 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                   <svg className="h-5 w-5 text-[var(--color-gold)] fill-current" viewBox="0 0 20 20" aria-hidden="true">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
-                  <span className="text-lg font-bold text-[var(--color-ink)]">{product.rating}</span>
+                  <span className="text-lg font-bold text-[var(--color-ink)]">
+                    {displayReviewCount > 0 ? displayRating.toFixed(1) : 'New'}
+                  </span>
                 </div>
-                <span className="text-sm text-[var(--color-slate)]">({product.reviewCount} reviews)</span>
+                <span className="text-sm text-[var(--color-slate)]">
+                  {displayReviewCount > 0
+                    ? `(${displayReviewCount} ${displayReviewCount === 1 ? 'review' : 'reviews'})`
+                    : '(No reviews yet)'}
+                </span>
                 <Link href="#reviews" className="text-sm text-[var(--color-gold)] hover:underline font-medium">Write a review</Link>
               </div>
 
@@ -868,8 +898,8 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
                       discount={related.discount}
                       isVidhyasPick={related.is_vidyas_pick}
                       isWishlisted={isInWishlist(related.id) || (related.slug ? isInWishlist(related.slug) : false)}
-                      rating={related.rating || 4.8}
-                      reviewCount={related.review_count || 12}
+                      rating={related.rating ?? 0}
+                      reviewCount={related.review_count ?? 0}
                       href={`/product/${related.slug}`}
                       onAddToBag={() => handleAddRelatedToBag(related)}
                       onAddToWishlist={() => handleToggleRelatedWishlist(related)}

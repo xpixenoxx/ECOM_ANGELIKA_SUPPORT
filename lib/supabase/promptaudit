@@ -1,0 +1,369 @@
+# PHASE 1: COMPLETE CODEBASE DISCOVERY, ARCHITECTURE ANALYSIS & PROJECT UNDERSTANDING
+
+You are acting as a **Principal Software Architect, Senior Full-Stack Engineer, E-commerce Systems Architect, Security Engineer, Database Architect, and Technical Auditor**.
+
+Your first responsibility is to develop a complete, accurate understanding of the existing Angelika Fashions project before any technical audit, code modification, refactoring, or implementation begins.
+
+This is a discovery and analysis phase ONLY.
+
+## 1. Mandatory Instruction Files – Read First
+
+Before exploring or analyzing the implementation:
+
+1. Locate and thoroughly read `AGENTS.md`.
+2. Locate and thoroughly read `GEMINI.md`.
+3. Identify any additional instruction files, project rules, architectural documentation, coding standards, and developer guidelines.
+4. Check for nested instruction files in relevant directories.
+5. Understand all mandatory rules, restrictions, conventions, and implementation requirements.
+
+These instructions are authoritative for all subsequent work.
+
+Do not ignore, override, or contradict any existing project instructions.
+
+If instructions conflict, identify and document the conflict rather than silently choosing one.
+
+## 2. Complete Repository Exploration
+
+Explore the entire existing repository systematically.
+
+Do not restrict your analysis to the homepage, frontend entry point, or a few important directories.
+
+Inspect:
+
+- Complete project directory structure.
+- All application source directories.
+- Frontend components and pages.
+- Backend services and APIs, if present.
+- Database schemas, migrations, and queries.
+- State management and data-flow architecture.
+- Authentication and authorization.
+- Product and category management.
+- Shopping cart and wishlist.
+- Checkout and order management.
+- Payment gateway integration.
+- Customer accounts and profiles.
+- Admin dashboard and administrative operations.
+- Search, filtering, sorting, and pagination.
+- Image and media handling.
+- Email and notification systems.
+- External APIs and third-party integrations.
+- Middleware and server-side logic.
+- Utility functions and shared modules.
+- Configuration and environment-variable handling.
+- Build, deployment, and infrastructure configuration.
+- Testing infrastructure and existing test suites.
+
+Inspect the actual implementation, not just filenames and directory names.
+
+Follow important dependencies and execution paths to understand how different modules communicate.
+
+Identify unused, duplicated, disconnected, incomplete, legacy, or potentially abandoned code.
+
+Do not assume that a feature works simply because its component or API exists.
+
+## 3. Understand the Complete Application Architecture
+
+Build a detailed understanding of how the application works.
+
+Analyze:
+
+**Frontend Architecture**
+- Framework and rendering strategy.
+- Routing architecture.
+- Component hierarchy.
+- Page composition.
+- Reusable components.
+- State management.
+- Data fetching and caching.
+- Client-side and server-side execution.
+- Form handling and validation.
+- Error and loading states.
+- Responsive implementation.
+
+**Backend Architecture**
+- API architecture and endpoint organization.
+- Business logic and service boundaries.
+- Request and response handling.
+- Authentication and authorization.
+- Validation and sanitization.
+- Error handling.
+- Database communication.
+- External service integrations.
+
+**Database Architecture**
+- Database technology.
+- Schema organization.
+- Tables and relationships.
+- Constraints and indexes.
+- Data integrity.
+- Migration strategy.
+- Transaction handling.
+- Data access patterns.
+
+**Infrastructure and Integrations**
+- Hosting and deployment configuration.
+- Image storage and delivery.
+- Payment processing.
+- Email delivery.
+- Analytics and tracking.
+- Third-party services.
+- Environment configuration.
+- Logging and monitoring.
+
+Clearly explain how these systems connect and exchange information.
+
+## 4. Understand Every Existing E-commerce Feature
+
+Map the complete customer journey.
+
+Trace the actual implementation of:
+
+1. Homepage.
+2. Product listing pages.
+3. Category and collection pages.
+4. Product detail pages.
+5. Product variants and size selection.
+6. Product search.
+7. Filters and sorting.
+8. Shopping cart.
+9. Wishlist.
+10. Checkout.
+11. Address management.
+12. Payment processing.
+13. Order placement.
+14. Order confirmation.
+15. Customer authentication.
+16. Customer account dashboard.
+17. Order history.
+18. Order tracking.
+19. Returns and cancellations, if implemented.
+20. Admin product management.
+21. Admin inventory management.
+22. Admin order management.
+23. Admin customer management.
+24. Promotional codes and discounts, if implemented.
+
+For each feature, document:
+
+- Its purpose.
+- Relevant files and components.
+- Related APIs.
+- Database dependencies.
+- External integrations.
+- Data flow.
+- Current implementation status.
+- Dependencies on other features.
+- Any obvious missing or incomplete implementation.
+
+Distinguish between fully implemented, partially implemented, placeholder, disconnected, and unimplemented features.
+
+Do not assume that all listed features exist.
+
+## 5. Trace Critical End-to-End Data Flows
+
+Understand the actual execution paths of critical operations.
+
+Pay particular attention to:
+
+**Product Flow:** Admin → Database → API → Product Listing → Product Details.
+
+**Cart Flow:** Product Selection → Cart State → Cart Persistence → Cart Validation.
+
+**Checkout Flow:** Cart → Address → Shipping → Payment → Order Creation → Confirmation.
+
+**Authentication Flow:** Registration → Login → Session Management → Protected Routes → Logout.
+
+**Order Flow:** Order Placement → Payment Verification → Order Status → Inventory Updates → Customer Notifications.
+
+**Admin Flow:** Admin Authentication → Authorization → Management Operations → Database Updates.
+
+Identify where data originates, how it is transformed, where it is validated, and where it is persisted.
+
+Document dependencies and possible failure points without attempting to fix them.
+
+## 6. Understand the Existing Design System and User Experience
+
+Analyze the existing visual and interaction architecture.
+
+Inspect:
+
+- Design tokens.
+- Color system.
+- Typography.
+- Spacing system.
+- Layout conventions.
+- Component styling.
+- Product card architecture.
+- Navigation.
+- Header and footer.
+- Desktop and mobile layouts.
+- Responsive breakpoints.
+- Interactive elements.
+- Animations and transitions.
+- Loading and empty states.
+- Error states.
+- Accessibility implementation.
+
+Understand the established Angelika Fashions visual identity.
+
+Do not propose unnecessary redesigns or replace existing design decisions during this phase.
+
+Document existing inconsistencies and observations for the subsequent audit.
+
+## 7. Understand Technical Quality and Existing Tooling
+
+Inspect the available:
+
+- Package scripts.
+- Dependency versions.
+- Build configuration.
+- TypeScript configuration.
+- Linting configuration.
+- Formatting rules.
+- Testing configuration.
+- CI/CD workflows.
+- Deployment configuration.
+- Environment-variable definitions.
+- Existing automated checks.
+
+Where practical, run non-destructive baseline checks such as:
+
+- Dependency and package inspection.
+- Type checking.
+- Linting.
+- Existing test suites.
+- Production build.
+
+Do not install, upgrade, remove, or modify dependencies.
+
+Record the exact commands executed, their results, and any failures.
+
+Do not conceal pre-existing failures.
+
+## 8. Identify Architectural Risks and Initial Observations
+
+Based on your understanding of the entire project, identify initial observations relating to:
+
+- Architectural weaknesses.
+- Inconsistent implementation patterns.
+- Potential security concerns.
+- Data integrity risks.
+- Incomplete business logic.
+- Integration dependencies.
+- Performance concerns.
+- SEO implementation.
+- Accessibility.
+- Responsive behavior.
+- Maintainability.
+- Scalability.
+- Testing gaps.
+- Deployment risks.
+
+At this stage, these are preliminary observations, NOT a final audit.
+
+Do not claim that every possible issue has been discovered.
+
+Clearly distinguish verified findings from potential concerns and areas requiring deeper investigation.
+
+## 9. Required Deliverable – Comprehensive Project Intelligence Report
+
+After completing the investigation, produce a structured report containing:
+
+### A. Project Overview
+- What Angelika Fashions is.
+- Its purpose and application scope.
+- Technologies used.
+- Existing functionality.
+- Current development state.
+
+### B. Technology Stack
+Provide a complete breakdown of frontend, backend, database, infrastructure, libraries, integrations, and development tools.
+
+### C. Repository Architecture
+Explain the directory structure and the responsibilities of important files and modules.
+
+### D. Application Architecture
+Explain how the complete system is structured and how its components interact.
+
+### E. Feature Inventory
+List all existing features and classify their actual implementation status.
+
+### F. End-to-End Data Flow
+Document critical customer, administrative, API, and database workflows.
+
+### G. Database and Integration Overview
+Explain the data model, relationships, external services, and dependencies.
+
+### H. Design and UX Architecture
+Document the current design system, component structure, responsive approach, and interaction patterns.
+
+### I. Technical Baseline
+Provide the results of available builds, tests, linting, type checks, and other non-destructive verification commands.
+
+### J. Preliminary Technical Observations
+List discovered concerns, potential weaknesses, incomplete areas, and technical uncertainties.
+
+### K. Critical Dependencies
+Identify modules and systems that depend on one another, particularly areas where changes could introduce regressions.
+
+### L. Audit Readiness Assessment
+Explain which parts of the application are understood, which require additional investigation, and what information is still missing before an exhaustive implementation audit.
+
+### M. Recommended Audit Sequence
+Suggest a logical order for the next phase, covering architecture, security, backend, database, frontend, e-commerce workflows, integrations, performance, SEO, accessibility, testing, and deployment.
+
+## 10. Strict Restrictions – Absolutely No Modifications
+
+This is a discovery-only assignment.
+
+**DO NOT:**
+
+- Modify existing source code.
+- Fix bugs.
+- Refactor components.
+- Change application architecture.
+- Modify database schemas.
+- Create or modify migrations.
+- Install or uninstall packages.
+- Upgrade dependencies.
+- Change configuration files.
+- Modify environment variables.
+- Change UI or design.
+- Delete or rename files.
+- Implement new features.
+- Generate replacement implementations.
+- Make speculative architectural changes.
+
+You are authorized to inspect, analyze, and run non-destructive verification commands only.
+
+Do not make changes even if you immediately identify an obvious bug.
+
+Record the finding for the next phase.
+
+## 11. Final Completion Requirements
+
+Before presenting your report:
+
+1. Verify that all relevant repository areas have been explored.
+2. Ensure that important architectural explanations are supported by actual code inspection.
+3. Check that all major existing features have been inventoried.
+4. Ensure that critical data flows have been traced.
+5. Identify any directories, files, or systems that could not be inspected.
+6. Clearly distinguish verified facts from assumptions.
+7. Ensure the report is detailed enough to serve as the technical foundation for a subsequent exhaustive audit.
+
+Do not provide generic statements such as "the architecture looks good" without technical evidence.
+
+Be specific. Reference actual file paths, modules, components, APIs, and database structures wherever possible.
+
+**FINAL INSTRUCTION:**
+
+Complete the entire discovery and analysis process, then deliver the comprehensive Angelika Fashions Project Intelligence Report.
+
+Once the report is complete, STOP.
+
+Do not start Phase 2 automatically.
+
+Wait for my explicit instructions and the next audit prompt.
+
+The objective is to achieve complete project understanding first, so that the subsequent deep audit can systematically investigate and resolve issues without overlooking dependencies, introducing regressions, or breaking existing functionality.

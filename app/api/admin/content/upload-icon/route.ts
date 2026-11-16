@@ -1,59 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { MAX_UPLOAD_SIZE_BYTES } from '@/lib/utils/file-validation';
+import { validateAndPersistAdminImage } from '@/lib/utils/storage-upload';
 
 export const dynamic = 'force-dynamic';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'icons');
-
-async function ensureUploadDir() {
-  try {
-    await fs.mkdir(UPLOAD_DIR, { recursive: true });
-  } catch (err) {
-    // Ignore if already exists
-  }
-}
-
 export async function POST(request: NextRequest) {
-  try {
-    await ensureUploadDir();
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
 
+  try {
     const contentType = request.headers.get('content-type') || '';
 
-    // Handle Multipart Form Data (file upload)
+    let buffer: Buffer;
+    let originalName = 'icon.png';
+
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file = formData.get('file') as File | null;
-
       if (!file) {
         return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
       }
-
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-
-      // Determine extension safely
-      const fileName = file.name || 'icon.png';
-      let ext = path.extname(fileName).toLowerCase();
-      if (!ext) {
-        if (file.type === 'image/svg+xml') ext = '.svg';
-        else if (file.type === 'image/png') ext = '.png';
-        else if (file.type === 'image/jpeg') ext = '.jpg';
-        else if (file.type === 'image/webp') ext = '.webp';
-        else ext = '.png';
+      if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+        return NextResponse.json({ success: false, error: 'File too large (max 10MB)' }, { status: 400 });
       }
-
-      const filename = `icon-${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
-      const filePath = path.join(UPLOAD_DIR, filename);
-
-      await fs.writeFile(filePath, buffer);
-
-      const publicUrl = `/uploads/icons/${filename}`;
-      return NextResponse.json({ success: true, url: publicUrl });
-    }
-
-    // Handle JSON (Base64 pasted images)
-    if (contentType.includes('application/json')) {
+      buffer = Buffer.from(await file.arrayBuffer());
+      originalName = file.name || 'icon.png';
+    } else if (contentType.includes('application/json')) {
       const body = await request.json();
       const { imageBase64, filename: customName } = body;
 
@@ -61,32 +34,38 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: 'No image data provided' }, { status: 400 });
       }
 
-      // Extract format from base64 header (e.g. data:image/png;base64,...)
-      const match = imageBase64.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-      let buffer: Buffer;
-      let ext = '.png';
-
-      if (match && match[1] && match[2]) {
-        const format = match[1].toLowerCase();
-        ext = format === 'svg+xml' ? '.svg' : `.${format}`;
-        buffer = Buffer.from(match[2], 'base64');
-      } else {
-        // Raw base64 string
-        buffer = Buffer.from(imageBase64, 'base64');
+      if (imageBase64.length > 14 * 1024 * 1024) {
+        return NextResponse.json({ success: false, error: 'Payload too large (max 10MB decoded)' }, { status: 400 });
       }
 
-      const filename = customName
-        ? `${path.parse(customName).name}-${Date.now()}${ext}`
-        : `icon-pasted-${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`;
-
-      const filePath = path.join(UPLOAD_DIR, filename);
-      await fs.writeFile(filePath, buffer);
-
-      const publicUrl = `/uploads/icons/${filename}`;
-      return NextResponse.json({ success: true, url: publicUrl });
+      const match = imageBase64.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+      const rawBase64 = match && match[2] ? match[2] : imageBase64;
+      buffer = Buffer.from(rawBase64, 'base64');
+      originalName = typeof customName === 'string' && customName ? customName : 'icon-pasted.png';
+    } else {
+      return NextResponse.json({ success: false, error: 'Unsupported Content-Type' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: false, error: 'Unsupported Content-Type' }, { status: 400 });
+    const saved = await validateAndPersistAdminImage({
+      buffer,
+      originalName,
+      folder: 'icons',
+      prefix: 'icon',
+    });
+
+    if (!saved.success) {
+      return NextResponse.json({ success: false, error: saved.error }, { status: 400 });
+    }
+
+    await logAdminAction({
+      actorId: guard.auth.userId,
+      action: 'upload_icon_image',
+      entityType: 'media',
+      entityId: saved.filename,
+      metadata: { url: saved.url, provider: saved.storageProvider },
+    });
+
+    return NextResponse.json({ success: true, url: saved.url });
   } catch (error: any) {
     console.error('Error handling icon upload:', error);
     return NextResponse.json({ success: false, error: error.message || 'Upload failed' }, { status: 500 });

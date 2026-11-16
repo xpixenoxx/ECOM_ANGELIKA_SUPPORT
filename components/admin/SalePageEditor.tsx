@@ -1019,7 +1019,7 @@ export function SalePageEditor({
                                 />
                                 <div>
                                   <span className="block text-xs font-semibold text-[var(--color-ink)]">Low Stock</span>
-                                  <span className="block text-[10px] text-[var(--color-slate)]">Displays "Only 2 Left" tag</span>
+                                  <span className="block text-[10px] text-[var(--color-slate)]">Displays &ldquo;Only 2 Left&rdquo; tag</span>
                                 </div>
                               </label>
                             </div>

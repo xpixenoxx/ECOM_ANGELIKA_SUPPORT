@@ -1,33 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { validateImageBuffer } from '@/lib/utils/file-validation';
 import { processProductImage, validateImageFile, MAX_FILE_SIZE } from '@/lib/image-processing';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
-    }
-
-    // Parse form data
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get('file') as File | null;
     const productId = formData.get('productId') as string;
     const variantId = formData.get('variantId') as string | null;
     const isPrimary = formData.get('isPrimary') === 'true';
@@ -43,22 +27,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Product ID required' }, { status: 400 });
     }
 
-    // Validate file
     const validation = validateImageFile(file);
     if (!validation.valid) {
       return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    // Check file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json({ error: `File too large. Max ${MAX_FILE_SIZE / (1024 * 1024)}MB` }, { status: 400 });
     }
 
-    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Process image
+    const magicCheck = validateImageBuffer(buffer, MAX_FILE_SIZE);
+    if (!magicCheck.valid) {
+      return NextResponse.json({ error: magicCheck.error || 'Invalid image content' }, { status: 400 });
+    }
+
     const result = await processProductImage(buffer, file.name, {
       productId,
       variantId: variantId || undefined,
@@ -72,9 +57,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
+    await logAdminAction({
+      actorId: guard.auth.userId,
+      action: 'upload_processed_product_image',
+      entityType: 'product',
+      entityId: productId,
+      afterState: { isPrimary, variantId },
+    });
+
     return NextResponse.json({
       success: true,
-      image: result.variants.find(v => v.variant === 'large') || result.variants[0],
+      image: result.variants.find((v) => v.variant === 'large') || result.variants[0],
       allVariants: result.variants,
     });
   } catch (error) {
@@ -84,26 +77,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
-    }
-
     const { searchParams } = new URL(request.url);
     const imageId = searchParams.get('imageId');
 
@@ -117,6 +94,13 @@ export async function DELETE(request: NextRequest) {
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
+
+    await logAdminAction({
+      actorId: guard.auth.userId,
+      action: 'delete_product_image',
+      entityType: 'product_image',
+      entityId: imageId,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

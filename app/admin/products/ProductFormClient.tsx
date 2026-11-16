@@ -776,7 +776,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
                     Base Price Template &amp; Bulk Sync
                   </h3>
                   <p className="text-[11px] text-amber-800/80">
-                    Use these values as default template, or click "Apply to All Sizes" to quickly batch-update all sizes.
+                    Use these values as default template, or click &ldquo;Apply to All Sizes&rdquo; to quickly batch-update all sizes.
                   </p>
                 </div>
                 <button

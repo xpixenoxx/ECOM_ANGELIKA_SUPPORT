@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sanitizePostgrestSearchTerm } from '@/lib/validators/commerce';
 
 export interface OrderFilterOptions {
   status?: string;
@@ -66,7 +67,10 @@ export const orderRepository = {
     }
 
     if (options?.search) {
-      query = query.or(`order_number.ilike.%${options.search}%,email.ilike.%${options.search}%`);
+      const clean = sanitizePostgrestSearchTerm(options.search);
+      if (clean) {
+        query = query.or(`order_number.ilike.%${clean}%,email.ilike.%${clean}%`);
+      }
     }
 
     if (options?.limit) {

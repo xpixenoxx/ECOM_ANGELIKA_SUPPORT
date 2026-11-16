@@ -83,19 +83,6 @@ function SalwarProductImageUploader({
     setIsUploading(true);
     setUploadError(null);
 
-    const useLocalDataUrl = () => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onChange(reader.result);
-          setPasteSuccess(true);
-          setTimeout(() => setPasteSuccess(false), 3000);
-        }
-      };
-      reader.onerror = () => setUploadError('Failed to read image');
-      reader.readAsDataURL(file);
-    };
-
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -108,12 +95,12 @@ function SalwarProductImageUploader({
           body: fd,
         });
       } catch {
-        // try fallback
+        // try fallback upload route
       }
 
       if (!res || !res.ok) {
         try {
-          const fallbackRes = await fetch('/api/admin/content/upload-icon', {
+          const fallbackRes = await fetch('/api/admin/upload', {
             method: 'POST',
             body: fd,
           });
@@ -133,9 +120,9 @@ function SalwarProductImageUploader({
         }
       }
 
-      useLocalDataUrl();
+      setUploadError('Image upload failed. Please try a smaller JPG/PNG/WebP or paste an image URL.');
     } catch {
-      useLocalDataUrl();
+      setUploadError('Image upload failed. Please try a smaller JPG/PNG/WebP or paste an image URL.');
     } finally {
       setIsUploading(false);
     }

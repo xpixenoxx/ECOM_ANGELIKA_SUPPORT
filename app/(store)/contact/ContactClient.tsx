@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/Textarea';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { ToastProvider, useToastHelpers } from '@/components/ui/Toast';
+import { submitContactInquiry, subscribeNewsletter } from '@/lib/actions/inquiries';
 import type { ContactPageContent } from '@/lib/actions/site-content-types';
 
 interface ContactFormData {
@@ -56,7 +57,7 @@ function ContactChannelIcon({ icon }: { icon: string }) {
 }
 
 function ContactContent({ content }: ContactClientProps) {
-  const { success } = useToastHelpers();
+  const { success, error: showError } = useToastHelpers();
 
   const {
     header = {
@@ -105,6 +106,10 @@ function ContactContent({ content }: ContactClientProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [referenceId, setReferenceId] = useState<string | null>(null);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -129,15 +134,42 @@ function ContactContent({ content }: ContactClientProps) {
 
     setIsSubmitting(true);
     setSubmitStatus('idle');
+    setSubmitError(null);
 
-    // Simulate async submission
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const res = await submitContactInquiry({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim(),
+        subject: formData.subject,
+        message: formData.message.trim(),
+        inquiryType: formData.subject || 'general',
+        newsletterOptIn: Boolean(formData.newsletter),
+      });
 
-    setIsSubmitting(false);
-    setSubmitStatus('success');
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '', newsletter: false });
+      if (!res.success) {
+        setSubmitStatus('error');
+        const msg = res.error || 'Could not send your message. Please try again.';
+        setSubmitError(msg);
+        showError('Unable to Send Message', msg);
+        return;
+      }
 
-    success('Message Sent', 'Thank you for reaching out! Vidhya or Meera will respond within 24 hours.');
+      setReferenceId(res.referenceId || null);
+      setSubmitStatus('success');
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '', newsletter: false });
+      success(
+        'Message Sent',
+        `Thank you for reaching out! Reference: ${res.referenceId || 'Logged'}.`
+      );
+    } catch {
+      setSubmitStatus('error');
+      const msg = 'Network error sending your message. Please try again.';
+      setSubmitError(msg);
+      showError('Unable to Send Message', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (
@@ -163,7 +195,7 @@ function ContactContent({ content }: ContactClientProps) {
             animate={{ opacity: 1, y: 0 }}
           >
             {header.badge && (
-              <span className="inline-block px-4 py-1 bg-[var(--color-gold-light)] text-[var(--color-gold)] text-sm font-semibold rounded-[var(--radius-full)] mb-4">
+              <span className="inline-block px-4 py-1 bg-[var(--color-gold-light)] text-[var(--color-gold-text)] text-sm font-semibold rounded-[var(--radius-full)] mb-4">
                 {header.badge}
               </span>
             )}
@@ -198,7 +230,7 @@ function ContactContent({ content }: ContactClientProps) {
                 transition={{ delay: index * 0.1, duration: 0.5 }}
               >
                 <div>
-                  <div className="w-14 h-14 rounded-[var(--radius-xl)] bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] mb-6">
+                  <div className="w-14 h-14 rounded-[var(--radius-xl)] bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold-text)] mb-6">
                     <ContactChannelIcon icon={option.icon} />
                   </div>
                   <h3 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)] mb-2">
@@ -213,21 +245,26 @@ function ContactContent({ content }: ContactClientProps) {
                     </p>
                   )}
                 </div>
-                {option.cta && (
-                  <Button
-                    variant={option.isWhatsApp ? 'whatsapp' : 'primary'}
-                    className="w-full"
-                    asChild
-                  >
-                    <a
-                      href={option.href}
-                      target={option.isWhatsApp ? '_blank' : undefined}
-                      rel={option.isWhatsApp ? 'noopener noreferrer' : undefined}
+                {option.cta && (() => {
+                  const isPlaceholderWa = !option.href || option.href.includes('919876543210') || option.href.includes('91XXXXXXXXXX');
+                  const resolvedHref = isPlaceholderWa ? '#contact-form' : option.href;
+                  const openExternal = option.isWhatsApp && !isPlaceholderWa;
+                  return (
+                    <Button
+                      variant={option.isWhatsApp ? 'whatsapp' : 'primary'}
+                      className="w-full"
+                      asChild
                     >
-                      {option.cta}
-                    </a>
-                  </Button>
-                )}
+                      <a
+                        href={resolvedHref}
+                        target={openExternal ? '_blank' : undefined}
+                        rel={openExternal ? 'noopener noreferrer' : undefined}
+                      >
+                        {isPlaceholderWa && option.isWhatsApp ? 'Send Concierge Inquiry' : option.cta}
+                      </a>
+                    </Button>
+                  );
+                })()}
               </motion.article>
             ))}
           </motion.div>
@@ -235,7 +272,7 @@ function ContactContent({ content }: ContactClientProps) {
       </section>
 
       {/* Contact Form & Side Columns */}
-      <section className="py-16 bg-[var(--color-snow)]">
+      <section id="contact-form" className="py-16 bg-[var(--color-snow)]">
         <div className="container-custom px-6">
           <div className="grid lg:grid-cols-2 gap-12">
             {/* Form */}
@@ -277,6 +314,11 @@ function ContactContent({ content }: ContactClientProps) {
                       <h3 className="text-[var(--font-display)] text-2xl text-[var(--color-ink)] mb-2">
                         {form.successTitle || 'Message Sent!'}
                       </h3>
+                      {referenceId && (
+                        <p className="text-xs font-mono text-[var(--color-gold-hover)] mb-2">
+                          Inquiry Reference: {referenceId}
+                        </p>
+                      )}
                       <p className="text-[var(--color-slate)] mb-6">
                         {form.successDescription ||
                           "Thank you for reaching out. We'll get back to you within 24 hours."}
@@ -287,6 +329,14 @@ function ContactContent({ content }: ContactClientProps) {
                     </motion.div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+                      {submitError && (
+                        <div
+                          role="alert"
+                          className="p-3.5 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#991B1B]"
+                        >
+                          {submitError}
+                        </div>
+                      )}
                       <div className="grid sm:grid-cols-2 gap-6">
                         <div>
                           <label htmlFor="name" className="input-label">
@@ -494,7 +544,7 @@ function ContactContent({ content }: ContactClientProps) {
                         viewport={{ once: true }}
                         transition={{ delay: 0.2 + i * 0.1 }}
                       >
-                        <p className="text-[var(--color-ink)] mb-2 italic">"{review.text}"</p>
+                        <p className="text-[var(--color-ink)] mb-2 italic">&ldquo;{review.text}&rdquo;</p>
                         <p className="text-sm text-[var(--color-slate)]">— {review.author}</p>
                       </motion.div>
                     ))}
@@ -526,22 +576,45 @@ function ContactContent({ content }: ContactClientProps) {
               )}
               <form
                 className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
-                  success(
-                    'Subscribed!',
-                    'Welcome to the circle! Check your inbox for a welcome gift.'
-                  );
+                  if (!newsletterEmail.trim()) {
+                    showError('Email Required', 'Please enter an email address.');
+                    return;
+                  }
+                  setNewsletterLoading(true);
+                  try {
+                    const res = await subscribeNewsletter({
+                      email: newsletterEmail.trim(),
+                      source: 'contact_newsletter',
+                    });
+                    if (!res.success) {
+                      showError('Subscription Error', res.error || 'Could not subscribe right now.');
+                    } else {
+                      setNewsletterEmail('');
+                      success(
+                        'Subscribed!',
+                        'You are added to Vidhya\'s Inner Circle for early collection invites.'
+                      );
+                    }
+                  } catch {
+                    showError('Subscription Error', 'Network error while subscribing.');
+                  } finally {
+                    setNewsletterLoading(false);
+                  }
                 }}
               >
                 <Input
                   type="email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
                   placeholder={newsletter.placeholder || 'Enter your email'}
                   className="flex-1"
                   aria-label="Email for newsletter"
+                  disabled={newsletterLoading}
                 />
-                <Button variant="primary" type="submit" className="whitespace-nowrap">
-                  {newsletter.buttonText || 'Subscribe'}
+                <Button variant="primary" type="submit" className="whitespace-nowrap" disabled={newsletterLoading}>
+                  {newsletterLoading ? 'Subscribing...' : newsletter.buttonText || 'Subscribe'}
                 </Button>
               </form>
               <p className="text-xs text-[var(--color-white)]/40 mt-4">

@@ -865,7 +865,7 @@ export function SizeGuidePageEditor({
               Bespoke Blouse Stitching Notes
             </h3>
             <p className="text-xs text-[var(--color-slate)]">
-              Information displayed when clients select the "Cholis & Blouse Stitching" tab.
+              Information displayed when clients select the &ldquo;Cholis &amp; Blouse Stitching&rdquo; tab.
             </p>
           </div>
 

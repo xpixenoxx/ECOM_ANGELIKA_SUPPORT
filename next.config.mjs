@@ -1,12 +1,25 @@
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://js.stripe.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://graph.facebook.com https://*.cloudinary.com https://*.razorpay.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://api.stripe.com https://fonts.googleapis.com https://fonts.gstatic.com",
+  "frame-src https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self' https://api.razorpay.com",
+  "frame-ancestors 'none'",
+].join('; ');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Skip type checking and linting during build - we verify separately with `npx tsc --noEmit`
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   experimental: {
     // ppr: true, // Requires Next.js canary - disabled for stable build
@@ -23,7 +36,7 @@ const nextConfig = {
     ],
   },
   images: {
-    unoptimized: true,
+    unoptimized: false,
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
@@ -44,6 +57,8 @@ const nextConfig = {
       {
         source: '/:path*',
         headers: [
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Content-Security-Policy', value: CONTENT_SECURITY_POLICY },
           { key: 'X-DNS-Prefetch-Control', value: 'on' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
@@ -56,7 +71,6 @@ const nextConfig = {
         source: '/fonts/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
-          { key: 'Access-Control-Allow-Origin', value: '*' },
         ],
       },
       {
@@ -66,11 +80,9 @@ const nextConfig = {
         ],
       },
       {
-        source: '/api/revalidate',
+        source: '/api/:path*',
         headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' },
-          { key: 'Access-Control-Allow-Methods', value: 'POST' },
-          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+          { key: 'Cache-Control', value: 'no-store' },
         ],
       },
     ];
@@ -102,13 +114,6 @@ const nextConfig = {
         destination: '/about#vidhya',
         permanent: true,
       },
-    ];
-  },
-  async rewrites() {
-    return [
-      { source: '/sitemap.xml', destination: '/api/sitemap' },
-      { source: '/robots.txt', destination: '/api/robots' },
-      // Admin routes handled by route group (admin) - no rewrite needed
     ];
   },
   webpack(config, { isServer, dev }) {

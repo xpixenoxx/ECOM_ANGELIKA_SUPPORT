@@ -56,7 +56,8 @@ export async function getRelatedProducts(
       category_id,
       category:categories!products_category_id_fkey(id, name, slug),
       product_images!product_images_product_id_fkey(id, url, alt_text, sort_order, is_primary),
-      product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity)
+      product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity),
+      reviews!reviews_product_id_fkey(rating, is_published)
     `
     )
     .eq('is_active', true)
@@ -89,7 +90,8 @@ export async function getRelatedProducts(
         category_id,
         category:categories!products_category_id_fkey(id, name, slug),
         product_images!product_images_product_id_fkey(id, url, alt_text, sort_order, is_primary),
-        product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity)
+        product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity),
+        reviews!reviews_product_id_fkey(rating, is_published)
       `
       )
       .eq('is_active', true);
@@ -139,6 +141,15 @@ export async function getRelatedProducts(
 
   const selected = scored.slice(0, limit).map((s) => s.product);
 
+  const computeReviewMetrics = (p: any) => {
+    const pub = Array.isArray(p.reviews)
+      ? p.reviews.filter((r: any) => r?.is_published === true && typeof r?.rating === 'number')
+      : [];
+    const count = pub.length;
+    const avg = count > 0 ? Number((pub.reduce((s: number, r: any) => s + Number(r.rating), 0) / count).toFixed(1)) : 0;
+    return { rating: avg, review_count: count };
+  };
+
   return selected.map((p: any) => {
     const variants = p.product_variants || [];
     const defaultVariant = variants[0];
@@ -147,6 +158,7 @@ export async function getRelatedProducts(
     const discount = compareAtPrice && compareAtPrice > price
       ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
       : 0;
+    const { rating, review_count } = computeReviewMetrics(p);
 
     return {
       id: p.id,
@@ -159,8 +171,8 @@ export async function getRelatedProducts(
       discount,
       is_vidyas_pick: Boolean(p.is_vidyas_pick),
       is_featured: Boolean(p.is_featured),
-      rating: 4.8,
-      review_count: 12,
+      rating,
+      review_count,
     };
   });
 }
@@ -188,7 +200,8 @@ export async function getCartRecommendations(excludeIds: string[] = [], limit = 
       category_id,
       category:categories!products_category_id_fkey(id, name, slug),
       product_images!product_images_product_id_fkey(id, url, alt_text, sort_order, is_primary),
-      product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity)
+      product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity),
+      reviews!reviews_product_id_fkey(rating, is_published)
     `
     )
     .eq('is_active', true);
@@ -213,6 +226,11 @@ export async function getCartRecommendations(excludeIds: string[] = [], limit = 
     const discount = compareAtPrice && compareAtPrice > price
       ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
       : 0;
+    const pub = Array.isArray(p.reviews)
+      ? p.reviews.filter((r: any) => r?.is_published === true && typeof r?.rating === 'number')
+      : [];
+    const review_count = pub.length;
+    const rating = review_count > 0 ? Number((pub.reduce((s: number, r: any) => s + Number(r.rating), 0) / review_count).toFixed(1)) : 0;
 
     return {
       id: p.id,
@@ -225,8 +243,8 @@ export async function getCartRecommendations(excludeIds: string[] = [], limit = 
       discount,
       is_vidyas_pick: Boolean(p.is_vidyas_pick),
       is_featured: Boolean(p.is_featured),
-      rating: 4.8,
-      review_count: 12,
+      rating,
+      review_count,
     };
   });
 }

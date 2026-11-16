@@ -465,7 +465,7 @@ export function NewArrivalsPageEditor({
       {saveSuccess && (
         <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs flex items-center justify-between">
           <span className="font-medium">
-            ✓ "New Arrivals Page" updated successfully! Changes are live on /new-arrivals.
+            ✓ &ldquo;New Arrivals Page&rdquo; updated successfully! Changes are live on /new-arrivals.
           </span>
           <Link href="/new-arrivals" target="_blank" className="font-semibold underline ml-3">
             Open Storefront ↗
@@ -852,7 +852,7 @@ export function NewArrivalsPageEditor({
                                 onChange={(e) => handleUpdateProduct(actualIndex, 'isNew', e.target.checked)}
                                 className="w-4 h-4 rounded text-[var(--color-gold)] focus:ring-[var(--color-gold)]"
                               />
-                              <span>Mark as "NEW" badge</span>
+                              <span>Mark as &ldquo;NEW&rdquo; badge</span>
                             </label>
 
                             <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-[var(--color-ink)]">
@@ -862,7 +862,7 @@ export function NewArrivalsPageEditor({
                                 onChange={(e) => handleUpdateProduct(actualIndex, 'isTrending', e.target.checked)}
                                 className="w-4 h-4 rounded text-[var(--color-gold)] focus:ring-[var(--color-gold)]"
                               />
-                              <span>Mark as "TRENDING" badge</span>
+                              <span>Mark as &ldquo;TRENDING&rdquo; badge</span>
                             </label>
                           </div>
                         </div>

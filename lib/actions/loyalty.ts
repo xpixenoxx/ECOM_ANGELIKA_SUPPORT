@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
 import {
   LoyaltyTransaction,
@@ -28,23 +30,11 @@ import {
  */
 export async function getLoyaltyStats(): Promise<LoyaltyStats> {
   try {
-    const supabase = await createClient();
-
-    // Check admin auth
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Unauthorized');
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      throw new Error(auth.error || 'Unauthorized');
     }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      throw new Error('Forbidden - Admin only');
-    }
+    const supabase = supabaseAdmin;
 
     // Get total members
     const { count: totalMembers } = await supabase
@@ -153,22 +143,11 @@ export async function getLoyaltyTransactions(
   }
 ): Promise<LoyaltyListResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
     }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     let query = supabase
       .from('loyalty_transactions')
@@ -218,19 +197,16 @@ export async function getCustomerLoyaltyProfile(userId: string): Promise<Custome
       return null;
     }
 
-    // Allow users to view their own profile, admins can view any
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || (profile.role !== 'admin' && user.id !== userId)) {
-      return null;
+    if (user.id !== userId) {
+      const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+      if (!auth.authorized) {
+        return null;
+      }
     }
 
+    const reader = supabaseAdmin;
     // Get customer profile
-    const { data: customer } = await supabase
+    const { data: customer } = await reader
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -307,22 +283,11 @@ export async function addLoyaltyPoints(
   expiresAt?: string
 ): Promise<LoyaltyMutationResult> {
   try {
-    const supabase = await createClient();
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: 'Unauthorized' };
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
     }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return { success: false, error: 'Forbidden - Admin only' };
-    }
+    const supabase = supabaseAdmin;
 
     // Create transaction
     const { error: txError } = await supabase
@@ -361,6 +326,14 @@ export async function addLoyaltyPoints(
     if (updateError) {
       return { success: false, error: updateError.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: points >= 0 ? 'add_loyalty_points' : 'deduct_loyalty_points',
+      entityType: 'profile',
+      entityId: userId,
+      afterState: { points, type, description, newPoints },
+    });
 
     revalidatePath('/admin/customers/loyalty');
     revalidatePath('/account/loyalty');
@@ -465,7 +438,11 @@ export async function getTransactionTypes(): Promise<typeof LOYALTY_TRANSACTION_
  */
 export async function processOrderLoyalty(orderId: string, userId: string, amount: number): Promise<LoyaltyMutationResult> {
   try {
-    const supabase = await createClient();
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+    const supabase = supabaseAdmin;
 
     // Check if already processed
     const { data: existing } = await supabase

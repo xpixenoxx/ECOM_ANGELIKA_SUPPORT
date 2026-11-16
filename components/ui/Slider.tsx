@@ -189,7 +189,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
           >
             {label}
             {showValue && (
-              <span className="ml-2 text-sm font-semibold text-[var(--color-gold)]">
+              <span className="ml-2 text-sm font-semibold text-[var(--color-gold-text)]">
                 {range
                   ? `${valueFormatter(localValues[0]!)} - ${valueFormatter(localValues[1]!)}`
                   : valueFormatter(localValues[0]!)}
@@ -198,18 +198,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
           </label>
         )}
 
-        <div
-          className="relative"
-          role="slider"
-          aria-valuemin={min}
-          aria-valuemax={max}
-          aria-valuenow={localValues[0]!}
-          aria-orientation="horizontal"
-          aria-disabled={disabled}
-          aria-describedby={describedBy}
-          tabIndex={disabled ? -1 : 0}
-          onKeyDown={handleKeyDown(0)}
-        >
+        <div className="relative">
           <div
             ref={trackRef}
             id={trackId}
@@ -274,10 +263,20 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
                 onMouseDown={handleMouseDown(index)}
                 onTouchStart={handleTouchStart(index)}
                 onKeyDown={handleKeyDown(index)}
-                aria-label={range ? (index === 0 ? 'Minimum value' : 'Maximum value') : 'Value'}
+                role="slider"
+                aria-label={
+                  label
+                    ? `${label}${range ? (index === 0 ? ' minimum' : ' maximum') : ''}`
+                    : range
+                      ? (index === 0 ? 'Minimum value' : 'Maximum value')
+                      : 'Slider value'
+                }
                 aria-valuenow={val}
                 aria-valuemin={min}
                 aria-valuemax={max}
+                aria-orientation="horizontal"
+                aria-disabled={disabled}
+                aria-describedby={describedBy}
                 disabled={disabled}
                 whileHover={{ scale: 1.2, boxShadow: 'var(--shadow-lg)' }}
                 whileTap={{ scale: 0.9 }}

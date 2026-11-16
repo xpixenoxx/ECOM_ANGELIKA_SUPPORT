@@ -413,7 +413,7 @@ export function MyAngelikaLookEditor({
             #MyAngelikaLook Editor
           </h2>
           <p className="text-xs text-[var(--color-slate)] mt-0.5">
-            Manage the community showcase on the homepage, featured Instagram photos, creator handles, and "Shop this look" product links.
+            Manage the community showcase on the homepage, featured Instagram photos, creator handles, and &ldquo;Shop this look&rdquo; product links.
           </p>
         </div>
 

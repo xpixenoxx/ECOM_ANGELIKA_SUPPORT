@@ -1,15 +1,41 @@
 'use server';
 
+import crypto from 'crypto';
 import { supabaseAdmin, adminCreateUser } from '@/lib/supabase/admin';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
+import { getOptionalEnv } from '@/lib/env';
+import { checkRateLimit } from '@/lib/utils/rate-limit';
+import { escapeHtml } from '@/lib/validators/commerce';
+import type { Json } from '@/types/database';
 
-function escapeHtml(str: string): string {
-  return (str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+const MAX_OTP_ATTEMPTS = 5;
+const OTP_TTL_MS = 10 * 60 * 1000;
+const RATE_WINDOW_MS = 15 * 60 * 1000;
+const MAX_SEND_REQUESTS_PER_WINDOW = 5;
+const MAX_VERIFY_ATTEMPTS_PER_WINDOW = 10;
+
+function isProductionEnv(): boolean {
+  return process.env.NODE_ENV === 'production' || process.env['VERCEL_ENV'] === 'production';
+}
+
+function hashOtp(email: string, otp: string): string {
+  const pepper =
+    getOptionalEnv('OTP_SECRET') ||
+    getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY') ||
+    'angelika-dev-otp-pepper';
+  return crypto
+    .createHmac('sha256', pepper)
+    .update(`${email.toLowerCase()}:${otp}`)
+    .digest('hex');
+}
+
+function timingSafeHexEqual(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -80,7 +106,7 @@ function generateOtpEmailHtml(params: {
     <!-- Footer -->
     <div style="background-color: #F9F7F4; padding: 20px 24px; border-top: 1px solid #EAE3D9; text-align: center; font-size: 11px; color: #9CA3AF; line-height: 1.5;">
       <p style="margin: 0 0 4px 0;">
-        This automated verification security dispatch was sent to you from <a href="${siteUrl}" style="color: #C9A84C; text-decoration: none;">angelikafashions.com</a>.
+        This automated verification security dispatch was sent to you from <a href="${escapeHtml(siteUrl)}" style="color: #C9A84C; text-decoration: none;">angelikafashions.com</a>.
       </p>
       <p style="margin: 0;">
         &copy; ${new Date().getFullYear()} Angelika Fashions. All rights reserved. Handcrafted in India.
@@ -99,11 +125,24 @@ export async function sendSignupOtp(
   fullName: string
 ): Promise<{ success: boolean; message: string; devCode?: string; emailConfigured: boolean }> {
   try {
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = fullName.trim();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = (fullName || '').trim();
 
-    if (!cleanEmail || !cleanEmail.includes('@')) {
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return { success: false, message: 'Please provide a valid email address.', emailConfigured: false };
+    }
+
+    const rate = checkRateLimit(
+      `otp_send_signup:${cleanEmail}`,
+      MAX_SEND_REQUESTS_PER_WINDOW,
+      RATE_WINDOW_MS
+    );
+    if (!rate.allowed) {
+      return {
+        success: false,
+        message: `Too many verification code requests. Please try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`,
+        emailConfigured: isResendConfigured(),
+      };
     }
 
     // Check if user already exists in profiles
@@ -121,13 +160,14 @@ export async function sendSignupOtp(
       };
     }
 
-    // Generate 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Cryptographically secure 6-digit OTP; store only salted SHA-256 hash in inactive content block
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = hashOtp(cleanEmail, otp);
     const key = `otp_signup_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const expiresAt = Date.now() + OTP_TTL_MS;
 
     const payload = {
-      otp,
+      otpHash,
       email: cleanEmail,
       fullName: cleanName,
       type: 'signup',
@@ -135,7 +175,6 @@ export async function sendSignupOtp(
       attempts: 0,
     };
 
-    // Store in content_blocks
     await supabaseAdmin
       .from('content_blocks')
       .upsert(
@@ -143,9 +182,9 @@ export async function sendSignupOtp(
           key,
           type: 'custom',
           title: `Signup OTP for ${cleanEmail}`,
-          content: payload,
-          settings: { kind: 'auth_otp_signup' },
-          is_active: true,
+          content: payload as unknown as Json,
+          settings: { kind: 'auth_otp_signup' } as unknown as Json,
+          is_active: false,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'key' }
@@ -175,14 +214,22 @@ export async function sendSignupOtp(
       };
     }
 
-    // If Resend failed (e.g. unverified test recipient/domain), log warning and provide devCode fallback
     console.warn(`[sendSignupOtp] Resend delivery unfulfilled for ${cleanEmail}:`, resendResult.error);
+
+    if (isProductionEnv()) {
+      await supabaseAdmin.from('content_blocks').delete().eq('key', key);
+      return {
+        success: false,
+        message: 'Email delivery service is currently unavailable. Please try again later.',
+        emailConfigured: false,
+      };
+    }
 
     return {
       success: true,
       message: resendResult.error
         ? `Notice: ${resendResult.error}`
-        : `Verification code generated! (Dev mode active: ${otp})`,
+        : `Verification code generated (local dev mode).`,
       devCode: otp,
       emailConfigured: false,
     };
@@ -190,7 +237,7 @@ export async function sendSignupOtp(
     console.error('sendSignupOtp error:', err);
     return {
       success: false,
-      message: err?.message || 'Failed to dispatch verification code.',
+      message: 'Failed to dispatch verification code.',
       emailConfigured: false,
     };
   }
@@ -206,13 +253,26 @@ export async function verifySignupOtp(data: {
   fullName: string;
 }): Promise<{ success: boolean; message: string; user?: any }> {
   try {
-    const cleanEmail = data.email.trim().toLowerCase();
-    const cleanOtp = data.otp.trim();
-    const cleanPassword = data.password;
-    const cleanName = data.fullName.trim();
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const cleanOtp = (data.otp || '').trim();
+    const cleanPassword = data.password || '';
+    const cleanName = (data.fullName || '').trim();
 
     if (!cleanEmail || !cleanOtp || !cleanPassword) {
       return { success: false, message: 'All fields are required.' };
+    }
+
+    if (cleanPassword.length < 8) {
+      return { success: false, message: 'Password must be at least 8 characters long.' };
+    }
+
+    const rate = checkRateLimit(
+      `otp_verify_signup:${cleanEmail}`,
+      MAX_VERIFY_ATTEMPTS_PER_WINDOW,
+      RATE_WINDOW_MS
+    );
+    if (!rate.allowed) {
+      return { success: false, message: 'Too many verification attempts. Please try again later.' };
     }
 
     const key = `otp_signup_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
@@ -221,33 +281,49 @@ export async function verifySignupOtp(data: {
       .from('content_blocks')
       .select('id, content')
       .eq('key', key)
-      .single();
+      .maybeSingle();
 
     if (fetchErr || !record) {
       return { success: false, message: 'No active verification code found. Please request a new code.' };
     }
 
-    const content = (record.content as Record<string, any>) || {};
+    const content = (
+      record.content && typeof record.content === 'object' && !Array.isArray(record.content)
+        ? record.content
+        : {}
+    ) as Record<string, any>;
 
     // Check expiry
-    if (Date.now() > (content['expiresAt'] || 0)) {
-      return { success: false, message: 'Verification code has expired. Please click Resend Code.' };
+    if (Date.now() > Number(content['expiresAt'] || 0)) {
+      await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+      return { success: false, message: 'Verification code has expired. Please request a new code.' };
     }
 
-    // Check code match
-    if (content['otp'] !== cleanOtp) {
-      // Increment attempt counter
-      content['attempts'] = (content['attempts'] || 0) + 1;
-      await supabaseAdmin.from('content_blocks').update({ content }).eq('id', record.id);
+    const currentAttempts = Number(content['attempts'] || 0);
+    if (currentAttempts >= MAX_OTP_ATTEMPTS) {
+      await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+      return { success: false, message: 'Maximum verification attempts exceeded. Please request a new code.' };
+    }
+
+    const storedHash = String(content['otpHash'] || '');
+    const submittedHash = hashOtp(cleanEmail, cleanOtp);
+    if (!timingSafeHexEqual(storedHash, submittedHash)) {
+      const nextAttempts = currentAttempts + 1;
+      if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+        await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+        return { success: false, message: 'Maximum verification attempts exceeded. Please request a new code.' };
+      }
+      await supabaseAdmin
+        .from('content_blocks')
+        .update({ content: { ...content, attempts: nextAttempts } as unknown as Json })
+        .eq('id', record.id);
       return { success: false, message: 'Incorrect verification code. Please check your email and try again.' };
     }
 
-    // Code is valid! Create real Supabase user
     const newUser = await adminCreateUser(cleanEmail, cleanPassword, {
       full_name: cleanName,
     });
 
-    // Clean up OTP record
     await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
 
     return {
@@ -271,17 +347,41 @@ export async function sendPasswordResetOtp(
   email: string
 ): Promise<{ success: boolean; message: string; devCode?: string; emailConfigured: boolean }> {
   try {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = (email || '').trim().toLowerCase();
 
-    if (!cleanEmail || !cleanEmail.includes('@')) {
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return { success: false, message: 'Please provide a valid email address.', emailConfigured: false };
     }
 
-    // Verify user exists in auth
-    const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = listData?.users.find((u) => u.email?.toLowerCase() === cleanEmail);
+    const rate = checkRateLimit(
+      `otp_send_reset:${cleanEmail}`,
+      MAX_SEND_REQUESTS_PER_WINDOW,
+      RATE_WINDOW_MS
+    );
+    if (!rate.allowed) {
+      return {
+        success: false,
+        message: `Too many reset requests. Please try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`,
+        emailConfigured: isResendConfigured(),
+      };
+    }
 
-    if (!existingUser) {
+    // Direct indexed lookup via profiles (never scan all auth users with listUsers)
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, email')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (!profile) {
+      // Uniform generic response in production avoids account enumeration while non-prod tests work cleanly
+      if (isProductionEnv()) {
+        return {
+          success: true,
+          message: `If an account exists for ${cleanEmail}, a password reset code has been dispatched.`,
+          emailConfigured: isResendConfigured(),
+        };
+      }
       return {
         success: false,
         message: 'No registered account was found with this email address.',
@@ -289,23 +389,21 @@ export async function sendPasswordResetOtp(
       };
     }
 
-    const userName = (existingUser.user_metadata as any)?.full_name || 'Client';
-
-    // Generate 6-digit numeric OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const userName = profile.full_name || 'Client';
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const otpHash = hashOtp(cleanEmail, otp);
     const key = `otp_reset_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const expiresAt = Date.now() + OTP_TTL_MS;
 
     const payload = {
-      otp,
+      otpHash,
       email: cleanEmail,
-      userId: existingUser.id,
+      userId: profile.id,
       type: 'password_reset',
       expiresAt,
       attempts: 0,
     };
 
-    // Store in content_blocks
     await supabaseAdmin
       .from('content_blocks')
       .upsert(
@@ -313,9 +411,9 @@ export async function sendPasswordResetOtp(
           key,
           type: 'custom',
           title: `Password Reset OTP for ${cleanEmail}`,
-          content: payload,
-          settings: { kind: 'auth_otp_reset' },
-          is_active: true,
+          content: payload as unknown as Json,
+          settings: { kind: 'auth_otp_reset' } as unknown as Json,
+          is_active: false,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'key' }
@@ -345,14 +443,22 @@ export async function sendPasswordResetOtp(
       };
     }
 
-    // If Resend failed (e.g. unverified test recipient/domain), log warning and provide devCode fallback
     console.warn(`[sendPasswordResetOtp] Resend delivery unfulfilled for ${cleanEmail}:`, resendResult.error);
+
+    if (isProductionEnv()) {
+      await supabaseAdmin.from('content_blocks').delete().eq('key', key);
+      return {
+        success: false,
+        message: 'Email delivery service is currently unavailable. Please try again later.',
+        emailConfigured: false,
+      };
+    }
 
     return {
       success: true,
       message: resendResult.error
         ? `Notice: ${resendResult.error}`
-        : `Reset code generated! (Dev mode active: ${otp})`,
+        : `Reset code generated (local dev mode).`,
       devCode: otp,
       emailConfigured: false,
     };
@@ -360,7 +466,7 @@ export async function sendPasswordResetOtp(
     console.error('sendPasswordResetOtp error:', err);
     return {
       success: false,
-      message: err?.message || 'Failed to dispatch password reset code.',
+      message: 'Failed to dispatch password reset code.',
       emailConfigured: false,
     };
   }
@@ -375,16 +481,25 @@ export async function verifyPasswordResetOtp(data: {
   newPassword: string;
 }): Promise<{ success: boolean; message: string }> {
   try {
-    const cleanEmail = data.email.trim().toLowerCase();
-    const cleanOtp = data.otp.trim();
-    const newPassword = data.newPassword;
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const cleanOtp = (data.otp || '').trim();
+    const newPassword = data.newPassword || '';
 
     if (!cleanEmail || !cleanOtp || !newPassword) {
       return { success: false, message: 'All fields are required.' };
     }
 
-    if (newPassword.length < 6) {
-      return { success: false, message: 'Password must be at least 6 characters long.' };
+    if (newPassword.length < 8) {
+      return { success: false, message: 'Password must be at least 8 characters long.' };
+    }
+
+    const rate = checkRateLimit(
+      `otp_verify_reset:${cleanEmail}`,
+      MAX_VERIFY_ATTEMPTS_PER_WINDOW,
+      RATE_WINDOW_MS
+    );
+    if (!rate.allowed) {
+      return { success: false, message: 'Too many reset attempts. Please try again later.' };
     }
 
     const key = `otp_reset_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
@@ -393,38 +508,57 @@ export async function verifyPasswordResetOtp(data: {
       .from('content_blocks')
       .select('id, content')
       .eq('key', key)
-      .single();
+      .maybeSingle();
 
     if (fetchErr || !record) {
       return { success: false, message: 'No active password reset request found. Please request a new code.' };
     }
 
-    const content = (record.content as Record<string, any>) || {};
+    const content = (
+      record.content && typeof record.content === 'object' && !Array.isArray(record.content)
+        ? record.content
+        : {}
+    ) as Record<string, any>;
 
-    // Check expiry
-    if (Date.now() > (content['expiresAt'] || 0)) {
+    if (Date.now() > Number(content['expiresAt'] || 0)) {
+      await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
       return { success: false, message: 'Reset code has expired. Please request a new code.' };
     }
 
-    // Check code match
-    if (content['otp'] !== cleanOtp) {
-      content['attempts'] = (content['attempts'] || 0) + 1;
-      await supabaseAdmin.from('content_blocks').update({ content }).eq('id', record.id);
+    const currentAttempts = Number(content['attempts'] || 0);
+    if (currentAttempts >= MAX_OTP_ATTEMPTS) {
+      await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+      return { success: false, message: 'Maximum reset attempts exceeded. Please request a new code.' };
+    }
+
+    const storedHash = String(content['otpHash'] || '');
+    const submittedHash = hashOtp(cleanEmail, cleanOtp);
+    if (!timingSafeHexEqual(storedHash, submittedHash)) {
+      const nextAttempts = currentAttempts + 1;
+      if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+        await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+        return { success: false, message: 'Maximum reset attempts exceeded. Please request a new code.' };
+      }
+      await supabaseAdmin
+        .from('content_blocks')
+        .update({ content: { ...content, attempts: nextAttempts } as unknown as Json })
+        .eq('id', record.id);
       return { success: false, message: 'Incorrect reset code. Please check your email and try again.' };
     }
 
-    // Find the user ID
-    let userId = content['userId'];
+    let userId = content['userId'] as string | undefined;
     if (!userId) {
-      const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
-      const user = listData?.users.find((u) => u.email?.toLowerCase() === cleanEmail);
-      if (!user) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+      if (!profile) {
         return { success: false, message: 'User account not found.' };
       }
-      userId = user.id;
+      userId = profile.id;
     }
 
-    // Update the password in Supabase Auth
     const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       password: newPassword,
     });
@@ -434,7 +568,6 @@ export async function verifyPasswordResetOtp(data: {
       return { success: false, message: updateErr.message };
     }
 
-    // Clean up OTP record
     await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
 
     return {
@@ -445,8 +578,7 @@ export async function verifyPasswordResetOtp(data: {
     console.error('verifyPasswordResetOtp error:', err);
     return {
       success: false,
-      message: err?.message || 'Failed to reset password. Please try again.',
+      message: 'Failed to reset password. Please try again.',
     };
   }
 }
-

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sanitizePostgrestSearchTerm } from '@/lib/validators/commerce';
 
 export const customerRepository = {
   async countAll() {
@@ -17,7 +18,10 @@ export const customerRepository = {
       .order('created_at', { ascending: false });
 
     if (options?.search) {
-      query = query.or(`email.ilike.%${options.search}%,full_name.ilike.%${options.search}%`);
+      const clean = sanitizePostgrestSearchTerm(options.search);
+      if (clean) {
+        query = query.or(`email.ilike.%${clean}%,full_name.ilike.%${clean}%`);
+      }
     }
 
     if (options?.limit) {

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils/cn';
+import { normalizeAddressList, toCheckoutAddress } from '@/lib/utils/address';
 
 export interface SavedAddress {
   id: string;
@@ -52,7 +53,7 @@ export default function AddressesPage() {
     is_default: false,
   });
 
-  // Load addresses from profile preferences or localStorage
+  // Load addresses from profile preferences or localStorage using canonical normalizer
   useEffect(() => {
     let loaded: SavedAddress[] = [];
 
@@ -60,7 +61,7 @@ export default function AddressesPage() {
       const prefs = profile.preferences as Record<string, any>;
       const rawAddrs = prefs['addresses'];
       if (Array.isArray(rawAddrs) && rawAddrs.length > 0) {
-        loaded = rawAddrs;
+        loaded = normalizeAddressList(rawAddrs) as SavedAddress[];
       }
     }
 
@@ -68,7 +69,7 @@ export default function AddressesPage() {
       const stored = localStorage.getItem('angelika_saved_addresses');
       if (stored) {
         try {
-          loaded = JSON.parse(stored);
+          loaded = normalizeAddressList(JSON.parse(stored)) as SavedAddress[];
         } catch {
           loaded = [];
         }
@@ -78,11 +79,18 @@ export default function AddressesPage() {
     setAddresses(loaded);
   }, [profile]);
 
-  // Persist addresses
+  // Persist addresses in dual SavedAddress + Checkout format so /account/addresses & /checkout stay synced
   const persistAddresses = async (newAddresses: SavedAddress[]) => {
+    const canonicalList = newAddresses.map((addr) => {
+      const checkoutFields = toCheckoutAddress(addr as unknown as Record<string, unknown>);
+      return {
+        ...addr,
+        ...checkoutFields,
+      };
+    });
     setAddresses(newAddresses);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('angelika_saved_addresses', JSON.stringify(newAddresses));
+      localStorage.setItem('angelika_saved_addresses', JSON.stringify(canonicalList));
     }
 
     if (user && profile) {
@@ -94,7 +102,7 @@ export default function AddressesPage() {
         await updateProfile({
           preferences: {
             ...existingPrefs,
-            addresses: newAddresses as any,
+            addresses: canonicalList as any,
           } as any,
         });
       } catch (err) {

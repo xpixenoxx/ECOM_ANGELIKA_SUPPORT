@@ -6,11 +6,10 @@ export async function middleware(request: NextRequest) {
   // Skip middleware for static assets, public files, and API routes that handle their own auth
   const pathname = request.nextUrl.pathname;
 
-  // Skip for these paths
+  // Skip for static assets and public endpoints (NEVER skip /admin)
   if (
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/api/') ||
-    pathname.startsWith('/admin') ||
     pathname === '/favicon.ico' ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml' ||

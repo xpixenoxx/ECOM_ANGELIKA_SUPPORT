@@ -819,7 +819,7 @@ export function FAQPageEditor({
 
                   {currentCategory.items.length === 0 && (
                     <div className="p-8 text-center border-2 border-dashed border-[var(--color-whisper)] rounded-xl text-xs text-[var(--color-slate)]">
-                      No questions yet in this category. Click "+ Add Question" above to create one.
+                      No questions yet in this category. Click &ldquo;+ Add Question&rdquo; above to create one.
                     </div>
                   )}
                 </div>
@@ -892,7 +892,7 @@ export function FAQPageEditor({
         <div className="p-6 rounded-2xl bg-white border border-[var(--color-whisper)] shadow-xs space-y-6">
           <div className="border-b border-[var(--color-whisper)] pb-3">
             <h3 className="text-sm font-semibold text-[var(--color-ink)]">
-              "Still Need Help?" Concierge Card
+              &ldquo;Still Need Help?&rdquo; Concierge Card
             </h3>
             <p className="text-xs text-[var(--color-slate)]">
               Displayed at the bottom of the FAQ page for users who need personal styling or support.

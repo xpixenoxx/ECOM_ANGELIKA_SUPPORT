@@ -521,7 +521,7 @@ export function ProductImageGallery({
             <div className="flex flex-col gap-1.5">
               {isVidhyasPick && (
                 <span className="px-2 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-ink)] text-[var(--color-gold)] rounded-[var(--radius-sm)]">
-                  Vidhya's Pick
+                  Vidhya&apos;s Pick
                 </span>
               )}
               {badge === 'new' && (

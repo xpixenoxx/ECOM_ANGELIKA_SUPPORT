@@ -792,7 +792,7 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
                   {data.primaryCtaText || 'Read Our Story'}
                 </div>
 
-                <div className="px-5 py-2.5 bg-[#25D366] text-white text-xs font-semibold uppercase tracking-wider rounded-lg shadow-sm inline-flex items-center gap-2">
+                <div className="px-5 py-2.5 bg-[#0D6E3B] text-white text-xs font-semibold uppercase tracking-wider rounded-lg shadow-sm inline-flex items-center gap-2">
                   <SocialIcon platform="whatsapp" size="sm" />
                   <span>{data.whatsappCtaText || 'Chat with Vidhya'}</span>
                 </div>

@@ -49,6 +49,20 @@ function mapProductToCard(p: any): ShopProductCard {
     ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
     : 0;
 
+  const publishedReviews = Array.isArray(p.reviews)
+    ? p.reviews.filter((r: any) => r?.is_published === true && typeof r?.rating === 'number')
+    : [];
+  const reviewCount = publishedReviews.length;
+  const avgRating =
+    reviewCount > 0
+      ? Number(
+          (
+            publishedReviews.reduce((sum: number, r: any) => sum + Number(r.rating), 0) /
+            reviewCount
+          ).toFixed(1)
+        )
+      : 0;
+
   return {
     id: p.id,
     slug: p.slug,
@@ -62,8 +76,8 @@ function mapProductToCard(p: any): ShopProductCard {
     is_featured: Boolean(p.is_featured),
     is_vidyas_pick: Boolean(p.is_vidyas_pick),
     created_at: p.created_at,
-    rating: 4.8,
-    review_count: 12,
+    rating: avgRating,
+    review_count: reviewCount,
     variants,
     defaultVariantId: defaultVariant?.id,
     fabric: p.fabric || null,
@@ -115,7 +129,8 @@ export async function getProductsByCategory(
           category_id,
           category:categories!products_category_id_fkey(id, name, slug),
           product_images!product_images_product_id_fkey(id, url, alt_text, sort_order, is_primary),
-          product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity)
+          product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity),
+          reviews!reviews_product_id_fkey(rating, is_published)
         `,
           { count: 'exact' }
         )
@@ -151,8 +166,8 @@ export async function getProductsByCategory(
         is_featured: true,
         is_vidyas_pick: true,
         created_at: '2026-01-10T00:00:00Z',
-        rating: 4.9,
-        review_count: 24,
+        rating: 0,
+        review_count: 0,
         variants: [
           { id: 'v-1', size: 'S', price: 6499, compare_at_price: 7999, inventory_quantity: 8 },
           { id: 'v-2', size: 'M', price: 6499, compare_at_price: 7999, inventory_quantity: 12 },
@@ -177,8 +192,8 @@ export async function getProductsByCategory(
         is_featured: true,
         is_vidyas_pick: false,
         created_at: '2026-01-15T00:00:00Z',
-        rating: 4.8,
-        review_count: 18,
+        rating: 0,
+        review_count: 0,
         variants: [
           { id: 'v-5', size: 'M', price: 11999, compare_at_price: 14999, inventory_quantity: 5 },
           { id: 'v-6', size: 'L', price: 11999, compare_at_price: 14999, inventory_quantity: 7 },
@@ -201,8 +216,8 @@ export async function getProductsByCategory(
         is_featured: true,
         is_vidyas_pick: true,
         created_at: '2026-01-05T00:00:00Z',
-        rating: 5.0,
-        review_count: 31,
+        rating: 0,
+        review_count: 0,
         variants: [
           { id: 'v-7', size: 'S', price: 8499, compare_at_price: 10499, inventory_quantity: 4 },
           { id: 'v-8', size: 'M', price: 8499, compare_at_price: 10499, inventory_quantity: 9 },
@@ -226,8 +241,8 @@ export async function getProductsByCategory(
         is_featured: false,
         is_vidyas_pick: false,
         created_at: '2026-01-08T00:00:00Z',
-        rating: 4.7,
-        review_count: 15,
+        rating: 0,
+        review_count: 0,
         variants: [
           { id: 'v-10', size: 'M', price: 9299, compare_at_price: 11500, inventory_quantity: 6 },
           { id: 'v-11', size: 'L', price: 9299, compare_at_price: 11500, inventory_quantity: 8 },
@@ -387,7 +402,8 @@ export async function getAllProducts(
       category_id,
       category:categories!products_category_id_fkey(id, name, slug),
       product_images!product_images_product_id_fkey(id, url, alt_text, sort_order, is_primary),
-      product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity)
+      product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, inventory_quantity),
+      reviews!reviews_product_id_fkey(rating, is_published)
     `,
       { count: 'exact' }
     )

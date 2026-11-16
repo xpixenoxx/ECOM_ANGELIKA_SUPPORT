@@ -84,19 +84,6 @@ function ImageUploader({
     setIsUploading(true);
     setUploadError(null);
 
-    const useLocalDataUrl = () => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onChange(reader.result);
-          setPasteSuccess(true);
-          setTimeout(() => setPasteSuccess(false), 3000);
-        }
-      };
-      reader.onerror = () => setUploadError('Failed to read image file');
-      reader.readAsDataURL(file);
-    };
-
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -107,18 +94,16 @@ function ImageUploader({
         body: fd,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.url) {
-          onChange(data.url);
-          setPasteSuccess(true);
-          setTimeout(() => setPasteSuccess(false), 3000);
-          return;
-        }
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) {
+        onChange(data.url);
+        setPasteSuccess(true);
+        setTimeout(() => setPasteSuccess(false), 3000);
+        return;
       }
-      useLocalDataUrl();
+      setUploadError(data.error || 'Image upload failed. Paste an image URL instead.');
     } catch {
-      useLocalDataUrl();
+      setUploadError('Network error uploading image. Paste an image URL instead.');
     } finally {
       setIsUploading(false);
     }

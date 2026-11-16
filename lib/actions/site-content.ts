@@ -1,11 +1,16 @@
+'use server';
+
 import fs from 'fs/promises';
 import path from 'path';
+import { unstable_cache, revalidateTag } from 'next/cache';
+import { createPublicClient } from '@/lib/supabase/server';
+import { supabaseAdmin } from '@/lib/supabase/admin';
+import { hasValidSupabaseConfig } from '@/lib/env';
+import type { Json } from '@/types/database';
 
-export * from './site-content-types';
+export type * from './site-content-types';
 import type { SiteContent } from './site-content-types';
-
 import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
-export { DEFAULT_SITE_CONTENT };
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
@@ -13,16 +18,52 @@ const CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
 async function ensureDataDir() {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
-  } catch (err) {
-    // Ignore if already exists
+  } catch {
+    // Ignore on read-only serverless filesystems
   }
 }
 
-export async function getSiteContent(): Promise<SiteContent> {
+async function readSiteContentOverrides(): Promise<Record<string, any>> {
+  let merged: Record<string, any> = {};
+
+  // 1. Optional dev JSON file as lowest-priority base override
   try {
-    await ensureDataDir();
     const raw = await fs.readFile(CONTENT_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
+    const parsedFile = JSON.parse(raw);
+    if (parsedFile && typeof parsedFile === 'object') {
+      merged = { ...parsedFile };
+    }
+  } catch {
+    // Expected when file does not exist or on stateless deployments
+  }
+
+  // 2. Authoritative Supabase content_blocks table (only public active CMS sections)
+  if (hasValidSupabaseConfig()) {
+    try {
+      const publicClient = createPublicClient();
+      const { data: blocks } = await publicClient
+        .from('content_blocks')
+        .select('key, content')
+        .eq('is_active', true);
+
+      if (Array.isArray(blocks)) {
+        for (const row of blocks) {
+          if (row?.key && row.key in DEFAULT_SITE_CONTENT && row.content && typeof row.content === 'object') {
+            merged[row.key] = row.content;
+          }
+        }
+      }
+    } catch {
+      // Fallback safely to defaults / local cache if Supabase is temporarily unreachable
+    }
+  }
+
+  return merged;
+}
+
+async function loadMergedSiteContent(): Promise<SiteContent> {
+  try {
+    const parsed: any = await readSiteContentOverrides();
     return {
       ...DEFAULT_SITE_CONTENT,
       ...parsed,
@@ -712,13 +753,28 @@ export async function getSiteContent(): Promise<SiteContent> {
   }
 }
 
+const fetchCachedSiteContent = unstable_cache(
+  async (): Promise<SiteContent> => loadMergedSiteContent(),
+  ['site-content'],
+  { revalidate: 60, tags: ['site-content'] }
+);
+
+export async function getSiteContent(): Promise<SiteContent> {
+  return fetchCachedSiteContent();
+}
+
 export async function updateSectionContent(
   sectionId: string,
   sectionData: any
 ): Promise<{ success: boolean; content?: SiteContent; error?: string }> {
   try {
-    await ensureDataDir();
-    const currentContent = await getSiteContent();
+    const { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminRole } = await import('@/lib/supabase/admin-auth');
+    const auth = await requireAdminRole(CONTENT_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
+    const currentContent = await loadMergedSiteContent();
 
     let normalizedData = sectionData;
     if (sectionId === 'features' && Array.isArray(sectionData?.items)) {
@@ -894,30 +950,45 @@ export async function updateSectionContent(
       [sectionId]: normalizedData,
     };
 
-    await fs.writeFile(CONTENT_FILE, JSON.stringify(updatedContent, null, 2), 'utf-8');
-
-    try {
-      const { createClient } = await import('@/lib/supabase/server');
-      const supabase = await createClient();
-      await supabase
+    if (hasValidSupabaseConfig()) {
+      const { error: dbErr } = await supabaseAdmin
         .from('content_blocks')
         .upsert(
           {
             key: sectionId,
             type: sectionId,
             title: sectionId,
-            content: normalizedData,
+            content: normalizedData as unknown as Json,
             is_active: true,
             updated_at: new Date().toISOString(),
+            updated_by: auth.userId,
           },
           { onConflict: 'key' }
         );
-    } catch (sbErr) {
-      // Non-blocking fallback
+      if (dbErr) {
+        return { success: false, error: dbErr.message };
+      }
+    } else if (!process.env['VERCEL']) {
+      await ensureDataDir();
+      await fs.writeFile(CONTENT_FILE, JSON.stringify(updatedContent, null, 2), 'utf-8');
+    } else {
+      return { success: false, error: 'Database persistence is not configured.' };
+    }
+
+    if (!process.env['VERCEL'] && hasValidSupabaseConfig()) {
+      await ensureDataDir();
+      await fs.writeFile(CONTENT_FILE, JSON.stringify(updatedContent, null, 2), 'utf-8').catch(() => {});
     }
 
     try {
       const { revalidatePath } = await import('next/cache');
+      await logAdminAction({
+        actorId: auth.userId,
+        action: 'update_site_content_section',
+        entityType: 'content_block',
+        entityId: sectionId,
+      });
+      revalidateTag('site-content');
       revalidatePath('/');
       revalidatePath('/admin/content');
       revalidatePath('/vidhyas-picks');
@@ -949,5 +1020,95 @@ export async function updateSectionContent(
   } catch (error: any) {
     console.error(`Error updating section ${sectionId}:`, error);
     return { success: false, error: error.message || 'Failed to save section content' };
+  }
+}
+
+export interface AdminBlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  author: string;
+  category: string;
+  date: string;
+  status: 'Published' | 'Draft';
+  excerpt: string;
+}
+
+export async function getAdminBlogPosts(): Promise<{
+  success: boolean;
+  posts: AdminBlogPost[];
+  error?: string;
+}> {
+  if (!hasValidSupabaseConfig()) {
+    return { success: true, posts: [] };
+  }
+  try {
+    const { CONTENT_ADMIN_ROLES, requireAdminRole } = await import('@/lib/supabase/admin-auth');
+    const auth = await requireAdminRole(CONTENT_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, posts: [], error: auth.error || 'Unauthorized' };
+    }
+    const { data, error } = await supabaseAdmin
+      .from('content_blocks')
+      .select('content')
+      .eq('key', 'blog_posts')
+      .maybeSingle();
+
+    if (error) {
+      return { success: false, posts: [], error: error.message };
+    }
+
+    const contentObj = data?.content as Record<string, unknown> | null;
+    const rawPosts = Array.isArray(contentObj?.['posts'])
+      ? (contentObj['posts'] as AdminBlogPost[])
+      : [];
+    return { success: true, posts: rawPosts };
+  } catch (err: any) {
+    return { success: false, posts: [], error: err?.message || 'Failed to load blog posts' };
+  }
+}
+
+export async function saveAdminBlogPosts(
+  posts: AdminBlogPost[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminRole } = await import('@/lib/supabase/admin-auth');
+    const auth = await requireAdminRole(CONTENT_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+    if (!hasValidSupabaseConfig()) {
+      return { success: false, error: 'Database is not configured for saving blog posts.' };
+    }
+
+    const { error } = await supabaseAdmin.from('content_blocks').upsert(
+      {
+        key: 'blog_posts',
+        type: 'blog_posts',
+        title: 'Editorial Blog Posts',
+        content: { posts } as unknown as Json,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+        updated_by: auth.userId,
+      },
+      { onConflict: 'key' }
+    );
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'save_blog_posts',
+      entityType: 'content_block',
+      entityId: 'blog_posts',
+      metadata: { count: posts.length },
+    });
+
+    revalidateTag('site-content');
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to save blog posts' };
   }
 }

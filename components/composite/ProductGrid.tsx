@@ -116,7 +116,7 @@ export function ProductGrid({
           {emptyMessage}
         </h3>
         <p className="text-[var(--color-slate)] mb-6 max-w-sm mx-auto">
-          We couldn't find any products matching your criteria. Try adjusting your filters or search terms.
+          We couldn&apos;t find any products matching your criteria. Try adjusting your filters or search terms.
         </p>
         {emptyAction}
       </motion.div>

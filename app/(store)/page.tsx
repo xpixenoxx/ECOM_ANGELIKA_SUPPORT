@@ -97,7 +97,7 @@ const homeJsonLd = {
           name: 'Can I receive personal styling recommendations from Vidhya?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Yes! Vidhya provides personalized 1-on-1 styling consultations and size recommendations directly via WhatsApp (+91XXXXXXXXXX) to help you choose the ideal silhouette and fit.',
+            text: 'Yes! Vidhya and our concierge stylists provide personalized 1-on-1 styling and sizing guidance via our Contact studio and configured WhatsApp concierge desk.',
           },
         },
       ],

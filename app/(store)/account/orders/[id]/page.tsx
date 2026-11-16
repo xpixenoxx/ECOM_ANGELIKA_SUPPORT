@@ -32,7 +32,7 @@ export default async function OrderDetailPage({
           </div>
           <h2 className="text-xl font-bold text-[var(--color-ink)] mb-2">Order Not Found</h2>
           <p className="text-sm text-[var(--color-slate)] mb-6">
-            We couldn't locate order #{orderId}. It may have been moved or you may need to sign in with the account used to place the order.
+            We couldn&apos;t locate order #{orderId}. It may have been moved or you may need to sign in with the account used to place the order.
           </p>
           <Link
             href="/account/orders"

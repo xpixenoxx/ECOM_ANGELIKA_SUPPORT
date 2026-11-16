@@ -642,7 +642,7 @@ export function WholesalePageEditor({
                   Initial Order Quantity Tiers ({formData.form.tiers.length})
                 </h4>
                 <p className="text-[11px] text-[var(--color-slate)]">
-                  Options available in the "Initial Order Quantity" dropdown on the form.
+                  Options available in the &ldquo;Initial Order Quantity&rdquo; dropdown on the form.
                 </p>
               </div>
               <Button

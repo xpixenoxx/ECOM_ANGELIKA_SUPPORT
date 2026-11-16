@@ -2,6 +2,10 @@
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
+import { canCustomerCancelOrder } from '@/lib/orders/state-machine';
+import { normalizeAddress } from '@/lib/utils/address';
+import { normalizeIndianPhone, sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
 import { revalidatePath } from 'next/cache';
 
 export interface CustomerOrderItemReview {
@@ -91,7 +95,7 @@ export interface CustomerOrder {
  * Fetch customer orders by authenticated server session, user ID, or user email.
  * Matches user_id OR email so guest checkouts and previous orders are always accurate.
  */
-export async function getCustomerOrders(options?: {
+export async function getCustomerOrders(_options?: {
   userId?: string;
   userEmail?: string;
 }): Promise<{
@@ -101,24 +105,10 @@ export async function getCustomerOrders(options?: {
   error?: string;
 }> {
   try {
-    let resolvedUserId = options?.userId?.trim() || null;
-    let resolvedEmail = options?.userEmail?.trim()?.toLowerCase() || null;
+    const serverSupabase = createServerClient();
+    const { data: { user } } = await serverSupabase.auth.getUser();
 
-    // Check server session if credentials not explicitly passed
-    if (!resolvedUserId && !resolvedEmail) {
-      try {
-        const serverSupabase = createServerClient();
-        const { data: { user } } = await serverSupabase.auth.getUser();
-        if (user) {
-          resolvedUserId = user.id;
-          resolvedEmail = user.email ? user.email.toLowerCase() : null;
-        }
-      } catch (authErr) {
-        // Continue with whatever credentials were provided
-      }
-    }
-
-    if (!resolvedUserId && !resolvedEmail) {
+    if (!user) {
       return {
         success: false,
         isAuthenticated: false,
@@ -127,18 +117,18 @@ export async function getCustomerOrders(options?: {
       };
     }
 
-    // Build query using admin client to guarantee fast, bypass-RLS accuracy
+    const resolvedUserId = user.id;
+    const resolvedEmail = user.email ? user.email.trim().toLowerCase() : null;
+
     let query = supabaseAdmin
       .from('orders')
       .select('*, order_items(*)')
       .order('created_at', { ascending: false });
 
-    if (resolvedUserId && resolvedEmail) {
-      query = query.or(`user_id.eq.${resolvedUserId},email.ilike.${resolvedEmail}`);
-    } else if (resolvedUserId) {
+    if (resolvedEmail) {
+      query = query.or(`user_id.eq.${resolvedUserId},email.ilike.${sanitizePostgrestSearchTerm(resolvedEmail)}`);
+    } else {
       query = query.eq('user_id', resolvedUserId);
-    } else if (resolvedEmail) {
-      query = query.ilike('email', resolvedEmail);
     }
 
     const { data: rawOrders, error } = await query;
@@ -220,7 +210,7 @@ export async function getCustomerOrders(options?: {
  */
 export async function getCustomerOrderById(
   orderId: string,
-  options?: {
+  _options?: {
     userId?: string;
     userEmail?: string;
   }
@@ -230,6 +220,14 @@ export async function getCustomerOrderById(
   error?: string;
 }> {
   try {
+    const serverSupabase = createServerClient();
+    const { data: { user } } = await serverSupabase.auth.getUser();
+    const adminAuth = user ? await requireAdminRole(OPS_ADMIN_ROLES) : null;
+
+    if (!user && !adminAuth?.authorized) {
+      return { success: false, order: null, error: 'Authentication required' };
+    }
+
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
 
     let query = supabaseAdmin
@@ -245,6 +243,15 @@ export async function getCustomerOrderById(
     const { data: order, error } = await query.maybeSingle();
 
     if (error || !order) {
+      return { success: false, order: null, error: 'Order not found' };
+    }
+
+    const isOwner = Boolean(
+      user &&
+      ((order.user_id && order.user_id === user.id) ||
+        (user.email && order.email.toLowerCase() === user.email.toLowerCase()))
+    );
+    if (!isOwner && !adminAuth?.authorized) {
       return { success: false, order: null, error: 'Order not found' };
     }
 
@@ -404,8 +411,8 @@ export async function getCustomerOrderById(
       discount_amount: Number(order.discount_amount) || 0,
       total_amount: Number(order.total_amount) || 0,
       currency: order.currency || 'INR',
-      shipping_address: order.shipping_address || {},
-      billing_address: order.billing_address || {},
+      shipping_address: normalizeAddress(order.shipping_address),
+      billing_address: order.billing_address ? normalizeAddress(order.billing_address) : undefined,
       courier_partner: order.courier_partner || null,
       tracking_number: order.tracking_number || null,
       shipped_at: order.shipped_at || null,
@@ -446,8 +453,14 @@ export async function submitCustomerOrderReview(data: {
   fitRating?: number;
 }): Promise<{ success: boolean; error?: string; review?: CustomerOrderItemReview }> {
   try {
+    const serverSupabase = createServerClient();
+    const { data: { user } } = await serverSupabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Please sign in to submit a verified review' };
+    }
+
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.orderId);
-    let orderQuery = supabaseAdmin.from('orders').select('*');
+    let orderQuery = supabaseAdmin.from('orders').select('*, order_items(*)');
     if (isUuid) {
       orderQuery = orderQuery.eq('id', data.orderId);
     } else {
@@ -457,6 +470,18 @@ export async function submitCustomerOrderReview(data: {
 
     if (oErr || !order) {
       return { success: false, error: 'Order not found' };
+    }
+
+    const isOwner =
+      (order.user_id && order.user_id === user.id) ||
+      (user.email && order.email.toLowerCase() === user.email.toLowerCase());
+    if (!isOwner) {
+      return { success: false, error: 'Unauthorized: you do not own this order' };
+    }
+
+    const matchingItem = (order.order_items || []).find((i: any) => i.id === data.orderItemId);
+    if (!matchingItem) {
+      return { success: false, error: 'Order item does not belong to this order' };
     }
 
     const orderStatus = (order.status || '').toLowerCase();
@@ -500,8 +525,8 @@ export async function submitCustomerOrderReview(data: {
       return { success: false, error: 'Could not associate review with a catalog product' };
     }
 
-    const addr: any = order.shipping_address || {};
-    const defaultName = [addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.full_name || order.customer_name || 'Verified Customer';
+    const addr = normalizeAddress(order.shipping_address);
+    const defaultName = addr.fullName || 'Verified Customer';
     const reviewerName = (data.reviewerName || '').trim() || defaultName;
 
     // Check if existing review
@@ -614,6 +639,12 @@ export async function submitCustomerReturnRequest(data: {
   refundAmount?: number;
 }): Promise<{ success: boolean; error?: string; returnRecord?: CustomerOrderItemReturn }> {
   try {
+    const serverSupabase = createServerClient();
+    const { data: { user } } = await serverSupabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Please sign in to submit a return or exchange request' };
+    }
+
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.orderId);
     let orderQuery = supabaseAdmin.from('orders').select('*, order_items(*)');
     if (isUuid) {
@@ -625,6 +656,17 @@ export async function submitCustomerReturnRequest(data: {
 
     if (oErr || !order) {
       return { success: false, error: 'Order not found' };
+    }
+
+    const isOwner =
+      (order.user_id && order.user_id === user.id) ||
+      (user.email && order.email.toLowerCase() === user.email.toLowerCase());
+    if (!isOwner) {
+      return { success: false, error: 'Unauthorized: you do not own this order' };
+    }
+
+    if ((order.status || '').toLowerCase() !== 'delivered') {
+      return { success: false, error: 'Returns and exchanges can only be requested after delivery' };
     }
 
     const item = (order.order_items || []).find((i: any) => i.id === data.orderItemId);
@@ -675,36 +717,10 @@ export async function submitCustomerReturnRequest(data: {
       }
     }
 
-    // Resolve user_id from order or profile
-    let userId = order.user_id;
-    if (!userId && order.email) {
-      const { data: prof } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('email', order.email)
-        .maybeSingle();
-      if (prof?.id) {
-        userId = prof.id;
-      }
-    }
-    if (!userId) {
-      const { data: anyProf } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .limit(1)
-        .maybeSingle();
-      if (anyProf?.id) {
-        userId = anyProf.id;
-      }
-    }
+    const resolvedUserId = order.user_id || user.id || null;
 
-    if (!userId) {
-      return { success: false, error: 'Could not associate return with a valid customer account' };
-    }
-
-    const calculatedRefund = typeof data.refundAmount === 'number' && data.refundAmount > 0
-      ? data.refundAmount
-      : (item.total_price || item.unit_price * item.quantity);
+    // Never trust client-supplied refund amount; always compute from order_items price
+    const calculatedRefund = Number(item.total_price ?? Number(item.unit_price) * Number(item.quantity));
 
     // Map reasons to database check constraint 'returns_reason_check': ('size', 'fit', 'wrong_item', 'damaged', 'quality', 'changed_mind', 'other')
     const allowedReasons = ['size', 'fit', 'wrong_item', 'damaged', 'quality', 'changed_mind', 'other'];
@@ -731,7 +747,7 @@ export async function submitCustomerReturnRequest(data: {
     const returnPayload = {
       order_id: order.id,
       order_item_id: data.orderItemId,
-      user_id: userId,
+      user_id: resolvedUserId,
       type: data.type === 'exchange' ? 'exchange' : 'return',
       status: 'requested',
       reason: sanitizedReason,
@@ -776,5 +792,193 @@ export async function submitCustomerReturnRequest(data: {
   } catch (err: any) {
     console.error('submitCustomerReturnRequest error:', err);
     return { success: false, error: err?.message || 'Failed to submit return request' };
+  }
+}
+
+/**
+ * Allows authenticated customer to cancel their own eligible pre-dispatch order,
+ * atomically releasing reserved inventory & coupon allocations.
+ */
+export async function cancelCustomerOrder(
+  orderId: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const serverSupabase = createServerClient();
+    const { data: { user } } = await serverSupabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Please sign in to cancel your order' };
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
+    let query = supabaseAdmin.from('orders').select('id, order_number, user_id, email, status, payment_status, payment_method');
+    query = isUuid ? query.eq('id', orderId) : query.eq('order_number', orderId);
+    const { data: order, error } = await query.maybeSingle();
+
+    if (error || !order) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    const isOwner =
+      (order.user_id && order.user_id === user.id) ||
+      (user.email && order.email.toLowerCase() === user.email.toLowerCase());
+    if (!isOwner) {
+      return { success: false, error: 'Unauthorized: you do not own this order' };
+    }
+
+    if (!canCustomerCancelOrder(order.status)) {
+      return {
+        success: false,
+        error: `Orders already in "${order.status}" stage cannot be cancelled online. Please contact concierge or request a return after delivery.`,
+      };
+    }
+
+    const cleanReason = reason ? stripHtmlTags(reason).slice(0, 300) : 'Cancelled by customer';
+    const { error: updateErr } = await supabaseAdmin
+      .from('orders')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancel_reason: cleanReason,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message };
+    }
+
+    await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
+
+    try {
+      revalidatePath('/account/orders');
+      revalidatePath(`/account/orders/${order.id}`);
+      revalidatePath(`/account/orders/${order.order_number}`);
+      revalidatePath('/admin/orders');
+    } catch {
+      // Non-blocking outside request context
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('cancelCustomerOrder error:', err);
+    return { success: false, error: err?.message || 'Failed to cancel order' };
+  }
+}
+
+export interface PublicTrackedOrder {
+  order_number: string;
+  status: string;
+  payment_status: string;
+  payment_method: string | null;
+  courier_partner: string | null;
+  tracking_number: string | null;
+  tracking_url: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  destination_city: string;
+  destination_state: string;
+  total_amount: number;
+  items: Array<{
+    product_name: string;
+    quantity: number;
+    size?: string;
+    color?: string;
+    image?: string;
+  }>;
+}
+
+/**
+ * Privacy-safe public order tracking by Order Number + Email or 10-digit Phone.
+ * Never leaks street address, full phone, or full email.
+ */
+export async function trackOrderPublic(params: {
+  orderNumber: string;
+  contact: string;
+}): Promise<{ success: boolean; order?: PublicTrackedOrder; error?: string }> {
+  try {
+    const cleanOrderNum = sanitizePostgrestSearchTerm(params.orderNumber || '').toUpperCase();
+    const rawContact = (params.contact || '').trim();
+    if (!cleanOrderNum || !rawContact) {
+      return { success: false, error: 'Order number and email or phone number are required.' };
+    }
+
+    const { data: order, error } = await supabaseAdmin
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        email,
+        phone,
+        status,
+        payment_status,
+        payment_method,
+        courier_partner,
+        tracking_number,
+        tracking_url,
+        shipped_at,
+        delivered_at,
+        created_at,
+        shipping_address,
+        total_amount,
+        order_items(product_name, quantity, variant_details)
+      `)
+      .ilike('order_number', cleanOrderNum)
+      .maybeSingle();
+
+    if (error || !order) {
+      return { success: false, error: 'No matching order found. Please verify your Order Number and contact details.' };
+    }
+
+    const addr = normalizeAddress(order.shipping_address);
+    const inputLower = rawContact.toLowerCase();
+    const inputPhone = normalizeIndianPhone(rawContact);
+    const orderPhone = normalizeIndianPhone(order.phone || addr.phone || '');
+
+    const matchesEmail = Boolean(
+      order.email && inputLower.includes('@') && order.email.toLowerCase() === inputLower
+    );
+    const matchesPhone = Boolean(
+      inputPhone.length >= 10 && orderPhone.length >= 10 && inputPhone === orderPhone
+    );
+
+    if (!matchesEmail && !matchesPhone) {
+      return { success: false, error: 'No matching order found. Please verify your Order Number and contact details.' };
+    }
+
+    const items = ((order as any).order_items || []).map((it: any) => {
+      const vd = (it.variant_details && typeof it.variant_details === 'object') ? it.variant_details : {};
+      return {
+        product_name: it.product_name,
+        quantity: Number(it.quantity || 1),
+        size: vd.size,
+        color: vd.color,
+        image: vd.image || vd.image_url,
+      };
+    });
+
+    return {
+      success: true,
+      order: {
+        order_number: order.order_number,
+        status: order.status,
+        payment_status: order.payment_status,
+        payment_method: order.payment_method,
+        courier_partner: order.courier_partner,
+        tracking_number: order.tracking_number,
+        tracking_url: order.tracking_url,
+        shipped_at: order.shipped_at,
+        delivered_at: order.delivered_at,
+        created_at: order.created_at,
+        destination_city: addr.city || '',
+        destination_state: addr.state || '',
+        total_amount: Number(order.total_amount || 0),
+        items,
+      },
+    };
+  } catch (err: any) {
+    console.error('trackOrderPublic error:', err);
+    return { success: false, error: 'Unable to retrieve order tracking details right now.' };
   }
 }

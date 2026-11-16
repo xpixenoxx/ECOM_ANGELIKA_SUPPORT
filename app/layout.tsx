@@ -80,9 +80,9 @@ export const metadata: Metadata = {
     'geo.placename': 'India',
     'category': 'Luxury Fashion & Apparel',
   },
-  verification: {
-    google: 'google-site-verification-code',
-  },
+  ...(process.env['GOOGLE_SITE_VERIFICATION']
+    ? { verification: { google: process.env['GOOGLE_SITE_VERIFICATION'] } }
+    : {}),
 };
 
 export const viewport: Viewport = {

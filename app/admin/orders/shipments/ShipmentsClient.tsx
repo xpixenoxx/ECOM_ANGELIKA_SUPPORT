@@ -26,9 +26,11 @@ import {
 } from 'lucide-react';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { downloadCsv } from '@/lib/utils/csv-export';
 import {
   getOrders,
   updateShipmentFulfillment,
+  autoDispatchShipmentAwb,
   AdminOrder,
 } from '@/lib/actions/admin-orders';
 
@@ -97,6 +99,7 @@ export default function ShipmentsClient({ initialOrders }: Props) {
   const [modalTracking, setModalTracking] = useState('');
   const [modalStatus, setModalStatus] = useState<'shipped' | 'delivered'>('shipped');
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingAwb, setIsGeneratingAwb] = useState(false);
 
   const showToast = useCallback((text: string, type: 'success' | 'error' = 'success') => {
     setToast({ text, type });
@@ -375,7 +378,7 @@ export default function ShipmentsClient({ initialOrders }: Props) {
       });
   }, [orders, activeTab, courierFilter, search, sortBy]);
 
-  // Export CSV Manifest
+  // Export Formula-Safe CSV Manifest
   const exportToCSV = useCallback(() => {
     const headers = [
       'Order Number',
@@ -397,32 +400,25 @@ export default function ShipmentsClient({ initialOrders }: Props) {
     const rows = filtered.map((o) => {
       const addr = getAddressFields(o.shipping_address);
       return [
-        `"${o.order_number}"`,
-        `"${(o.customer_name || '').replace(/"/g, '""')}"`,
-        `"${o.phone || addr.phone || ''}"`,
-        `"${o.email || ''}"`,
-        `"${addr.address1.replace(/"/g, '""')}"`,
-        `"${addr.city}"`,
-        `"${addr.state}"`,
-        `"${addr.postalCode}"`,
+        o.order_number,
+        o.customer_name || '',
+        o.phone || addr.phone || '',
+        o.email || '',
+        addr.address1,
+        addr.city,
+        addr.state,
+        addr.postalCode,
         o.status,
-        `"${o.courier_partner || 'Unassigned'}"`,
-        `"${o.tracking_number || ''}"`,
+        o.courier_partner || 'Unassigned',
+        o.tracking_number || '',
         o.total_amount,
-        `"${new Date(o.created_at).toISOString().slice(0, 10)}"`,
-        o.shipped_at ? `"${new Date(o.shipped_at).toISOString().slice(0, 10)}"` : '""',
-      ].join(',');
+        new Date(o.created_at).toISOString().slice(0, 10),
+        o.shipped_at ? new Date(o.shipped_at).toISOString().slice(0, 10) : '',
+      ];
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `shipping-manifest-${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('Shipping manifest exported', 'success');
+    downloadCsv(`shipping-manifest-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    showToast('Shipping manifest exported safely', 'success');
   }, [filtered, showToast]);
 
   const hasActiveFilters = activeTab !== 'all' || courierFilter !== 'all' || search.trim() !== '';
@@ -1061,9 +1057,39 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-1.5">
-                    Airway Bill / Tracking AWB #
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-[var(--color-slate)] uppercase tracking-wider">
+                      Airway Bill / Tracking AWB #
+                    </label>
+                    <button
+                      type="button"
+                      disabled={isGeneratingAwb || isSaving}
+                      onClick={async () => {
+                        if (!activeModalOrder) return;
+                        setIsGeneratingAwb(true);
+                        try {
+                          const res = await autoDispatchShipmentAwb(activeModalOrder.id);
+                          if (!res.success || !res.awbNumber) {
+                            showToast(
+                              res.error || 'Carrier API is not configured. Enter AWB manually.',
+                              'error'
+                            );
+                            return;
+                          }
+                          setModalTracking(res.awbNumber);
+                          if (res.courierPartner) setModalCourier(res.courierPartner);
+                          setActiveModalOrder(null);
+                          showToast(`Carrier AWB generated & dispatched: ${res.awbNumber}`, 'success');
+                          handleManualRefresh(false);
+                        } finally {
+                          setIsGeneratingAwb(false);
+                        }
+                      }}
+                      className="text-[11px] font-medium text-[var(--color-gold-hover)] hover:underline disabled:opacity-50 cursor-pointer"
+                    >
+                      {isGeneratingAwb ? 'Generating...' : 'Auto-Generate via Carrier API'}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={modalTracking}
@@ -1074,7 +1100,7 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                     autoFocus
                   />
                   <p className="text-[11px] text-[var(--color-mist)] mt-1">
-                    Customer receives immediate notification with this tracking link.
+                    Customer receives notification with this tracking link.
                   </p>
                 </div>
 

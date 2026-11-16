@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { validateAndPersistAdminImage } from '@/lib/utils/storage-upload';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -13,47 +16,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
     }
 
-    const fileName = file.name || 'product-upload.jpg';
-    const extMatch = fileName.match(/\.(jpg|jpeg|png|webp|svg|avif|gif)$/i);
-    const validMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/avif', 'image/gif'];
-
-    if (!validMimes.includes(file.type) && !extMatch) {
-      return NextResponse.json({
-        success: false,
-        error: 'Only image files (JPG, PNG, WebP, SVG, AVIF, GIF) are allowed',
-      }, { status: 400 });
-    }
-
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const originalExt = path.extname(fileName) || (extMatch ? extMatch[0] : '.jpg');
-    const cleanExt = originalExt.toLowerCase();
-    const timestamp = Date.now();
-    const sanitizedBase = path.basename(fileName, originalExt)
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .slice(0, 30) || 'img';
-    const filename = `product-${timestamp}-${sanitizedBase}${cleanExt}`;
+    const saved = await validateAndPersistAdminImage({
+      buffer,
+      originalName: file.name || 'product-upload.jpg',
+      folder: 'products',
+      prefix: 'product',
+    });
 
-    const uploadDir = path.join(process.cwd(), 'public', 'images', 'products');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+    if (!saved.success) {
+      return NextResponse.json({ success: false, error: saved.error }, { status: 400 });
     }
 
-    const filePath = path.join(uploadDir, filename);
-    fs.writeFileSync(filePath, buffer);
-
-    const publicUrl = `/images/products/${filename}`;
+    await logAdminAction({
+      actorId: guard.auth.userId,
+      action: 'upload_product_image',
+      entityType: 'media',
+      entityId: saved.filename,
+      metadata: { url: saved.url, provider: saved.storageProvider },
+    });
 
     return NextResponse.json({
       success: true,
-      url: publicUrl,
-      filename,
-      size: file.size,
+      url: saved.url,
+      filename: saved.filename,
+      size: saved.size,
     });
   } catch (error: any) {
     console.error('Product image upload error:', error);
     return NextResponse.json({ success: false, error: error?.message || 'Failed to upload image' }, { status: 500 });
   }
 }
-

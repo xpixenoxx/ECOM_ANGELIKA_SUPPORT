@@ -11,7 +11,9 @@ import {
   CustomerOrderItemReturn,
   submitCustomerOrderReview,
   submitCustomerReturnRequest,
+  cancelCustomerOrder,
 } from '@/lib/actions/customer-orders';
+import { canCustomerCancelOrder } from '@/lib/orders/state-machine';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -38,8 +40,12 @@ function formatPrice(amount: number): string {
 }
 
 export default function OrderDetailClient({ order }: OrderDetailClientProps) {
-  const statusKey = (order.status || 'confirmed').toLowerCase();
+  const [currentStatus, setCurrentStatus] = useState((order.status || 'confirmed').toLowerCase());
+  const statusKey = currentStatus;
   const statusBadgeClass = statusStyles[statusKey] || 'bg-slate-100 text-slate-700';
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isCancelling, setIsCancelling] = useState(false);
 
   // Map initial reviews by item.id
   const initialMap: Record<string, CustomerOrderItemReview> = {};
@@ -326,10 +332,20 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
                 Order <span className="font-mono">{order.order_number}</span>
               </h1>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className={cn('px-4 py-1.5 text-xs sm:text-sm font-semibold rounded-full uppercase tracking-wider', statusBadgeClass)}>
-                {order.status}
+                {currentStatus.replace(/_/g, ' ')}
               </span>
+              {canCustomerCancelOrder(statusKey) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCancelModal(true)}
+                  className="cursor-pointer border-rose-200 bg-rose-50/70 text-rose-800 hover:bg-rose-100"
+                >
+                  Cancel Order
+                </Button>
+              )}
               {statusKey === 'delivered' && order.items.some((i) => (i.is_return_eligible ?? true) && !itemReturns[i.id] && !i.existing_return) && (
                 <Button
                   variant="outline"
@@ -697,17 +713,12 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
                 <p className="text-xs text-[var(--color-slate)] mb-4 leading-relaxed">
                   Have questions about delivery time, custom stitching, or styling suggestions for this order?
                 </p>
-                <a
-                  href={`https://wa.me/91XXXXXXXXXX?text=${encodeURIComponent(`Hi Vidhya, I have an inquiry regarding my order ${order.order_number}`)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
+                <Link
+                  href={`/contact?order=${encodeURIComponent(order.order_number)}`}
+                  className="w-full py-2.5 px-4 rounded-xl bg-[var(--color-gold)] hover:bg-[var(--color-gold-hover)] text-[var(--color-ink)] font-semibold text-xs flex items-center justify-center gap-2 transition-colors"
                 >
-                  <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z" />
-                  </svg>
-                  <span>Chat with Vidhya on WhatsApp</span>
-                </a>
+                  <span>Contact Client Concierge</span>
+                </Link>
               </Card>
             </div>
           </div>
@@ -1227,6 +1238,81 @@ export default function OrderDetailClient({ order }: OrderDetailClientProps) {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Order Cancellation Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white border border-[var(--color-whisper)] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)]">
+                  Cancel Order {order.order_number}?
+                </h3>
+                <p className="text-xs text-[var(--color-slate)] mt-1">
+                  This will immediately release reserved inventory. Any captured online payment will be marked for refund reversal.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isCancelling && setShowCancelModal(false)}
+                className="p-1 text-[var(--color-mist)] hover:text-[var(--color-ink)]"
+                aria-label="Close cancellation dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div>
+              <label htmlFor="cancelReason" className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)] mb-1.5">
+                Reason for Cancellation (Optional)
+              </label>
+              <textarea
+                id="cancelReason"
+                rows={3}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Ordered incorrect size, delivery date change..."
+                className="w-full px-3 py-2 rounded-xl border border-[var(--color-whisper)] text-xs text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)]"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isCancelling}
+                onClick={() => setShowCancelModal(false)}
+              >
+                Keep Order
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isCancelling}
+                className="bg-rose-700 hover:bg-rose-800 text-white"
+                onClick={async () => {
+                  setIsCancelling(true);
+                  try {
+                    const res = await cancelCustomerOrder(order.id, cancelReason.trim() || undefined);
+                    if (res.success) {
+                      setCurrentStatus('cancelled');
+                      setShowCancelModal(false);
+                      toast.success('Order cancelled and inventory released.');
+                    } else {
+                      toast.error(res.error || 'Could not cancel order.');
+                    }
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Error cancelling order.');
+                  } finally {
+                    setIsCancelling(false);
+                  }
+                }}
+              >
+                {isCancelling ? 'Cancelling...' : 'Confirm Cancellation'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -22,7 +22,7 @@ import { useCart } from '@/lib/hooks/useCart';
 import { useWishlist } from '@/lib/hooks/useWishlist';
 import type { ShopProductCard, ShopFilters } from '@/lib/actions/shop-types';
 import type { SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent, ShopPageContent } from '@/lib/actions/site-content-types';
-import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES } from '@/lib/actions/shop-types';
+import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES, SHOP_OCCASIONS } from '@/lib/actions/shop-types';
 import type { KurtisPageContent } from '@/lib/actions/site-content';
 
 interface CategoryPageClientProps {
@@ -147,8 +147,8 @@ export function CategoryPageClient({
         is_featured: Boolean(p.isNew),
         is_vidyas_pick: Boolean(p.isVidhyasPick),
         created_at: p.isNew ? new Date().toISOString() : '2026-01-01T00:00:00Z',
-        rating: p.rating || 4.8,
-        review_count: p.reviewCount || 12,
+        rating: p.rating ?? 0,
+        review_count: p.reviewCount ?? 0,
         variants: [
           { id: `var-${p.id}-s`, size: 'S', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 5 : 0 },
           { id: `var-${p.id}-m`, size: 'M', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 8 : 0 },
@@ -180,8 +180,8 @@ export function CategoryPageClient({
           is_featured: Boolean(p.badge),
           is_vidyas_pick: Boolean(p.isVidhyasPick),
           created_at: new Date(Date.now() - idx * 86400000).toISOString(),
-          rating: p.rating || 4.8,
-          review_count: p.reviewCount || 12,
+          rating: p.rating ?? 0,
+          review_count: p.reviewCount ?? 0,
           variants: (p.sizes || ['S', 'M', 'L']).map((sz, szIdx) => ({
             id: `var-${p.id || idx}-${szIdx}`,
             size: sz,
@@ -309,6 +309,25 @@ export function CategoryPageClient({
         }
       }
 
+      // 8. Occasion filter
+      if (filters.occasion && filters.occasion.length > 0) {
+        const selectedOccasions = filters.occasion.map((o: string) => o.toLowerCase());
+        const occStr = (product.occasion || []).join(' ').toLowerCase();
+        const tagsStr = (product.tags || []).join(' ').toLowerCase();
+        const nameStr = (product.name || '').toLowerCase();
+        const matchesOcc = selectedOccasions.some(
+          (o: string) => occStr.includes(o) || tagsStr.includes(o) || nameStr.includes(o)
+        );
+        if (!matchesOcc) return false;
+      }
+
+      // 9. Type / Length subcategory filters from URL
+      const subFilters = [...(filters.type || []), ...(filters.length || [])].map((s: string) => s.toLowerCase());
+      if (subFilters.length > 0) {
+        const text = `${product.name} ${product.slug} ${(product.tags || []).join(' ')}`.toLowerCase();
+        if (!subFilters.some((s: string) => text.includes(s))) return false;
+      }
+
       return true;
     });
   }, [allProducts, filters]);
@@ -374,7 +393,7 @@ export function CategoryPageClient({
 
   const handleRemoveFilter = (key: keyof ShopFilters, valueToRemove?: any) => {
     setFilters((prev) => {
-      if (key === 'categories' || key === 'fabrics' || key === 'colors' || key === 'sizes') {
+      if (key === 'categories' || key === 'fabrics' || key === 'colors' || key === 'sizes' || key === 'occasion') {
         const current = (prev[key] || []) as string[];
         return { ...prev, [key]: current.filter((item) => item !== valueToRemove) };
       }
@@ -409,6 +428,9 @@ export function CategoryPageClient({
       if (filters.sizes && filters.sizes.length > 0) {
         params.set('sizes', filters.sizes.join(','));
       }
+      if (filters.occasion && filters.occasion.length > 0) {
+        params.set('occasion', filters.occasion.join(','));
+      }
       if (filters.priceRange && Array.isArray(filters.priceRange) && (filters.priceRange[0] > 0 || filters.priceRange[1] < 25000)) {
         params.set('priceRange', filters.priceRange.join(','));
       }
@@ -435,6 +457,7 @@ export function CategoryPageClient({
       fabrics: [],
       colors: [],
       sizes: [],
+      occasion: [],
       priceRange: [0, 25000],
       inStockOnly: false,
       vidhyasPicksOnly: false,
@@ -782,6 +805,20 @@ export function CategoryPageClient({
                       <span className="text-[var(--color-gold)] group-hover:text-[var(--color-ink)] font-bold text-xs">✕</span>
                     </button>
                   ))}
+                  {/* Occasion Pills */}
+                  {filters.occasion?.map((occVal) => {
+                    const label = SHOP_OCCASIONS.find((o) => o.value === occVal)?.label || occVal;
+                    return (
+                      <button
+                        key={`pill-occ-${occVal}`}
+                        onClick={() => handleRemoveFilter('occasion', occVal)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[var(--color-gold)] text-[var(--color-ink)] text-xs font-medium hover:bg-[var(--color-gold)]/10 transition-colors group shadow-sm"
+                      >
+                        <span>Occasion: {label}</span>
+                        <span className="text-[var(--color-gold)] group-hover:text-[var(--color-ink)] font-bold text-xs">✕</span>
+                      </button>
+                    );
+                  })}
                   {/* In Stock Pill */}
                   {filters.inStockOnly && (
                     <button
@@ -798,7 +835,7 @@ export function CategoryPageClient({
                       onClick={() => handleFilterChange('vidhyasPicksOnly', false)}
                       className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[var(--color-gold)] text-[var(--color-ink)] text-xs font-medium hover:bg-[var(--color-gold)]/10 transition-colors group shadow-sm"
                     >
-                      <span>Vidhya's Picks</span>
+                      <span>Vidhya&apos;s Picks</span>
                       <span className="text-[var(--color-gold)] group-hover:text-[var(--color-ink)] font-bold text-xs">✕</span>
                     </button>
                   )}
@@ -1148,6 +1185,37 @@ function CategoryFilterFields({
           onChange={(value) => onFilterChange('priceRange', Array.isArray(value) ? value : [0, Number(value) || 25000])}
           className="w-full"
         />
+      </div>
+
+      <div className="border-t border-[var(--color-whisper)] pt-4">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] mb-3 flex items-center justify-between">
+          <span>Occasion</span>
+          {filters.occasion && filters.occasion.length > 0 && (
+            <span className="text-[10px] font-bold text-[var(--color-gold)]">
+              {filters.occasion.length} selected
+            </span>
+          )}
+        </h4>
+        <div className="space-y-2.5">
+          {SHOP_OCCASIONS.map((occ) => {
+            const isChecked = Boolean(filters.occasion?.includes(occ.value));
+            return (
+              <Checkbox
+                key={occ.value}
+                checked={isChecked}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  const current = filters.occasion || [];
+                  const updated = checked
+                    ? Array.from(new Set([...current, occ.value]))
+                    : current.filter((o: string) => o !== occ.value);
+                  onFilterChange('occasion', updated);
+                }}
+                label={occ.label}
+              />
+            );
+          })}
+        </div>
       </div>
 
       <div className="border-t border-[var(--color-whisper)] pt-4 space-y-2.5">

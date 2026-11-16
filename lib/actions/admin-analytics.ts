@@ -1,6 +1,8 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { hasValidSupabaseConfig } from '@/lib/env';
+import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
 
 export type AnalyticsTimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
 
@@ -153,6 +155,11 @@ function formatCurrencyShort(amount: number): string {
 export async function getAnalyticsData(
   timeRange: AnalyticsTimeRange = '30d'
 ): Promise<AnalyticsData> {
+  const { OPS_ADMIN_ROLES, requireAdminRole } = await import('@/lib/supabase/admin-auth');
+  const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+  if (!auth.authorized) {
+    throw new Error(auth.error || 'Unauthorized');
+  }
   const supabase = supabaseAdmin;
   const now = new Date();
 
@@ -218,6 +225,7 @@ export async function getAnalyticsData(
     whatsappRes,
     cartsRes,
     variantsRes,
+    newsletterRes,
   ] = await Promise.all([
     currentOrdersQuery,
     days > 0 ? prevOrdersQuery : Promise.resolve({ data: [], error: null }),
@@ -233,9 +241,10 @@ export async function getAnalyticsData(
     supabase.from('carts').select('id', { count: 'exact', head: true }),
     supabase
       .from('product_variants')
-      .select('id, product_id, size, inventory_quantity, low_stock_threshold, products(id, name, price, sku, is_active)')
+      .select('id, product_id, size, price, inventory_quantity, low_stock_threshold, products(id, name, sku, is_active)')
       .order('inventory_quantity', { ascending: true })
       .limit(20),
+    supabase.from('content_blocks').select('id', { count: 'exact', head: true }).eq('type', 'newsletter_subscriber'),
   ]);
 
   const rawOrders = currentOrdersRes.data || [];
@@ -446,38 +455,23 @@ export async function getAnalyticsData(
 
   const sortedTopProducts = Object.values(productAggMap).sort((a, b) => b.revenue - a.revenue);
 
-  const topSelling: TopProductMetric[] =
-    sortedTopProducts.length > 0
-      ? sortedTopProducts.slice(0, 5).map((p) => {
-          const views = Math.max(p.sold * 32, 120);
-          const conversion = views > 0 ? Number(((p.sold / views) * 100).toFixed(2)) : 0;
-          return {
-            name: p.name,
-            sold: p.sold,
-            revenue: Math.round(p.revenue),
-            views,
-            conversion,
-          };
-        })
-      : [
-          {
-            name: 'Mirror Work Raw Silk Lehenga',
-            sold: 2,
-            revenue: 67497,
-            views: 450,
-            conversion: 0.44,
-          },
-        ];
+  const topSelling: TopProductMetric[] = sortedTopProducts.slice(0, 5).map((p) => ({
+    name: p.name,
+    sold: p.sold,
+    revenue: Math.round(p.revenue),
+    views: 0,
+    conversion: 0,
+  }));
 
-  // Low converting / attention items from product_variants
+  // Low stock / attention items from product_variants
   const rawVariants = variantsRes.data || [];
   const lowConverting: LowConvertingProductMetric[] = rawVariants.slice(0, 3).map((v: any) => {
     const pName = v.products?.name || `Artisan Piece (Size ${v.size || 'M'})`;
     return {
       name: pName,
-      views: 890,
+      views: 0,
       sold: Number(v.inventory_quantity || 0),
-      conversion: 0.34,
+      conversion: 0,
     };
   });
 
@@ -540,60 +534,44 @@ export async function getAnalyticsData(
       revenue: formatCurrencyShort(stats.revenue),
     }));
 
-  if (geography.length === 0) {
-    geography.push({ city: 'Bangalore', customers: 1, revenue: '₹67.5K' });
-  }
-
   // --- Marketing Tab ---
   // WhatsApp Metrics
   const rawWa = whatsappRes.data || [];
   const waTotal = rawWa.length;
-  const waAiHandled = rawWa.filter((w) => w.ai_handled).length;
-  const waResponseRate = waTotal > 0 ? `${Math.round(((waTotal - rawWa.filter((w) => w.status === 'failed').length) / waTotal) * 100)}%` : '96%';
+  const waResponseRate =
+    waTotal > 0
+      ? `${Math.round(((waTotal - rawWa.filter((w) => w.status === 'failed').length) / waTotal) * 100)}%`
+      : '—';
 
   const whatsappMetrics: WhatsAppMetrics = {
-    conversations: Math.max(waTotal, 14),
+    conversations: waTotal,
     responseRate: waResponseRate,
-    avgResponseTime: '2 min',
-    conversionRate: '14.8%',
+    avgResponseTime: '—',
+    conversionRate: '—',
   };
 
-  // Email & Campaigns Metrics from Coupons
+  // Email & Campaigns Metrics from Coupons (no fake fallback campaigns)
   const rawCoupons = couponsRes.data || [];
-  const campaignMetrics: CampaignMetric[] = rawCoupons.slice(0, 5).map((c: any) => {
+  const campaignMetrics: CampaignMetric[] = rawCoupons.slice(0, 10).map((c: any) => {
     const redemptions = Number(c.usage_count || 0);
-    const discountVal = Number(c.discount_value || 10);
-    const estGmv = redemptions * (currentAov || 12000);
-    const estDiscount = c.discount_type === 'percentage'
+    const discountVal = Number(c.value || 0);
+    const estGmv = redemptions * (currentAov || 0);
+    const estDiscount = c.type === 'percentage'
       ? (estGmv * discountVal) / 100
       : redemptions * discountVal;
 
     return {
       code: c.code,
-      name: `${c.code} Promotion`,
-      sent: Math.max(redemptions * 18, 120),
-      opens: Math.max(Math.round(redemptions * 6.5), 45),
-      clicks: Math.max(Math.round(redemptions * 2.2), 18),
+      name: c.name || `${c.code} Promotion`,
+      sent: 0,
+      opens: 0,
+      clicks: 0,
       revenue: formatCurrencyShort(estGmv),
       discountAwarded: formatCurrencyShort(estDiscount),
       redemptions,
       isActive: Boolean(c.is_active),
     };
   });
-
-  if (campaignMetrics.length === 0) {
-    campaignMetrics.push({
-      code: 'WELCOME10',
-      name: "Vidhya's Welcome Gift",
-      sent: 850,
-      opens: 340,
-      clicks: 95,
-      revenue: '₹1.2L',
-      discountAwarded: '₹12.4K',
-      redemptions: 12,
-      isActive: true,
-    });
-  }
 
   return {
     timeRange,
@@ -620,7 +598,7 @@ export async function getAnalyticsData(
       conversion: {
         value: `${conversionRate.toFixed(2)}%`,
         rawValue: conversionRate,
-        change: '+0.4%',
+        change: '0.0%',
         trend: 'up',
       },
       newCustomers: {
@@ -632,7 +610,7 @@ export async function getAnalyticsData(
       returningRate: {
         value: `${returningRate.toFixed(0)}%`,
         rawValue: returningRate,
-        change: '+2%',
+        change: '0%',
         trend: 'up',
       },
     },
@@ -648,7 +626,7 @@ export async function getAnalyticsData(
       lowConverting,
     },
     customers: {
-      total: allProfiles.length || 7,
+      total: allProfiles.length,
       new: newCustomersCount,
       returning: returningBuyers,
       segments: customerSegments,
@@ -657,12 +635,119 @@ export async function getAnalyticsData(
     marketing: {
       whatsapp: whatsappMetrics,
       email: {
-        subscribers: Math.max(allProfiles.length * 4, 28),
-        openRate: '31.2%',
-        clickRate: '4.8%',
-        unsubscribeRate: '0.08%',
+        subscribers: newsletterRes.count ?? 0,
+        openRate: '—',
+        clickRate: '—',
+        unsubscribeRate: '—',
       },
       campaigns: campaignMetrics,
     },
   };
+}
+
+export interface RealCampaignAnalyticsRow {
+  id: string;
+  code: string;
+  name: string;
+  discountLabel: string;
+  redemptions: number;
+  gmvInr: number;
+  discountAwardedInr: number;
+  roiLabel: string;
+  isActive: boolean;
+}
+
+export async function getCampaignAnalytics(): Promise<{
+  success: boolean;
+  campaigns: RealCampaignAnalyticsRow[];
+  error?: string;
+}> {
+  const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+  if (!auth.authorized) {
+    return { success: false, campaigns: [], error: auth.error || 'Unauthorized' };
+  }
+
+  if (!hasValidSupabaseConfig()) {
+    return { success: true, campaigns: [] };
+  }
+
+  try {
+    const [{ data: coupons, error: cErr }, { data: redemptionsData }] = await Promise.all([
+      supabaseAdmin
+        .from('coupons')
+        .select('id, code, name, type, value, usage_count, is_active')
+        .order('usage_count', { ascending: false }),
+      supabaseAdmin
+        .from('coupon_redemptions')
+        .select('coupon_id, order_id, discount_amount, status')
+        .neq('status', 'released'),
+    ]);
+
+    if (cErr) {
+      return { success: false, campaigns: [], error: cErr.message };
+    }
+
+    const activeRedemptions = redemptionsData || [];
+    const orderIds = Array.from(
+      new Set(activeRedemptions.map((r) => r.order_id).filter(Boolean))
+    );
+
+    const orderGmvMap = new Map<string, number>();
+    if (orderIds.length > 0) {
+      const { data: validOrderRows } = await supabaseAdmin
+        .from('orders')
+        .select('id, total_amount, status')
+        .in('id', orderIds)
+        .neq('status', 'cancelled');
+
+      for (const ord of validOrderRows || []) {
+        orderGmvMap.set(ord.id, Number(ord.total_amount || 0));
+      }
+    }
+
+    const couponAgg = new Map<string, { count: number; gmv: number; discount: number }>();
+    for (const r of activeRedemptions) {
+      if (!r.coupon_id || !orderGmvMap.has(r.order_id)) continue;
+      const cur = couponAgg.get(r.coupon_id) || { count: 0, gmv: 0, discount: 0 };
+      cur.count += 1;
+      cur.gmv += orderGmvMap.get(r.order_id) || 0;
+      cur.discount += Number(r.discount_amount || 0);
+      couponAgg.set(r.coupon_id, cur);
+    }
+
+    const rows: RealCampaignAnalyticsRow[] = (coupons || []).map((c: any) => {
+      const agg = couponAgg.get(c.id);
+      const redemptions = agg ? agg.count : Number(c.usage_count || 0);
+      const gmvInr = agg ? agg.gmv : 0;
+      const discountAwardedInr = agg ? agg.discount : 0;
+      const roiLabel =
+        discountAwardedInr > 0 ? `${(gmvInr / discountAwardedInr).toFixed(1)}x` : '—';
+      const discountLabel =
+        c.type === 'percentage'
+          ? `${Number(c.value || 0)}% Off`
+          : c.type === 'free_shipping'
+            ? 'Free Shipping'
+            : `₹${Number(c.value || 0).toLocaleString('en-IN')} Off`;
+
+      return {
+        id: c.id,
+        code: c.code,
+        name: c.name || c.code,
+        discountLabel,
+        redemptions,
+        gmvInr,
+        discountAwardedInr,
+        roiLabel,
+        isActive: Boolean(c.is_active),
+      };
+    });
+
+    return { success: true, campaigns: rows };
+  } catch (err: any) {
+    return {
+      success: false,
+      campaigns: [],
+      error: err?.message || 'Failed to compute campaign analytics',
+    };
+  }
 }

@@ -31,7 +31,8 @@ export interface WhatsAppFloatButtonProps {
 }
 
 function getDefaultActions(phone: string): WhatsAppAction[] {
-  const clean = phone.replace(/\D/g, '') || '919876543210';
+  const clean = phone.replace(/\D/g, '');
+  if (!clean) return [];
   return [
     {
       label: 'Shop Collection',
@@ -108,8 +109,9 @@ export function WhatsAppFloatButton({
   const pulseTimeoutRef = useRef<NodeJS.Timeout>();
   const initialTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const activePhone = phoneNumber && !phoneNumber.includes('X') ? phoneNumber : '919876543210';
-  const effectiveActions = actions || getDefaultActions(activePhone);
+  const normalizedDigits = (phoneNumber || '').replace(/\D/g, '');
+  const isConfigured = normalizedDigits.length >= 8 && !(phoneNumber || '').includes('X');
+  const effectiveActions = actions || getDefaultActions(normalizedDigits);
 
   const positionClasses = {
     'bottom-right': 'bottom-6 right-6',
@@ -175,7 +177,7 @@ export function WhatsAppFloatButton({
     };
   }, [isExpanded]);
 
-  if (!mounted) return null;
+  if (!mounted || !isConfigured) return null;
 
   return (
     <div className={cn('fixed z-[var(--z-toast)]', positionClasses[position], className)}>
@@ -262,7 +264,7 @@ export function WhatsAppFloatButton({
                     variant="whatsapp"
                     className="w-full"
                     onClick={() => {
-                      const url = `https://wa.me/${activePhone.replace(/\D/g, '')}?text=${encodeURIComponent(defaultMessage)}`;
+                      const url = `https://wa.me/${normalizedDigits}?text=${encodeURIComponent(defaultMessage)}`;
                       window.open(url, '_blank');
                       setIsExpanded(false);
                     }}
@@ -405,10 +407,7 @@ export function WhatsAppCatalogButton({
   className = '',
 }: WhatsAppCatalogButtonProps) {
   const handleClick = () => {
-    const url = `https://wa.me/91XXXXXXXXXX?text=${encodeURIComponent(
-      `Hi Vidhya, I'm interested in "${productName}" (₹${price.toLocaleString()}). Product ID: ${productId}`
-    )}`;
-    window.open(url, '_blank');
+    window.location.assign(`/contact?inquiry=${encodeURIComponent(productName)}`);
   };
 
   return (
@@ -423,7 +422,7 @@ export function WhatsAppCatalogButton({
       whileTap={{ scale: 0.98 }}
     >
       <SocialIcon platform="whatsapp" size="sm" />
-      Share on WhatsApp
+      Inquire About Piece
     </motion.button>
   );
 }

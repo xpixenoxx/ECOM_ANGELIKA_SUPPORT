@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
+import { sanitizePostgrestSearchTerm } from '@/lib/validators/commerce';
 
 type ProductRow = Database['public']['Tables']['products']['Row'];
 type ProductImageRow = Database['public']['Tables']['product_images']['Row'];
@@ -15,7 +16,7 @@ export interface SearchProductCard {
   price: number;
   compare_at_price: number | null;
   images: ProductImageRow[];
-  category: CategoryRow | null;
+  category: { id: string; name: string; slug: string } | null;
   discount: number;
 }
 
@@ -224,8 +225,9 @@ export async function searchProductsSemantic(
   }
 
   try {
+    const vectorLiteral = `[${embedding.join(',')}]`;
     const { data: results, error } = await supabase.rpc('search_products_semantic', {
-      query_embedding: embedding,
+      query_embedding: vectorLiteral,
       category_filter: filters.category || null,
       subcategory_filter: filters.subcategory || null,
       min_price: filters.minPrice || null,
@@ -326,9 +328,10 @@ export async function searchProductsHybrid(
   }
 
   try {
+    const vectorLiteral = `[${embedding.join(',')}]`;
     const { data: results, error } = await supabase.rpc('search_products_hybrid', {
       query_text: query,
-      query_embedding: embedding,
+      query_embedding: vectorLiteral,
       category_filter: category || null,
       subcategory_filter: subcategory || null,
       min_price: minPrice || null,
@@ -501,6 +504,7 @@ async function fallbackSearch(
   } = filters;
 
   const offset = (page - 1) * pageSize;
+  const safeQuery = sanitizePostgrestSearchTerm(query);
 
   let queryBuilder = supabase
     .from('products')
@@ -510,25 +514,23 @@ async function fallbackSearch(
       name,
       slug,
       description,
-      price,
-      compare_at_price,
       category_id,
-      category:categories(id, name, slug),
-      product_images!product_images_product_id_fkey(id, url, alt_text, sort_order, is_primary)
+      category:categories!products_category_id_fkey(id, name, slug),
+      product_images!product_images_product_id_fkey(id, url, alt_text, sort_order, is_primary),
+      product_variants!product_variants_product_id_fkey(id, price, compare_at_price, inventory_quantity, is_active, sort_order)
     `,
       { count: 'exact' }
     )
-    .eq('is_active', true)
-    .or(`name.ilike.%${query}%,description.ilike.%${query}%,short_description.ilike.%${query}%`);
+    .eq('is_active', true);
+
+  if (safeQuery) {
+    queryBuilder = queryBuilder.or(
+      `name.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%,short_description.ilike.%${safeQuery}%,sku.ilike.%${safeQuery}%`
+    );
+  }
 
   if (category) queryBuilder = queryBuilder.eq('category_id', category);
   if (subcategory) queryBuilder = queryBuilder.eq('subcategory_id', subcategory);
-  if (minPrice) queryBuilder = queryBuilder.gte('price', minPrice);
-  if (maxPrice) queryBuilder = queryBuilder.lte('price', maxPrice);
-
-  if (inStockOnly) {
-    // This would require a more complex query - skip for fallback
-  }
 
   queryBuilder = queryBuilder
     .order('created_at', { ascending: false })
@@ -552,17 +554,40 @@ async function fallbackSearch(
     };
   }
 
-  const formattedProducts = (products || []).map((p: any) => ({
-    id: p.id,
-    name: p.name,
-    slug: p.slug,
-    description: p.description,
-    price: p.price,
-    compare_at_price: p.compare_at_price,
-    images: p.product_images || [],
-    category: p.category,
-    discount: p.compare_at_price ? Math.round(((p.compare_at_price - p.price) / p.compare_at_price) * 100) : 0,
-  }));
+  const formattedProducts = (products || [])
+    .map((p: any) => {
+      const variants = (p.product_variants || []).filter((v: any) => v.is_active !== false);
+      const sortedVariants = [...variants].sort(
+        (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || Number(a.price) - Number(b.price)
+      );
+      const primaryVariant = sortedVariants[0];
+      const price = primaryVariant ? Number(primaryVariant.price) : 0;
+      const compareAtPrice = primaryVariant?.compare_at_price ? Number(primaryVariant.compare_at_price) : null;
+      const hasStock = variants.some((v: any) => Number(v.inventory_quantity || 0) > 0);
+
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        price,
+        compare_at_price: compareAtPrice,
+        images: p.product_images || [],
+        category: p.category,
+        discount:
+          compareAtPrice && compareAtPrice > price
+            ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
+            : 0,
+        _inStock: hasStock,
+      };
+    })
+    .filter((item) => {
+      if (minPrice !== undefined && item.price < minPrice) return false;
+      if (maxPrice !== undefined && item.price > maxPrice) return false;
+      if (inStockOnly && !item._inStock) return false;
+      return true;
+    })
+    .map(({ _inStock: _ignored, ...rest }) => rest);
 
   const totalCount = count || formattedProducts.length;
   const totalPages = Math.ceil(totalCount / pageSize);

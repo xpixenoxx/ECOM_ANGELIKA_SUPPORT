@@ -1,195 +1,35 @@
+'use server';
+
 import type { Database } from '@/types/database';
 import { getProductReviewSummary, getProductReviews } from './reviews';
+import {
+  getRelatedProducts as fetchRelatedProducts,
+  getCartRecommendations as fetchCartRecommendations,
+  type ProductCardData,
+} from './recommendations';
+import {
+  transformProductForClient,
+  type ProductWithRelations,
+  type ClientProductData,
+} from '@/lib/utils/product-transform';
 
-type ProductRow = Database['public']['Tables']['products']['Row'];
-type ProductVariantRow = Database['public']['Tables']['product_variants']['Row'];
-type ProductImageRow = Database['public']['Tables']['product_images']['Row'];
-type ColorRow = Database['public']['Tables']['colors']['Row'];
-type CategoryRow = Database['public']['Tables']['categories']['Row'];
+export type { ProductWithRelations, ClientProductData, ProductCardData };
 
-export interface ProductWithRelations extends ProductRow {
-  category?: CategoryRow | null;
-  subcategory?: CategoryRow | null;
-  images: ProductImageRow[];
-  variants: (ProductVariantRow & {
-    color?: ColorRow | null;
-  })[];
+export async function getRelatedProducts(
+  productId: string,
+  categoryId: string | null,
+  limit = 4,
+  tags: string[] = [],
+  fabric: unknown = null
+): Promise<ProductCardData[]> {
+  return fetchRelatedProducts(productId, categoryId, limit, tags, fabric);
 }
 
-import type { ProductCardData } from './recommendations';
-export { getRelatedProducts, getCartRecommendations } from './recommendations';
-export type { ProductCardData };
-
-// Helper to transform product data for the client component
-export interface ClientProductData {
-  id: string;
-  slug?: string;
-  name: string;
-  price: number;
-  originalPrice: number | undefined;
-  category: string;
-  description: string | null;
-  shortDescription: string | null;
-  images: string[];
-  colors: {
-    name: string;
-    value: string;
-    hex: string;
-    images: string[];
-  }[];
-  sizes: string[];
-  sizeChart: Record<string, { bust: string; waist: string; hips: string; length: string }>;
-  fabric: string | null;
-  care: string[];
-  details: string[];
-  sku: string;
-  rating: number;
-  reviewCount: number;
-  inStock: boolean;
-  isVidhyasPick: boolean;
-  isNew: boolean;
-  categoryId?: string;
-  categorySlug?: string;
-  tags?: string[];
-  returnWindowDays?: number;
-  rawFabric?: any;
-  variants?: Array<{
-    id: string;
-    size: string;
-    price: number;
-    compare_at_price?: number | null;
-    inventory_quantity?: number;
-  }>;
-}
-
-export function transformProductForClient(
-  product: ProductWithRelations,
-  reviewSummary?: { averageRating: number; totalReviews: number }
-): ClientProductData {
-  // Group variants by color
-  const colorMap = new Map<string, { name: string; value: string; hex: string; images: string[]; sizes: string[] }>();
-
-  for (const variant of product.variants) {
-    const colorKey = variant.color_id || 'default';
-    const color = variant.color;
-
-    if (!colorMap.has(colorKey)) {
-      colorMap.set(colorKey, {
-        name: color?.name || 'Default',
-        value: color?.name?.toLowerCase().replace(/\s+/g, '-') || 'default',
-        hex: color?.hex || '#CCCCCC',
-        images: [],
-        sizes: [],
-      });
-    }
-
-    const colorData = colorMap.get(colorKey)!;
-    colorData.sizes.push(variant.size);
-  }
-
-  // Get product-level images (not variant-specific)
-  const productImages = product.images
-    .filter((img) => !img.variant_id)
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map((img) => img.url);
-
-  // Get variant-specific images and assign to colors
-  for (const variant of product.variants) {
-    if (variant.color_id) {
-      const variantImages = product.images
-        .filter((img) => img.variant_id === variant.id)
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((img) => img.url);
-
-      const colorData = colorMap.get(variant.color_id);
-      if (colorData && variantImages.length > 0) {
-        colorData.images = variantImages;
-      }
-    }
-  }
-
-  // If a color has no variant-specific images, use product images
-  for (const colorData of colorMap.values()) {
-    if (colorData.images.length === 0) {
-      colorData.images = productImages;
-    }
-  }
-
-  const colors = Array.from(colorMap.values());
-  const allSizes = Array.from(new Set(product.variants.map((v) => v.size))).sort();
-  const inStock = product.variants.some((v) => v.inventory_quantity > 0);
-
-  // Build size chart from fabric JSON or use default
-  const sizeChart: Record<string, { bust: string; waist: string; hips: string; length: string }> = {};
-  if (product.fabric && typeof product.fabric === 'object' && product.fabric !== null) {
-    const fabric = product.fabric as Record<string, any>;
-    if (fabric['sizeChart']) {
-      Object.assign(sizeChart, fabric['sizeChart']);
-    }
-  }
-  // Default size chart if not in fabric
-  if (Object.keys(sizeChart).length === 0) {
-    const defaultSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-    for (const size of defaultSizes) {
-      if (allSizes.includes(size)) {
-        sizeChart[size] = {
-          bust: `${32 + defaultSizes.indexOf(size) * 2}"`,
-          waist: `${26 + defaultSizes.indexOf(size) * 2}"`,
-          hips: `${34 + defaultSizes.indexOf(size) * 2}"`,
-          length: `${50 + defaultSizes.indexOf(size)}"`,
-        };
-      }
-    }
-  }
-
-  return {
-    id: product.id,
-    slug: product.slug,
-    name: product.name,
-    price: product.variants[0]?.price || 0,
-    originalPrice: product.variants[0]?.compare_at_price ?? undefined,
-    category: product.category?.name || 'Uncategorized',
-    description: product.description,
-    shortDescription: product.short_description,
-    images: productImages.length > 0 ? productImages : ['/images/placeholder.jpg'],
-    colors,
-    sizes: allSizes,
-    sizeChart,
-    fabric: typeof product.fabric === 'object' && product.fabric !== null && 'name' in product.fabric
-      ? (product.fabric as any).name
-      : 'Premium Fabric',
-    care: typeof product.fabric === 'object' && product.fabric !== null && 'care' in product.fabric
-      ? (product.fabric as any).care
-      : ['Dry clean recommended', 'Do not bleach', 'Iron on low heat'],
-    details: typeof product.fabric === 'object' && product.fabric !== null && 'details' in product.fabric
-      ? (product.fabric as any).details
-      : ['Handcrafted with care', 'Premium quality materials', 'Designed in India'],
-    sku: product.sku,
-    rating: reviewSummary?.averageRating || 0,
-    reviewCount: reviewSummary?.totalReviews || 0,
-    inStock,
-    isVidhyasPick: product.is_vidyas_pick,
-    isNew: product.created_at ? new Date(product.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) : false,
-    categoryId: product.category_id || undefined,
-    categorySlug: product.category?.slug || undefined,
-    tags: product.tags || [],
-    returnWindowDays: (() => {
-      const tag = (product.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
-      if (tag) {
-        const val = parseInt(tag.replace('return-days:', ''), 10);
-        return isNaN(val) ? 7 : val;
-      }
-      return 7;
-    })(),
-    rawFabric: product.fabric,
-    variants: (product.variants || []).map((v) => ({
-      id: v.id,
-      size: v.size,
-      price: Number(v.price) || 0,
-      compare_at_price: v.compare_at_price ? Number(v.compare_at_price) : null,
-      inventory_quantity: Number(v.inventory_quantity) || 0,
-    })),
-  };
+export async function getCartRecommendations(
+  excludeIds: string[] = [],
+  limit = 4
+): Promise<ProductCardData[]> {
+  return fetchCartRecommendations(excludeIds, limit);
 }
 
 async function getSupabaseClient() {
@@ -297,6 +137,8 @@ export async function getProductCardData(slug: string): Promise<ProductCardData 
     ? Math.round(((compareAtPrice - price) / compareAtPrice) * 100)
     : 0;
 
+  const summary = await getProductReviewSummary(product.id);
+
   return {
     id: product.id,
     slug: product.slug,
@@ -308,7 +150,7 @@ export async function getProductCardData(slug: string): Promise<ProductCardData 
     discount,
     is_vidyas_pick: Boolean((product as any).is_vidyas_pick),
     is_featured: Boolean((product as any).is_featured),
-    rating: 4.8,
-    review_count: 12,
+    rating: summary.averageRating || 0,
+    review_count: summary.totalReviews || 0,
   };
 }

@@ -13,7 +13,8 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, data?: Record<string, any>) => Promise<{ error: Error | null }>;
+  isAuthenticated: boolean;
+  signUp: (email: string, password: string, data?: string | Record<string, any>) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithOtp: (email: string, phone?: string) => Promise<{ error: Error | null }>;
   signInWithOAuth: (provider: 'google' | 'github' | 'facebook') => Promise<{ error: Error | null }>;
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const authSub = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
       setSession(session);
       setUser(session?.user ?? null);
@@ -70,28 +71,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setLoading(false);
     });
+    const subscription = authSub?.data?.subscription;
 
     return () => {
       isMounted = false;
       clearTimeout(safetyTimeout);
-      subscription.unsubscribe();
+      subscription?.unsubscribe?.();
     };
   }, [supabase]);
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      const table = supabase.from?.('profiles');
+      if (!table) return;
+      const { data } = await table.select('*').eq('id', userId).single();
       if (data) setProfile(data);
     } catch (err) {
       console.warn('Profile fetch warning:', err);
     }
   };
 
-  const signUp = async (email: string, password: string, data?: Record<string, any>) => {
+  const signUp = async (email: string, password: string, data?: string | Record<string, any>) => {
+    const metadataObj = typeof data === 'string' ? { full_name: data } : data;
     const { data: authData, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data },
+      options: { data: metadataObj },
     });
 
     if (error) {
@@ -193,15 +198,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('No user') };
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', user.id);
-
-    if (!error) {
-      await fetchProfile(user.id);
+    let authError: { message: string } | null = null;
+    if (typeof supabase.auth.updateUser === 'function') {
+      const res = await supabase.auth.updateUser({
+        data: updates as Record<string, any>,
+      });
+      if (res?.error) authError = res.error;
     }
-    return { error: error ? new Error(error.message) : null };
+
+    const fromProfiles = supabase.from?.('profiles');
+    if (fromProfiles) {
+      const { error } = await fromProfiles
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error && !authError) {
+        return { error: new Error(error.message) };
+      }
+      if (!error) {
+        await fetchProfile(user.id);
+      }
+    }
+
+    return { error: authError ? new Error(authError.message) : null };
   };
 
   const refreshProfile = useCallback(async () => {
@@ -215,6 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         session,
         loading,
+        isAuthenticated: Boolean(user),
         signUp,
         signIn,
         signInWithOtp,

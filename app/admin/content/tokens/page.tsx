@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
+import { getActiveDesignTokens, saveDesignTokens } from '@/lib/actions/design-tokens';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -71,7 +73,7 @@ const tokenCategories = [
   { id: 'misc', label: 'Other', icon: Code, count: 4 },
 ];
 
-const mockTokens: MockTokens = {
+const DEFAULT_DESIGN_TOKENS: MockTokens = {
   colors: {
     core: [
       { name: '--color-ink', value: '#0D0D0D', darkValue: '#FAFAFA', description: 'Primary text color' },
@@ -204,61 +206,133 @@ const mockTokens: MockTokens = {
 };
 
 export default function AdminDesignTokensPage() {
+  const [tokensState, setTokensState] = useState<MockTokens>(DEFAULT_DESIGN_TOKENS);
   const [activeCategory, setActiveCategory] = useState<string>('colors');
   const [activeSubCategory, setActiveSubCategory] = useState<string>('core');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [editingToken, setEditingToken] = useState<Token | null>(null);
+  const [isNewToken, setIsNewToken] = useState(false);
   const [editValue, setEditValue] = useState('');
   const [editDarkValue, setEditDarkValue] = useState('');
+  const [editDescription, setEditDescription] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
 
+  useEffect(() => {
+    getActiveDesignTokens()
+      .then((res) => {
+        if (res.success && res.tokens) {
+          setTokensState((prev) => ({ ...prev, ...(res.tokens as Partial<MockTokens>) }));
+          setLastSynced(res.updatedAt ? new Date(res.updatedAt) : new Date());
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const currentCategory = tokenCategories.find(c => c.id === activeCategory);
-  const subCategories = Object.keys(mockTokens[activeCategory as keyof MockTokens]);
-  const tokens = mockTokens[activeCategory as keyof MockTokens]?.[activeSubCategory] || [];
+  const subCategories = Object.keys(tokensState[activeCategory as keyof MockTokens] || {});
+  const tokens = tokensState[activeCategory as keyof MockTokens]?.[activeSubCategory] || [];
 
   const handleSyncTokens = async () => {
     setIsSyncing(true);
-    // In real app: call API to sync from Supabase
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setLastSynced(new Date());
-    setIsSyncing(false);
+    try {
+      const res = await getActiveDesignTokens();
+      if (!res.success) {
+        toast.error(res.error || 'Failed to sync design tokens.');
+        return;
+      }
+      if (res.tokens) {
+        setTokensState({ ...DEFAULT_DESIGN_TOKENS, ...(res.tokens as Partial<MockTokens>) });
+      }
+      setLastSynced(res.updatedAt ? new Date(res.updatedAt) : new Date());
+      toast.success('Synced design tokens from Supabase.');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleSaveTokens = async () => {
-    // In real app: save to Supabase and trigger sync
-    alert('Tokens saved! Changes will be live after sync.');
+    setIsSaving(true);
+    try {
+      const res = await saveDesignTokens({
+        tokens: tokensState as unknown as Record<string, unknown>,
+      });
+      if (!res.success) {
+        toast.error(res.error || 'Failed to save design tokens.');
+        return;
+      }
+      setLastSynced(new Date());
+      toast.success(`Design tokens saved (${res.version || 'active'})!`);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEditToken = (token: Token) => {
+    setIsNewToken(false);
     setEditingToken(token);
     setEditValue(token.value);
     setEditDarkValue('darkValue' in token ? token.darkValue || '' : '');
+    setEditDescription(token.description || '');
   };
 
   const handleSaveEdit = () => {
-    if (editingToken) {
-      // In real app: update token in database
-      console.log('Save token:', editingToken.name, editValue, editDarkValue);
+    if (!editingToken) return;
+    const cleanName = editingToken.name.trim();
+    if (!cleanName || !editValue.trim()) {
+      toast.error('Token name and value are required.');
+      return;
     }
+
+    const updatedToken: Token =
+      activeCategory === 'colors'
+        ? {
+            name: cleanName.startsWith('--') ? cleanName : `--${cleanName}`,
+            value: editValue.trim(),
+            darkValue: editDarkValue.trim() || editValue.trim(),
+            description: editDescription.trim() || 'Custom design token',
+          }
+        : {
+            name: cleanName.startsWith('--') ? cleanName : `--${cleanName}`,
+            value: editValue.trim(),
+            description: editDescription.trim() || 'Custom design token',
+          };
+
+    setTokensState((prev) => {
+      const catKey = activeCategory as keyof MockTokens;
+      const catGroup = { ...(prev[catKey] || {}) };
+      const existingList = [...(catGroup[activeSubCategory] || [])];
+      const idx = existingList.findIndex((t) => t.name === updatedToken.name);
+      if (idx >= 0 && !isNewToken) {
+        existingList[idx] = updatedToken;
+      } else {
+        existingList.push(updatedToken);
+      }
+      catGroup[activeSubCategory] = existingList;
+      return { ...prev, [catKey]: catGroup };
+    });
+
+    toast.success(`Updated ${updatedToken.name} locally — click "Save Changes" to publish.`);
     setEditingToken(null);
+    setIsNewToken(false);
   };
 
   const generateCSS = () => {
     let css = ':root {\n';
-    (Object.entries(mockTokens) as [keyof MockTokens, CategoryTokens][]).forEach(([category, subcats]) => {
+    (Object.entries(tokensState) as [keyof MockTokens, CategoryTokens][]).forEach(([category, subcats]) => {
       css += `  /* ${category.toUpperCase()} */\n`;
-      (Object.entries(subcats) as [string, SubCategoryTokens][]).forEach(([subcat, tokens]) => {
-        tokens.forEach((token: Token) => {
+      (Object.entries(subcats) as [string, SubCategoryTokens][]).forEach(([_subcat, list]) => {
+        list.forEach((token: Token) => {
           css += `  ${token.name}: ${token.value};\n`;
         });
       });
       css += '\n';
     });
     css += '}\n\n.dark {\n';
-    (Object.entries(mockTokens) as [keyof MockTokens, CategoryTokens][]).forEach(([category, subcats]) => {
-      (Object.entries(subcats) as [string, SubCategoryTokens][]).forEach(([subcat, tokens]) => {
-        tokens.forEach((token: Token) => {
+    (Object.entries(tokensState) as [keyof MockTokens, CategoryTokens][]).forEach(([_category, subcats]) => {
+      (Object.entries(subcats) as [string, SubCategoryTokens][]).forEach(([_subcat, list]) => {
+        list.forEach((token: Token) => {
           if ('darkValue' in token && token.darkValue) {
             css += `  ${token.name}: ${token.darkValue};\n`;
           }
@@ -271,7 +345,7 @@ export default function AdminDesignTokensPage() {
 
   const copyCSS = () => {
     navigator.clipboard.writeText(generateCSS());
-    alert('CSS copied to clipboard!');
+    toast.success('CSS copied to clipboard!');
   };
 
   const downloadCSS = () => {
@@ -303,12 +377,13 @@ export default function AdminDesignTokensPage() {
           <Button variant="outline" size="sm" onClick={downloadCSS} disabled={isSyncing}>
             <Download className="h-4 w-4 mr-2" /> Download CSS
           </Button>
-          <Button variant="secondary" size="sm" onClick={handleSyncTokens} disabled={isSyncing}>
+          <Button variant="secondary" size="sm" onClick={handleSyncTokens} disabled={isSyncing || isSaving}>
             <RefreshCw className={cn('h-4 w-4 mr-2', isSyncing && 'animate-spin')} />
             {isSyncing ? 'Syncing...' : 'Sync from Supabase'}
           </Button>
-          <Button variant="primary" size="sm" onClick={handleSaveTokens}>
-            <Save className="h-4 w-4 mr-2" /> Save Changes
+          <Button variant="primary" size="sm" onClick={handleSaveTokens} disabled={isSaving || isSyncing}>
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </motion.div>
@@ -377,7 +452,8 @@ export default function AdminDesignTokensPage() {
                     key={category.id}
                     onClick={() => {
                       setActiveCategory(category.id);
-                      setActiveSubCategory(Object.keys(mockTokens[category.id as keyof typeof mockTokens])[0] || '');
+                      const catGroup = tokensState[category.id as keyof MockTokens] || {};
+                      setActiveSubCategory(Object.keys(catGroup)[0] || '');
                     }}
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-lg)] transition-all duration-150 text-left',
@@ -432,13 +508,47 @@ export default function AdminDesignTokensPage() {
               <Button variant="outline" className="w-full justify-start gap-2" onClick={downloadCSS}>
                 <Download className="h-4 w-4" /> Download tokens.css
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2" onClick={handleSyncTokens} disabled={isSyncing}>
+              <Button variant="outline" className="w-full justify-start gap-2" onClick={handleSyncTokens} disabled={isSyncing || isSaving}>
                 <RefreshCw className={cn('h-4 w-4', isSyncing && 'animate-spin')} /> Sync from Supabase
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2">
-                <Upload className="h-4 w-4" /> Import from JSON
-              </Button>
-              <Button variant="outline" className="w-full justify-start gap-2">
+              <label className="w-full cursor-pointer block">
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    try {
+                      const raw = await file.text();
+                      const parsed = JSON.parse(raw);
+                      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                        toast.error('Invalid JSON token bundle.');
+                        return;
+                      }
+                      setTokensState((prev) => ({ ...prev, ...parsed }));
+                      toast.success('Imported design tokens locally — click "Save Changes" to publish.');
+                    } catch {
+                      toast.error('Failed to parse JSON file.');
+                    }
+                  }}
+                />
+                <span className="inline-flex w-full items-center justify-start gap-2 rounded-[var(--radius-md)] border border-[var(--color-whisper)] bg-transparent px-4 py-2 text-sm font-medium text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors">
+                  <Upload className="h-4 w-4" /> Import from JSON
+                </span>
+              </label>
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2"
+                onClick={() => {
+                  setIsNewToken(true);
+                  setEditValue('');
+                  setEditDarkValue('');
+                  setEditDescription('');
+                  setEditingToken({ name: '', value: '', darkValue: '', description: '' });
+                }}
+              >
                 <Plus className="h-4 w-4" /> Add Custom Token
               </Button>
             </div>
@@ -457,7 +567,17 @@ export default function AdminDesignTokensPage() {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm text-[var(--color-slate)]">{tokens.length} tokens</span>
-                <Button variant="outline" size="sm" onClick={() => setEditingToken({ name: '', value: '', darkValue: '', description: '' })}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsNewToken(true);
+                    setEditValue('');
+                    setEditDarkValue('');
+                    setEditDescription('');
+                    setEditingToken({ name: '', value: '', darkValue: '', description: '' });
+                  }}
+                >
                   <Plus className="h-4 w-4 mr-1" /> Add Token
                 </Button>
               </div>
@@ -600,7 +720,11 @@ export default function AdminDesignTokensPage() {
                       </div>
                       <div>
                         <label className="input-label">Description</label>
-                        <Input placeholder="Brief description of this token" />
+                        <Input
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          placeholder="Brief description of this token"
+                        />
                       </div>
                     </div>
                     <div className="flex gap-3 mt-6">

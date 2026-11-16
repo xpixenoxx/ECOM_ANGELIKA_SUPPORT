@@ -1,18 +1,23 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
+import { canTransitionOrderStatus, canTransitionPaymentStatus } from '@/lib/orders/state-machine';
+import { normalizeAddress } from '@/lib/utils/address';
+import { sanitizePostgrestSearchTerm } from '@/lib/validators/commerce';
+import type { Json } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
 export interface OrderItem {
   id: string;
   order_id: string;
-  product_id: string;
+  product_id: string | null;
   variant_id: string | null;
   quantity: number;
   unit_price: number;
   total_price: number;
   product_name: string;
-  variant_details: Record<string, any> | null;
+  variant_details: Json | Record<string, any> | null;
 }
 
 export interface AdminOrder {
@@ -57,6 +62,10 @@ export async function getOrders(filters?: {
   search?: string;
 }): Promise<AdminOrder[]> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return [];
+    }
     let query = supabaseAdmin
       .from('orders')
       .select('*, order_items(*)')
@@ -67,8 +76,10 @@ export async function getOrders(filters?: {
       query = query.eq('status', filters.status);
     }
     if (filters?.search) {
-      const term = filters.search.trim();
-      query = query.or(`order_number.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`);
+      const term = sanitizePostgrestSearchTerm(filters.search);
+      if (term) {
+        query = query.or(`order_number.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%`);
+      }
     }
 
     const { data, error } = await query;
@@ -80,11 +91,12 @@ export async function getOrders(filters?: {
     return (data || []).map((order: any) => {
       const rawItems: OrderItem[] = order.order_items || [];
       const itemsCount = rawItems.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0);
-      const addr = order.shipping_address || {};
-      const customerName = [addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.full_name || order.email;
+      const addr = normalizeAddress(order.shipping_address);
+      const customerName = addr.fullName || order.email;
 
       return {
         ...order,
+        shipping_address: addr,
         customer_name: customerName,
         items_count: itemsCount,
         items: rawItems,
@@ -98,6 +110,10 @@ export async function getOrders(filters?: {
 
 export async function getOrderById(id: string): Promise<{ order: AdminOrder | null; items: OrderItem[] }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { order: null, items: [] };
+    }
     const [orderRes, itemsRes] = await Promise.all([
       supabaseAdmin.from('orders').select('*').eq('id', id).maybeSingle(),
       supabaseAdmin.from('order_items').select('*').eq('order_id', id),
@@ -106,13 +122,18 @@ export async function getOrderById(id: string): Promise<{ order: AdminOrder | nu
     if (!orderRes.data) return { order: null, items: [] };
 
     const orderData = orderRes.data;
-    const items: OrderItem[] = itemsRes.data || [];
+    const items: OrderItem[] = (itemsRes.data || []) as OrderItem[];
     const itemsCount = items.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0);
-    const addr = orderData.shipping_address || {};
-    const customerName = [addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.full_name || orderData.email;
+    const addr = normalizeAddress(orderData.shipping_address);
+    const customerName = addr.fullName || orderData.email;
 
     const order: AdminOrder = {
       ...orderData,
+      shipping_address: addr,
+      billing_address: orderData.billing_address ? normalizeAddress(orderData.billing_address) : undefined,
+      metadata: (typeof orderData.metadata === 'object' && orderData.metadata !== null && !Array.isArray(orderData.metadata))
+        ? (orderData.metadata as Record<string, any>)
+        : {},
       customer_name: customerName,
       items_count: itemsCount,
       items,
@@ -132,6 +153,24 @@ export async function updateOrderStatus(
   courierPartner?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
+    const { data: currentOrder } = await supabaseAdmin
+      .from('orders')
+      .select('status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!currentOrder) {
+      return { success: false, error: 'Order not found' };
+    }
+    if (!canTransitionOrderStatus(currentOrder.status, status)) {
+      return { success: false, error: `Invalid order transition from ${currentOrder.status} to ${status}` };
+    }
+
     const updates: Record<string, any> = {
       status,
       updated_at: new Date().toISOString(),
@@ -148,6 +187,18 @@ export async function updateOrderStatus(
       console.error('updateOrderStatus error:', error);
       return { success: false, error: error.message };
     }
+
+    if (status === 'cancelled' && currentOrder.status !== 'cancelled') {
+      await supabaseAdmin.rpc('release_order_inventory', { p_order_id: id });
+    }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'update_order_status',
+      entityType: 'order',
+      entityId: id,
+      afterState: { status, trackingNumber, courierPartner },
+    });
 
     revalidatePath('/admin');
     revalidatePath('/admin/orders');
@@ -170,7 +221,23 @@ export async function updateShipmentFulfillment(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const targetStatus = data.status || 'shipped';
+    const { data: currentOrder } = await supabaseAdmin
+      .from('orders')
+      .select('status')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (!currentOrder) {
+      return { success: false, error: 'Order not found' };
+    }
+    if (!canTransitionOrderStatus(currentOrder.status, targetStatus)) {
+      return { success: false, error: `Invalid order transition from ${currentOrder.status} to ${targetStatus}` };
+    }
     const updates: Record<string, any> = {
       status: targetStatus,
       courier_partner: data.courierPartner,
@@ -191,6 +258,14 @@ export async function updateShipmentFulfillment(
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'update_shipment_fulfillment',
+      entityType: 'order',
+      entityId: orderId,
+      afterState: { status: targetStatus, courierPartner: data.courierPartner, trackingNumber: data.trackingNumber },
+    });
+
     revalidatePath('/admin');
     revalidatePath('/admin/orders/shipments');
     revalidatePath('/admin/orders');
@@ -203,11 +278,100 @@ export async function updateShipmentFulfillment(
   }
 }
 
+export async function autoDispatchShipmentAwb(orderId: string): Promise<{
+  success: boolean;
+  configured: boolean;
+  awbNumber?: string;
+  courierPartner?: string;
+  trackingUrl?: string;
+  error?: string;
+}> {
+  try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, configured: false, error: auth.error || 'Unauthorized' };
+    }
+
+    const { createShipmentAwb } = await import('@/lib/services/logistics');
+    const { normalizeAddress } = await import('@/lib/utils/address');
+
+    const { data: order, error: fetchErr } = await supabaseAdmin
+      .from('orders')
+      .select('id, order_number, total_amount, payment_method, status, shipping_address, phone')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (fetchErr || !order) {
+      return { success: false, configured: false, error: 'Order not found' };
+    }
+
+    const addr = normalizeAddress(order.shipping_address);
+    const result = await createShipmentAwb({
+      orderNumber: order.order_number,
+      customerName: addr.fullName || 'Customer',
+      phone: order.phone || addr.phone || '',
+      address: [addr.address1, addr.address2].filter(Boolean).join(', '),
+      city: addr.city,
+      state: addr.state,
+      pincode: addr.postalCode,
+      totalAmountInr: Number(order.total_amount || 0),
+      paymentMethod: (order.payment_method || '').toLowerCase() === 'cod' ? 'cod' : 'prepaid',
+    });
+
+    if (!result.success || !result.awbNumber) {
+      return {
+        success: false,
+        configured: result.configured,
+        error: result.error || 'Could not generate AWB.',
+      };
+    }
+
+    const courierName = result.provider === 'shiprocket' ? 'Shiprocket' : 'Delhivery';
+    await updateShipmentFulfillment(orderId, {
+      courierPartner: courierName,
+      trackingNumber: result.awbNumber,
+      status: 'shipped',
+    });
+
+    return {
+      success: true,
+      configured: true,
+      awbNumber: result.awbNumber,
+      courierPartner: courierName,
+      trackingUrl: result.trackingUrl,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      configured: false,
+      error: err?.message || 'Failed to generate carrier AWB.',
+    };
+  }
+}
+
 export async function updatePaymentStatus(
   id: string,
   payment_status: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
+    const { data: currentOrder } = await supabaseAdmin
+      .from('orders')
+      .select('payment_status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!currentOrder) {
+      return { success: false, error: 'Order not found' };
+    }
+    if (!canTransitionPaymentStatus(currentOrder.payment_status, payment_status)) {
+      return { success: false, error: `Invalid payment status transition from ${currentOrder.payment_status} to ${payment_status}` };
+    }
+
     const { error } = await supabaseAdmin
       .from('orders')
       .update({ payment_status, updated_at: new Date().toISOString() })
@@ -217,6 +381,14 @@ export async function updatePaymentStatus(
       console.error('updatePaymentStatus error:', error);
       return { success: false, error: error.message };
     }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'update_payment_status',
+      entityType: 'order',
+      entityId: id,
+      afterState: { payment_status },
+    });
 
     revalidatePath('/admin');
     revalidatePath('/admin/orders');
@@ -231,10 +403,24 @@ export async function updatePaymentStatus(
 
 export async function updateVidyasNote(id: string, note: string): Promise<{ success: boolean; error?: string }> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
     const { error } = await supabaseAdmin
       .from('orders')
       .update({ vidyas_note: note, updated_at: new Date().toISOString() })
       .eq('id', id);
+
+    if (!error) {
+      await logAdminAction({
+        actorId: auth.userId,
+        action: 'update_vidyas_note',
+        entityType: 'order',
+        entityId: id,
+      });
+    }
 
     if (error) {
       console.error('updateVidyasNote error:', error);

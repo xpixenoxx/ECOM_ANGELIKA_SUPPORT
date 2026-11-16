@@ -1,30 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
 import { getLoyaltyStats, getLoyaltyTransactions, getEarningRules, getRedemptionRules, getLoyaltyTiers } from '@/lib/actions/loyalty';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const guard = await requireAdminApi(request, OPS_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
-    }
-
     const searchParams = request.nextUrl.searchParams;
     const action = searchParams.get('action');
 
@@ -57,7 +41,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(tiers);
       }
       default: {
-        // Return everything for dashboard
         const [stats, transactions, earningRules, redemptionRules, tiers] = await Promise.all([
           getLoyaltyStats(),
           getLoyaltyTransactions(1, 10),
@@ -75,30 +58,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await requireAdminApi(request, OPS_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
-    const supabase = await createClient();
-
-    // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Check admin role
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 });
-    }
-
     const body = await request.json();
     const { action } = body;
 
-    // Import server actions dynamically to avoid "use server" issues
     const { addLoyaltyPoints, deductLoyaltyPoints } = await import('@/lib/actions/loyalty');
 
     switch (action) {
@@ -108,6 +74,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
         const result = await addLoyaltyPoints(userId, points, type, description, orderId, expiresAt);
+        if (result.success) {
+          await logAdminAction({
+            actorId: guard.auth.userId,
+            action: 'add_loyalty_points',
+            entityType: 'profile',
+            entityId: userId,
+            afterState: { points, type, description },
+          });
+        }
         return NextResponse.json(result, { status: result.success ? 200 : 400 });
       }
       case 'deduct-points': {
@@ -116,6 +91,15 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
         const result = await deductLoyaltyPoints(userId, points, description);
+        if (result.success) {
+          await logAdminAction({
+            actorId: guard.auth.userId,
+            action: 'deduct_loyalty_points',
+            entityType: 'profile',
+            entityId: userId,
+            afterState: { points, description },
+          });
+        }
         return NextResponse.json(result, { status: result.success ? 200 : 400 });
       }
       default:

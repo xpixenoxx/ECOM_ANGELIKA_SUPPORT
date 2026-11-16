@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createStripePaymentIntent } from '@/lib/actions/payments';
 import { createClient } from '@/lib/supabase/server';
+import { toPaise } from '@/lib/pricing';
+import { verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +19,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const { data: order, error } = await supabase
       .from('orders')
-      .select('id, user_id, email, total, currency')
+      .select('id, order_number, user_id, email, total_amount, currency, payment_status')
       .eq('id', orderId)
       .single();
 
@@ -25,16 +27,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
+    if (order.payment_status === 'paid') {
+      return NextResponse.json({ error: 'Order already paid' }, { status: 400 });
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || user.id !== order.user_id) {
+    const isOwner = Boolean(user && order.user_id && user.id === order.user_id);
+    const hasSignedToken = Boolean(
+      body.receiptToken && verifyOrderReceiptToken(order.id, order.email, String(body.receiptToken))
+    );
+    const isGuestOwner = Boolean(
+      !order.user_id &&
+      body.email &&
+      body.orderNumber &&
+      String(body.email).toLowerCase() === order.email.toLowerCase() &&
+      String(body.orderNumber) === order.order_number
+    );
+    if (!isOwner && !hasSignedToken && !isGuestOwner) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const amountPaise = toPaise(Number(order.total_amount));
     const result = await createStripePaymentIntent({
-      amount: order.total,
+      amount: amountPaise,
       currency: order.currency,
       orderId: order.id,
-      userId: order.user_id,
+      userId: order.user_id || undefined,
       email: order.email,
     });
 

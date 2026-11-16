@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { updateAdminLook } from '@/lib/actions/admin-looks';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -38,6 +39,25 @@ interface Look {
   lifestyle_image_alt?: string | null;
   is_active: boolean;
   display_order: number;
+}
+
+function normalizeLookProduct(p: any): Product | undefined {
+  if (!p) return undefined;
+  const activeVars = (p.product_variants || []).filter((v: any) => v.is_active !== false);
+  const sortedVars = [...activeVars].sort(
+    (a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || Number(a.price) - Number(b.price)
+  );
+  const imgs = (p.product_images || [])
+    .sort((a: any, b: any) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) || (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map((i: any) => i.url);
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    price: Number(sortedVars[0]?.price || p.price || 0),
+    thumbnail_url: imgs[0] || '/images/placeholder.jpg',
+    images: imgs,
+  };
 }
 
 function DraggableHotspotPin({
@@ -155,22 +175,59 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
       try {
         const [lookRes, productsRes] = await Promise.all([
           supabase.from('looks').select('*').eq('id', params.id).single(),
-          supabase.from('products').select('id, name, slug, price, thumbnail_url, images').eq('is_active', true).order('name'),
+          supabase
+            .from('products')
+            .select(`
+              id,
+              name,
+              slug,
+              product_variants!product_variants_product_id_fkey(price, is_active, sort_order),
+              product_images!product_images_product_id_fkey(url, is_primary, sort_order)
+            `)
+            .eq('is_active', true)
+            .order('name'),
         ]);
 
         if (lookRes.error) throw lookRes.error;
         if (productsRes.error) throw productsRes.error;
 
-        setLook(lookRes.data);
-        setProducts(productsRes.data || []);
+        setLook({
+          id: lookRes.data.id,
+          name: lookRes.data.name,
+          lifestyle_image_url: lookRes.data.lifestyle_image_url,
+          lifestyle_image_alt: lookRes.data.lifestyle_image_alt,
+          is_active: Boolean(lookRes.data.is_active ?? true),
+          display_order: Number(lookRes.data.display_order ?? 0),
+        });
+        setProducts((productsRes.data || []).map((p: any) => normalizeLookProduct(p)!));
 
         const { data: hotspotsData } = await supabase
           .from('look_hotspots')
-          .select('*, products(id, name, slug, price, thumbnail_url, images)')
+          .select(`
+            *,
+            products:product_id(
+              id,
+              name,
+              slug,
+              product_variants!product_variants_product_id_fkey(price, is_active, sort_order),
+              product_images!product_images_product_id_fkey(url, is_primary, sort_order)
+            )
+          `)
           .eq('look_id', params.id)
           .order('display_order');
 
-        if (hotspotsData) setHotspots(hotspotsData as unknown as Hotspot[]);
+        if (hotspotsData) {
+          setHotspots(
+            (hotspotsData as any[]).map((h) => ({
+              id: h.id,
+              product_id: h.product_id,
+              x_percent: h.x_percent,
+              y_percent: h.y_percent,
+              display_order: h.display_order ?? 0,
+              product: normalizeLookProduct(h.products),
+            }))
+          );
+        }
       } catch (error) {
         console.error(error);
         addToast({ title: 'Error', message: 'Failed to load look', type: 'error' });
@@ -260,36 +317,29 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
     setHotspots((prev) => prev.filter((h) => h.id !== hotspotId).map((h, i) => ({ ...h, display_order: i })));
   }, []);
 
-  // Save look
+  // Save look via authenticated Admin Server Action
   const handleSave = async () => {
     if (!look) return;
     setSaving(true);
     try {
-      const { error: lookError } = await supabase.from('looks').upsert({
+      const res = await updateAdminLook({
         id: look.id,
         name: look.name,
         lifestyle_image_url: look.lifestyle_image_url,
         lifestyle_image_alt: look.lifestyle_image_alt,
         is_active: look.is_active,
         display_order: look.display_order,
-        updated_at: new Date().toISOString(),
+        hotspots: hotspots.map((h, i) => ({
+          product_id: h.product_id,
+          x_percent: h.x_percent,
+          y_percent: h.y_percent,
+          display_order: i,
+        })),
       });
-      if (lookError) throw lookError;
 
-      await supabase.from('look_hotspots').delete().eq('look_id', look.id);
-
-      const validHotspots = hotspots.filter((h) => !h.id?.toString().startsWith('temp-'));
-      if (validHotspots.length > 0) {
-        const { error: hotspotError } = await supabase.from('look_hotspots').insert(
-          validHotspots.map((h, i) => ({
-            look_id: look.id,
-            product_id: h.product_id,
-            x_percent: h.x_percent,
-            y_percent: h.y_percent,
-            display_order: i,
-          }))
-        );
-        if (hotspotError) throw hotspotError;
+      if (!res.success) {
+        addToast({ title: 'Error', message: res.error || 'Failed to save look', type: 'error' });
+        return;
       }
 
       addToast({ title: 'Saved', message: 'Look updated successfully', type: 'success' });

@@ -117,7 +117,7 @@ export function ProductCompareModal({
         {/* Added Notification Toast */}
         {addedItemName && (
           <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs text-center font-medium">
-            ✓ Added "{addedItemName}" to your bag!
+            ✓ Added &ldquo;{addedItemName}&rdquo; to your bag!
           </div>
         )}
 

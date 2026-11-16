@@ -778,7 +778,7 @@ export function ContactPageEditor({
                   Subject / Topic Dropdown Options ({formData.form.subjects.length})
                 </h4>
                 <p className="text-[11px] text-[var(--color-slate)]">
-                  Choices available in the "Subject *" dropdown on the contact form.
+                  Choices available in the &ldquo;Subject *&rdquo; dropdown on the contact form.
                 </p>
               </div>
               <Button
@@ -998,7 +998,7 @@ export function ContactPageEditor({
         <div className="p-6 rounded-2xl bg-white border border-[var(--color-whisper)] shadow-xs space-y-5">
           <div className="border-b border-[var(--color-whisper)] pb-3">
             <h3 className="text-sm font-semibold text-[var(--color-ink)]">
-              "Join Vidhya's Inner Circle" Footer Section
+              &ldquo;Join Vidhya&apos;s Inner Circle&rdquo; Footer Section
             </h3>
             <p className="text-xs text-[var(--color-slate)]">
               Dark luxury banner at the bottom of the contact page inviting newsletter signups.

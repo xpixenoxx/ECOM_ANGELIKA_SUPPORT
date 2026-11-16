@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
+import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -9,255 +11,388 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { cn } from '@/lib/utils/cn';
+import { RefreshCw, UserPlus, Search, Shield, ExternalLink } from 'lucide-react';
+import {
+  getCustomers,
+  updateCustomerRole,
+  inviteAdminUser,
+  type CustomerProfile,
+} from '@/lib/actions/admin-customers';
 
-const mockUsers = [
-  { id: 'usr-1', name: 'Vidhya R.', email: 'vidhya@angelikafashions.com', phone: '9876543210', avatar: '/images/avatar-vidhya.jpg', role: 'Admin', status: 'Active', orders: 24, totalSpent: 89450, joined: '2024-01-15', lastActive: '2026-01-20', tier: 'Platinum' },
-  { id: 'usr-2', name: 'Priya Sharma', email: 'priya@example.com', phone: '9876543211', avatar: '/images/avatar-1.jpg', role: 'Customer', status: 'Active', orders: 12, totalSpent: 45600, joined: '2024-06-20', lastActive: '2026-01-18', tier: 'Gold' },
-  { id: 'usr-3', name: 'Ananya Reddy', email: 'ananya@example.com', phone: '9876543212', avatar: '/images/avatar-2.jpg', role: 'Customer', status: 'Active', orders: 8, totalSpent: 32100, joined: '2024-09-10', lastActive: '2026-01-20', tier: 'Gold' },
-  { id: 'usr-4', name: 'Meera Nair', email: 'meera@example.com', phone: '9876543213', avatar: '/images/avatar-3.jpg', role: 'Customer', status: 'Active', orders: 5, totalSpent: 18900, joined: '2025-01-05', lastActive: '2026-01-15', tier: 'Silver' },
-  { id: 'usr-5', name: 'Kavya Patel', email: 'kavya@example.com', phone: '9876543214', avatar: '/images/avatar-4.jpg', role: 'Customer', status: 'Active', orders: 15, totalSpent: 67800, joined: '2024-03-22', lastActive: '2026-01-19', tier: 'Platinum' },
-  { id: 'usr-6', name: 'Riya Singh', email: 'riya@example.com', phone: '9876543215', avatar: '/images/avatar-5.jpg', role: 'Customer', status: 'Inactive', orders: 2, totalSpent: 5600, joined: '2025-11-12', lastActive: '2025-12-01', tier: 'Bronze' },
-  { id: 'usr-7', name: 'Sneha Gupta', email: 'sneha@example.com', phone: '9876543216', avatar: '/images/avatar-6.jpg', role: 'Customer', status: 'Active', orders: 7, totalSpent: 24500, joined: '2025-04-18', lastActive: '2026-01-20', tier: 'Silver' },
-  { id: 'usr-8', name: 'Aditi Joshi', email: 'aditi@example.com', phone: '9876543217', avatar: '/images/avatar-7.jpg', role: 'Customer', status: 'Active', orders: 3, totalSpent: 11200, joined: '2025-08-30', lastActive: '2026-01-17', tier: 'Bronze' },
-  { id: 'usr-9', name: 'Pooja Verma', email: 'pooja@example.com', phone: '9876543218', avatar: '/images/avatar-8.jpg', role: 'Customer', status: 'Active', orders: 18, totalSpent: 78900, joined: '2024-02-14', lastActive: '2026-01-20', tier: 'Platinum' },
-  { id: 'usr-10', name: 'Team Member', email: 'team@angelikafashions.com', phone: '9876543219', avatar: '/images/avatar-team.jpg', role: 'Staff', status: 'Active', orders: 0, totalSpent: 0, joined: '2024-05-01', lastActive: '2026-01-20', tier: '—' },
+const ROLE_OPTIONS = [
+  { value: 'customer', label: 'Customer' },
+  { value: 'staff', label: 'Staff' },
+  { value: 'ops', label: 'Ops Admin' },
+  { value: 'content', label: 'Content Admin' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'owner', label: 'Owner' },
 ];
 
-const roles = ['All', 'Admin', 'Staff', 'Customer'];
-const statuses = ['All', 'Active', 'Inactive', 'Banned'];
-const tiers = ['All', 'Platinum', 'Gold', 'Silver', 'Bronze'];
+const TIER_FILTERS = ['All', 'platinum', 'gold', 'silver', 'bronze'];
 
 export default function AdminUsersPage() {
+  const [users, setUsers] = useState<CustomerProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeRole, setActiveRole] = useState('All');
-  const [activeStatus, setActiveStatus] = useState('All');
+  const [activeRole, setActiveRole] = useState('all');
   const [activeTier, setActiveTier] = useState('All');
-  const [page, setPage] = useState(1);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState('list');
-  const itemsPerPage = 10;
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
-  const filteredUsers = mockUsers.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.phone.includes(searchQuery);
-    const matchesRole = activeRole === 'All' || user.role === activeRole;
-    const matchesStatus = activeStatus === 'All' || user.status === activeStatus;
-    const matchesTier = activeTier === 'All' || user.tier === activeTier;
-    return matchesSearch && matchesRole && matchesStatus && matchesTier;
+  // Invite modal state
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'staff' | 'ops' | 'content'>('staff');
+  const [inviting, setInviting] = useState(false);
+
+  const loadUsers = useCallback(async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await getCustomers();
+      if (res.error) {
+        setErrorMsg(res.error);
+      } else {
+        setUsers(res.customers);
+      }
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to load user profiles.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setUpdatingRoleId(userId);
+    try {
+      const res = await updateCustomerRole(userId, newRole);
+      if (!res.success) {
+        toast.error(res.error || 'Could not update role.');
+        return;
+      }
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+      );
+      toast.success(`Updated user role to ${newRole}.`);
+    } finally {
+      setUpdatingRoleId(null);
+    }
+  };
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviting(true);
+    try {
+      const res = await inviteAdminUser({
+        email: inviteEmail,
+        fullName: inviteName,
+        role: inviteRole,
+      });
+      if (!res.success) {
+        toast.error(res.error || 'Could not send invitation.');
+        return;
+      }
+      toast.success(`Invitation / role granted for ${inviteEmail}`);
+      setInviteEmail('');
+      setInviteName('');
+      setInviteRole('staff');
+      setInviteOpen(false);
+      loadUsers();
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const filteredUsers = users.filter((user) => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      !q ||
+      (user.full_name || '').toLowerCase().includes(q) ||
+      (user.email || '').toLowerCase().includes(q) ||
+      (user.phone || '').toLowerCase().includes(q);
+    const matchesRole = activeRole === 'all' || user.role === activeRole;
+    const matchesTier =
+      activeTier === 'All' || (user.loyalty_tier || 'bronze').toLowerCase() === activeTier;
+    return matchesSearch && matchesRole && matchesTier;
   });
 
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-  const paginatedUsers = filteredUsers.slice((page - 1) * itemsPerPage, page * itemsPerPage);
-
   const stats = {
-    total: mockUsers.length,
-    active: mockUsers.filter(u => u.status === 'Active').length,
-    inactive: mockUsers.filter(u => u.status === 'Inactive').length,
-    platinum: mockUsers.filter(u => u.tier === 'Platinum').length,
-    gold: mockUsers.filter(u => u.tier === 'Gold').length,
-    revenue: mockUsers.reduce((sum, u) => sum + u.totalSpent, 0),
+    total: users.length,
+    staffAndAdmins: users.filter((u) =>
+      ['owner', 'admin', 'staff', 'ops', 'content'].includes(u.role)
+    ).length,
+    customers: users.filter((u) => u.role === 'customer').length,
+    platinum: users.filter((u) => (u.loyalty_tier || '').toLowerCase() === 'platinum').length,
+    gold: users.filter((u) => (u.loyalty_tier || '').toLowerCase() === 'gold').length,
+    revenue: users.reduce((sum, u) => sum + (u.total_spent || 0), 0),
   };
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <motion.div
         className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4"
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
       >
         <div>
-          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">Customers</h1>
-          <p className="text-[var(--color-slate)] mt-1">Manage customer accounts and loyalty</p>
+          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)]">
+            Users &amp; Team Roles
+          </h1>
+          <p className="text-[var(--color-slate)] mt-1">
+            Manage registered profiles, RBAC permissions, and staff invitations
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={loadUsers} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setInviteOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Invite Team Member
+          </Button>
         </div>
       </motion.div>
 
-      {/* Stats */}
-      <motion.div
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-      >
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
-          { label: 'Total Customers', value: stats.total, icon: '👥' },
-          { label: 'Active', value: stats.active, icon: '✅', color: 'var(--color-success)' },
-          { label: 'Inactive', value: stats.inactive, icon: '😴', color: 'var(--color-slate)' },
-          { label: 'Platinum', value: stats.platinum, icon: '💎', color: 'var(--color-gold)' },
-          { label: 'Gold', value: stats.gold, icon: '🥇', color: '#FFD700' },
-          { label: 'Lifetime Revenue', value: `₹${(stats.revenue / 100000).toFixed(1)}L`, icon: '💰', color: 'var(--color-gold)' },
-        ].map((stat, index) => (
-          <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + index * 0.05 }}>
-            <Card variant="elevated" padding="lg">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-[var(--color-slate)] mb-1">{stat.label}</p>
-                  <p className="text-3xl font-bold text-[var(--color-ink)] tabular-nums" style={{ color: stat.color }}>{stat.value}</p>
-                </div>
-                <div className="w-12 h-12 rounded-[var(--radius-xl)] bg-[var(--color-gold-light)] flex items-center justify-center text-2xl">{stat.icon}</div>
-              </div>
-            </Card>
-          </motion.div>
+          { label: 'Total Accounts', value: stats.total, color: undefined },
+          { label: 'Admin & Staff', value: stats.staffAndAdmins, color: 'var(--color-gold)' },
+          { label: 'Customers', value: stats.customers, color: 'var(--color-success)' },
+          { label: 'Platinum Tier', value: stats.platinum, color: 'var(--color-ink)' },
+          { label: 'Gold Tier', value: stats.gold, color: '#B45309' },
+          {
+            label: 'Total Order GMV',
+            value: `₹${Math.round(stats.revenue).toLocaleString('en-IN')}`,
+            color: 'var(--color-ink)',
+          },
+        ].map((stat) => (
+          <Card key={stat.label} variant="elevated" padding="lg">
+            <p className="text-xs text-[var(--color-slate)] mb-1">{stat.label}</p>
+            <p
+              className="text-2xl font-bold text-[var(--color-ink)] tabular-nums"
+              style={stat.color ? { color: stat.color } : undefined}
+            >
+              {stat.value}
+            </p>
+          </Card>
         ))}
-      </motion.div>
+      </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="list" onValueChange={setActiveTab} className="mb-6">
-        <TabsList className="flex gap-2">
-          <TabsTrigger value="list">All Customers</TabsTrigger>
-          <TabsTrigger value="segments">Segments</TabsTrigger>
-        </TabsList>
+      {errorMsg && (
+        <div
+          role="alert"
+          className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800"
+        >
+          {errorMsg}
+        </div>
+      )}
 
-        {/* List Tab */}
-        <TabsContent value="list">
-          {/* Filters */}
-          <motion.div
-            className="flex flex-col sm:flex-row gap-4 mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
+      <Card variant="elevated" padding="none">
+        <CardHeader className="border-b border-[var(--color-whisper)] p-5">
+          <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
             <div className="relative flex-1 max-w-md">
-              <svg className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-mist)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
-              <Input type="search" placeholder="Search customers..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} className="pl-12" aria-label="Search customers" />
+              <Search className="w-4 h-4 text-[var(--color-mist)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, email, or phone..."
+                className="pl-9"
+              />
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Select value={activeRole} onValueChange={(v) => { setActiveRole(v); setPage(1); }} className="w-[140px]"><SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger><SelectContent>{roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent></Select>
-              <Select value={activeStatus} onValueChange={(v) => { setActiveStatus(v); setPage(1); }} className="w-[140px]"><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent>{statuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent></Select>
-              <Select value={activeTier} onValueChange={(v) => { setActiveTier(v); setPage(1); }} className="w-[140px]"><SelectTrigger><SelectValue placeholder="Tier" /></SelectTrigger><SelectContent>{tiers.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
-            </div>
-          </motion.div>
 
-          {/* Users Table */}
-          <motion.div
-            className="overflow-hidden border border-[var(--color-whisper)] rounded-[var(--radius-xl)] bg-[var(--color-white)]"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Table>
-              <TableHeader>
+            <div className="flex flex-wrap gap-2">
+              <Select value={activeRole} onValueChange={setActiveRole}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Filter Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Roles</SelectItem>
+                  {ROLE_OPTIONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>
+                      {r.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={activeTier} onValueChange={setActiveTier}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Loyalty Tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIER_FILTERS.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t === 'All' ? 'All Tiers' : t.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-0 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>RBAC Role</TableHead>
+                <TableHead>Tier</TableHead>
+                <TableHead className="text-right">Orders</TableHead>
+                <TableHead className="text-right">Spent (INR)</TableHead>
+                <TableHead className="text-right">Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
                 <TableRow>
-                  <TableHead className="w-12"><input type="checkbox" checked={selectedUsers.length === paginatedUsers.length && paginatedUsers.length > 0} onChange={(e) => { if (e.target.checked) setSelectedUsers(paginatedUsers.map(u => u.id)); else setSelectedUsers([]); }} aria-label="Select all" className="w-4 h-4 rounded-[var(--radius-sm)] border-[var(--color-whisper)] text-[var(--color-gold)]" /></TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead className="hidden md:table-cell">Tier</TableHead>
-                  <TableHead className="text-center">Orders</TableHead>
-                  <TableHead className="text-right hidden lg:table-cell">Total Spent</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead>Last Active</TableHead>
-                  <TableHead className="w-24">Actions</TableHead>
+                  <TableCell colSpan={7} className="text-center py-10 text-xs text-[var(--color-slate)]">
+                    Loading profiles from Supabase...
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedUsers.map((user, index) => (
-                  <TableRow key={user.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: index * 0.03 }}>
-                    <TableCell className="w-12"><input type="checkbox" checked={selectedUsers.includes(user.id)} onChange={(e) => { if (e.target.checked) setSelectedUsers([...selectedUsers, user.id]); else setSelectedUsers(selectedUsers.filter(id => id !== user.id)); }} aria-label={`Select ${user.name}`} className="w-4 h-4 rounded-[var(--radius-sm)] border-[var(--color-whisper)] text-[var(--color-gold)]" /></TableCell>
+              ) : filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-10 text-xs text-[var(--color-slate)]">
+                    No matching user profiles found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredUsers.map((u) => (
+                  <TableRow key={u.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <Avatar src={user.avatar} name={user.name} size="sm" />
-                        <div>
-                          <p className="font-medium text-[var(--color-ink)]">{user.name}</p>
-                          <p className="text-xs text-[var(--color-slate)]">{user.role} • Joined {new Date(user.joined).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</p>
+                        <Avatar
+                          src={u.avatar_url || undefined}
+                          name={u.full_name || u.email}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <Link
+                            href={`/admin/customers/${u.id}`}
+                            className="font-medium text-sm text-[var(--color-ink)] hover:text-[var(--color-gold)] inline-flex items-center gap-1"
+                          >
+                            <span>{u.full_name || 'Unnamed User'}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                          <p className="text-xs text-[var(--color-slate)] font-mono truncate max-w-[180px]">
+                            {u.id.slice(0, 8)}…
+                          </p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">
-                        <a href={`mailto:${user.email}`} className="text-[var(--color-ink)] hover:underline block">{user.email}</a>
-                        <a href={`tel:${user.phone}`} className="text-[var(--color-slate)] hover:underline">{user.phone}</a>
+                      <p className="text-xs text-[var(--color-ink)]">{u.email}</p>
+                      <p className="text-xs text-[var(--color-slate)]">{u.phone || '—'}</p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-[var(--color-gold)]" />
+                        <Select
+                          value={u.role}
+                          onValueChange={(val) => handleRoleChange(u.id, val)}
+                          disabled={updatingRoleId === u.id}
+                        >
+                          <SelectTrigger className="w-32 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ROLE_OPTIONS.map((r) => (
+                              <SelectItem key={r.value} value={r.value}>
+                                {r.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <Badge variant={user.tier === 'Platinum' ? 'gold' : user.tier === 'Gold' ? 'warning' : user.tier === 'Silver' ? 'outline' : user.tier === 'Bronze' ? 'default' : 'outline'}>
-                        {user.tier}
+                    <TableCell>
+                      <Badge variant="outline" className="text-[10px] uppercase">
+                        {u.loyalty_tier || 'bronze'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-center font-mono font-medium">{user.orders}</TableCell>
-                    <TableCell className="text-right hidden lg:table-cell font-medium text-[var(--color-ink)]">₹{user.totalSpent.toLocaleString()}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={user.status === 'Active' ? 'success' : 'default'}>
-                        {user.status}
-                      </Badge>
+                    <TableCell className="text-right font-mono text-xs">
+                      {u.order_count || 0}
                     </TableCell>
-                    <TableCell><span className="text-sm text-[var(--color-slate)]">{new Date(user.lastActive).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}</span></TableCell>
-                    <TableCell className="w-24">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button variant="ghost" size="sm" className="p-1.5" onClick={() => {}} aria-label={`View ${user.name}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></Button>
-                        <Button variant="ghost" size="sm" className="p-1.5" onClick={() => {}} aria-label={`Edit ${user.name}`}><svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></Button>
-                      </div>
+                    <TableCell className="text-right font-mono text-xs font-semibold">
+                      ₹{Math.round(u.total_spent || 0).toLocaleString('en-IN')}
+                    </TableCell>
+                    <TableCell className="text-right text-xs text-[var(--color-slate)]">
+                      {new Date(u.created_at).toLocaleDateString('en-IN')}
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-            {paginatedUsers.length === 0 && (
-              <div className="p-12 text-center">
-                <svg className="h-12 w-12 mx-auto text-[var(--color-mist)] mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                <h3 className="text-[var(--font-display)] text-lg text-[var(--color-ink)] mb-1">No customers found</h3>
-                <p className="text-[var(--color-slate)]">Try adjusting your filters.</p>
+      {inviteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl border border-[var(--color-whisper)] max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)]">
+              Invite or Promote Team Member
+            </h3>
+            <p className="text-xs text-[var(--color-slate)]">
+              Owner privilege required. Sends a Supabase Auth invite email or promotes an existing profile.
+            </p>
+            <form onSubmit={handleInviteSubmit} className="space-y-4">
+              <div>
+                <label className="input-label">Email Address *</label>
+                <Input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  placeholder="team@yourdomain.com"
+                />
               </div>
-            )}
-          </motion.div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <motion.nav className="flex items-center justify-between" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} aria-label="Pagination">
-              <p className="text-sm text-[var(--color-slate)]">Showing <span className="font-medium">{(page - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(page * itemsPerPage, filteredUsers.length)}</span> of <span className="font-medium">{filteredUsers.length}</span> customers</p>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Previous"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></Button>
-                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => { let pageNum; if (totalPages <= 5) pageNum = i + 1; else if (page <= 3) pageNum = i + 1; else if (page >= totalPages - 2) pageNum = totalPages - 4 + i; else pageNum = page - 2 + i; return <Button key={pageNum} variant={page === pageNum ? 'primary' : 'ghost'} size="sm" className="w-10 h-10" onClick={() => setPage(pageNum)} aria-label={`Page ${pageNum}`} aria-current={page === pageNum ? 'page' : undefined}>{pageNum}</Button>; })}
-                <Button variant="outline" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Next"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></Button>
+              <div>
+                <label className="input-label">Full Name *</label>
+                <Input
+                  required
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  placeholder="Staff Name"
+                />
               </div>
-            </motion.nav>
-          )}
-        </TabsContent>
-
-        {/* Segments Tab */}
-        <TabsContent value="segments">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <Card variant="elevated" padding="lg">
-              <CardHeader><CardTitle className="text-[var(--font-display)] text-lg">Customer Segments</CardTitle></CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {[
-                    { name: 'VIP', criteria: 'Lifetime spend ₹50,000+', count: 120, revenue: '₹12.4L', color: 'var(--color-gold)' },
-                    { name: 'Loyal', criteria: 'Lifetime spend ₹10,000-50,000', count: 890, revenue: '₹34.2L', color: '#FFD700' },
-                    { name: 'Regular', criteria: 'Lifetime spend ₹1,000-10,000', count: 3450, revenue: '₹67.8L', color: 'var(--color-success)' },
-                    { name: 'New', criteria: 'Lifetime spend < ₹1,000', count: 8000, revenue: '₹18.9L', color: 'var(--color-info)' },
-                  ].map((segment, i) => (
-                    <motion.div key={segment.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="p-6 border border-[var(--color-whisper)] rounded-[var(--radius-xl)]">
-                      <div className="flex items-start justify-between mb-4">
-                        <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)]">{segment.name}</h3>
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: segment.color }}>{segment.name.charAt(0)}</div>
-                      </div>
-                      <p className="text-sm text-[var(--color-slate)] mb-4">{segment.criteria}</p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div><p className="text-2xl font-bold text-[var(--color-ink)]">{segment.count.toLocaleString()}</p><p className="text-xs text-[var(--color-slate)]">Customers</p></div>
-                        <div className="text-right"><p className="text-2xl font-bold text-[var(--color-gold)]">{segment.revenue}</p><p className="text-xs text-[var(--color-slate)]">Revenue</p></div>
-                      </div>
-                      <Button variant="outline" className="w-full mt-4" onClick={() => setActiveTab('list')}>View Customers</Button>
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>            </Card>
-
-            <Card variant="elevated" padding="lg" className="mt-6">
-              <CardHeader><CardTitle className="text-[var(--font-display)] text-lg">Segment Actions</CardTitle></CardHeader>
-              <CardContent>
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <Button variant="outline" onClick={() => {}}><svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>Email Segment</Button>
-                  <Button variant="outline" onClick={() => {}}><svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.48-1.653-1.653-.173-.173-.447-.298-.644-.075-.198.199-.867.868-.967 1.164-.199.297-.247.496-.15.67.098.272.816.99 1.065 1.28.148.198.298.347.496.471.198.198.471.297.67.149l.767-.693c.272-.248.495-.373.57-.373.148 0 .297.149.372.373.149.423.448 1.272.94 1.988.463.68 1.255 1.165 1.475 1.288.198.124.272.223.397.198.149-.025.422-.248.57-.471.148-.223.172-.57.074-.766-.124-.198-.522-.692-1.018-1.307-.448-.57-1.14-1.294-1.717-1.815-.547-.5-.838-.766-.966-.866-.128-.099-.273-.099-.423 0-.15.074-.322.223-.495.372-.173.149-.347.198-.52.198-.174 0-.347-.099-.52-.247-.173-.148-.322-.247-.495-.247-.199 0-.372.098-.52.247l-.645.618c-.15.148-.173.297-.024.471.1.1.247.223.372.322.15.1.323.149.496.149.199 0 .397-.05.546-.149.148-.099.247-.248.296-.423.048-.173 0-.397-.024-.57-.024-.173-.024-.347-.074-.52-.149zM20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>WhatsApp Broadcast</Button>
-                  <Button variant="primary" onClick={() => {}}><svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M2 12l7.15-2.86M2 22l7.15-7.15M22 12l-7.15-2.86M22 22l-7.15-7.15"/></svg>Export CSV</Button>
-                </div>
-              </CardContent>            </Card>
-          </motion.div>
-        </TabsContent>
-      </Tabs>
+              <div>
+                <label className="input-label">Assigned Admin Role</label>
+                <Select
+                  value={inviteRole}
+                  onValueChange={(v) => setInviteRole(v as 'admin' | 'staff' | 'ops' | 'content')}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="staff">Staff</SelectItem>
+                    <SelectItem value="ops">Ops Admin (Orders, Shipments, Returns)</SelectItem>
+                    <SelectItem value="content">Content Admin (CMS &amp; Looks)</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={() => setInviteOpen(false)} disabled={inviting}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" disabled={inviting}>
+                  {inviting ? 'Sending...' : 'Send Invitation'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

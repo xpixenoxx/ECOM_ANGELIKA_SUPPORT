@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase/admin-auth';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,11 +8,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
-    const { supabase, isAdmin } = await getAdminClient();
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const supabase = supabaseAdmin;
 
     const { id } = await Promise.resolve(params);
 
@@ -36,11 +37,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
-    const { supabase, isAdmin, userId } = await getAdminClient();
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const supabase = supabaseAdmin;
+    const userId = guard.auth.userId;
 
     const { id } = await Promise.resolve(params);
     const body = await request.json();
@@ -88,6 +90,13 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    await logAdminAction({
+      actorId: userId,
+      action: 'update_content_block',
+      entityType: 'content_block',
+      entityId: id,
+    });
+
     return NextResponse.json({ block });
   } catch (error: any) {
     console.error('Update content block error:', error);
@@ -99,11 +108,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
+
   try {
-    const { supabase, isAdmin } = await getAdminClient();
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const supabase = supabaseAdmin;
 
     const { id } = await Promise.resolve(params);
 
@@ -116,6 +125,13 @@ export async function DELETE(
       console.error('Delete content block error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    await logAdminAction({
+      actorId: guard.auth.userId,
+      action: 'delete_content_block',
+      entityType: 'content_block',
+      entityId: id,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

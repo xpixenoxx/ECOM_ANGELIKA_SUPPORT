@@ -95,7 +95,7 @@ export const MagneticButton = forwardRef<HTMLButtonElement, MagneticButtonProps>
       primary: 'bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-hover)] text-[var(--color-ink)] hover:from-[var(--color-gold-hover)] hover:to-[var(--color-gold)] shadow-[var(--shadow-gold)]',
       secondary: 'bg-transparent border-2 border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold-light)]',
       ghost: 'bg-transparent text-[var(--color-gold)] hover:bg-[var(--color-gold-light)]',
-      whatsapp: 'bg-[#25D366] text-white hover:bg-[#128C7E] shadow-[0_8px_24px_rgba(37,211,102,0.3)]',
+      whatsapp: 'bg-[#0D6E3B] text-white hover:bg-[#09532C] shadow-[0_8px_24px_rgba(13,110,59,0.28)]',
       gold: 'bg-[var(--color-ink)] text-[var(--color-gold)] hover:bg-[var(--color-charcoal)] border border-[var(--color-gold)]',
       outline: 'border-2 border-[var(--color-whisper)] text-[var(--color-ink)] hover:border-[var(--color-gold)] hover:text-[var(--color-gold)]',
     };

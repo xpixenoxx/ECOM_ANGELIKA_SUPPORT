@@ -458,19 +458,17 @@ export default function AccountPage() {
                       </button>
                     </div>
 
-                    {/* WhatsApp Concierge */}
+                    {/* Client Concierge */}
                     <div className="mt-4 pt-4 border-t border-[var(--color-whisper)]">
                       <LinkButton
-                        variant="whatsapp"
-                        href="https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I%20need%20assistance%20with%20my%20orders"
+                        variant="outline"
+                        href="/contact"
                         className="w-full text-xs font-semibold py-2.5 justify-center gap-2"
-                        target="_blank"
-                        rel="noopener noreferrer"
                       >
-                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2zm5.8 14.16c-.24.67-1.39 1.28-1.92 1.36-.5.08-1.14.12-3.66-.88-3.23-1.28-5.31-4.54-5.47-4.75-.16-.21-1.31-1.74-1.31-3.32 0-1.58.83-2.36 1.12-2.68.3-.32.65-.4.87-.4.22 0 .43 0 .62.01.2.01.47-.08.73.55.27.65.92 2.25 1 2.41.08.16.13.35.03.56-.1.21-.16.35-.31.53-.16.18-.33.4-.47.54-.16.16-.33.33-.14.66.19.32.84 1.39 1.8 2.25 1.24 1.11 2.29 1.45 2.61 1.61.32.16.51.14.7-.08.19-.22.81-.94 1.03-1.26.22-.32.43-.27.73-.16.3.11 1.92.9 2.25 1.07.33.16.54.24.62.38.08.14.08.82-.16 1.49z"/>
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                         </svg>
-                        Personal Stylist & Concierge on WhatsApp
+                        Personal Stylist &amp; Client Concierge
                       </LinkButton>
                     </div>
                   </Card>

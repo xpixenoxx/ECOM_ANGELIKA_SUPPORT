@@ -1,5 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { hasValidSupabaseConfig, isLocalDevBypassAllowed } from '@/lib/env';
+import { canAccessAdminPath, isAdminRole } from './rbac';
 
 export async function createMiddlewareClient(request: NextRequest) {
   let response = NextResponse.next({
@@ -33,6 +35,22 @@ export async function createMiddlewareClient(request: NextRequest) {
 }
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  if (!hasValidSupabaseConfig()) {
+    if (pathname.startsWith('/admin') && !isLocalDevBypassAllowed()) {
+      const redirectUrl = new URL('/login', request.url);
+      redirectUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+    if (pathname.startsWith('/account')) {
+      const redirectUrl = new URL('/login', request.url);
+      redirectUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+    return NextResponse.next();
+  }
+
   try {
     const { supabase, response } = await createMiddlewareClient(request);
 
@@ -42,7 +60,7 @@ export async function updateSession(request: NextRequest) {
       const userRes = await supabase.auth.getUser();
       user = userRes.data?.user || null;
     } catch {
-      // Supabase credentials or network unavailable - continue gracefully
+      user = null;
     }
 
   // Geo-based redirect
@@ -67,40 +85,51 @@ export async function updateSession(request: NextRequest) {
     });
   }
 
-  // Admin route protection disabled for now
-  // if (request.nextUrl.pathname.startsWith('/admin')) {
-  //   if (!user) {
-  //     const redirectUrl = new URL('/login', request.url);
-  //     redirectUrl.searchParams.set('redirect', '/admin');
-  //     return NextResponse.redirect(redirectUrl);
-  //   }
-  //
-  //   const { data: profile } = await supabase
-  //     .from('profiles')
-  //     .select('role')
-  //     .eq('id', user.id)
-  //     .single();
-  //
-  //   if (!profile || !['admin', 'manager', 'designer'].includes(profile.role)) {
-  //     return NextResponse.redirect(new URL('/', request.url));
-  //   }
-  // }
+  // Admin RBAC protection (fail-closed)
+  if (pathname.startsWith('/admin')) {
+    if (!user) {
+      if (!isLocalDevBypassAllowed()) {
+        const redirectUrl = new URL('/login', request.url);
+        redirectUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(redirectUrl);
+      }
+    } else {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const role = profile?.role as string | null | undefined;
+      if (profileError || !isAdminRole(role)) {
+        return NextResponse.redirect(new URL('/', request.url));
+      }
+      if (!canAccessAdminPath(role, pathname)) {
+        return NextResponse.redirect(new URL('/admin', request.url));
+      }
+    }
+  }
 
   // Account route protection
-  if (request.nextUrl.pathname.startsWith('/account') && !user) {
+  if (pathname.startsWith('/account') && !user) {
     const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname);
+    redirectUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
   // Checkout protection - require email/phone
-  if (request.nextUrl.pathname.startsWith('/checkout') && !user) {
+  if (pathname.startsWith('/checkout') && !user) {
     // Allow guest checkout but track
     response.headers.set('x-guest-checkout', 'true');
   }
 
   return response;
   } catch {
+    if (pathname.startsWith('/admin') || pathname.startsWith('/account')) {
+      const redirectUrl = new URL('/login', request.url);
+      redirectUrl.searchParams.set('redirect', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
     return NextResponse.next();
   }
 }

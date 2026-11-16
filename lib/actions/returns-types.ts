@@ -2,7 +2,7 @@
 // RETURNS/EXCHANGES TYPES
 // ============================================
 
-import type { Database } from '@/types/database';
+import type { Database, Json } from '@/types/database';
 
 type ReturnRow = Database['public']['Tables']['returns']['Row'];
 type OrderRow = Database['public']['Tables']['orders']['Row'];
@@ -12,21 +12,23 @@ type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 export interface Return extends ReturnRow {}
 
 export interface ReturnWithDetails extends Return {
-  order: Pick<OrderRow, 'id' | 'order_number' | 'total_amount' | 'status' | 'created_at'>;
-  order_item: Pick<OrderItemRow, 'id' | 'product_name' | 'quantity' | 'unit_price' | 'variant_details'> & {
+  order: (Pick<OrderRow, 'id' | 'order_number' | 'total_amount' | 'status' | 'created_at'> & {
+    shipping_address?: Json | null;
+  }) | null;
+  order_item: (Pick<OrderItemRow, 'id' | 'product_name' | 'quantity' | 'unit_price' | 'variant_details'> & {
     product: {
       id: string;
       name: string;
       slug: string;
       images: Array<{ url: string; alt_text: string | null; is_primary: boolean }>;
-    };
+    } | null;
     variant: {
       id: string;
       size: string;
-      color: { id: string; name: string; hex: string };
+      color: { id: string; name: string; hex: string } | null;
     } | null;
-  };
-  user: Pick<ProfileRow, 'id' | 'full_name' | 'email' | 'phone'>;
+  }) | null;
+  user: Pick<ProfileRow, 'id' | 'full_name' | 'email' | 'phone'> | null;
 }
 
 export interface ReturnStatus {

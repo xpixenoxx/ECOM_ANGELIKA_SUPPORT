@@ -96,9 +96,17 @@ function resolveInput(
 function normalizeWishlistItem(raw: any): WishlistItem {
   const prod = raw.product || raw.products || {};
   const variant = raw.variant || raw.variants || {};
+  const prodImages = Array.isArray(prod.product_images)
+    ? prod.product_images
+    : Array.isArray(prod.images)
+      ? prod.images
+      : [];
+  const primaryFromProd = prodImages.find((img: any) => img?.is_primary)?.url
+    || (typeof prodImages[0] === 'string' ? prodImages[0] : prodImages[0]?.url)
+    || null;
   const primaryImg =
     raw.image ||
-    (Array.isArray(prod.images) ? (typeof prod.images[0] === 'string' ? prod.images[0] : prod.images[0]?.url) : null) ||
+    primaryFromProd ||
     '/images/collection-kurtis.jpg';
 
   const basePrice = Number(raw.price || variant.price || prod.price || 0);
@@ -202,7 +210,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         .select(`
           *,
           product:products(
-            id, name, slug, images, is_vidyas_pick,
+            id, name, slug, is_vidyas_pick,
+            product_images!product_images_product_id_fkey(id, url, is_primary, sort_order),
             variants:product_variants(id, size, price, inventory_quantity, color:colors(id, name, hex))
           ),
           variant:product_variants(id, size, price, inventory_quantity, color:colors(id, name, hex))

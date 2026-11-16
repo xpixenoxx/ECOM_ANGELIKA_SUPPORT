@@ -58,8 +58,8 @@ function mapSalwarItemToProductCard(item: SalwarProductItem, index: number): Sho
     is_featured: true,
     is_vidyas_pick: Boolean(item.isVidhyasPick),
     created_at: new Date(Date.now() - index * 86400000).toISOString(),
-    rating: typeof item.rating === 'number' ? item.rating : 4.8,
-    review_count: typeof item.reviewCount === 'number' ? item.reviewCount : (18 + index * 4),
+    rating: typeof item.rating === 'number' ? item.rating : 0,
+    review_count: typeof item.reviewCount === 'number' ? item.reviewCount : 0,
     fabric: item.fabric || 'Chanderi Silk',
     tags: [item.fabric || 'Silk', item.color || 'Ivory', item.style || 'Suit', item.badge || 'New'],
     occasion: ['Festive', 'Wedding Guest', 'Celebration'],
@@ -168,8 +168,12 @@ export default async function CategoryPage({
   const sortParam = getParam('sort');
   const pageParam = getParam('page');
 
-  const toArray = (param: string | string[] | undefined) =>
-    param ? (Array.isArray(param) ? param : [param]) : undefined;
+  const toArray = (param: string | string[] | undefined) => {
+    if (!param) return undefined;
+    const raw = Array.isArray(param) ? param : [param];
+    const split = raw.flatMap((s) => s.split(',')).map((s) => s.trim()).filter(Boolean);
+    return split.length > 0 ? split : undefined;
+  };
 
   const parsePriceRange = (param: string | string[] | undefined): [number, number] | undefined => {
     if (!param) return undefined;
@@ -210,24 +214,39 @@ export default async function CategoryPage({
   const siteContent = await getSiteContent();
   const kurtisContent = (categorySlug || '').toLowerCase() === 'kurtis' ? (siteContent as any)?.['kurtis-page'] : undefined;
 
-  // If viewing salwars, lehengas, sarees, or dupattas and admin-managed products exist, populate the complete admin catalog
-  if (categorySlug === 'salwars' && salwarsContent?.products && salwarsContent.products.length > 0) {
-    const adminProducts = salwarsContent.products.map(mapSalwarItemToProductCard);
-    products = adminProducts;
-    totalCount = adminProducts.length;
-    totalPages = 1;
-  } else if (categorySlug === 'lehengas' && lehengasContent?.products && lehengasContent.products.length > 0) {
-    const adminProducts = lehengasContent.products.map(mapSalwarItemToProductCard);
-    products = adminProducts;
-    totalCount = adminProducts.length;
-    totalPages = 1;
-  } else if (categorySlug === 'sarees' && sareesContent?.products && sareesContent.products.length > 0) {
-    const adminProducts = sareesContent.products.map(mapSalwarItemToProductCard);
-    products = adminProducts;
-    totalCount = adminProducts.length;
-    totalPages = 1;
-  } else if (categorySlug === 'dupattas' && dupattasContent?.products && dupattasContent.products.length > 0) {
-    const adminProducts = dupattasContent.products.map(mapSalwarItemToProductCard);
+  const cmsProductMap: Record<string, any[] | undefined> = {
+    salwars: salwarsContent?.products,
+    lehengas: lehengasContent?.products,
+    sarees: sareesContent?.products,
+    dupattas: dupattasContent?.products,
+  };
+  const cmsList = cmsProductMap[categorySlug];
+  if (cmsList && cmsList.length > 0) {
+    let adminProducts = cmsList.map(mapSalwarItemToProductCard);
+    if (filters.vidhyasPicksOnly) {
+      adminProducts = adminProducts.filter((p) => p.is_vidyas_pick);
+    }
+    if (filters.inStockOnly) {
+      adminProducts = adminProducts.filter((p) =>
+        (p.variants || []).some((v: any) => (v.inventory_quantity ?? 1) > 0)
+      );
+    }
+    if (filters.priceRange) {
+      const [minP, maxP] = filters.priceRange;
+      adminProducts = adminProducts.filter((p) => p.price >= minP && p.price <= maxP);
+    }
+    if (filters.occasion && filters.occasion.length > 0) {
+      const wanted = filters.occasion.map((o) => o.toLowerCase());
+      adminProducts = adminProducts.filter((p) =>
+        wanted.some((o) =>
+          `${(p.occasion || []).join(' ')} ${(p.tags || []).join(' ')}`.toLowerCase().includes(o)
+        )
+      );
+    }
+    if (sortBy === 'price-asc') adminProducts.sort((a, b) => a.price - b.price);
+    else if (sortBy === 'price-desc') adminProducts.sort((a, b) => b.price - a.price);
+    else if (sortBy === 'discount') adminProducts.sort((a, b) => b.discount - a.discount);
+
     products = adminProducts;
     totalCount = adminProducts.length;
     totalPages = 1;

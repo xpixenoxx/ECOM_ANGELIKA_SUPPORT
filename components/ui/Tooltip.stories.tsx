@@ -143,7 +143,7 @@ export const HoverCardDefault: Story = {
             <span className="text-[var(--color-gold)] font-bold">VD</span>
           </div>
           <div>
-            <p className="font-medium text-[var(--color-ink)]">Vidhya's Pick</p>
+            <p className="font-medium text-[var(--color-ink)]">Vidhya&apos;s Pick</p>
             <p className="text-sm text-[var(--color-slate)]">Handpicked by our founder</p>
           </div>
         </div>

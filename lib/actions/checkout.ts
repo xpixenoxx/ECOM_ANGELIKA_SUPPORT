@@ -1,17 +1,30 @@
 'use server';
 
+import crypto from 'crypto';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import type { CartItem, Address, CheckoutFormData, AppliedCoupon } from '@/types/commerce';
+import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
+import { createOrderReceiptToken, verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
+import { calculateOrderTotals, PRICING_CONSTANTS, toPaise, type CouponSpec } from '@/lib/pricing';
+import { normalizeAddress } from '@/lib/utils/address';
+import {
+  INDIAN_PINCODE_REGEX,
+  INDIAN_PHONE_REGEX,
+  UUID_REGEX,
+  normalizeIndianPhone,
+  stripHtmlTags,
+} from '@/lib/validators/commerce';
+import type { CartItem, Address, AppliedCoupon } from '@/types/commerce';
+import type { Json } from '@/types/database';
 
 async function getSupabaseClient() {
   return createServerClient();
 }
 
-interface OrderData {
+export interface OrderData {
   items: CartItem[];
   shippingAddress: Address;
-  billingAddress: Address;
+  billingAddress?: Address;
   paymentMethod: 'razorpay' | 'cod' | 'stripe';
   email: string;
   phone: string;
@@ -21,13 +34,37 @@ interface OrderData {
   giftWrap?: boolean;
   giftMessage?: string;
   whatsappOptIn?: boolean;
+  idempotencyKey?: string;
 }
 
-interface CreateOrderResult {
+export interface CreateOrderResult {
   success: boolean;
   orderId?: string;
+  orderNumber?: string;
   razorpayOrderId?: string;
+  receiptToken?: string;
   error?: string;
+}
+
+function formatCouponRpcError(message: string): string {
+  if (message.includes('COUPON_INVALID')) return 'Coupon is invalid or inactive';
+  if (message.includes('COUPON_NOT_STARTED')) return 'Coupon is not active yet';
+  if (message.includes('COUPON_EXPIRED')) return 'Coupon has expired';
+  if (message.includes('COUPON_EXHAUSTED')) return 'Coupon usage limit reached';
+  if (message.includes('COUPON_MIN_ORDER')) return message.split('COUPON_MIN_ORDER:')[1] || 'Minimum order value not met for coupon';
+  if (message.includes('COUPON_USER_LIMIT')) return 'You have already used this coupon the maximum number of times';
+  if (message.includes('COUPON_FIRST_ORDER_ONLY')) return 'This coupon is valid only on your first order';
+  return 'Coupon could not be applied';
+}
+
+function formatInventoryRpcError(message: string): string {
+  if (message.includes('INSUFFICIENT_STOCK:')) {
+    return `Sorry, insufficient stock for ${message.split('INSUFFICIENT_STOCK:')[1]}`;
+  }
+  if (message.includes('VARIANT_UNAVAILABLE:')) {
+    return 'One or more selected garment sizes are no longer available.';
+  }
+  return 'Selected inventory is currently unavailable. Please review your bag.';
 }
 
 export async function createOrder(orderData: OrderData): Promise<CreateOrderResult> {
@@ -35,55 +72,176 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
   const supabase = supabaseAdmin;
 
   try {
-    // Get user if authenticated (supports both logged-in and guest checkout)
+    // 1. Resolve session identity server-side (never trust client userId spoofing)
     const { data: { user } } = await userClient.auth.getUser();
-    const userId = orderData.userId || user?.id || null;
+    const userId = user?.id ?? null;
 
-    // Calculate totals in Rupees (prices in database are stored in Rupees)
-    const subtotal = orderData.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const isFreeShipping = subtotal >= 2999 || orderData.coupon?.type === 'free_shipping';
-    const shippingCost = isFreeShipping ? 0 : 99;
-    const codFee = orderData.paymentMethod === 'cod' ? 49 : 0;
-    const discountAmount = orderData.coupon?.discountAmount || 0;
-    const taxAmount = 0; // Prices are inclusive of GST
-
-    const total = Math.max(0, subtotal + shippingCost + codFee - discountAmount);
-
-    // Validate COD limit (maximum ₹10,000)
-    if (orderData.paymentMethod === 'cod' && total > 10000) {
-      return { success: false, error: 'COD orders cannot exceed ₹10,000' };
+    // 2. Validate contact details, addresses & quantities
+    const cleanEmail = (orderData.email || '').trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return { success: false, error: 'Please enter a valid email address.' };
     }
 
-    // Create order in database
-    const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const cleanPhone = normalizeIndianPhone(orderData.phone || orderData.shippingAddress?.phone || '');
+    if (!INDIAN_PHONE_REGEX.test(cleanPhone)) {
+      return { success: false, error: 'Please enter a valid 10-digit Indian mobile number.' };
+    }
 
+    const cleanShipping = normalizeAddress({ ...orderData.shippingAddress, phone: cleanPhone, email: cleanEmail });
+    if (!cleanShipping.firstName || !cleanShipping.address1 || !cleanShipping.city || !cleanShipping.state) {
+      return { success: false, error: 'Complete delivery address is required.' };
+    }
+    if (!INDIAN_PINCODE_REGEX.test(cleanShipping.postalCode)) {
+      return { success: false, error: 'Please enter a valid 6-digit Indian pincode.' };
+    }
+
+    const cleanBilling = orderData.billingAddress
+      ? normalizeAddress(orderData.billingAddress)
+      : cleanShipping;
+
+    if (!Array.isArray(orderData.items) || orderData.items.length === 0) {
+      return { success: false, error: 'Your shopping bag is empty.' };
+    }
+
+    for (const item of orderData.items) {
+      if (!item.variant_id || !UUID_REGEX.test(item.variant_id)) {
+        return { success: false, error: 'Invalid variant identifier in bag. Please refresh your bag.' };
+      }
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 10) {
+        return { success: false, error: 'Item quantity must be between 1 and 10.' };
+      }
+    }
+
+    // 3. Idempotency check if key provided
+    const cleanIdemKey = orderData.idempotencyKey?.trim() || null;
+    if (cleanIdemKey) {
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('id, order_number, email, payment_id, status, payment_status')
+        .eq('idempotency_key', cleanIdemKey)
+        .maybeSingle();
+
+      if (existingOrder && existingOrder.status !== 'cancelled') {
+        return {
+          success: true,
+          orderId: existingOrder.id,
+          orderNumber: existingOrder.order_number,
+          razorpayOrderId: existingOrder.payment_id || undefined,
+          receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
+        };
+      }
+    }
+
+    // 4. Authoritative Server Price & Active Variant Lookup (NEVER trust client item.price)
+    const variantIds = Array.from(new Set(orderData.items.map((i) => i.variant_id)));
+    const { data: dbVariants, error: variantsError } = await supabase
+      .from('product_variants')
+      .select(`
+        id,
+        product_id,
+        size,
+        price,
+        inventory_quantity,
+        is_active,
+        color:colors(id, name, hex),
+        product:products!product_variants_product_id_fkey(
+          id,
+          name,
+          gst_slab,
+          is_active,
+          images:product_images!product_images_product_id_fkey(url, is_primary)
+        )
+      `)
+      .in('id', variantIds);
+
+    if (variantsError || !dbVariants || dbVariants.length === 0) {
+      return { success: false, error: 'Could not verify selected garments. Please refresh your bag.' };
+    }
+
+    const variantMap = new Map(dbVariants.map((v: any) => [v.id, v]));
+    const verifiedItems: Array<{
+      product_id: string;
+      variant_id: string;
+      product_name: string;
+      size: string;
+      color: string;
+      color_hex: string;
+      image: string;
+      unitPrice: number;
+      quantity: number;
+      gstSlab?: number | null;
+    }> = [];
+
+    for (const item of orderData.items) {
+      const v: any = variantMap.get(item.variant_id);
+      const prod = v?.product;
+      if (!v || !v.is_active || !prod || !prod.is_active) {
+        return { success: false, error: `${item.product_name || 'Selected item'} is no longer available.` };
+      }
+      const imagesArr = Array.isArray(prod.images) ? prod.images : [];
+      const primaryImg =
+        imagesArr.find((img: any) => img?.is_primary)?.url ||
+        imagesArr[0]?.url ||
+        item.image ||
+        '/images/collection-kurtis.jpg';
+
+      verifiedItems.push({
+        product_id: prod.id,
+        variant_id: v.id,
+        product_name: prod.name || item.product_name,
+        size: v.size || item.size || 'Free Size',
+        color: v.color?.name || item.color || 'Classic',
+        color_hex: v.color?.hex || item.color_hex || '#C9A84C',
+        image: primaryImg,
+        unitPrice: Number(v.price),
+        quantity: item.quantity,
+        gstSlab: prod.gst_slab,
+      });
+    }
+
+    // 5. Initial pricing without coupon (coupon discount evaluated atomically via RPC)
+    const initialTotals = calculateOrderTotals({
+      items: verifiedItems.map((i) => ({
+        unitPrice: i.unitPrice,
+        quantity: i.quantity,
+        gstSlab: i.gstSlab,
+      })),
+      paymentMethod: orderData.paymentMethod,
+      giftWrap: orderData.giftWrap,
+    });
+
+    const initialOrderStatus = orderData.paymentMethod === 'cod' ? 'confirmed' : 'pending';
+    const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomInt(1000, 9999)}`;
+
+    // 6. Create pending order row first so atomic reservation RPCs bind to order_id
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
         order_number: orderNumber,
         user_id: userId,
-        email: orderData.email,
-        phone: orderData.phone,
-        shipping_address: orderData.shippingAddress as any,
-        billing_address: orderData.billingAddress as any,
+        email: cleanEmail,
+        phone: cleanPhone,
+        idempotency_key: cleanIdemKey,
+        shipping_address: cleanShipping as unknown as Json,
+        billing_address: cleanBilling as unknown as Json,
         payment_method: orderData.paymentMethod,
         payment_status: 'pending',
-        status: 'confirmed',
-        subtotal,
-        shipping_cost: shippingCost,
-        tax_amount: taxAmount,
-        discount_amount: discountAmount,
-        total_amount: total,
+        status: initialOrderStatus,
+        subtotal: initialTotals.subtotal,
+        shipping_cost: initialTotals.shippingCost,
+        tax_amount: initialTotals.taxAmount,
+        discount_amount: 0,
+        total_amount: initialTotals.total,
         currency: 'INR',
-        notes: orderData.notes || null,
-        gift_wrap: orderData.giftWrap || false,
-        gift_message: orderData.giftMessage || null,
+        notes: orderData.notes ? stripHtmlTags(orderData.notes).slice(0, 500) : null,
+        gift_wrap: Boolean(orderData.giftWrap),
+        gift_message: orderData.giftMessage ? stripHtmlTags(orderData.giftMessage).slice(0, 300) : null,
         whatsapp_opt_in: orderData.whatsappOptIn !== false,
         metadata: {
-          cod_fee: codFee,
-          coupon_code: orderData.coupon?.code || null,
-          gift_wrap: orderData.giftWrap || false,
-        },
+          cod_fee: initialTotals.codFee,
+          included_gst_amount: initialTotals.includedGstAmount,
+          gift_wrap: Boolean(orderData.giftWrap),
+        } as unknown as Json,
       })
       .select()
       .single();
@@ -93,86 +251,134 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       return { success: false, error: orderError?.message || 'Failed to create order' };
     }
 
-    // Create order items
-    const orderItems = orderData.items.map((item) => ({
+    const cleanupOrder = async (releaseInventoryFirst: boolean) => {
+      if (releaseInventoryFirst) {
+        try {
+          await supabase.rpc('release_order_inventory', { p_order_id: order.id });
+        } catch (relErr) {
+          console.error('Cleanup inventory release failed:', relErr);
+        }
+      }
+      await supabase.from('order_items').delete().eq('order_id', order.id);
+      await supabase.from('orders').delete().eq('id', order.id);
+    };
+
+    // 7. Insert order items with authoritative DB unit prices
+    const orderItemsPayload = verifiedItems.map((item) => ({
       order_id: order.id,
-      product_id: item.product_id || null,
-      variant_id: item.variant_id || null,
+      product_id: item.product_id,
+      variant_id: item.variant_id,
       product_name: item.product_name,
       quantity: item.quantity,
-      unit_price: item.price,
-      total_price: item.price * item.quantity,
+      unit_price: item.unitPrice,
+      total_price: item.unitPrice * item.quantity,
       variant_details: {
         size: item.size,
         color: item.color,
         color_hex: item.color_hex,
         image: item.image,
-      },
+      } as unknown as Json,
     }));
 
     const { error: itemsError } = await supabase
       .from('order_items')
-      .insert(orderItems);
+      .insert(orderItemsPayload);
 
     if (itemsError) {
-      console.error('Order items creation failed:', itemsError);
-      // Cleanup: delete the order
-      await supabase.from('orders').delete().eq('id', order.id);
-      return { success: false, error: itemsError?.message || 'Failed to create order items' };
+      await cleanupOrder(false);
+      return { success: false, error: itemsError.message || 'Failed to create order items' };
     }
 
-    // Decrease inventory safely directly on variants
-    for (const item of orderData.items) {
-      if (item.variant_id) {
-        try {
-          const { data: v } = await supabase
-            .from('product_variants')
-            .select('inventory_quantity')
-            .eq('id', item.variant_id)
-            .maybeSingle();
+    // 8. Atomic dead-lock free Inventory Reservation RPC (sorted FOR UPDATE)
+    const { error: invErr } = await supabase.rpc('reserve_order_inventory', {
+      p_order_id: order.id,
+      p_items: verifiedItems.map((i) => ({
+        variant_id: i.variant_id,
+        product_id: i.product_id,
+        quantity: i.quantity,
+      })) as unknown as Json,
+      p_ttl_minutes: 15,
+    });
 
-          if (v && v.inventory_quantity !== null) {
-            await supabase
-              .from('product_variants')
-              .update({ inventory_quantity: Math.max(0, v.inventory_quantity - item.quantity) })
-              .eq('id', item.variant_id);
-          }
-        } catch (invErr) {
-          console.warn('Inventory update notice:', invErr);
-        }
+    if (invErr) {
+      await cleanupOrder(false);
+      return { success: false, error: formatInventoryRpcError(invErr.message) };
+    }
+
+    // 9. Atomic Coupon Validation & Reservation RPC (NEVER trust client discountAmount)
+    let appliedCouponSpec: CouponSpec | null = null;
+    if (orderData.coupon?.code?.trim()) {
+      const couponRes = await supabase.rpc('reserve_coupon_for_order', {
+        p_code: orderData.coupon.code.trim().toUpperCase(),
+        p_order_id: order.id,
+        p_subtotal: initialTotals.subtotal,
+        p_user_id: userId ?? undefined,
+        p_email: cleanEmail,
+        p_ttl_minutes: 15,
+      });
+
+      if (couponRes.error || !couponRes.data) {
+        await cleanupOrder(true);
+        return {
+          success: false,
+          error: formatCouponRpcError(couponRes.error?.message || 'COUPON_INVALID'),
+        };
       }
+
+      const cData = couponRes.data as Record<string, any>;
+      appliedCouponSpec = {
+        code: String(cData['code']),
+        type: String(cData['type']),
+        value: Number(cData['value'] || 0),
+        maxDiscountAmount: cData['discount_amount'] ? Number(cData['discount_amount']) : undefined,
+      };
     }
 
-    // If coupon was used, increment usage count safely
-    if (orderData.coupon?.code) {
-      try {
-        const { data: c } = await supabase
-          .from('coupons')
-          .select('usage_count')
-          .eq('code', orderData.coupon.code)
-          .maybeSingle();
+    // 10. Compute Final Authoritative Totals (shared pricing engine)
+    const finalTotals = calculateOrderTotals({
+      items: verifiedItems.map((i) => ({
+        unitPrice: i.unitPrice,
+        quantity: i.quantity,
+        gstSlab: i.gstSlab,
+      })),
+      coupon: appliedCouponSpec,
+      paymentMethod: orderData.paymentMethod,
+      giftWrap: orderData.giftWrap,
+    });
 
-        if (c) {
-          await supabase
-            .from('coupons')
-            .update({ usage_count: (c.usage_count || 0) + 1 })
-            .eq('code', orderData.coupon.code);
-        }
-      } catch (couponErr) {
-        console.warn('Coupon usage update notice:', couponErr);
-      }
+    // Enforce COD limit AFTER discount
+    if (orderData.paymentMethod === 'cod' && finalTotals.total > PRICING_CONSTANTS.COD_MAX_AMOUNT) {
+      await cleanupOrder(true);
+      return { success: false, error: `COD orders cannot exceed ₹${PRICING_CONSTANTS.COD_MAX_AMOUNT.toLocaleString('en-IN')}` };
     }
+
+    await supabase
+      .from('orders')
+      .update({
+        shipping_cost: finalTotals.shippingCost,
+        discount_amount: finalTotals.discountAmount,
+        total_amount: finalTotals.total,
+        metadata: {
+          cod_fee: finalTotals.codFee,
+          included_gst_amount: finalTotals.includedGstAmount,
+          coupon_code: appliedCouponSpec?.code || null,
+          gift_wrap: Boolean(orderData.giftWrap),
+        } as unknown as Json,
+      })
+      .eq('id', order.id);
 
     // Clear user's cart if logged in
     if (userId) {
       await supabase.from('carts').delete().eq('user_id', userId);
     }
 
-    // For Razorpay, create Razorpay order
+    // 11. Finalize COD or Initialize Razorpay Order (paise conversion via toPaise)
     let razorpayOrderId: string | undefined;
-    if (orderData.paymentMethod === 'razorpay') {
+    if (orderData.paymentMethod === 'cod') {
+      await supabase.rpc('confirm_order_inventory', { p_order_id: order.id });
+    } else if (orderData.paymentMethod === 'razorpay') {
       const razorpayResult = await createRazorpayOrder({
-        amount: Math.round(total * 100), // Razorpay requires amount in paise
+        amount: toPaise(finalTotals.total),
         currency: 'INR',
         receipt: `order_${order.id}`,
         notes: {
@@ -181,32 +387,9 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         },
       });
 
-      // Edge case #1: If Razorpay order creation fails, roll back the DB order
-      // so the customer doesn't get an orphan pending order with no payment window.
       if (!razorpayResult.success || !razorpayResult.orderId) {
-        console.error('Razorpay order creation failed — rolling back DB order:', razorpayResult.error);
-        await supabase.from('order_items').delete().eq('order_id', order.id);
-        await supabase.from('orders').delete().eq('id', order.id);
-        // Restore inventory that was decremented above
-        for (const item of orderData.items) {
-          if (item.variant_id) {
-            try {
-              const { data: v } = await supabase
-                .from('product_variants')
-                .select('inventory_quantity')
-                .eq('id', item.variant_id)
-                .maybeSingle();
-              if (v && v.inventory_quantity !== null) {
-                await supabase
-                  .from('product_variants')
-                  .update({ inventory_quantity: v.inventory_quantity + item.quantity })
-                  .eq('id', item.variant_id);
-              }
-            } catch (invErr) {
-              console.warn('Inventory restore notice during rollback:', invErr);
-            }
-          }
-        }
+        console.error('Razorpay order creation failed — releasing reservations & rolling back:', razorpayResult.error);
+        await cleanupOrder(true);
         return {
           success: false,
           error: razorpayResult.error || 'Could not connect to payment gateway. Please try again.',
@@ -215,16 +398,17 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
 
       razorpayOrderId = razorpayResult.orderId;
 
-      // Update order with Razorpay order ID in payment_id and metadata
       await supabase
         .from('orders')
         .update({
           payment_id: razorpayOrderId,
           metadata: {
-            cod_fee: codFee,
-            coupon_code: orderData.coupon?.code || null,
+            cod_fee: finalTotals.codFee,
+            included_gst_amount: finalTotals.includedGstAmount,
+            coupon_code: appliedCouponSpec?.code || null,
+            gift_wrap: Boolean(orderData.giftWrap),
             razorpay_order_id: razorpayOrderId,
-          },
+          } as unknown as Json,
         })
         .eq('id', order.id);
     }
@@ -232,7 +416,9 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     return {
       success: true,
       orderId: order.id,
+      orderNumber: order.order_number,
       razorpayOrderId,
+      receiptToken: createOrderReceiptToken(order.id, cleanEmail),
     };
   } catch (error) {
     console.error('Create order error:', error);
@@ -267,7 +453,7 @@ async function createRazorpayOrder(params: RazorpayOrderParams): Promise<Razorpa
     const response = await fetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${auth}`,
+        Authorization: `Basic ${auth}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -296,29 +482,35 @@ export async function verifyRazorpayPayment(
   razorpayOrderId: string,
   razorpayPaymentId: string,
   razorpaySignature: string
-): Promise<{ success: boolean; orderId?: string; error?: string }> {
+): Promise<{ success: boolean; orderId?: string; receiptToken?: string; error?: string }> {
   try {
     const keySecret = process.env['RAZORPAY_KEY_SECRET'];
     if (!keySecret) {
       return { success: false, error: 'Razorpay not configured' };
     }
 
-    const crypto = await import('crypto');
     const expectedSignature = crypto
       .createHmac('sha256', keySecret)
       .update(`${razorpayOrderId}|${razorpayPaymentId}`)
       .digest('hex');
 
-    if (expectedSignature !== razorpaySignature) {
+    if (expectedSignature.length !== razorpaySignature.length) {
       return { success: false, error: 'Invalid payment signature' };
     }
 
-    const supabase = await getSupabaseClient();
+    const sigMatches = crypto.timingSafeEqual(
+      Buffer.from(expectedSignature, 'hex'),
+      Buffer.from(razorpaySignature, 'hex')
+    );
+    if (!sigMatches) {
+      return { success: false, error: 'Invalid payment signature' };
+    }
 
-    // Find order by Razorpay order ID — stored in payment_id column
+    const supabase = supabaseAdmin;
+
     const { data: order, error: findError } = await supabase
       .from('orders')
-      .select('id, metadata, payment_status')
+      .select('id, email, metadata, payment_status, status')
       .eq('payment_id', razorpayOrderId)
       .single();
 
@@ -326,13 +518,39 @@ export async function verifyRazorpayPayment(
       return { success: false, error: 'Order not found' };
     }
 
-    // Edge case #2: Idempotency — if already paid (double-submit / retry),
-    // return success immediately without updating again or firing duplicate notifications.
     if (order.payment_status === 'paid') {
-      return { success: true, orderId: order.id };
+      return {
+        success: true,
+        orderId: order.id,
+        receiptToken: createOrderReceiptToken(order.id, order.email),
+      };
     }
 
-    // Update order: mark as paid, store payment details in metadata
+    // Confirm atomic inventory & coupon reservation
+    const confirmRes = await supabase.rpc('confirm_order_inventory', { p_order_id: order.id });
+    const confirmData = confirmRes.data as { confirmed?: boolean; stock_conflict?: boolean } | null;
+
+    if (confirmRes.error || confirmData?.stock_conflict) {
+      const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+        ? (order.metadata as Record<string, unknown>)
+        : {};
+      await supabase
+        .from('orders')
+        .update({
+          metadata: {
+            ...existingMeta,
+            stock_conflict: true,
+            razorpay_payment_id: razorpayPaymentId,
+          } as unknown as Json,
+        })
+        .eq('id', order.id);
+
+      return {
+        success: false,
+        error: 'Item sold out during payment window. Our team will initiate an immediate automatic refund.',
+      };
+    }
+
     const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
       ? (order.metadata as Record<string, unknown>)
       : {};
@@ -341,24 +559,33 @@ export async function verifyRazorpayPayment(
       .from('orders')
       .update({
         payment_status: 'paid',
+        status: 'confirmed',
         metadata: {
           ...existingMeta,
           razorpay_payment_id: razorpayPaymentId,
           razorpay_signature: razorpaySignature,
           paid_at: new Date().toISOString(),
-        },
+        } as unknown as Json,
       })
       .eq('id', order.id);
 
-    return { success: true, orderId: order.id };
+    return {
+      success: true,
+      orderId: order.id,
+      receiptToken: createOrderReceiptToken(order.id, order.email),
+    };
   } catch (error) {
     console.error('Verify payment error:', error);
     return { success: false, error: 'Payment verification failed' };
   }
 }
 
-export async function getOrderById(orderId: string) {
+export async function getOrderById(orderId: string, receiptToken?: string | null) {
   try {
+    const userClient = await getSupabaseClient();
+    const { data: { user } } = await userClient.auth.getUser();
+    const adminAuth = user ? await requireAdminRole(OPS_ADMIN_ROLES) : null;
+
     const { data: order, error } = await supabaseAdmin
       .from('orders')
       .select(`
@@ -369,6 +596,20 @@ export async function getOrderById(orderId: string) {
       .maybeSingle();
 
     if (error || !order) return null;
+
+    const isOwner = Boolean(
+      user &&
+      ((order.user_id && order.user_id === user.id) ||
+        (user.email && order.email.toLowerCase() === user.email.toLowerCase()))
+    );
+    const hasValidReceiptToken = Boolean(
+      receiptToken && verifyOrderReceiptToken(order.id, order.email, receiptToken)
+    );
+
+    if (!isOwner && !hasValidReceiptToken && !adminAuth?.authorized) {
+      return null;
+    }
+
     return order;
   } catch (err) {
     console.error('Failed to get order:', err);
@@ -376,13 +617,19 @@ export async function getOrderById(orderId: string) {
   }
 }
 
-export async function getUserAddresses(userId: string): Promise<(Address & { id: string; is_default?: boolean })[]> {
+export async function getUserAddresses(userId?: string): Promise<(Address & { id: string; is_default?: boolean })[]> {
   try {
+    const userClient = await getSupabaseClient();
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user || (userId && user.id !== userId)) {
+      return [];
+    }
+
     const supabase = supabaseAdmin;
     const { data: profile } = await supabase
       .from('profiles')
       .select('preferences')
-      .eq('id', userId)
+      .eq('id', user.id)
       .maybeSingle();
 
     const prefs = (profile?.preferences && typeof profile.preferences === 'object')
@@ -390,7 +637,12 @@ export async function getUserAddresses(userId: string): Promise<(Address & { id:
       : {};
 
     const addresses = Array.isArray(prefs['addresses']) ? prefs['addresses'] : [];
-    return addresses;
+    const { normalizeAddress, toCheckoutAddress } = await import('@/lib/utils/address');
+    return addresses.map((raw: any) => ({
+      ...toCheckoutAddress(raw),
+      id: normalizeAddress(raw).id || String(raw?.id || ''),
+      is_default: Boolean(raw?.is_default ?? raw?.isDefault),
+    }));
   } catch (err) {
     console.error('Failed to get user addresses:', err);
     return [];
@@ -399,11 +651,17 @@ export async function getUserAddresses(userId: string): Promise<(Address & { id:
 
 export async function saveAddress(userId: string, address: Omit<Address, 'id'> & { id?: string; is_default?: boolean }) {
   try {
+    const userClient = await getSupabaseClient();
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user || (userId && user.id !== userId)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
     const supabase = supabaseAdmin;
     const { data: profile } = await supabase
       .from('profiles')
       .select('preferences')
-      .eq('id', userId)
+      .eq('id', user.id)
       .maybeSingle();
 
     const prefs = (profile?.preferences && typeof profile.preferences === 'object')
@@ -412,10 +670,17 @@ export async function saveAddress(userId: string, address: Omit<Address, 'id'> &
 
     const existing: any[] = Array.isArray(prefs['addresses']) ? prefs['addresses'] : [];
     const newAddressId = address.id || `addr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const { toSavedAddress, toCheckoutAddress } = await import('@/lib/utils/address');
+    const unified = toSavedAddress(
+      { ...address, id: newAddressId, is_default: address.is_default ?? existing.length === 0 },
+      newAddressId
+    );
+    const checkoutShape = toCheckoutAddress(unified as unknown as Record<string, unknown>);
     const newAddr = {
-      ...address,
+      ...unified,
+      ...checkoutShape,
       id: newAddressId,
-      is_default: address.is_default ?? (existing.length === 0),
+      is_default: unified.is_default,
     };
 
     const updated = [newAddr, ...existing.filter(a => a.id !== newAddressId).map(a => address.is_default ? { ...a, is_default: false } : a)];
@@ -428,7 +693,7 @@ export async function saveAddress(userId: string, address: Omit<Address, 'id'> &
           addresses: updated,
         },
       })
-      .eq('id', userId);
+      .eq('id', user.id);
 
     return { success: true, address: newAddr };
   } catch (err: any) {
@@ -441,62 +706,80 @@ export async function convertGuestToAccount({
   orderId,
   email,
   password,
+  receiptToken,
 }: {
   orderId: string;
   email: string;
   password: string;
+  receiptToken?: string | null;
 }) {
   try {
     const supabase = supabaseAdmin;
-    if (!email || !password || password.length < 6) {
-      return { success: false, error: 'Password must be at least 6 characters long' };
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || !password || password.length < 8) {
+      return { success: false, error: 'Password must be at least 8 characters long' };
     }
 
-    // 1. Create user with admin privileges
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('id, user_id, email')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (orderErr || !order) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    if (order.user_id) {
+      return { success: false, error: 'Order is already linked to an account. Please sign in.' };
+    }
+
+    if (order.email.toLowerCase() !== cleanEmail) {
+      return { success: false, error: 'Email does not match order email' };
+    }
+
+    if (!receiptToken || !verifyOrderReceiptToken(order.id, order.email, receiptToken)) {
+      return { success: false, error: 'Order verification token is missing or expired. Please sign up on /register.' };
+    }
+
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (existingProfile) {
+      return { success: false, error: 'An account with this email already exists. Please sign in.' };
+    }
+
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
       email_confirm: true,
       user_metadata: { role: 'customer' },
     });
 
-    let userId = newUser?.user?.id;
-
     if (createError) {
       if (createError.message.toLowerCase().includes('already registered')) {
-        const { data: existingUsers } = await supabase.auth.admin.listUsers();
-        const found = existingUsers.users.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
-        if (found) {
-          userId = found.id;
-        } else {
-          return { success: false, error: 'An account with this email already exists. Please sign in.' };
-        }
-      } else {
-        return { success: false, error: createError.message };
+        return { success: false, error: 'An account with this email already exists. Please sign in.' };
       }
+      return { success: false, error: createError.message };
     }
 
+    const userId = newUser?.user?.id;
     if (userId) {
-      // 2. Link order to user
       await supabase
         .from('orders')
         .update({ user_id: userId })
-        .eq('id', orderId);
+        .eq('id', order.id)
+        .is('user_id', null)
+        .ilike('email', cleanEmail);
 
-      // 3. Ensure profile row exists
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (!existingProfile) {
-        await supabase.from('profiles').insert({
-          id: userId,
-          email: email.trim().toLowerCase(),
-          role: 'customer',
-        });
-      }
+      await supabase.from('profiles').upsert({
+        id: userId,
+        email: cleanEmail,
+        role: 'customer',
+      });
 
       return { success: true, message: 'VIP Account activated successfully! Your order is linked.' };
     }

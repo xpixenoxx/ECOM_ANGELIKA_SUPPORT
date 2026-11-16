@@ -1,6 +1,9 @@
 'use server';
 
+import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
+import { executeGatewayRefund } from '@/lib/actions/payments';
 import { revalidatePath } from 'next/cache';
 import {
   Return,
@@ -28,6 +31,20 @@ import {
  */
 export async function getReturnStats(): Promise<ReturnStats> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return {
+        totalRequests: 0,
+        pendingRequests: 0,
+        approvedRequests: 0,
+        completedRequests: 0,
+        rejectedRequests: 0,
+        totalRefundAmount: 0,
+        avgProcessingDays: 0,
+        returnRate: 0,
+        recentReturns: [],
+      };
+    }
     const supabase = supabaseAdmin;
 
     // Get counts by status
@@ -133,6 +150,10 @@ export async function getReturns(
   filters: ReturnFilters = {}
 ): Promise<ReturnListResult> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const supabase = supabaseAdmin;
 
     let query = supabase
@@ -204,6 +225,10 @@ export async function getReturns(
  */
 export async function getReturn(id: string): Promise<ReturnSingleResult> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const supabase = supabaseAdmin;
 
     const { data: returnData, error } = await supabase
@@ -245,6 +270,10 @@ export async function updateReturnStatus(
   adminNotes?: string
 ): Promise<ReturnMutationResult> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const supabase = supabaseAdmin;
 
     // Validate status transition
@@ -293,6 +322,14 @@ export async function updateReturnStatus(
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'update_return_status',
+      entityType: 'return',
+      entityId: id,
+      afterState: { status, adminNotes },
+    });
+
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${id}`);
     revalidatePath('/account/orders');
@@ -305,13 +342,61 @@ export async function updateReturnStatus(
 }
 
 /**
+ * Inspect returned garment and atomically restore stock if inspection passes
+ */
+export async function inspectReturn(
+  returnId: string,
+  passed: boolean,
+  notes?: string
+): Promise<ReturnMutationResult> {
+  try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
+    const { error: rpcErr } = await supabaseAdmin.rpc('complete_return_inspection', {
+      p_return_id: returnId,
+      p_passed: passed,
+      p_notes: notes ?? undefined,
+    });
+
+    if (rpcErr) {
+      return { success: false, error: rpcErr.message };
+    }
+
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'inspect_return',
+      entityType: 'return',
+      entityId: returnId,
+      afterState: { passed, notes },
+    });
+
+    revalidatePath('/admin/orders/returns');
+    revalidatePath('/admin/products/inventory');
+    revalidatePath('/account/orders');
+
+    const refreshed = await getReturn(returnId);
+    return { success: true, return: refreshed.return };
+  } catch (error) {
+    console.error('Inspect return error:', error);
+    return { success: false, error: 'Failed to inspect return' };
+  }
+}
+
+/**
  * Schedule pickup for return
  */
 export async function schedulePickup(input: SchedulePickupInput): Promise<ReturnMutationResult> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const supabase = supabaseAdmin;
 
-    const pickupOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const pickupOtp = crypto.randomInt(100000, 1000000).toString();
 
     const { data: updatedReturn, error } = await supabase
       .from('returns')
@@ -344,8 +429,17 @@ export async function schedulePickup(input: SchedulePickupInput): Promise<Return
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'schedule_return_pickup',
+      entityType: 'return',
+      entityId: input.returnId,
+      afterState: { courierPartner: input.courierPartner, scheduledAt: input.scheduledAt },
+    });
+
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${input.returnId}`);
+    revalidatePath('/admin/products/inventory');
     revalidatePath('/account/orders');
 
     return { success: true, return: updatedReturn as ReturnWithDetails };
@@ -356,17 +450,66 @@ export async function schedulePickup(input: SchedulePickupInput): Promise<Return
 }
 
 /**
- * Process refund for return
+ * Process refund for return (enforces amount bounds and invokes gateway refund for prepaid orders)
  */
 export async function processRefund(input: ProcessRefundInput): Promise<ReturnMutationResult> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const supabase = supabaseAdmin;
+
+    const { data: existingReturn, error: retErr } = await supabase
+      .from('returns')
+      .select(`
+        *,
+        order:orders!returns_order_id_fkey(id, payment_method, payment_status, total_amount),
+        order_item:order_items!returns_order_item_id_fkey(id, unit_price, quantity, total_price)
+      `)
+      .eq('id', input.returnId)
+      .single();
+
+    if (retErr || !existingReturn) {
+      return { success: false, error: 'Return not found' };
+    }
+    if (existingReturn.status === 'refunded') {
+      return { success: false, error: 'Return has already been refunded' };
+    }
+
+    const orderInfo: any = existingReturn.order;
+    const itemInfo: any = existingReturn.order_item;
+    const maxItemRefund = Number(
+      itemInfo?.total_price ?? Number(itemInfo?.unit_price || 0) * Number(itemInfo?.quantity || 1)
+    );
+    const boundedAmount = Math.min(
+      Math.max(1, Number(input.refundAmount || maxItemRefund)),
+      maxItemRefund > 0 ? maxItemRefund : Number(orderInfo?.total_amount || input.refundAmount)
+    );
+
+    let refundReference: string | null = null;
+    if (
+      orderInfo &&
+      (orderInfo.payment_method === 'razorpay' || orderInfo.payment_method === 'stripe') &&
+      (orderInfo.payment_status === 'paid' || orderInfo.payment_status === 'partially_refunded')
+    ) {
+      const gw = await executeGatewayRefund(
+        existingReturn.order_id,
+        boundedAmount,
+        input.notes || 'Approved return refund'
+      );
+      if (!gw.success) {
+        return { success: false, error: gw.error || 'Gateway refund failed' };
+      }
+      refundReference = gw.refundId || null;
+    }
 
     const { data: updatedReturn, error } = await supabase
       .from('returns')
       .update({
         status: 'refunded',
-        refund_amount: input.refundAmount,
+        refund_amount: boundedAmount,
+        refund_reference: refundReference,
         admin_notes: input.notes,
         updated_at: new Date().toISOString(),
       })
@@ -391,8 +534,17 @@ export async function processRefund(input: ProcessRefundInput): Promise<ReturnMu
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'process_return_refund',
+      entityType: 'return',
+      entityId: input.returnId,
+      afterState: { refundAmount: boundedAmount, paymentMethod: input.paymentMethod, refundReference },
+    });
+
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${input.returnId}`);
+    revalidatePath('/admin/products/inventory');
     revalidatePath('/account/orders');
 
     return { success: true, return: updatedReturn as ReturnWithDetails };
@@ -407,17 +559,40 @@ export async function processRefund(input: ProcessRefundInput): Promise<ReturnMu
  */
 export async function processExchange(input: ProcessExchangeInput): Promise<ReturnMutationResult> {
   try {
+    const auth = await requireAdminRole(OPS_ADMIN_ROLES);
+    if (!auth.authorized) {
+      return { success: false, error: auth.error || 'Unauthorized' };
+    }
     const supabase = supabaseAdmin;
 
-    // Get variant details
     const { data: variant } = await supabase
       .from('product_variants')
-      .select('id, size, color:colors (id, name, hex), product:products!product_variants_product_id_fkey (id, name, slug)')
+      .select('id, size, inventory_quantity, color:colors (id, name, hex), product:products!product_variants_product_id_fkey (id, name, slug)')
       .eq('id', input.exchangeVariantId)
       .single();
 
     if (!variant) {
       return { success: false, error: 'Exchange variant not found' };
+    }
+
+    if (Number(variant.inventory_quantity || 0) < 1) {
+      return { success: false, error: `Selected exchange size (${variant.size}) is currently out of stock` };
+    }
+
+    // Reserve 1 unit of replacement variant cleanly
+    const { data: decremented } = await supabase
+      .from('product_variants')
+      .update({
+        inventory_quantity: Math.max(0, Number(variant.inventory_quantity) - 1),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', variant.id)
+      .gte('inventory_quantity', 1)
+      .select('id')
+      .maybeSingle();
+
+    if (!decremented) {
+      return { success: false, error: 'Replacement size stock depleted concurrently. Please choose another variant.' };
     }
 
     const { data: updatedReturn, error } = await supabase
@@ -451,8 +626,17 @@ export async function processExchange(input: ProcessExchangeInput): Promise<Retu
       return { success: false, error: error.message };
     }
 
+    await logAdminAction({
+      actorId: auth.userId,
+      action: 'process_return_exchange',
+      entityType: 'return',
+      entityId: input.returnId,
+      afterState: { exchangeVariantId: input.exchangeVariantId, size: variant.size },
+    });
+
     revalidatePath('/admin/orders/returns');
     revalidatePath(`/admin/orders/returns/${input.returnId}`);
+    revalidatePath('/admin/products/inventory');
     revalidatePath('/account/orders');
 
     return { success: true, return: updatedReturn as ReturnWithDetails };

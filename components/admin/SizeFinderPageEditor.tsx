@@ -643,11 +643,11 @@ export function SizeFinderPageEditor({
                       <tr>
                         <th className="py-2 px-3">Size</th>
                         <th className="py-2 px-3">Label</th>
-                        <th className="py-2 px-3">Bust (")</th>
-                        <th className="py-2 px-3">Waist (")</th>
-                        <th className="py-2 px-3">Hips (")</th>
-                        <th className="py-2 px-3">Shoulder (")</th>
-                        <th className="py-2 px-3">Length (")</th>
+                        <th className="py-2 px-3">Bust (&quot;)</th>
+                        <th className="py-2 px-3">Waist (&quot;)</th>
+                        <th className="py-2 px-3">Hips (&quot;)</th>
+                        <th className="py-2 px-3">Shoulder (&quot;)</th>
+                        <th className="py-2 px-3">Length (&quot;)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-whisper)] bg-white font-mono text-[11px]">

@@ -1,0 +1,934 @@
+# ANGELIKA FASHIONS — PHASE 2
+# WORLD-CLASS E-COMMERCE FORENSIC AUDIT, COMPLETE CUSTOMER JOURNEY ANALYSIS, PREMIUM UI/UX EVALUATION, SCALABILITY ENGINEERING & IMPLEMENTATION MASTER BLUEPRINT
+
+## 0. YOUR MISSION
+
+You are operating as a complete senior engineering and product organization consisting of:
+
+- Principal Software Architect
+- Senior Full-Stack Engineer
+- Senior Frontend Engineer
+- Senior Backend Engineer
+- Luxury Fashion E-commerce Product Architect
+- Premium Fashion UI/UX Director
+- Luxury Brand Experience Designer
+- E-commerce Conversion Rate Optimization Specialist
+- Database Architect
+- Application Security Engineer
+- Payment Systems Engineer
+- Inventory and Order Management Specialist
+- Logistics and Shipment Integration Engineer
+- Performance and Scalability Engineer
+- QA Automation Architect
+- Accessibility Specialist
+- SEO and Technical SEO Specialist
+- DevOps and Production Reliability Engineer
+
+You are responsible for evaluating Angelika Fashions as a complete commercial product.
+
+This is not a basic code review.
+
+This is not simply a bug-fixing exercise.
+
+This is not a generic UI improvement exercise.
+
+The objective is to transform Angelika Fashions into a technically excellent, secure, scalable, commercially reliable and exceptionally premium women's clothing e-commerce experience.
+
+The finished product must deliver:
+
+1. An outstanding luxury fashion shopping experience.
+2. A complete and reliable end-to-end e-commerce operation.
+3. A seamless and trustworthy payment experience.
+4. Accurate order, shipment and delivery tracking.
+5. A powerful but simple administrative and business management experience.
+6. Reliable customer, inventory and financial data.
+7. Excellent performance under heavy concurrent traffic.
+8. Strong security and privacy.
+9. Comprehensive automated testing.
+10. A maintainable architecture without unnecessary engineering complexity.
+
+**The existing implementation is not a limitation. If a genuine architectural, technical, design or UX change is required to achieve the desired quality, recommend it and explain why. Do not preserve a bad implementation merely because it already exists.**
+
+However, every proposed change must have a clear reason and measurable benefit.
+
+---
+
+# 1. MANDATORY PROJECT DISCOVERY
+
+Before making any assessment:
+
+1. Read AGENTS.md and GEMINI.md wherever present.
+2. If they do not exist, explicitly acknowledge that.
+3. Read RESTRUCTURING_PLAN.md.
+4. Read all relevant documents in docs/memory/.
+5. Understand the complete brand identity and design system.
+6. Understand the current application architecture.
+7. Inspect package.json and all important configuration files.
+8. Inspect all database types, SQL migrations and RPC definitions.
+9. Understand all existing storefront and admin functionality.
+10. Review the Phase 1 Project Intelligence Report.
+
+Do not assume the Phase 1 report is completely accurate.
+
+Revalidate every reported finding against the actual current source code.
+
+Do not make assumptions about business requirements, payment providers, logistics partners or database schemas.
+
+When something cannot be verified, identify the missing evidence.
+
+---
+
+# 2. COMPLETE END-TO-END BUSINESS LIFECYCLE AUDIT
+
+This is one of the highest-priority requirements.
+
+Understand and audit the entire business operation, from the first customer visit until the order is successfully delivered and any subsequent service request is resolved.
+
+Do not inspect features in isolation.
+
+Trace how all features communicate and depend on one another.
+
+## 2.1 Customer Acquisition and First Visit
+
+Inspect:
+
+- Landing page.
+- Homepage.
+- Campaign landing pages.
+- Product promotions.
+- Category discovery.
+- New arrivals.
+- Featured collections.
+- Sale campaigns.
+- Social media traffic landing experience.
+- Direct product links.
+- Search engine landing pages.
+
+Verify that every entry point leads to a consistent and functional shopping experience.
+
+## 2.2 Product Discovery
+
+Audit:
+
+- Product categories.
+- Collection pages.
+- Product listing pages.
+- Product detail pages.
+- Search.
+- Search suggestions.
+- Filters.
+- Sorting.
+- Pagination.
+- Related products.
+- Recently viewed products.
+- Featured products.
+- Product recommendations.
+- Wishlist.
+- Size and fit information.
+
+Verify actual database integration, not merely UI appearance.
+
+## 2.3 Product Detail and Purchase Decision
+
+Inspect every element influencing the buying decision:
+
+- Product imagery.
+- Image quality.
+- Image galleries.
+- Zoom.
+- Multiple views.
+- Product videos if supported.
+- Product name.
+- Product descriptions.
+- Price.
+- Original price.
+- Discounts.
+- Size availability.
+- Color availability.
+- Size guide.
+- Fit information.
+- Fabric details.
+- Care instructions.
+- Delivery estimates.
+- Shipping information.
+- Return and exchange policies.
+- Reviews.
+- Ratings.
+- Verified purchase indicators.
+- Stock availability.
+- Add-to-bag behavior.
+- Wishlist behavior.
+
+Ensure product information is consistent between the storefront, admin panel and database.
+
+## 2.4 Shopping Cart
+
+Audit the complete cart lifecycle:
+
+- Add to cart.
+- Remove item.
+- Update quantity.
+- Change variant.
+- Different sizes of the same product.
+- Different colors.
+- Duplicate product prevention.
+- Guest cart.
+- Authenticated cart.
+- Guest-to-account cart merge.
+- Cart persistence.
+- Cart synchronization.
+- Price changes.
+- Out-of-stock products.
+- Deleted products.
+- Expired coupons.
+- Invalid discounts.
+- Cart recovery.
+
+Check every possible state transition.
+
+## 2.5 Checkout
+
+Inspect the complete checkout journey:
+
+- Guest checkout.
+- Authenticated checkout.
+- Customer information.
+- Email and phone validation.
+- Address selection.
+- New address creation.
+- Saved addresses.
+- Address editing.
+- Pincode validation.
+- Shipping method.
+- Delivery estimates.
+- Shipping charges.
+- Discounts.
+- Coupon validation.
+- Tax calculation where applicable.
+- Final price calculation.
+- Payment method selection.
+- Order review.
+- Order submission.
+- Duplicate submission prevention.
+- Loading states.
+- Error states.
+- Recovery from failures.
+
+The checkout must be simple, trustworthy and frictionless without compromising security or financial accuracy.
+
+## 2.6 Complete Payment Lifecycle
+
+Audit every payment-related operation.
+
+For Razorpay:
+
+- Gateway order creation.
+- Amount verification.
+- Currency conversion.
+- Checkout initialization.
+- Payment success.
+- Payment failure.
+- User cancellation.
+- Modal closure.
+- Signature verification.
+- Webhook verification.
+- Webhook retries.
+- Duplicate webhook events.
+- Delayed webhook delivery.
+- Payment pending.
+- Payment captured.
+- Payment authorization and capture behavior where applicable.
+- Refund initiation.
+- Refund success.
+- Refund failure.
+- Partial refund.
+- Full refund.
+
+For Stripe, verify every existing integration to the extent it is genuinely supported by the project.
+
+For Cash on Delivery:
+
+- Eligibility.
+- Order placement.
+- Order confirmation.
+- COD restrictions.
+- COD order lifecycle.
+- Cancellation.
+- Delivery confirmation.
+- Failed delivery.
+- Return and refund implications.
+
+For all payment methods:
+
+- Never trust client-provided amounts.
+- Verify payment on the server.
+- Prevent duplicate charges.
+- Prevent duplicate order creation.
+- Maintain accurate financial records.
+- Handle asynchronous events safely.
+- Ensure inventory and payment states remain consistent.
+
+Build a complete payment state-transition matrix.
+
+Do not assume payment success simply because the frontend displays a success message.
+
+## 2.7 Order Management Lifecycle
+
+Audit the entire order state machine.
+
+Inspect all actual order statuses and determine whether the transitions are valid.
+
+Evaluate applicable states such as:
+
+- Pending.
+- Payment pending.
+- Payment failed.
+- Confirmed.
+- Processing.
+- Packed.
+- Ready for dispatch.
+- Shipped.
+- In transit.
+- Out for delivery.
+- Delivered.
+- Cancellation requested.
+- Cancelled.
+- Return requested.
+- Return approved.
+- Pickup scheduled.
+- Return received.
+- Refund initiated.
+- Partially refunded.
+- Refunded.
+- Delivery failed.
+
+These are candidate states, not instructions to introduce every state unnecessarily.
+
+Determine the appropriate state model for the existing business.
+
+Identify invalid transitions, missing transitions, duplicate transitions and conflicting updates.
+
+## 2.8 Shipment and Delivery Tracking
+
+This area must receive dedicated attention.
+
+Do not treat order tracking as a decorative page.
+
+Audit the entire shipment lifecycle:
+
+- Shipment creation.
+- Courier assignment.
+- AWB generation.
+- Shipping label generation.
+- Pickup scheduling.
+- Courier pickup.
+- Shipment dispatch.
+- Transit updates.
+- Destination hub.
+- Out for delivery.
+- Delivered.
+- Delivery exception.
+- Failed delivery.
+- Customer unavailable.
+- Address problems.
+- Shipment cancellation.
+- RTO (Return to Origin).
+- Lost shipment.
+- Delayed shipment.
+- Delivery confirmation.
+
+Investigate whether the existing application has a real logistics integration or only placeholder tracking information.
+
+Inspect the actual supported integrations, API contracts, credentials and webhook flows where available.
+
+If a courier aggregator or direct courier integration is missing, recommend an appropriate integration architecture without inventing an existing integration.
+
+Evaluate the customer tracking experience:
+
+- Accurate order status.
+- AWB information.
+- Courier information.
+- Shipment timeline.
+- Latest tracking update.
+- Estimated delivery.
+- Tracking link.
+- Delay notifications.
+- Delivery exceptions.
+- Customer support options.
+
+Ensure that tracking information is based on genuine shipment data.
+
+Never display fabricated AWB numbers, courier events or delivery confirmations.
+
+## 2.9 Returns, Exchanges and Refunds
+
+Audit:
+
+- Return eligibility.
+- Return window.
+- Return reasons.
+- Return request creation.
+- Return approval.
+- Return rejection.
+- Pickup scheduling.
+- Pickup tracking.
+- Product received.
+- Quality inspection where applicable.
+- Exchange selection.
+- Replacement inventory.
+- Refund initiation.
+- Refund processing.
+- Refund failure.
+- Partial refunds.
+- Full refunds.
+- Refund status.
+- Customer notifications.
+
+Verify that order status, inventory, payment records and return records remain consistent.
+
+## 2.10 Customer Communication
+
+Audit every notification channel actually implemented or intended:
+
+- Transactional email.
+- OTP email.
+- Order confirmation.
+- Payment confirmation.
+- Payment failure.
+- Shipment notification.
+- Tracking update.
+- Out-for-delivery notification.
+- Delivery confirmation.
+- Cancellation notification.
+- Return update.
+- Refund notification.
+- WhatsApp notifications if supported.
+
+Verify event triggers, templates, delivery handling, retries and duplicate prevention.
+
+Do not claim an email or notification was delivered merely because a database record was created.
+
+## 2.11 Customer Account Lifecycle
+
+Inspect:
+
+- Registration.
+- Login.
+- Logout.
+- Profile.
+- Addresses.
+- Saved products.
+- Wishlist.
+- Order history.
+- Order details.
+- Tracking.
+- Reviews.
+- Loyalty.
+- Password reset.
+- Account security.
+- Guest-to-account conversion.
+- Account deletion and data privacy where required.
+
+Verify that customer data is correctly isolated.
+
+## 2.12 Entire Journey Dependency Map
+
+Produce a complete flow diagram:
+
+Customer Visit
+→ Product Discovery
+→ Product Selection
+→ Cart
+→ Checkout
+→ Order Creation
+→ Payment
+→ Payment Verification
+→ Inventory and Order Updates
+→ Order Confirmation
+→ Fulfillment
+→ Shipment Creation
+→ Courier Pickup
+→ Shipment Tracking
+→ Out for Delivery
+→ Delivery
+→ Post-Purchase Experience
+→ Return/Exchange/Refund if applicable.
+
+For every transition, document:
+
+- Trigger.
+- Frontend operation.
+- Backend operation.
+- API involved.
+- Database tables involved.
+- External provider involved.
+- Expected response.
+- Failure scenarios.
+- Retry behavior.
+- Recovery mechanism.
+- Tests required.
+
+Identify every disconnected section and every broken connection.
+
+---
+
+# 3. WORLD-CLASS PREMIUM WOMEN'S FASHION UI/UX AUDIT
+
+This is a core requirement, not an optional cosmetic review.
+
+Angelika Fashions must feel like a premium, sophisticated, internationally competitive women's fashion brand.
+
+The experience must be visually exceptional, editorial, elegant, trustworthy and commercially effective.
+
+Do not judge quality solely by whether the website looks modern.
+
+Judge it by the complete experience, including visual hierarchy, product presentation, ease of shopping, confidence, consistency, accessibility and conversion.
+
+## 3.1 Brand Experience
+
+Evaluate:
+
+- Brand identity.
+- Visual language.
+- Typography.
+- Color system.
+- Photography.
+- Layout composition.
+- Editorial direction.
+- Spacing.
+- Visual hierarchy.
+- Navigation.
+- Iconography.
+- Motion.
+- Interaction details.
+- Overall consistency.
+
+Understand the established Angelika Fashions identity before recommending changes.
+
+Preserve what works.
+
+Replace weak visual decisions when evidence supports a better direction.
+
+## 3.2 Premium Fashion Design Standards
+
+Evaluate the website against the expectations of leading international premium and luxury fashion e-commerce experiences.
+
+Use relevant brands as quality benchmarks, not as templates to copy.
+
+Study aspects such as:
+
+- Editorial storytelling.
+- Campaign presentation.
+- Product photography.
+- Model imagery.
+- Image composition.
+- Product detail hierarchy.
+- Product discovery.
+- Collection presentation.
+- Sophisticated typography.
+- Whitespace.
+- Navigation simplicity.
+- Premium interactions.
+- Shopping confidence.
+- Post-purchase experience.
+
+The target is an original Angelika Fashions design identity, not a clone of another brand.
+
+## 3.3 Audit Every Storefront Section
+
+Inspect every section of every route.
+
+For each section, evaluate:
+
+1. Does it have a clear purpose?
+2. Is its visual hierarchy correct?
+3. Does it communicate the brand appropriately?
+4. Is the layout visually distinctive?
+5. Is the content presented elegantly?
+6. Is the imagery suitable?
+7. Are proportions and spacing correct?
+8. Is the typography appropriate?
+9. Are interactions intuitive?
+10. Is it consistent with the overall design system?
+11. Does it work across supported screen sizes?
+12. Does it support the customer's shopping journey?
+
+Inspect at least:
+
+- Announcement bar.
+- Header.
+- Navigation.
+- Mega menu.
+- Search.
+- Homepage hero.
+- Featured collections.
+- Category showcases.
+- Product grids.
+- Editorial sections.
+- Campaign banners.
+- Product cards.
+- Product details.
+- Image galleries.
+- Size selectors.
+- Size guide.
+- Reviews.
+- Wishlist.
+- Cart drawer.
+- Cart page.
+- Checkout.
+- Order success.
+- Account pages.
+- Order tracking.
+- Returns.
+- Footer.
+- Legal and informational pages.
+
+Do not skip sections because they appear small.
+
+## 3.4 Product Photography and Presentation
+
+Premium women's fashion depends heavily on photography.
+
+Inspect:
+
+- Image quality.
+- Aspect ratios.
+- Model positioning.
+- Garment visibility.
+- Fabric visibility.
+- Color accuracy.
+- Image backgrounds.
+- Lighting.
+- Cropping.
+- Mobile image presentation.
+- Gallery consistency.
+- Image loading.
+- Zoom behavior.
+
+Determine whether the existing imagery supports the intended brand positioning.
+
+Do not invent missing assets or assume that existing images are suitable.
+
+If new assets are required, document the exact creative direction, composition and purpose.
+
+## 3.5 Navigation and Shopping Usability
+
+Evaluate:
+
+- Navigation structure.
+- Category discoverability.
+- Search usability.
+- Filter usability.
+- Product comparison.
+- Wishlist.
+- Cart accessibility.
+- Checkout simplicity.
+- Customer support accessibility.
+
+The customer should be able to discover, evaluate and purchase products without confusion.
+
+## 3.6 Micro-Interactions and Motion
+
+Evaluate:
+
+- Hover states.
+- Button feedback.
+- Loading indicators.
+- Image transitions.
+- Product gallery transitions.
+- Drawer animations.
+- Modal behavior.
+- Scroll interactions.
+- Page transitions.
+- Success feedback.
+- Error feedback.
+
+Animations must feel refined and purposeful.
+
+Avoid excessive motion, unnecessary animation libraries and interactions that harm performance or accessibility.
+
+## 3.7 Mobile-First Luxury Experience
+
+Inspect actual mobile implementations.
+
+Test:
+
+- Small mobile devices.
+- Standard mobile devices.
+- Large mobile devices.
+- Tablets.
+- Desktop.
+- Large desktop displays.
+
+Evaluate:
+
+- Header.
+- Navigation.
+- Product grids.
+- Product images.
+- Product details.
+- Filters.
+- Cart.
+- Checkout.
+- Forms.
+- Drawers.
+- Modals.
+- Order tracking.
+- Admin experience where relevant.
+
+Do not simply assume that desktop layouts automatically work on mobile.
+
+## 3.8 Accessibility and Usability
+
+Inspect:
+
+- Keyboard navigation.
+- Focus visibility.
+- Focus management.
+- Screen-reader labels.
+- Semantic structure.
+- Color contrast.
+- Accessible forms.
+- Error announcements.
+- Dialog accessibility.
+- Reduced motion.
+- Touch target sizes.
+- Input labels.
+- Form validation.
+
+Aim for WCAG 2.2 AA where applicable.
+
+## 3.9 UI/UX Audit Deliverable
+
+Produce a complete page-by-page and section-by-section assessment.
+
+For each genuine problem, provide:
+
+- Route.
+- Component or section.
+- Current behavior.
+- Actual visual or UX problem.
+- Why it is insufficient for a premium brand.
+- Recommended design direction.
+- Required interaction behavior.
+- Functional dependencies.
+- Accessibility considerations.
+- Performance considerations.
+- Priority.
+- Acceptance criteria.
+
+Do not respond with vague recommendations such as "make it modern", "improve spacing" or "use better colors".
+
+Provide concrete, implementation-ready direction.
+
+---
+
+# 4. ADMIN PANEL — COMPLETE BUSINESS MANAGEMENT AUDIT
+
+Evaluate the admin panel as the operational control center of the business.
+
+Audit every existing module:
+
+- Dashboard.
+- Products.
+- Variants.
+- Inventory.
+- Categories.
+- Orders.
+- Payments.
+- Shipments.
+- Tracking.
+- Returns.
+- Refunds.
+- Customers.
+- Reviews.
+- Coupons.
+- Loyalty.
+- Analytics.
+- CMS.
+- Homepage.
+- Navigation.
+- Image management.
+- Settings.
+- Email.
+- WhatsApp.
+- Other existing modules.
+
+For every screen, verify:
+
+- Actual data source.
+- CRUD operations.
+- Server-side validation.
+- Authorization.
+- Database persistence.
+- Loading states.
+- Error states.
+- Success states.
+- Pagination.
+- Search.
+- Filtering.
+- Data consistency.
+- Auditability.
+
+Every visible action must have a real, functioning operation.
+
+Identify mocked screens, dead buttons, placeholder data and incomplete integrations.
+
+Evaluate whether the administrative experience is simple enough for actual business operators without compromising capability.
+
+---
+
+# 5. BACKEND, DATABASE AND ARCHITECTURE AUDIT
+
+Inspect the complete backend implementation.
+
+Evaluate:
+
+- Next.js App Router architecture.
+- Server Components.
+- Client Components.
+- Server Actions.
+- API routes.
+- Supabase clients.
+- Repositories.
+- Services.
+- Validation.
+- Database access.
+- Error handling.
+- Caching.
+- Background processing where justified.
+- External integrations.
+- Logging.
+- Observability.
+
+Inspect every actual database query and mutation.
+
+Compare the implementation with:
+
+- types/database.ts.
+- SQL migrations.
+- RPC definitions.
+- Actual live schema where accessible.
+- RLS policies.
+- Application data models.
+
+Verify:
+
+- Table existence.
+- Column existence.
+- Foreign keys.
+- Constraints.
+- Indexes.
+- Relationships.
+- Nullability.
+- Defaults.
+- Data types.
+- Transactions.
+- Race conditions.
+- Data consistency.
+- Query efficiency.
+- Migration safety.
+
+Identify all actual architectural problems.
+
+Recommend changes where the existing architecture cannot reliably support the required business behavior.
+
+Do not introduce unnecessary architectural layers.
+
+---
+
+# 6. SECURITY AUDIT
+
+Conduct a complete security assessment.
+
+Inspect:
+
+- Authentication.
+- Authorization.
+- Admin roles.
+- Customer isolation.
+- Session handling.
+- OTP handling.
+- Password security.
+- API security.
+- Server Action security.
+- RLS.
+- Service-role usage.
+- IDOR.
+- XSS.
+- CSRF where applicable.
+- Injection risks.
+- File uploads.
+- Rate limiting.
+- Brute-force protection.
+- Sensitive information exposure.
+- Environment variables.
+- Webhook verification.
+- Payment verification.
+- Access control.
+- Security headers.
+- Logging.
+
+Trace each sensitive operation from the entry point to the database.
+
+A frontend restriction is never sufficient authorization.
+
+Verify security at the server-side operation boundary.
+
+Classify confirmed vulnerabilities according to severity and realistic impact.
+
+Never expose secret credentials in reports.
+
+---
+
+# 7. PERFORMANCE AND 10,000 CONCURRENT USERS
+
+Our target is a smooth, reliable shopping experience under significant concurrent traffic.
+
+The system must be evaluated against a target of 10,000 simultaneous active users.
+
+Do not claim that the current architecture supports this without measurement.
+
+## 7.1 Establish a Realistic Workload Model
+
+Define and document:
+
+- 10,000 concurrent active users.
+- Expected request rate.
+- Page navigation frequency.
+- Product browsing frequency.
+- Search frequency.
+- Cart activity.
+- Checkout activity.
+- Payment gateway traffic.
+- Database read/write distribution.
+- Image delivery traffic.
+- Admin activity.
+- Background jobs.
+- Peak traffic patterns.
+
+Differentiate between 10,000 connected users and 10,000 users actively making requests.
+
+Establish realistic workload assumptions and clearly label them.
+
+## 7.2 Frontend Performance
+
+Inspect:
+
+- Initial page load.
+- JavaScript bundle size.
+- Rendering strategy.
+- Hydration.
+- React rerenders.
+- Image optimization.
+- Lazy loading.
+- Font loading.
+- Layout shifts.
+- Navigation transitions.
+- Mobile performance.
+- Caching.
+- Core Web Vitals.
+
+Evaluate relevant metrics:
+
+- LCP

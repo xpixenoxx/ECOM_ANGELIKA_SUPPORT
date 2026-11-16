@@ -391,7 +391,7 @@ export function ProductCard({
             ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
           {originalPrice && originalPrice > price && (
-            <span className="text-[10px] sm:text-[11px] text-[#888888] line-through tabular-nums">
+            <span className="text-[10px] sm:text-[11px] text-[#595959] line-through tabular-nums">
               ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           )}

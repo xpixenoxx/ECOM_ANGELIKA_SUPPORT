@@ -1,7 +1,9 @@
+import { getWhatsAppFlowsConfig } from '@/lib/actions/admin-whatsapp';
 import FlowsClient from './FlowsClient';
 
 export const dynamic = 'force-dynamic';
 
-export default function WhatsAppFlowsPage() {
-  return <FlowsClient />;
+export default async function WhatsAppFlowsPage() {
+  const initialFlows = await getWhatsAppFlowsConfig();
+  return <FlowsClient initialFlows={initialFlows} />;
 }

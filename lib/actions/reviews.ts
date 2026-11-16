@@ -189,10 +189,10 @@ export async function createReview(
       if (orderItem) {
         const { data: order } = await supabase
           .from('orders')
-          .select('id, user_id, order_status')
+          .select('id, user_id, status')
           .eq('id', orderItem.order_id)
           .eq('user_id', userId)
-          .in('order_status', ['delivered', 'completed'])
+          .in('status', ['delivered', 'returned'])
           .single();
 
         if (order) {
@@ -208,14 +208,16 @@ export async function createReview(
         .select(
           `
           id,
-          order:orders!order_items_order_id_fkey(id, user_id, order_status)
+          order:orders!order_items_order_id_fkey(id, user_id, status)
         `
         )
         .eq('product_id', data.productId);
 
       if (orderItems) {
         const hasDeliveredOrder = orderItems.some(
-          (item: any) => item.order?.user_id === userId && ['delivered', 'completed'].includes(item.order?.order_status)
+          (item: any) =>
+            item.order?.user_id === userId &&
+            ['delivered', 'returned'].includes(item.order?.status)
         );
         if (hasDeliveredOrder) {
           isVerifiedPurchase = true;
@@ -258,11 +260,20 @@ export async function markReviewHelpful(reviewId: string): Promise<{ success: bo
   const supabase = await getSupabaseClient();
 
   try {
-    const { error } = await supabase.rpc('increment_review_helpful', { review_id: reviewId });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Please sign in to vote on reviews' };
+    }
+
+    const { data: voted, error } = await supabase.rpc('increment_review_helpful', { review_id: reviewId });
 
     if (error) {
       console.error('Mark helpful failed:', error);
       return { success: false, error: 'Failed to mark review as helpful' };
+    }
+
+    if (voted === false) {
+      return { success: false, error: 'You have already marked this review as helpful' };
     }
 
     return { success: true };

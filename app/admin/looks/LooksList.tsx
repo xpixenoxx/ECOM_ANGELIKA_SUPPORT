@@ -1,7 +1,11 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import toast from 'react-hot-toast';
+import { deleteAdminLook } from '@/lib/actions/admin-looks';
 import { Button } from '@/components/ui/Button';
 import { Table, TableHeader, TableRow, TableCell, TableBody } from '@/components/ui/Table';
 import { Badge } from '@/components/ui/Badge';
@@ -11,9 +15,9 @@ interface Look {
   id: string;
   name: string;
   lifestyle_image_url: string;
-  is_active: boolean;
-  display_order: number;
-  created_at: string;
+  is_active: boolean | null;
+  display_order: number | null;
+  created_at: string | null;
   look_hotspots?: Array<{ count: number }>;
 }
 
@@ -22,6 +26,24 @@ interface LooksListProps {
 }
 
 export function LooksList({ looks }: LooksListProps) {
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (look: Look) => {
+    if (!confirm(`Delete "${look.name}"? This cannot be undone.`)) return;
+    setDeletingId(look.id);
+    try {
+      const res = await deleteAdminLook(look.id);
+      if (!res.success) {
+        toast.error(res.error || 'Failed to delete look.');
+        return;
+      }
+      toast.success(`Deleted "${look.name}"`);
+      router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  };
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -104,11 +126,8 @@ export function LooksList({ looks }: LooksListProps) {
                           iconLeft={<Icon name="trash" className="w-4 h-4" />}
                           className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
                           aria-label="Delete look"
-                          onClick={() => {
-                            if (confirm(`Delete "${look.name}"? This cannot be undone.`)) {
-                              // TODO: implement delete action
-                            }
-                          }}
+                          disabled={deletingId === look.id}
+                          onClick={() => handleDelete(look)}
                         />
                       </div>
                     </TableCell>

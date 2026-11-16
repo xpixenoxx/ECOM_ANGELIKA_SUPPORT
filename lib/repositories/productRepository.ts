@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { sanitizePostgrestSearchTerm } from '@/lib/validators/commerce';
 
 export interface ProductFilterOptions {
   categoryId?: string;
@@ -20,25 +21,32 @@ export const productRepository = {
         name,
         slug,
         description,
-        price,
-        compare_at_price,
         category_id,
         is_active,
         is_featured,
         is_vidyas_pick,
-        images,
         tags,
-        return_window_days,
         created_at,
         updated_at,
-        categories (
+        categories!products_category_id_fkey (
           id,
           name,
           slug
         ),
-        product_variants (
+        product_images!product_images_product_id_fkey (
           id,
-          inventory_quantity
+          url,
+          alt_text,
+          is_primary,
+          sort_order
+        ),
+        product_variants!product_variants_product_id_fkey (
+          id,
+          size,
+          price,
+          compare_at_price,
+          inventory_quantity,
+          is_active
         )
       `)
       .order('created_at', { ascending: false });
@@ -60,7 +68,10 @@ export const productRepository = {
     }
 
     if (options?.search) {
-      query = query.or(`name.ilike.%${options.search}%,sku.ilike.%${options.search}%`);
+      const clean = sanitizePostgrestSearchTerm(options.search);
+      if (clean) {
+        query = query.or(`name.ilike.%${clean}%,sku.ilike.%${clean}%`);
+      }
     }
 
     if (options?.limit) {
@@ -77,12 +88,15 @@ export const productRepository = {
       .from('products')
       .select(`
         *,
-        categories (
+        categories!products_category_id_fkey (
           id,
           name,
           slug
         ),
-        product_variants (
+        product_images!product_images_product_id_fkey (
+          *
+        ),
+        product_variants!product_variants_product_id_fkey (
           *
         )
       `)
@@ -109,13 +123,14 @@ export const productRepository = {
       .select(`
         id,
         product_id,
-        sku,
+        barcode,
         size,
         inventory_quantity,
         low_stock_threshold,
         products (
           id,
           name,
+          sku,
           is_active
         )
       `)

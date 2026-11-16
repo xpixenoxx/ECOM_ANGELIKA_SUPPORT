@@ -204,6 +204,11 @@ export default function CheckoutPage() {
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponNotice, setCouponNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [checkoutIdempotencyKey] = useState<string>(() =>
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? `chk_${crypto.randomUUID()}`
+      : `chk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  );
 
   const DEFAULT_OFFERS = [
     { code: 'FIRST10', title: '10% OFF', desc: 'Welcome privilege on your couture order (min ₹1,999)', badge: 'VIP Welcome' },
@@ -564,6 +569,7 @@ export default function CheckoutPage() {
         giftWrap,
         giftMessage: giftWrap ? `${giftRecipient ? 'To: ' + giftRecipient + ' — ' : ''}${giftMessage}` : undefined,
         whatsappOptIn,
+        idempotencyKey: checkoutIdempotencyKey,
       };
 
       const result = await createOrder(orderData);
@@ -591,7 +597,10 @@ export default function CheckoutPage() {
             );
             if (verifyResult.success) {
               await clearCart();
-              window.location.href = `/order-success?order_id=${verifyResult.orderId}`;
+              const tokenParam = verifyResult.receiptToken
+                ? `&token=${encodeURIComponent(verifyResult.receiptToken)}`
+                : '';
+              window.location.href = `/order-success?order_id=${verifyResult.orderId}${tokenParam}`;
             } else {
               setError(verifyResult.error || 'Payment verification failed');
               setIsProcessing(false);
@@ -647,7 +656,10 @@ export default function CheckoutPage() {
       } else if (selectedPayment === 'cod') {
         // COD order placed successfully
         await clearCart();
-        window.location.href = `/order-success?order_id=${result.orderId}`;
+        const tokenParam = result.receiptToken
+          ? `&token=${encodeURIComponent(result.receiptToken)}`
+          : '';
+        window.location.href = `/order-success?order_id=${result.orderId}${tokenParam}`;
       } else {
         // Edge case #6: Payment method selected but no razorpayOrderId returned —
         // createOrder returned success:true with no payment window (should not happen after Fix #1)
@@ -758,7 +770,7 @@ export default function CheckoutPage() {
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                               <div>
                                 <CardTitle className="text-[var(--font-display)] text-xl">Delivery &amp; Contact Information</CardTitle>
-                                <p className="text-[var(--color-slate)] text-sm mt-0.5">Enter where you'd like your handcrafted couture delivered</p>
+                                <p className="text-[var(--color-slate)] text-sm mt-0.5">Enter where you&apos;d like your handcrafted couture delivered</p>
                               </div>
                               {!user && (
                                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[var(--color-gold-light)]/40 text-[var(--color-gold)] border border-[var(--color-gold)]/20 text-xs font-semibold rounded-full self-start sm:self-auto">
@@ -1112,7 +1124,7 @@ export default function CheckoutPage() {
                                       className="pt-3 border-t border-[var(--color-whisper)] space-y-3"
                                     >
                                       <div>
-                                        <label htmlFor="giftRecipient" className="input-label">Recipient's Name (Optional)</label>
+                                        <label htmlFor="giftRecipient" className="input-label">Recipient&apos;s Name (Optional)</label>
                                         <Input
                                           id="giftRecipient"
                                           value={giftRecipient}
@@ -1389,7 +1401,7 @@ export default function CheckoutPage() {
                                 <p className="text-[var(--color-ink)] font-medium">For: {giftRecipient}</p>
                               )}
                               {giftMessage && (
-                                <p className="text-[var(--color-slate)] italic mt-0.5">"{giftMessage}"</p>
+                                <p className="text-[var(--color-slate)] italic mt-0.5">&ldquo;{giftMessage}&rdquo;</p>
                               )}
                             </div>
                           )}
@@ -1705,15 +1717,13 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                   <div className="pt-2 border-t border-[var(--color-whisper)] flex items-center justify-between text-[11px] text-[var(--color-slate)]">
-                    <span>Questions? WhatsApp Concierge</span>
-                    <a
-                      href="https://wa.me/91XXXXXXXXXX"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#25D366] font-semibold hover:underline flex items-center gap-1"
+                    <span>Questions? Visit Support</span>
+                    <Link
+                      href="/contact"
+                      className="text-[var(--color-gold)] font-semibold hover:underline flex items-center gap-1"
                     >
-                      Chat with Vidhya's Team
-                    </a>
+                      Contact Vidhya&apos;s Team
+                    </Link>
                   </div>
                 </div>
               </div>

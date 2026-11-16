@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase/admin-auth';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  try {
-    const { supabase, isAdmin, userId } = await getAdminClient();
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
 
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  try {
+    const supabase = supabaseAdmin;
+    const userId = guard.auth.userId;
 
     const body = await request.json();
     const { id } = body;
@@ -67,6 +68,14 @@ export async function POST(request: NextRequest) {
       console.error('Duplicate content block error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    await logAdminAction({
+      actorId: userId,
+      action: 'duplicate_content_block',
+      entityType: 'content_block',
+      entityId: block.id,
+      metadata: { sourceBlockId: id },
+    });
 
     return NextResponse.json({ block }, { status: 201 });
   } catch (error: any) {

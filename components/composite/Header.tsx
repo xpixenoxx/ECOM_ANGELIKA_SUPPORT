@@ -89,12 +89,7 @@ export function Header({
   const handleUpdateQuantity = onCartUpdateQuantity || cart.updateQuantity;
   const handleRemoveItem = onCartRemoveItem || cart.removeItem;
   const handleProceedToCheckout = onCartProceedToCheckout || (() => {
-    if (!user) {
-      setShowAuthModal(true);
-      toast('Please sign in to proceed to checkout', { icon: '🛍️' });
-    } else {
-      router.push('/checkout');
-    }
+    router.push('/checkout');
   });
   const handleApplyCoupon = onApplyCoupon || (async (code: string) => { await cart.applyCoupon(code); });
   const handleRemoveCoupon = onRemoveCoupon || cart.removeCoupon;
@@ -162,7 +157,7 @@ export function Header({
       <header
         ref={headerRef}
         className={cn(
-          'fixed top-0 left-0 right-0 z-50 transition-all duration-200 ease-in-out',
+          'sticky top-0 z-40 transition-all duration-200 ease-in-out',
           'bg-white shadow-sm border-b border-[var(--color-whisper)]',
           className
         )}
@@ -190,12 +185,12 @@ export function Header({
                       alt={`${brandName} ${brandTagline}`}
                       className="h-9 md:h-11 w-auto object-contain rounded-sm"
                     />
-                    <div className="hidden sm:flex flex-col">
-                      <span className="font-display text-lg md:text-xl font-bold tracking-tight text-[var(--color-ink)] leading-none">
+                    <div className="hidden sm:flex lg:hidden xl:flex flex-col">
+                      <span className="font-display text-lg xl:text-xl font-bold tracking-tight text-[var(--color-ink)] leading-none">
                         {brandName}
                       </span>
                       {brandTagline ? (
-                        <span className="text-[9px] tracking-[0.22em] text-[var(--color-gold)] uppercase font-semibold">
+                        <span className="text-[9px] tracking-[0.22em] text-[var(--color-gold-text)] uppercase font-semibold">
                           {brandTagline}
                         </span>
                       ) : null}
@@ -204,7 +199,7 @@ export function Header({
                 )}
               </Link>
 
-              <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1.5 flex-1 max-w-3xl mx-2 xl:mx-4" role="navigation" aria-label="Main navigation">
+              <nav className="hidden lg:flex items-center gap-0.5 2xl:gap-1.5 flex-1 min-w-0 mx-1 xl:mx-3" role="navigation" aria-label="Main navigation">
                 {navigation.map((item, index) => (
                   <NavItemComponent
                     key={item.href}
@@ -217,8 +212,8 @@ export function Header({
               </nav>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-              <div ref={searchContainerRef} className="hidden sm:block relative flex-1 max-w-md">
+            <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+              <div ref={searchContainerRef} className="hidden sm:block relative w-36 xl:w-44 2xl:w-64 flex-shrink-0">
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <svg
                     className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-mist)] pointer-events-none"
@@ -243,6 +238,7 @@ export function Header({
                     onFocus={() => { if (searchQuery.trim().length > 0) setShowSearchResults(true); }}
 
                     className="w-full h-10 pl-10 pr-10 py-2 text-sm bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-md)] focus:border-[var(--color-gold)] focus:outline-none focus:ring-3 focus:ring-[var(--color-gold)]/20 transition-all duration-200 placeholder:text-[var(--color-mist)] [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+                    role="combobox"
                     aria-label="Search products"
                     aria-autocomplete="list"
                     aria-controls="search-results"
@@ -414,16 +410,16 @@ function NavItemComponent({ item, index, searchInputRef, setShowSearchResults }:
       <Link
         href={item.href}
         className={cn(
-          'px-2 xl:px-3 py-1.5 xl:py-2 text-xs xl:text-sm font-medium uppercase tracking-wider transition-colors duration-150 whitespace-nowrap inline-flex items-center',
-          'hover:text-[var(--color-gold)]',
-          isHovered && 'text-[var(--color-gold)]'
+          'px-1.5 xl:px-1.5 2xl:px-3 py-1.5 2xl:py-2 text-[11px] 2xl:text-sm font-medium uppercase tracking-normal 2xl:tracking-wider transition-colors duration-150 whitespace-nowrap inline-flex items-center',
+          'hover:text-[var(--color-gold-text)]',
+          isHovered && 'text-[var(--color-gold-text)]'
         )}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         {item.label}
         {(hasChildren || hasMegaMenu) && (
-          <svg className="ml-0.5 xl:ml-1 inline h-3.5 w-3.5 xl:h-4 xl:w-4 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg className="ml-0.5 2xl:ml-1 inline h-3 w-3 xl:h-3.5 xl:w-3.5 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M6 9l6 6 6-6" />
           </svg>
         )}

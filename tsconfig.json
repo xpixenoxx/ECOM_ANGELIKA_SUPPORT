@@ -45,5 +45,5 @@
     ".next/types/**/*.ts",
     "supabase/functions/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "out", "dist", "build", "**/*.stories.tsx", "**/*.test.tsx", "**/*.test.ts", "**/*.spec.tsx", "**/*.spec.ts", "**/test-utils.tsx"]
+  "exclude": ["node_modules", ".next", "out", "dist", "build", "**/*.stories.tsx"]
 }

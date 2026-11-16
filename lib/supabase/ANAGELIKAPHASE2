@@ -1,0 +1,1421 @@
+
+# ANGELIKA FASHIONS — FINAL MASTER IMPLEMENTATION PLANNING & COMPLETE EXPERIENCE TRANSFORMATION
+
+## MISSION
+
+You are now responsible for preparing the final, production-grade implementation plan for the entire Angelika Fashions e-commerce platform.
+
+Project directory: `E:\Angelika_s`
+
+Your objective is to transform the existing application into an exceptionally polished, premium women's fashion e-commerce platform with:
+
+- A distinctive, internationally competitive luxury fashion identity.
+- An outstanding customer shopping experience.
+- A complete, reliable end-to-end e-commerce business operation.
+- Secure and financially accurate payment processing.
+- Fully functional administration and business management.
+- Reliable shipping, tracking, returns, exchanges and refunds.
+- A maintainable, production-ready backend and database.
+- A performance architecture designed and validated for 10,000 concurrent users.
+
+This is a comprehensive implementation-planning assignment.
+
+You are NOT being asked to conduct another generic audit, reproduce the Phase 2 report, or begin implementing random fixes.
+
+You must use the existing Phase 2 Forensic Audit and Master Implementation Plan as the foundation, critically validate its proposed implementation, identify everything that is missing or contradictory, resolve the technical decisions, and produce one final consolidated implementation plan.
+
+**You are authorized to recommend and plan whatever modifications, additions, replacements, removals, redesigns, migrations or architectural changes are genuinely necessary. Do not preserve defective existing implementations merely to avoid changing them.**
+
+However, every change must have a technical or business justification. Avoid unnecessary rewrites, speculative features, overengineering, unnecessary dependencies and architectural complexity.
+
+---
+
+# 1. MANDATORY PROJECT DISCOVERY
+
+Before preparing the implementation plan, inspect the actual project.
+
+Read and follow all existing project instructions and documentation, including:
+
+- `AGENTS.md`, if present.
+- `GEMINI.md`, if present.
+- `RESTRUCTURING_PLAN.md`.
+- `lib/supabase/PHASE2PROMPT`.
+- The completed Phase 2 Forensic Audit and Master Implementation Plan.
+- `docs/memory/MEMORY.md`.
+- `docs/memory/project-overview.md`.
+- `docs/memory/architecture-plan.md`.
+- `docs/memory/admin-panel-spec.md`.
+- `docs/memory/design-system.md`.
+- `docs/memory/feature-roadmap.md`.
+- `docs/memory/deployment-flow.md`.
+- `docs/memory/research-findings.md`.
+- `docs/memory/session-log.md`.
+- Relevant package configuration, database migrations, application types, environment templates and existing test suites.
+
+Do not assume these filenames or paths exist. Discover their actual locations first.
+
+If new project instructions are necessary, recommend them in the plan rather than silently creating or modifying them.
+
+### Actual implementation verification
+
+Inspect the actual source code and confirm:
+
+1. Current application framework and version.
+2. Existing frontend and backend architecture.
+3. Existing routes and nested layouts.
+4. All customer-facing pages and components.
+5. All admin pages and components.
+6. Server Actions, API routes and service integrations.
+7. Database schema, migrations, RPCs, indexes and RLS policies.
+8. Authentication and authorization implementation.
+9. Payment and shipping integrations.
+10. Image storage and content management.
+11. Current testing architecture.
+12. Existing deployment and hosting configuration.
+
+Treat every finding in the Phase 2 report as something to validate against the current implementation before changing it.
+
+Do not blindly copy proposed code or migrations from the report.
+
+### Critical rule
+
+Maintain a traceable relationship:
+
+`Existing Finding → Verified Root Cause → Required Change → Dependencies → Implementation File → Acceptance Criteria → Test`
+
+Every important proposed change must follow this chain.
+
+---
+
+# 2. FINAL MASTER ARCHITECTURE DECISIONS
+
+Review the current architecture and determine the simplest reliable production architecture.
+
+Do not automatically retain every existing abstraction.
+
+Evaluate:
+
+- Server Components versus Client Components.
+- Server Actions versus API routes.
+- Repository and service layers.
+- Database access patterns.
+- Supabase Auth and service-role usage.
+- PostgreSQL transactions and RPC functions.
+- Caching and revalidation.
+- Image optimization and media storage.
+- Content management and design-token persistence.
+- Background jobs and webhook processing.
+- Logging, monitoring and error handling.
+
+For every architectural change, document:
+
+1. Existing implementation.
+2. Actual limitation.
+3. Proposed implementation.
+4. Why the new approach is better.
+5. Files and modules affected.
+6. Migration requirements.
+7. Testing requirements.
+8. Rollback considerations.
+
+Do not introduce microservices unless a demonstrated requirement justifies them.
+
+Prefer a modular, maintainable application with clear boundaries over unnecessary infrastructure.
+
+### Single sources of truth
+
+Establish authoritative sources for:
+
+- Product information.
+- Product variants.
+- Pricing.
+- Product images.
+- Inventory.
+- Coupons.
+- Orders.
+- Payment transactions.
+- Shipping and tracking.
+- Customer addresses.
+- Customer measurements.
+- Reviews.
+- Loyalty points.
+- Store configuration.
+- Navigation.
+- Homepage and editorial content.
+- Design tokens.
+
+Resolve conflicts between Supabase, JSON files, local storage, hardcoded data and mock data.
+
+Do not leave two competing sources of truth.
+
+---
+
+# 3. COMPLETE UI/UX TRANSFORMATION — EVERY PAGE AND EVERY SECTION
+
+This is one of the most important parts of the assignment.
+
+I do not want a generic UI review or a few cosmetic improvements.
+
+I want a complete, page-by-page, section-by-section implementation plan for the entire Angelika Fashions experience.
+
+You are permitted to redesign, restructure, replace, consolidate or remove existing UI elements wherever the existing implementation is inadequate.
+
+The result must feel like a premium international women's fashion label, not a generic e-commerce template.
+
+## 3.1 Brand and visual identity
+
+Establish a unified visual direction for Angelika Fashions.
+
+Evaluate and specify:
+
+- Brand personality.
+- Visual positioning.
+- Color system.
+- Typography hierarchy.
+- Heading and body font combinations.
+- Font weights and line heights.
+- Spacing system.
+- Grid and layout principles.
+- Border and divider treatments.
+- Image treatments.
+- Iconography.
+- Button styles.
+- Form controls.
+- Cards.
+- Drawers and modals.
+- Badges and labels.
+- Motion and transition principles.
+- Responsive design tokens.
+- Accessibility tokens.
+
+The overall design should communicate:
+
+- Premium craftsmanship.
+- Sophisticated women's fashion.
+- Refined Indian ethnic wear.
+- Editorial storytelling.
+- Confidence and exclusivity.
+- Trust and purchasing confidence.
+
+Avoid excessive gradients, unnecessary decorative elements, generic template sections, inconsistent rounded cards, excessive shadows and visual clutter.
+
+Do not sacrifice usability for visual appearance.
+
+## 3.2 Complete storefront route inventory
+
+Discover every existing customer-facing route, including nested routes and dynamic routes.
+
+At a minimum, inspect and plan the following:
+
+### A. Global storefront experience
+
+1. Announcement bar.
+2. Main header.
+3. Logo presentation.
+4. Desktop navigation.
+5. Mega menu.
+6. Mobile navigation.
+7. Search interface.
+8. Search suggestions.
+9. Search results.
+10. Cart icon and count.
+11. Wishlist icon and count.
+12. Account access.
+13. WhatsApp concierge.
+14. Footer.
+15. Newsletter.
+16. Trust indicators.
+17. Promotional notifications.
+18. Global toast system.
+19. Loading states.
+20. Global error and empty states.
+
+Specify how every global component behaves across desktop, tablet and mobile.
+
+### B. Homepage
+
+Inspect every existing homepage section and decide whether it should be retained, improved, redesigned, replaced or removed.
+
+Cover:
+
+1. Hero section.
+2. Hero photography and media.
+3. Primary and secondary CTAs.
+4. Featured collections.
+5. Category showcases.
+6. New arrivals.
+7. Bestsellers or curated selections.
+8. Vidhya's Picks.
+9. Editorial storytelling.
+10. Brand story.
+11. Bespoke atelier section.
+12. Shop the Look.
+13. Promotional campaigns.
+14. Trust and service information.
+15. Newsletter.
+16. Footer transition.
+
+For each section specify:
+
+- Its business purpose.
+- Visual layout.
+- Content hierarchy.
+- Photography requirements.
+- Image aspect ratios.
+- Desktop layout.
+- Mobile layout.
+- Interaction behavior.
+- Navigation destinations.
+- CMS requirements.
+- Loading and empty states.
+- Acceptance criteria.
+
+Do not retain a section simply because it currently exists.
+
+### C. Product discovery and shopping pages
+
+Plan every relevant route:
+
+- `/shop`
+- `/shop/[category]`
+- `/vidhyas-picks`
+- `/new-arrivals`
+- `/sale`
+- All existing category-specific pages.
+- Search result pages.
+- Campaign or occasion pages.
+
+Cover:
+
+1. Page title and editorial introduction.
+2. Category navigation.
+3. Product count.
+4. Filter interface.
+5. Sort interface.
+6. Price filtering.
+7. Size filtering.
+8. Color filtering.
+9. Occasion filtering.
+10. Fabric filtering.
+11. Availability filtering.
+12. Active filter chips.
+13. Clear-all behavior.
+14. Product grid.
+15. List view, if retained.
+16. Product cards.
+17. Wishlist interactions.
+18. Quick view, if appropriate.
+19. Pagination or infinite loading.
+20. No-results state.
+21. Loading skeletons.
+22. Mobile filter drawer.
+23. URL query synchronization.
+24. SEO metadata.
+
+Every filter must actually work. Every product card must navigate correctly. Every interaction must have a defined outcome.
+
+### D. Product detail page — highest shopping priority
+
+Plan the complete PDP from top to bottom.
+
+Inspect:
+
+1. Product image gallery.
+2. Image zoom.
+3. Fullscreen gallery.
+4. Image thumbnails.
+5. Product name.
+6. Product description.
+7. Price.
+8. Compare-at price.
+9. Discount calculation.
+10. Rating and review count.
+11. Product availability.
+12. Size selector.
+13. Color selector.
+14. Variant selection.
+15. Quantity selector.
+16. Size guide.
+17. Fit finder.
+18. Product measurements.
+19. Fabric information.
+20. Product details.
+21. Craftsmanship information.
+22. Shipping information.
+23. Return policy.
+24. Delivery estimate.
+25. Add to Bag.
+26. Buy Now.
+27. Wishlist.
+28. Product recommendations.
+29. Related products.
+30. Complete the Look.
+31. Reviews.
+32. Review submission.
+33. Verified purchase indicator.
+34. Helpful review interaction.
+35. Recently viewed products.
+
+For every element, define:
+
+- Correct data source.
+- Interaction logic.
+- Validation.
+- Error states.
+- Mobile behavior.
+- Accessibility.
+- Analytics event, if needed.
+
+Pay particular attention to variant-specific pricing, inventory, images, sizes and colors.
+
+A customer must never add the wrong variant or wrong price to the cart.
+
+### E. Shopping cart and checkout
+
+Plan:
+
+- Cart drawer.
+- Full cart page.
+- Cart item editing.
+- Variant changes.
+- Quantity changes.
+- Remove item.
+- Save for later, if retained.
+- Coupon application.
+- Coupon removal.
+- Discount breakdown.
+- Shipping charges.
+- COD charges.
+- Taxes.
+- Free-shipping progress.
+- Order summary.
+- Empty cart.
+- Guest checkout.
+- Authenticated checkout.
+
+Checkout must include:
+
+1. Contact information.
+2. Guest and registered customer flows.
+3. Address entry.
+4. Saved addresses.
+5. Address selection.
+6. Address validation.
+7. Pincode serviceability.
+8. Delivery estimation.
+9. Shipping method.
+10. Payment method.
+11. Order summary.
+12. Coupon validation.
+13. COD eligibility.
+14. Terms and consent.
+15. Order placement.
+16. Payment processing.
+17. Payment failure.
+18. Payment retry.
+19. Duplicate submission prevention.
+20. Confirmation and recovery states.
+
+Document every transition.
+
+### F. Customer account
+
+Inspect and plan every existing account route:
+
+- Account dashboard.
+- Profile.
+- Personal information.
+- Addresses.
+- Orders.
+- Individual order details.
+- Wishlist.
+- Loyalty.
+- Measurements.
+- Fit profile.
+- Reviews.
+- Password and security.
+- Logout.
+- Account-related empty and error states.
+
+Do not leave placeholder tabs or dead buttons.
+
+Unify account information across checkout, customer profile and database storage.
+
+### G. Post-purchase pages
+
+Cover:
+
+- Order success.
+- Order details.
+- Order tracking.
+- Shipment timeline.
+- Delivery updates.
+- Cancellation.
+- Return request.
+- Exchange request.
+- Refund status.
+- Review submission.
+- Guest order lookup.
+- Customer support.
+
+Tracking must display actual order and shipment information. Never display fabricated courier events or tracking numbers.
+
+### H. Informational and brand pages
+
+Inspect every existing page, including:
+
+- About.
+- About the founder or designer.
+- Brand story.
+- Artisan stories.
+- Contact.
+- Wholesale.
+- FAQ.
+- Shipping policy.
+- Returns policy.
+- Privacy policy.
+- Terms.
+- Cookies.
+- Accessibility.
+- Any other existing informational routes.
+
+All forms must have real persistence or a real delivery integration.
+
+Remove dead links, missing routes, placeholder contact details and fake form submissions.
+
+---
+
+# 4. UI IMPLEMENTATION SPECIFICATION — NOT JUST DESIGN SUGGESTIONS
+
+For every UI change, provide a precise implementation specification.
+
+Use this structure:
+
+| Field | Required information |
+|---|---|
+| Route | Exact page path |
+| Section | Exact component or page section |
+| Current implementation | What exists today |
+| Problem | Verified issue |
+| Proposed design | Specific visual and structural change |
+| Desktop behavior | Exact layout and interaction |
+| Tablet behavior | Exact layout and interaction |
+| Mobile behavior | Exact layout and interaction |
+| Data source | Actual backend or CMS source |
+| Interaction | Expected behavior |
+| Accessibility | Keyboard, screen reader and focus behavior |
+| Loading state | Expected appearance |
+| Empty state | Expected appearance |
+| Error state | Expected appearance |
+| Files affected | Exact existing and new paths |
+| Acceptance criteria | Testable conditions |
+| Dependencies | Other changes required |
+
+Do not write statements such as:
+
+- Make the page more premium.
+- Improve the design.
+- Make it modern.
+- Improve responsiveness.
+- Enhance user experience.
+
+Those statements are insufficient.
+
+Specify the actual implementation.
+
+### Visual quality requirements
+
+Evaluate the complete experience at realistic viewport sizes:
+
+- Small mobile.
+- Standard mobile.
+- Large mobile.
+- Tablet portrait.
+- Tablet landscape.
+- Laptop.
+- Desktop.
+- Large desktop.
+
+Define consistent behavior for:
+
+- Container widths.
+- Grid columns.
+- Product image ratios.
+- Typography scaling.
+- Navigation.
+- Drawers.
+- Modals.
+- Sticky elements.
+- Scroll behavior.
+- Image cropping.
+- Text wrapping.
+- Touch targets.
+
+Respect reduced-motion preferences.
+
+Avoid layout shifts and horizontal overflow.
+
+### Image and photography requirements
+
+Perform a complete asset review.
+
+Identify:
+
+- Duplicate images.
+- Placeholder images.
+- Incorrect product associations.
+- Missing product images.
+- Low-resolution assets.
+- Incorrect aspect ratios.
+- Poor crops.
+- Inconsistent photography.
+- Incorrect image ordering.
+- Missing alt text.
+- Oversized files.
+- Unsupported or unsuitable formats.
+
+Plan the image pipeline, responsive image delivery, storage, compression and CDN strategy.
+
+Product imagery must accurately represent the actual product.
+
+Do not use arbitrary stock photography as a substitute for product photography.
+
+---
+
+# 5. COMPLETE ADMIN PANEL TRANSFORMATION
+
+The admin panel must function as a real business operating system.
+
+Inspect every existing admin route and nested page.
+
+Cover at least:
+
+1. Admin authentication.
+2. Dashboard.
+3. Products.
+4. Product creation.
+5. Product editing.
+6. Product variants.
+7. Product images.
+8. Categories.
+9. Collections.
+10. Inventory.
+11. Reviews.
+12. Coupons.
+13. Orders.
+14. Order details.
+15. Payments.
+16. Shipments.
+17. Tracking.
+18. Returns.
+19. Exchanges.
+20. Refunds.
+21. Customers.
+22. Customer segments.
+23. Loyalty.
+24. Angelika Circle.
+25. Newsletter.
+26. WhatsApp concierge.
+27. WhatsApp templates.
+28. WhatsApp flows.
+29. Analytics.
+30. Campaigns.
+31. CMS content.
+32. Homepage editors.
+33. Category page editors.
+34. Design tokens.
+35. Navigation management.
+36. Store settings.
+37. Email settings.
+38. Notification settings.
+39. Payment settings.
+40. Shipping settings.
+41. Tax settings.
+42. Webhook settings.
+43. Admin roles and permissions.
+44. Audit logs.
+
+For every module, specify:
+
+- Actual data source.
+- Required CRUD operations.
+- Validation.
+- Server-side authorization.
+- Persistence.
+- Loading and empty states.
+- Error handling.
+- Audit logging.
+- Search and filters.
+- Bulk actions.
+- Export functionality, where appropriate.
+- Acceptance tests.
+
+Remove or replace mocked functionality.
+
+No button may remain visually active if it has no real action.
+
+No admin module may expose privileged data or operations to unauthorized users.
+
+### Admin role design
+
+Define least-privilege permissions for each role.
+
+Do not assume that hiding a button is authorization.
+
+Enforce authorization on the server for every privileged operation.
+
+---
+
+# 6. COMPLETE COMMERCE AND BUSINESS LIFECYCLE
+
+Design the actual business workflows, not just the pages that display them.
+
+Map the complete lifecycle:
+
+`Customer Visit → Product Discovery → Product Selection → Cart → Checkout → Order Creation → Payment → Confirmation → Fulfillment → Shipment → Tracking → Delivery → Return/Exchange → Refund or Replacement → Customer Retention`
+
+For each transition specify:
+
+- Trigger.
+- Actor.
+- Frontend action.
+- Backend action.
+- Database changes.
+- External provider.
+- Validation.
+- State transition.
+- Notifications.
+- Failure scenarios.
+- Retry strategy.
+- Idempotency.
+- Recovery.
+- Audit log.
+- Tests.
+
+### Order state machine
+
+Define a coherent order state machine.
+
+Keep payment state separate from fulfillment state.
+
+Cover:
+
+- Pending.
+- Confirmed.
+- Processing.
+- Shipped.
+- Out for delivery.
+- Delivered.
+- Cancelled.
+- Delivery failed.
+- RTO.
+
+Define which transitions are allowed and which are forbidden.
+
+Avoid uncontrolled status updates from the admin interface.
+
+### Inventory lifecycle
+
+Design inventory reservation and release correctly.
+
+For online payments:
+
+1. Atomically validate and reserve stock.
+2. Associate the reservation with an order and payment attempt.
+3. Set an expiry.
+4. Confirm the reservation after successful payment.
+5. Release stock after payment failure or expiry.
+6. Handle late payment success safely.
+7. Prevent duplicate stock restoration.
+
+For COD, define the appropriate immediate allocation and cancellation behavior.
+
+For returns, restore sellable inventory only after inspection and approval.
+
+For exchanges, define how the original item, replacement variant and stock movements are handled.
+
+Prevent overselling under concurrent purchases.
+
+### Returns, exchanges and RTO
+
+Define the complete lifecycle:
+
+`Requested → Approved/Rejected → Pickup Scheduled → Picked Up → Received → Inspected → Refund/Exchange Decision → Completed`
+
+Also cover:
+
+- Return eligibility.
+- Return-window calculation.
+- Final-sale exclusions.
+- Partial returns.
+- Multiple-item orders.
+- Failed pickup.
+- Damaged products.
+- Incorrect products.
+- Missing items.
+- Exchange stock availability.
+- Refund delays.
+- Rejected returns.
+- Reverse logistics.
+- RTO.
+- Reconciliation.
+
+---
+
+# 7. PAYMENT AND FINANCIAL INTEGRITY
+
+Audit and plan every payment provider currently implemented.
+
+Do not assume Razorpay, Stripe or COD is fully functional.
+
+Verify the actual integration.
+
+Cover:
+
+- Order creation.
+- Payment intent/order creation.
+- Gateway amount conversion.
+- Currency.
+- Signature verification.
+- Webhook verification.
+- Webhook idempotency.
+- Payment success.
+- Payment failure.
+- Customer cancellation.
+- Duplicate callbacks.
+- Delayed callbacks.
+- Webhook retries.
+- Partial refunds.
+- Full refunds.
+- Failed refunds.
+- Refund reconciliation.
+- Payment disputes.
+- COD collection.
+- COD cancellation.
+- Payment status synchronization.
+
+### Financial source of truth
+
+Define consistent storage units.
+
+For INR, establish one database representation and convert only at the gateway boundary.
+
+Verify:
+
+- Subtotal.
+- Discounts.
+- Coupons.
+- Shipping.
+- COD charges.
+- Taxes.
+- Total.
+- Amount captured.
+- Amount refunded.
+- Partial refund balance.
+
+All calculations must be server-authoritative.
+
+Never trust client-supplied prices, discounts, tax amounts or totals.
+
+Use database transactions and idempotency wherever required.
+
+Include tests for ₹1, ₹99, ₹499, ₹999, ₹6,499, ₹10,000 and high-value orders, along with partial refunds and rounding edge cases.
+
+---
+
+# 8. SHIPPING, COURIER AND TRACKING
+
+Review the existing courier integration architecture.
+
+Evaluate Shiprocket as the proposed primary logistics aggregator, but validate the integration requirements before finalizing the choice.
+
+Design a provider-independent logistics interface where justified.
+
+Cover:
+
+- Pincode serviceability.
+- Shipping rates.
+- Shipment creation.
+- Pickup request.
+- AWB generation.
+- Shipping label.
+- Manifest.
+- Courier assignment.
+- Pickup confirmation.
+- In-transit updates.
+- Out-for-delivery updates.
+- Delivery confirmation.
+- Failed delivery.
+- NDR.
+- RTO.
+- Reverse pickup.
+- Return shipment.
+- Tracking synchronization.
+- Webhook verification.
+- Duplicate events.
+- Missing events.
+- Manual recovery.
+
+Do not create fake AWBs or fabricated tracking events.
+
+If credentials are unavailable, specify a clearly isolated sandbox/mock adapter for testing and never present simulated data as real shipment information.
+
+Define the complete customer notification flow for shipment creation, dispatch, out-for-delivery, delivery and exceptions.
+
+---
+
+# 9. DATABASE, SECURITY AND BACKEND
+
+Review all existing tables, columns, migrations, RPCs, triggers, indexes and RLS policies.
+
+Create a verified schema reconciliation plan.
+
+For every discrepancy, identify:
+
+- Existing database definition.
+- TypeScript definition.
+- Actual application queries.
+- Correct schema.
+- Required migration.
+- Data migration.
+- Backward compatibility.
+- Rollback.
+- Verification.
+
+### Database engineering
+
+Plan:
+
+- Atomic inventory operations.
+- Atomic coupon usage.
+- Order creation transactions.
+- Payment reconciliation.
+- Refund processing.
+- Stock restoration.
+- Search queries.
+- Pagination.
+- Indexes.
+- Foreign keys.
+- Uniqueness constraints.
+- Data validation.
+- Connection usage.
+- Query performance.
+
+Avoid adding indexes without explaining the query pattern they support.
+
+Do not make destructive schema changes without a migration and recovery strategy.
+
+### Security
+
+Cover:
+
+- Authentication.
+- Admin authorization.
+- Role-based access.
+- Server Actions.
+- API routes.
+- RLS.
+- Service-role access.
+- IDOR.
+- OTP security.
+- Brute-force protection.
+- Rate limiting.
+- CSRF where applicable.
+- XSS.
+- Input validation.
+- SQL/PostgREST filter injection.
+- Webhook signatures.
+- Secrets.
+- File uploads.
+- File type validation.
+- Payment security.
+- Customer privacy.
+- Sensitive logging.
+- Session management.
+- Password reset.
+- Guest order access.
+
+Require least privilege.
+
+Never expose service-role credentials to the browser.
+
+Never expose OTPs, private customer information or privileged database data in client responses.
+
+---
+
+# 10. PERFORMANCE AND 10,000 CONCURRENT USERS
+
+The target is an architecture capable of supporting 10,000 concurrent active sessions under a defined and tested workload.
+
+Do not claim this target is achieved merely because the code builds.
+
+Review:
+
+- Server rendering.
+- Static rendering.
+- Dynamic rendering.
+- CDN caching.
+- Database query count.
+- Database connection limits.
+- Serverless concurrency.
+- Filesystem operations.
+- Image delivery.
+- Search.
+- Cart writes.
+- Checkout writes.
+- Webhook bursts.
+- Background processing.
+- Realtime subscriptions.
+
+Use a realistic workload model and document its assumptions.
+
+Include:
+
+1. Baseline testing.
+2. Gradual load testing.
+3. 10,000-session load testing.
+4. Peak traffic testing.
+5. Spike testing.
+6. Stress testing.
+7. Soak testing.
+8. Recovery testing.
+9. Concurrent inventory contention.
+10. Payment webhook bursts.
+
+Define measurable targets for:
+
+- p50 latency.
+- p95 latency.
+- p99 latency.
+- Error rate.
+- Throughput.
+- TTFB.
+- LCP.
+- INP.
+- CLS.
+- Database query latency.
+- Connection saturation.
+- CPU and memory.
+- Image delivery.
+
+Separate static asset throughput from application request throughput.
+
+Define the infrastructure and service limits that must be verified before promising 10,000 concurrent users.
+
+Never perform uncontrolled production load testing.
+
+---
+
+# 11. SEO, DISCOVERABILITY AND CONVERSION
+
+Plan:
+
+- Dynamic metadata.
+- Canonical URLs.
+- Product structured data.
+- Breadcrumb structured data.
+- Organization structured data.
+- Product availability.
+- Price and currency.
+- Review structured data.
+- Sitemap.
+- Robots.
+- Redirects.
+- Category SEO.
+- Product SEO.
+- Image SEO.
+- Internal linking.
+- Duplicate content.
+- Pagination indexing.
+- Open Graph.
+- Social previews.
+- Core Web Vitals.
+
+Also review conversion and customer trust:
+
+- Product information completeness.
+- Delivery clarity.
+- Return policy visibility.
+- Secure payment messaging.
+- Size confidence.
+- Authentic product photography.
+- Reviews.
+- Checkout friction.
+- Guest checkout.
+- Cart recovery, if appropriate.
+
+Do not introduce deceptive urgency, fake scarcity or fabricated reviews.
+
+---
+
+# 12. COMPLETE TESTING STRATEGY
+
+Create a comprehensive test plan for the final implementation.
+
+The existing 34 unit tests are not sufficient evidence of platform readiness.
+
+Include:
+
+### Unit tests
+
+- Pricing.
+- Discounts.
+- Coupons.
+- Tax calculations.
+- Shipping calculations.
+- COD eligibility.
+- Inventory.
+- Order transitions.
+- Payment state transitions.
+- Refunds.
+- Returns.
+- Exchanges.
+- Address validation.
+- Product variants.
+- Cart merging.
+- Loyalty.
+- Authorization.
+
+### Integration tests
+
+- Supabase queries.
+- RLS.
+- RPCs.
+- Database transactions.
+- Payment gateway adapters.
+- Webhook processing.
+- Resend.
+- Logistics.
+- CMS persistence.
+- Admin operations.
+
+### End-to-end tests
+
+Cover the complete customer journey, admin journey and post-purchase journey.
+
+### Security tests
+
+Test unauthorized access, IDOR, privilege escalation, OTP abuse, webhook forgery, injection and rate limits.
+
+### UI tests
+
+Test every page's major interactions, navigation, filters, forms, modals, drawers, loading states and error states.
+
+### Accessibility tests
+
+Target WCAG 2.2 AA where applicable.
+
+### Performance tests
+
+Use controlled workloads and report actual results.
+
+### Regression tests
+
+Ensure that fixing one workflow does not break another.
+
+Create a test matrix with:
+
+`Feature → Scenario → Expected Result → Test Type → Test File → Priority`
+
+Include edge cases, failure cases and recovery scenarios.
+
+---
+
+# 13. IMPLEMENTATION FILE-BY-FILE PLAN
+
+This is a mandatory deliverable.
+
+Produce a complete file-level implementation inventory.
+
+Use the following classifications:
+
+- `[MODIFY]` Existing file requires changes.
+- `[NEW]` New file is required.
+- `[DELETE]` Confirmed dead, duplicate or harmful file should be removed.
+- `[MOVE]` File should be relocated.
+- `[REPLACE]` Existing implementation should be replaced.
+- `[MIGRATION]` Database migration required.
+- `[CONFIG]` Environment or infrastructure configuration required.
+
+For each file include:
+
+1. Exact path.
+2. Current responsibility.
+3. Existing problem.
+4. Proposed change.
+5. Why the change is necessary.
+6. Dependencies.
+7. Tests.
+8. Acceptance criteria.
+
+Do not list broad directories without identifying the relevant files.
+
+Do not invent filenames without checking the repository.
+
+For deletions, confirm there are no remaining imports, route dependencies or hidden usages.
+
+For new files, explain why an existing module cannot reasonably support the requirement.
+
+If a change affects multiple pages, identify every affected route.
+
+---
+
+# 14. IMPLEMENTATION SEQUENCE AND DEPENDENCIES
+
+Build one dependency-ordered implementation roadmap.
+
+The sequence must avoid fixing the same problem multiple times.
+
+Use these suggested workstreams, but adjust the order based on verified dependencies.
+
+**Workstream 0 — Final decisions and architecture**
+
+Resolve open questions, source-of-truth decisions, design-system direction and external integration contracts.
+
+**Workstream 1 — Database and security foundations**
+
+Schema reconciliation, migrations, RLS, authorization, validation and atomic operations.
+
+**Workstream 2 — Core commerce**
+
+Products, variants, pricing, inventory, coupons, cart and checkout.
+
+**Workstream 3 — Payments and financial workflows**
+
+Razorpay, Stripe, COD, webhooks, reconciliation, refunds and notifications.
+
+**Workstream 4 — Shipping and post-purchase**
+
+Courier integration, AWB, tracking, delivery, cancellation, RTO, returns and exchanges.
+
+**Workstream 5 — Admin operating system**
+
+Products, orders, inventory, customers, CMS, settings, analytics and permissions.
+
+**Workstream 6 — Storefront UI/UX transformation**
+
+Design system, global layout, homepage, discovery, PDP, cart, checkout, account and post-purchase pages.
+
+**Workstream 7 — SEO, accessibility and performance**
+
+Optimization, metadata, images, caching, monitoring and scalability.
+
+**Workstream 8 — Full verification**
+
+Unit, integration, E2E, security, accessibility, regression and controlled load tests.
+
+For every workstream specify:
+
+- Tasks.
+- Exact files.
+- Dependencies.
+- Database migrations.
+- External dependencies.
+- Risks.
+- Test requirements.
+- Exit criteria.
+- Rollback approach.
+
+Identify tasks that can safely run in parallel and those that must remain sequential.
+
+---
+
+# 15. CRITICAL OPEN DECISIONS
+
+The Phase 2 report contains open questions, including:
+
+1. Whether local development should allow a strictly isolated admin access mode when Supabase credentials are placeholders.
+2. Whether Shiprocket should be the primary logistics aggregator.
+
+Revalidate these decisions.
+
+Do not leave them unresolved silently.
+
+Recommend the safest practical default and explain the consequences.
+
+Also identify any additional decisions that genuinely require business-owner input.
+
+Do not interrupt planning for questions that can be answered through repository inspection or reasonable engineering judgment.
+
+Group decisions into:
+
+- Must decide before implementation.
+- Can decide during implementation.
+- Can remain configurable.
+
+---
+
+# 16. REQUIRED FINAL DELIVERABLES
+
+Your final planning document must contain the following sections.
+
+**A. Executive Implementation Strategy**
+
+Overall transformation objective, current state and target state.
+
+**B. Phase 2 Finding Verification**
+
+Which findings remain valid, which are already resolved, which are incorrect and which require external verification.
+
+**C. Final Architecture**
+
+The approved proposed application architecture and source-of-truth decisions.
+
+**D. Complete UI/UX Transformation Blueprint**
+
+Every route, every page and every section, with exact design and interaction specifications.
+
+**E. Design System Specification**
+
+Tokens, typography, spacing, layouts, components, imagery and motion.
+
+**F. Storefront Implementation Matrix**
+
+All customer-facing pages and components.
+
+**G. Admin Implementation Matrix**
+
+All admin modules and their required behavior.
+
+**H. Complete Business Lifecycle**
+
+Order, payment, inventory, shipment, delivery, return, exchange and refund state machines.
+
+**I. Database and Migration Plan**
+
+Schema, constraints, indexes, RLS, RPCs, data migration and rollback.
+
+**J. Security Implementation Plan**
+
+All critical and high-priority security fixes.
+
+**K. Performance and Scalability Plan**
+
+10,000-user workload assumptions, architecture changes, load-test design and measurable targets.
+
+**L. SEO and Accessibility Plan**
+
+Technical SEO, structured data, WCAG and Core Web Vitals.
+
+**M. Complete File-Level Change Inventory**
+
+All `[MODIFY]`, `[NEW]`, `[DELETE]`, `[MOVE]`, `[REPLACE]`, `[MIGRATION]` and `[CONFIG]` entries.
+
+**N. Complete Testing Matrix**
+
+Unit, integration, E2E, UI, security, accessibility, regression and performance tests.
+
+**O. Dependency-Ordered Implementation Roadmap**
+
+Workstreams, milestones, sequencing and acceptance gates.
+
+**P. External Dependencies and Credentials**
+
+Required payment, email, logistics, storage, hosting and monitoring configuration. Never expose actual secret values.
+
+**Q. Risk Register and Rollback Strategy**
+
+Financial, security, data, operational, UI and deployment risks.
+
+**R. Production Readiness Checklist**
+
+Every condition that must pass before deployment.
+
+**S. Unresolved Decisions**
+
+Only genuinely unresolved business decisions.
+
+**T. Final Approval Summary**
+
+A clear summary of exactly what will change, what will be replaced, what will be removed, what will be added and what must be tested.
+
+---
+
+# 17. STRICT ENGINEERING AND PLANNING RULES
+
+1. Do not repeat the entire Phase 2 audit unnecessarily.
+2. Do not blindly trust the Phase 2 report.
+3. Verify current source code before proposing a change.
+4. Do not invent database columns, APIs, files or external integrations.
+5. Do not assume credentials or provider access exist.
+6. Do not introduce unnecessary libraries.
+7. Do not add unnecessary architectural layers.
+8. Do not create mock functionality as a substitute for production functionality.
+9. Do not leave dead buttons or non-persistent forms.
+10. Do not preserve broken UI simply because it exists.
+11. Do not redesign only the homepage while ignoring the remaining pages.
+12. Do not provide generic UI suggestions.
+13. Do not leave any existing route unclassified.
+14. Do not silently ignore mobile, tablet or accessibility behavior.
+15. Do not perform destructive database operations without a migration and rollback plan.
+16. Do not weaken security to make development easier.
+17. Do not treat successful compilation as proof of functional correctness.
+18. Do not claim 10,000-user readiness without measured load-test evidence.
+19. Do not claim payment or courier integration works without testing the actual provider workflow.
+20. Do not create duplicate implementations for existing features.
+21. Do not overcomplicate the architecture.
+22. Every proposed modification must have a reason and measurable acceptance criteria.
+23. Every critical workflow must have failure handling and recovery.
+24. Every UI action must have a defined functional outcome.
+25. Every database mutation must have a defined authorization boundary.
+
+---
+
+# 18. EXECUTION RESTRICTIONS — IMPORTANT
+
+This task is strictly for planning.
+
+Use the planning workflow (`/plan`) and prepare the complete implementation plan.
+
+You may inspect source files, analyze code, inspect configuration and run safe, read-only discovery commands.
+
+You must NOT:
+
+- Modify application source code.
+- Create or alter migrations.
+- Modify the database.
+- Install or remove packages.
+- Change environment variables.
+- Modify provider settings.
+- Deploy the application.
+- Run destructive commands.
+- Perform uncontrolled load tests.
+- Delete files.
+- Begin implementing UI changes.
+
+You are allowed to propose all such changes in the plan, including extensive UI redesigns, component replacements, architecture modifications and database migrations.
+
+**Do not start implementation before I review and explicitly approve the final plan.**
+
+---
+
+# 19. FINAL QUALITY EXPECTATION
+
+I do not want a short summary, a generic roadmap or another list of recommendations.
+
+I want a technically detailed, implementation-ready master plan that an engineering team can execute without repeatedly rediscovering requirements.
+
+The plan must be sufficiently detailed that:
+
+- Every page has an implementation specification.
+- Every UI section has a design and behavior specification.
+- Every important file change is identified.
+- Every database change is accounted for.
+- Every business workflow has a defined lifecycle.
+- Every payment transition is financially correct.
+- Every security issue has a concrete remediation.
+- Every external integration has a clear contract.
+- Every important edge case has a test.
+- Every implementation dependency is understood.
+- Every major change has acceptance criteria.
+- Every risky change has a recovery strategy.
+
+The finished platform should deliver an exceptionally refined luxury fashion experience while operating as a reliable, secure and scalable e-commerce business.
+
+**Be exhaustive, precise, critical and engineering-driven.**
+
+The goal is not to make the existing code look better.
+
+The goal is to determine exactly what Angelika Fashions needs, plan every necessary change, and produce the final implementation blueprint.
+
+**Finish the complete plan, validate its internal consistency, and stop for my approval.**

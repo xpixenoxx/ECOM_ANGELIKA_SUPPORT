@@ -1,28 +1,65 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Truck, Check, Save } from 'lucide-react';
+import { Truck } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
+import {
+  getExtendedStoreSettings,
+  saveExtendedStoreSettings,
+} from '@/lib/actions/store-settings';
 
 export default function ShippingSettingsPage() {
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState('999');
-  const [standardRate, setStandardRate] = useState('150');
-  const [expressRate, setExpressRate] = useState('250');
-  const [defaultPartner, setDefaultPartner] = useState('Delhivery Express');
-  const [estimatedDays, setEstimatedDays] = useState('3-5 business days');
-
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function handleSave(e: React.FormEvent) {
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState('2999');
+  const [standardRate, setStandardRate] = useState('99');
+  const [expressRate, setExpressRate] = useState('249');
+  const [defaultPartner, setDefaultPartner] = useState('Delhivery Express');
+  const [estimatedDays, setEstimatedDays] = useState('5-7 business days');
+
+  const [shiprocketConfigured, setShiprocketConfigured] = useState(false);
+  const [delhiveryWebhookConfigured, setDelhiveryWebhookConfigured] = useState(false);
+
+  useEffect(() => {
+    getExtendedStoreSettings()
+      .then((res) => {
+        setFreeShippingThreshold(String(res.freeShippingThreshold));
+        setStandardRate(String(res.extended.shipping.standardRate));
+        setExpressRate(String(res.extended.shipping.expressRate));
+        setDefaultPartner(res.extended.shipping.defaultPartner);
+        setEstimatedDays(res.extended.shipping.estimatedDays);
+        setShiprocketConfigured(res.serviceHealth.shiprocketConfigured);
+        setDelhiveryWebhookConfigured(res.serviceHealth.delhiveryWebhookConfigured);
+        if (!res.success && res.error) setErrorMsg(res.error);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setTimeout(() => {
+    setErrorMsg(null);
+    try {
+      const res = await saveExtendedStoreSettings('shipping', {
+        freeShippingThreshold: Number(freeShippingThreshold) || 0,
+        standardRate: Number(standardRate) || 0,
+        expressRate: Number(expressRate) || 0,
+        defaultPartner: defaultPartner.trim(),
+        estimatedDays: estimatedDays.trim(),
+      });
+      if (!res.success) {
+        setErrorMsg(res.error || 'Failed to save shipping settings.');
+        toast.error(res.error || 'Failed to save shipping settings.');
+        return;
+      }
+      toast.success('Shipping settings persisted to Supabase!');
+    } finally {
       setSaving(false);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    }, 600);
+    }
   }
 
   return (
@@ -35,95 +72,116 @@ export default function ShippingSettingsPage() {
             </h1>
             <AdminSectionInfo
               title="Pan-India Logistics & Delivery"
-              purpose="Configure Pan-India shipping rates, free shipping thresholds, courier integration (Delhivery, BlueDart), and estimated delivery timeframes."
-              storefrontImpact="Drives the Free Shipping progress bar in the Cart Drawer, shipping calculation on the checkout page, and estimated delivery dates on Product Detail Pages."
+              purpose="Configure Pan-India shipping rates, free shipping thresholds, courier partners, and estimated delivery timeframes."
+              storefrontImpact="Persists shipping threshold and rates in Supabase store_settings for Cart and Checkout calculations."
               targets={[
-                { name: 'Cart Drawer', path: '/cart', description: 'Free shipping progress calculator' },
-                { name: 'Storefront Checkout', path: '/checkout', description: 'Shipping fee and address validation' },
-                { name: 'Shipping Policy Page', path: '/shipping', description: 'Official customer delivery policies' },
+                { name: 'Cart Page', path: '/cart', description: 'Free shipping progress calculator' },
+                { name: 'Storefront Checkout', path: '/checkout', description: 'Shipping fee calculation' },
               ]}
             />
           </div>
           <p className="text-sm text-[var(--color-slate,#666666)] mt-1">
-            Free shipping threshold, courier partners, and transit timeframes
+            Free shipping threshold, flat rates, and courier integrations
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || loading}
           className="flex items-center gap-2 bg-[var(--color-gold,#C9A84C)] text-white rounded-xl px-5 py-2.5 font-medium text-sm hover:opacity-90 shadow-sm transition-opacity self-start sm:self-auto disabled:opacity-50"
         >
-          {saving ? 'Saving...' : saved ? '✓ Saved!' : 'Save Shipping Settings'}
+          {saving ? 'Saving...' : 'Save Shipping Settings'}
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
-        <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
-          <Truck className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
-          Pan-India Shipping Rules
-        </h2>
+      {errorMsg && (
+        <div role="alert" className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
+          {errorMsg}
+        </div>
+      )}
+
+      <form onSubmit={handleSave} className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-[var(--color-whisper,#E5E5E5)]">
+          <h2 className="text-base font-semibold text-[var(--color-ink,#111111)] flex items-center gap-2">
+            <Truck className="w-4 h-4 text-[var(--color-gold,#C9A84C)]" />
+            Pan-India Shipping Rules
+          </h2>
+          <span className="text-xs text-[var(--color-slate)]">
+            Shiprocket API: <strong>{shiprocketConfigured ? 'Configured' : 'Not Configured'}</strong> · Delhivery Webhook: <strong>{delhiveryWebhookConfigured ? 'Configured' : 'Not Configured'}</strong>
+          </span>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+            <label htmlFor="freeThreshold" className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
               Free Shipping Order Threshold (₹)
             </label>
             <input
+              id="freeThreshold"
               type="number"
+              min={0}
               value={freeShippingThreshold}
               onChange={(e) => setFreeShippingThreshold(e.target.value)}
-              placeholder="999"
               className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
             />
-            <p className="text-[11px] text-[var(--color-slate,#666666)] mt-1">Orders above this qualify for 100% Free Shipping</p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+            <label htmlFor="standardRate" className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
               Standard Shipping Fee (₹)
             </label>
             <input
+              id="standardRate"
               type="number"
+              min={0}
               value={standardRate}
               onChange={(e) => setStandardRate(e.target.value)}
-              placeholder="150"
               className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
             />
-            <p className="text-[11px] text-[var(--color-slate,#666666)] mt-1">Applied when cart total is below threshold</p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-              Primary Courier Partner
-            </label>
-            <select
-              value={defaultPartner}
-              onChange={(e) => setDefaultPartner(e.target.value)}
-              className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 bg-white"
-            >
-              <option value="Delhivery Express">Delhivery Express</option>
-              <option value="Blue Dart Express">Blue Dart Express</option>
-              <option value="DTDC Air">DTDC Air</option>
-              <option value="India Post Speed Post">India Post Speed Post</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-              Estimated Delivery Time Displayed
+            <label htmlFor="expressRate" className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+              Express Air Shipping Fee (₹)
             </label>
             <input
+              id="expressRate"
+              type="number"
+              min={0}
+              value={expressRate}
+              onChange={(e) => setExpressRate(e.target.value)}
+              className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="defaultPartner" className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+              Primary Courier Partner
+            </label>
+            <input
+              id="defaultPartner"
+              type="text"
+              value={defaultPartner}
+              onChange={(e) => setDefaultPartner(e.target.value)}
+              className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label htmlFor="estimatedDays" className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
+              Estimated Transit Window
+            </label>
+            <input
+              id="estimatedDays"
               type="text"
               value={estimatedDays}
               onChange={(e) => setEstimatedDays(e.target.value)}
-              placeholder="3-5 business days"
               className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
             />
           </div>
         </div>
-      </div>
+      </form>
     </motion.div>
   );
 }

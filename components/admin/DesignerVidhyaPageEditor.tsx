@@ -501,7 +501,7 @@ export function DesignerVidhyaPageEditor({
               Hero Header & Philosophical Quote
             </h3>
             <p className="text-xs text-[var(--color-slate)]">
-              Customize the page title, gold eyebrow badge, breadcrumbs, and Vidhya's signature quote displayed at the very top of the page.
+              Customize the page title, gold eyebrow badge, breadcrumbs, and Vidhya&apos;s signature quote displayed at the very top of the page.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -581,7 +581,7 @@ export function DesignerVidhyaPageEditor({
                 placeholder="Ethnic wear shouldn't just be worn for an occasion..."
               />
               <p className="text-[10px] text-[var(--color-slate)]">
-                Emphasizes Vidhya's personal dedication to traditional handloom storytelling.
+                Emphasizes Vidhya&apos;s personal dedication to traditional handloom storytelling.
               </p>
             </div>
           </div>
@@ -895,7 +895,7 @@ export function DesignerVidhyaPageEditor({
                   Atelier Pillars & Tenets
                 </h3>
                 <p className="text-xs text-[var(--color-slate)]">
-                  The three core artisanal commitments of Designer Vidhya's atelier.
+                  The three core artisanal commitments of Designer Vidhya&apos;s atelier.
                 </p>
               </div>
               <Button

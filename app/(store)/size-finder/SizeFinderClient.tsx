@@ -282,16 +282,16 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
 
   const whatsappMessage = encodeURIComponent(
     `Hi Vidhya, I used the Angelika Couture Fit Studio:\n` +
-      `Silhouette: ${currentSilhouette.name}\n` +
-      `Recommended Size: Size ${fitResult.recommendedSize}\n` +
-      `Height: ${heightCategory}\n` +
-      `Body Type: ${bodySilhouette}\n` +
-      `Can you advise if this ensemble will drape immaculately on me?`
+    `Silhouette: ${currentSilhouette.name}\n` +
+    `Recommended Size: Size ${fitResult.recommendedSize}\n` +
+    `Height: ${heightCategory}\n` +
+    `Body Type: ${bodySilhouette}\n` +
+    `Can you advise if this ensemble will drape immaculately on me?`
   );
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[var(--color-ink)] py-12 md:py-20">
-      
+
       {/* Toast Notification */}
       <AnimatePresence>
         {toastMsg && (
@@ -308,7 +308,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
       </AnimatePresence>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* =============================================================
             ATELIER EDITORIAL HEADER
             ============================================================= */}
@@ -318,11 +318,11 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
             <span>/</span>
             <span className="text-[var(--color-ink)] font-medium">Couture Fit Studio</span>
           </nav>
-          
+
           {header.badge && header.badge.trim() !== '' && header.badge !== "Vidhya's Bespoke Drape & Silhouette Studio" && (
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#E5DECF] shadow-2xs mb-3">
-              <span className="text-[var(--color-gold)] text-xs">⚜</span>
-              <span className="text-[10px] font-semibold tracking-[0.22em] uppercase text-[var(--color-gold)]">
+              <span className="text-[var(--color-gold-text)] text-xs">⚜</span>
+              <span className="text-[10px] font-semibold tracking-[0.22em] uppercase text-[var(--color-gold-text)]">
                 {header.badge}
               </span>
             </div>
@@ -384,12 +384,12 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
             ============================================================= */}
         {activeTab === 'finder' && (
           <div className="space-y-10 animate-fadeIn">
-            
+
             {/* STEP 1: SILHOUETTE SELECTOR (Visual Cards) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--color-gold)]">
+                  <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--color-gold-text)]">
                     Step 1
                   </span>
                   <h2 className="font-serif text-xl text-[var(--color-ink)]">
@@ -446,14 +446,14 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
 
             {/* STEP 2 & 3: INTERACTIVE STUDIO MAIN STAGE */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
+
               {/* Left Column: Interactive Fit Calibrator (Spans 7) */}
               <div className="lg:col-span-7 bg-white border border-[#EAE4D9] rounded-2xl p-6 sm:p-8 shadow-xs space-y-7">
-                
+
                 {/* Method Switcher Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#EAE4D9]">
                   <div>
-                    <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--color-gold)]">
+                    <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--color-gold-text)]">
                       Step 2
                     </span>
                     <h3 className="font-serif text-lg text-[var(--color-ink)]">
@@ -492,7 +492,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                 {/* Saree Specific Notice */}
                 {currentSilhouette.isFreeSize && (
                   <div className="p-4 rounded-xl bg-[#FCFAF7] border border-[#E5DECF] space-y-1">
-                    <p className="text-xs font-semibold text-[var(--color-gold)] uppercase tracking-wider">
+                    <p className="text-xs font-semibold text-[var(--color-gold-text)] uppercase tracking-wider">
                       ⚜ {currentSilhouette.name} Drape Insight
                     </p>
                     <p className="text-xs text-[var(--color-slate)] leading-relaxed">
@@ -526,7 +526,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                             )}
                           >
                             <p className="font-serif text-base font-semibold">{sz.label}</p>
-                            <p className="text-[9px] opacity-75 truncate">{sz.id === 'M' ? 'UK 10' : sz.id}</p>
+                            <p className="text-[9px] truncate">{sz.id === 'M' ? 'UK 10' : sz.id}</p>
                           </button>
                         ))}
                       </div>
@@ -552,7 +552,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                           >
                             <p className="font-serif text-sm font-semibold text-[var(--color-ink)]">{h.label}</p>
                             <p className="text-[11px] text-[var(--color-slate)]">{h.range}</p>
-                            <p className="text-[10px] text-[var(--color-gold-hover)] pt-1 border-t border-[#EAE4D9]/60">{h.hemlineNote}</p>
+                            <p className="text-[10px] text-[var(--color-gold-text)] pt-1 border-t border-[#EAE4D9]/60">{h.hemlineNote}</p>
                           </button>
                         ))}
                       </div>
@@ -644,7 +644,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         <span className="font-semibold uppercase tracking-wider text-[var(--color-ink)]">
                           Bust / Chest Circumference
                         </span>
-                        <span className="font-serif font-bold text-base text-[var(--color-gold)]">
+                        <span className="font-serif font-bold text-base text-[var(--color-gold-text)]">
                           {unit === 'cm' ? `${Math.round(bustVal * 2.54)} cm` : `${bustVal}"`}
                         </span>
                       </div>
@@ -658,9 +658,9 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         className="w-full accent-[var(--color-gold)] cursor-pointer"
                       />
                       <div className="flex justify-between text-[10px] text-[var(--color-slate)]">
-                        <span>30" (76 cm)</span>
-                        <span>40" (101 cm)</span>
-                        <span>50" (127 cm)</span>
+                        <span>30&quot; (76 cm)</span>
+                        <span>40&quot; (101 cm)</span>
+                        <span>50&quot; (127 cm)</span>
                       </div>
                     </div>
 
@@ -670,7 +670,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         <span className="font-semibold uppercase tracking-wider text-[var(--color-ink)]">
                           Natural Waist Circumference
                         </span>
-                        <span className="font-serif font-bold text-base text-[var(--color-gold)]">
+                        <span className="font-serif font-bold text-base text-[var(--color-gold-text)]">
                           {unit === 'cm' ? `${Math.round(waistVal * 2.54)} cm` : `${waistVal}"`}
                         </span>
                       </div>
@@ -684,9 +684,9 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         className="w-full accent-[var(--color-gold)] cursor-pointer"
                       />
                       <div className="flex justify-between text-[10px] text-[var(--color-slate)]">
-                        <span>24" (61 cm)</span>
-                        <span>34" (86 cm)</span>
-                        <span>46" (117 cm)</span>
+                        <span>24&quot; (61 cm)</span>
+                        <span>34&quot; (86 cm)</span>
+                        <span>46&quot; (117 cm)</span>
                       </div>
                     </div>
 
@@ -696,7 +696,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         <span className="font-semibold uppercase tracking-wider text-[var(--color-ink)]">
                           Hip Circumference
                         </span>
-                        <span className="font-serif font-bold text-base text-[var(--color-gold)]">
+                        <span className="font-serif font-bold text-base text-[var(--color-gold-text)]">
                           {unit === 'cm' ? `${Math.round(hipsVal * 2.54)} cm` : `${hipsVal}"`}
                         </span>
                       </div>
@@ -710,9 +710,9 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         className="w-full accent-[var(--color-gold)] cursor-pointer"
                       />
                       <div className="flex justify-between text-[10px] text-[var(--color-slate)]">
-                        <span>32" (81 cm)</span>
-                        <span>42" (107 cm)</span>
-                        <span>54" (137 cm)</span>
+                        <span>32&quot; (81 cm)</span>
+                        <span>42&quot; (107 cm)</span>
+                        <span>54&quot; (137 cm)</span>
                       </div>
                     </div>
                   </div>
@@ -722,13 +722,13 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
 
               {/* Right Column: Tailored Recommendation Certificate (Spans 5) */}
               <div className="lg:col-span-5 space-y-6">
-                
+
                 {/* Result Card */}
                 <div className="bg-white border-2 border-[#E5DECF] rounded-2xl p-6 sm:p-8 shadow-md relative overflow-hidden space-y-6">
-                  
+
                   {/* Subtle Top Gold Banner */}
                   <div className="text-center space-y-1">
-                    <span className="text-[10px] font-semibold tracking-[0.24em] uppercase text-[var(--color-gold)]">
+                    <span className="text-[10px] font-semibold tracking-[0.24em] uppercase text-[var(--color-gold-text)]">
                       ✦ Atelier Fit Certificate ✦
                     </span>
                     <h3 className="font-serif text-base text-[var(--color-ink)]">
@@ -748,8 +748,8 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                     </div>
 
                     <div className="pt-2 flex items-center justify-center gap-2 text-xs text-[var(--color-slate)]">
-                      <span className="inline-flex items-center gap-1 text-[#16A34A] font-semibold">
-                        <span className="w-2 h-2 rounded-full bg-[#16A34A]" />
+                      <span className="inline-flex items-center gap-1 text-[#166534] font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-[#166534]" />
                         {fitResult.fitScore}% Silhouette Accuracy
                       </span>
                       <span>·</span>
@@ -780,7 +780,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
 
                   {/* Tailoring & Hemline Insights */}
                   <div className="p-4 rounded-xl bg-[#FCFAF7] border border-[#E5DECF] space-y-2 text-xs">
-                    <div className="flex items-center gap-1.5 text-[var(--color-gold)] font-semibold text-[11px] uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 text-[var(--color-gold-text)] font-semibold text-[11px] uppercase tracking-wider">
                       <span>✓</span>
                       <span>Bespoke Drape Notes</span>
                     </div>
@@ -828,7 +828,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                 {/* VIP Drape Video Call Offer */}
                 {virtualCall && (
                   <div className="p-5 rounded-2xl bg-[#FCFAF7] border border-[#E5DECF] space-y-2.5 text-xs text-center sm:text-left">
-                    <div className="flex items-center justify-center sm:justify-start gap-2 text-[var(--color-gold)] font-semibold text-[11px] uppercase tracking-wider">
+                    <div className="flex items-center justify-center sm:justify-start gap-2 text-[var(--color-gold-text)] font-semibold text-[11px] uppercase tracking-wider">
                       <span>🎥</span>
                       <span>{virtualCall.badge}</span>
                     </div>
@@ -840,7 +840,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         href={virtualCall.whatsappLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 font-medium text-[var(--color-gold-hover)] hover:underline"
+                        className="inline-flex items-center gap-1.5 font-medium text-[var(--color-gold-text)] hover:underline"
                       >
                         <span>{virtualCall.ctaText}</span>
                         <span>→</span>
@@ -860,10 +860,10 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
             ============================================================= */}
         {activeTab === 'directory' && (
           <div className="space-y-6 animate-fadeIn">
-            
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-white border border-[#EAE4D9]">
               <div>
-                <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--color-gold)]">
+                <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--color-gold-text)]">
                   Artisan Size Reference
                 </span>
                 <h3 className="font-serif text-xl text-[var(--color-ink)]">
@@ -912,7 +912,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                         <td className="py-3 px-4 font-sans font-semibold text-[var(--color-ink)]">
                           {row.label}
                         </td>
-                        <td className="py-3 px-4 font-bold text-[var(--color-gold)]">
+                        <td className="py-3 px-4 font-bold text-[var(--color-gold-text)]">
                           {row.size}
                         </td>
                         <td className="py-3 px-4 text-[var(--color-ink)] font-semibold">
@@ -938,7 +938,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
 
               <div className="pt-3 border-t border-[#EAE4D9] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[var(--color-slate)]">
                 <p>{currentSilhouette.tagline}</p>
-                <span className="text-[var(--color-gold-hover)] font-medium">
+                <span className="text-[var(--color-gold-text)] font-medium">
                   2.5-inch internal seam margin provided
                 </span>
               </div>
@@ -952,7 +952,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
             ============================================================= */}
         {activeTab === 'guide' && (
           <div className="space-y-8 animate-fadeIn">
-            
+
             {/* Masterclass Intro */}
             <div className="rounded-2xl bg-[#FCFAF7] border border-[#E5DECF] p-6 sm:p-8 shadow-xs">
               <h3 className="font-serif text-xl text-[var(--color-ink)] mb-4">
@@ -961,7 +961,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-xs">
                 {guide.principles.map((pr) => (
                   <div key={pr.step} className="p-4 rounded-xl bg-white border border-[#EAE4D9] space-y-1">
-                    <span className="font-serif font-bold text-base text-[var(--color-gold)]">{pr.step}</span>
+                    <span className="font-serif font-bold text-base text-[var(--color-gold-text)]">{pr.step}</span>
                     <h5 className="font-semibold text-[var(--color-ink)]">{pr.title}</h5>
                     <p className="text-[var(--color-slate)] leading-relaxed">{pr.description}</p>
                   </div>

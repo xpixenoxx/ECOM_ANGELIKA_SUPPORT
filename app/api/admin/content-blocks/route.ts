@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase/admin-auth';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  try {
-    const { supabase, isAdmin } = await getAdminClient();
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
 
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  try {
+    const supabase = supabaseAdmin;
 
     const { searchParams } = new URL(request.url);
     const includeDrafts = searchParams.get('includeDrafts') === 'true';
@@ -40,12 +40,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const { supabase, isAdmin, userId } = await getAdminClient();
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
 
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  try {
+    const supabase = supabaseAdmin;
+    const userId = guard.auth.userId;
 
     const body = await request.json();
     const { key, type, title, content, settings, is_active, published_at } = body;
@@ -85,6 +85,14 @@ export async function POST(request: NextRequest) {
       console.error('Create content block error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+
+    await logAdminAction({
+      actorId: userId,
+      action: 'create_content_block',
+      entityType: 'content_block',
+      entityId: block.id,
+      afterState: { key: block.key, type: block.type },
+    });
 
     return NextResponse.json({ block }, { status: 201 });
   } catch (error: any) {

@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/supabase/admin-auth';
+import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { supabaseAdmin } from '@/lib/supabase/admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  try {
-    const { supabase, isAdmin, userId } = await getAdminClient();
+  const guard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+  if (!guard.ok) return guard.response;
 
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  try {
+    const supabase = supabaseAdmin;
+    const userId = guard.auth.userId;
 
     const body = await request.json();
     const { blockIds } = body;
@@ -33,6 +34,13 @@ export async function POST(request: NextRequest) {
     if (errors.length > 0) {
       return NextResponse.json({ error: 'Some blocks failed to reorder' }, { status: 500 });
     }
+
+    await logAdminAction({
+      actorId: userId,
+      action: 'reorder_content_blocks',
+      entityType: 'content_block',
+      afterState: { blockIds },
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

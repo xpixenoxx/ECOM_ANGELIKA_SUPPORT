@@ -11,7 +11,12 @@ async function getLooks() {
     .order('display_order', { ascending: true });
 
   if (error) throw error;
-  return data;
+  return (data || []).map((l) => ({
+    ...l,
+    is_active: Boolean(l.is_active),
+    display_order: l.display_order ?? 0,
+    created_at: l.created_at ?? '',
+  }));
 }
 
 export default async function LooksListPage() {

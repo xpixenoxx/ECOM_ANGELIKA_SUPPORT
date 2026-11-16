@@ -25,12 +25,20 @@ export default async function ShopPage({
   const fabricsParam = getParam('fabrics');
   const colorsParam = getParam('colors');
   const sizesParam = getParam('sizes');
+  const occasionParam = getParam('occasion');
   const priceRangeParam = getParam('priceRange');
   const inStockOnlyParam = getParam('inStockOnly');
   const vidhyasPicksOnlyParam = getParam('vidhyasPicksOnly');
   const sortParam = getParam('sort');
   const pageParam = getParam('page');
   const searchParam = getParam('search') || getParam('q');
+
+  const toArray = (param: string | string[] | undefined): string[] | undefined => {
+    if (!param) return undefined;
+    const raw = Array.isArray(param) ? param : [param];
+    const split = raw.flatMap((s) => s.split(',')).map((s) => s.trim()).filter(Boolean);
+    return split.length > 0 ? split : undefined;
+  };
 
   const parsePriceRange = (param: string | string[] | undefined): [number, number] | undefined => {
     if (!param) return undefined;
@@ -45,10 +53,11 @@ export default async function ShopPage({
   };
 
   const filters = {
-    categories: categoriesParam ? (Array.isArray(categoriesParam) ? categoriesParam : [categoriesParam]) : undefined,
-    fabrics: fabricsParam ? (Array.isArray(fabricsParam) ? fabricsParam : [fabricsParam]) : undefined,
-    colors: colorsParam ? (Array.isArray(colorsParam) ? colorsParam : [colorsParam]) : undefined,
-    sizes: sizesParam ? (Array.isArray(sizesParam) ? sizesParam : [sizesParam]) : undefined,
+    categories: toArray(categoriesParam),
+    fabrics: toArray(fabricsParam),
+    colors: toArray(colorsParam),
+    sizes: toArray(sizesParam),
+    occasion: toArray(occasionParam),
     priceRange: parsePriceRange(priceRangeParam),
     inStockOnly: inStockOnlyParam === 'true',
     vidhyasPicksOnly: vidhyasPicksOnlyParam === 'true',
