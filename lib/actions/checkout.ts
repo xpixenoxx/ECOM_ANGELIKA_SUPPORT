@@ -367,8 +367,8 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       })
       .eq('id', order.id);
 
-    // Clear user's cart if logged in
-    if (userId) {
+    // Clear user's cart if logged in (for COD orders that are immediately confirmed)
+    if (userId && orderData.paymentMethod === 'cod') {
       await supabase.from('carts').delete().eq('user_id', userId);
     }
 
@@ -510,7 +510,7 @@ export async function verifyRazorpayPayment(
 
     const { data: order, error: findError } = await supabase
       .from('orders')
-      .select('id, email, metadata, payment_status, status')
+      .select('id, user_id, email, metadata, payment_status, status')
       .eq('payment_id', razorpayOrderId)
       .single();
 
@@ -568,6 +568,11 @@ export async function verifyRazorpayPayment(
         } as unknown as Json,
       })
       .eq('id', order.id);
+
+    // Clear server cart now that payment is confirmed
+    if (order.user_id) {
+      await supabase.from('carts').delete().eq('user_id', order.user_id);
+    }
 
     return {
       success: true,

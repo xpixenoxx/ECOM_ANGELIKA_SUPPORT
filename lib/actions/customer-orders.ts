@@ -7,6 +7,7 @@ import { canCustomerCancelOrder } from '@/lib/orders/state-machine';
 import { normalizeAddress } from '@/lib/utils/address';
 import { normalizeIndianPhone, sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
 import { revalidatePath } from 'next/cache';
+import type { Json } from '@/types/database';
 
 export interface CustomerOrderItemReview {
   id: string;
@@ -811,7 +812,7 @@ export async function cancelCustomerOrder(
     }
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-    let query = supabaseAdmin.from('orders').select('id, order_number, user_id, email, status, payment_status, payment_method');
+    let query = supabaseAdmin.from('orders').select('id, order_number, user_id, email, status, payment_status, payment_method, total_amount, metadata');
     query = isUuid ? query.eq('id', orderId) : query.eq('order_number', orderId);
     const { data: order, error } = await query.maybeSingle();
 
@@ -834,6 +835,10 @@ export async function cancelCustomerOrder(
     }
 
     const cleanReason = reason ? stripHtmlTags(reason).slice(0, 300) : 'Cancelled by customer';
+    const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
+      ? (order.metadata as Record<string, unknown>)
+      : {};
+
     const { error: updateErr } = await supabaseAdmin
       .from('orders')
       .update({
@@ -849,6 +854,41 @@ export async function cancelCustomerOrder(
     }
 
     await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
+
+    // If order was paid online, trigger automatic gateway refund or flag manual refund required
+    if (order.payment_status === 'paid' && order.payment_method !== 'cod') {
+      try {
+        const { executeGatewayRefund } = await import('@/lib/actions/payments');
+        const refundRes = await executeGatewayRefund(order.id, undefined, cleanReason);
+        if (!refundRes.success) {
+          console.warn('[cancelCustomerOrder] Gateway refund failed, flagged for admin review:', refundRes.error);
+          await supabaseAdmin
+            .from('orders')
+            .update({
+              metadata: {
+                ...existingMeta,
+                manual_refund_required: true,
+                refund_pending_reason: cleanReason,
+                gateway_refund_error: refundRes.error || 'Gateway refund invocation failed',
+              } as unknown as Json,
+            })
+            .eq('id', order.id);
+        }
+      } catch (refundErr: any) {
+        console.error('[cancelCustomerOrder] Refund execution error:', refundErr);
+        await supabaseAdmin
+          .from('orders')
+          .update({
+            metadata: {
+              ...existingMeta,
+              manual_refund_required: true,
+              refund_pending_reason: cleanReason,
+              gateway_refund_error: refundErr?.message || 'Unexpected refund error',
+            } as unknown as Json,
+          })
+          .eq('id', order.id);
+      }
+    }
 
     try {
       revalidatePath('/account/orders');

@@ -34,6 +34,9 @@ export async function getContentBlocksAdmin(): Promise<ContentBlockListResult> {
     const { data: blocks, error } = await supabase
       .from('content_blocks')
       .select('*')
+      .not('key', 'like', 'otp_%')
+      .not('key', 'like', 'inquiry_%')
+      .not('key', 'like', 'product_return_policy_%')
       .order('sort_order', { ascending: true, nullsFirst: true })
       .order('created_at', { ascending: false });
 

@@ -14,7 +14,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const includeDrafts = searchParams.get('includeDrafts') === 'true';
 
-    let query = supabase.from('content_blocks').select('*');
+    let query = supabase
+      .from('content_blocks')
+      .select('*')
+      .not('key', 'like', 'otp_%')
+      .not('key', 'like', 'inquiry_%')
+      .not('key', 'like', 'product_return_policy_%');
 
     if (!includeDrafts) {
       query = query
