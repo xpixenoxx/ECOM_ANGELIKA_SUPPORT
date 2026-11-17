@@ -129,6 +129,13 @@ export function WhatsAppFloatButton({
     if (!showOnMobile && window.innerWidth < 768) return;
     if (!showOnDesktop && window.innerWidth >= 768) return;
 
+    const startPulseInterval = () => {
+      pulseTimeoutRef.current = setInterval(() => {
+        setShowPulse(true);
+        setTimeout(() => setShowPulse(false), 1000);
+      }, pulseInterval);
+    };
+
     initialTimeoutRef.current = setTimeout(() => {
       setShowPulse(true);
       startPulseInterval();
@@ -139,13 +146,6 @@ export function WhatsAppFloatButton({
       clearTimeout(pulseTimeoutRef.current);
     };
   }, [mounted, initialDelay, pulseInterval, showOnMobile, showOnDesktop]);
-
-  const startPulseInterval = () => {
-    pulseTimeoutRef.current = setInterval(() => {
-      setShowPulse(true);
-      setTimeout(() => setShowPulse(false), 1000);
-    }, pulseInterval);
-  };
 
   const handleMainClick = () => {
     setIsExpanded((prev) => !prev);

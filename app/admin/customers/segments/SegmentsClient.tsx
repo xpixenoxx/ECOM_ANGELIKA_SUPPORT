@@ -186,6 +186,25 @@ export default function SegmentsClient({ initialCustomers }: Props) {
     }, 3500);
   }, []);
 
+  // Refresh data from Supabase
+  const handleManualRefresh = useCallback(async (showNotice = true) => {
+    setIsRefreshing(true);
+    try {
+      const { customers: fresh, error } = await getCustomers();
+      if (error) {
+        if (showNotice) showToast(`Sync failed: ${error}`, 'error');
+      } else if (fresh) {
+        setCustomers(fresh);
+        setLastSyncedAt(new Date());
+        if (showNotice) showToast('Segments synced with Supabase', 'success');
+      }
+    } catch {
+      if (showNotice) showToast('Failed to sync segments', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [showToast]);
+
   // Supabase Real-time Listener on profiles and orders
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -222,26 +241,7 @@ export default function SegmentsClient({ initialCustomers }: Props) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  // Refresh data from Supabase
-  const handleManualRefresh = useCallback(async (showNotice = true) => {
-    setIsRefreshing(true);
-    try {
-      const { customers: fresh, error } = await getCustomers();
-      if (error) {
-        if (showNotice) showToast(`Sync failed: ${error}`, 'error');
-      } else if (fresh) {
-        setCustomers(fresh);
-        setLastSyncedAt(new Date());
-        if (showNotice) showToast('Segments synced with Supabase', 'success');
-      }
-    } catch {
-      if (showNotice) showToast('Failed to sync segments', 'error');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [showToast]);
+  }, [handleManualRefresh]);
 
   // Determine which segments a customer belongs to
   const getCustomerSegmentBadges = useCallback((c: CustomerProfile): string[] => {

@@ -152,27 +152,12 @@ function CategoryImagePicker({
         setMsg('✓ Image uploaded');
         setTimeout(() => setMsg(null), 3000);
       } else {
-        // Fallback to data URL
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            onChange(reader.result);
-            setMsg('✓ Image loaded');
-            setTimeout(() => setMsg(null), 3000);
-          }
-        };
-        reader.readAsDataURL(file);
+        setMsg('✕ Upload failed: ' + (json.error || 'Check storage permissions'));
+        setTimeout(() => setMsg(null), 4000);
       }
     } catch {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          onChange(reader.result);
-          setMsg('✓ Image loaded');
-          setTimeout(() => setMsg(null), 3000);
-        }
-      };
-      reader.readAsDataURL(file);
+      setMsg('✕ Upload error: Please verify network connection and storage setup');
+      setTimeout(() => setMsg(null), 4000);
     } finally {
       setIsUploading(false);
       e.target.value = '';

@@ -89,6 +89,25 @@ export default function CustomersClient({ initialCustomers }: Props) {
     }, 3500);
   }, []);
 
+  // Manual Sync with Supabase
+  const handleManualRefresh = useCallback(async (showNotice = true) => {
+    setIsRefreshing(true);
+    try {
+      const { customers: freshCustomers, error } = await getCustomers();
+      if (error) {
+        if (showNotice) showToast(`Sync failed: ${error}`, 'error');
+      } else if (freshCustomers) {
+        setCustomers(freshCustomers);
+        setLastSyncedAt(new Date());
+        if (showNotice) showToast('Customers synced with Supabase', 'success');
+      }
+    } catch {
+      if (showNotice) showToast('Failed to sync customers', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [showToast]);
+
   // Supabase Real-time Listener for Profiles & Orders
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -157,26 +176,7 @@ export default function CustomersClient({ initialCustomers }: Props) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  // Manual Sync with Supabase
-  const handleManualRefresh = useCallback(async (showNotice = true) => {
-    setIsRefreshing(true);
-    try {
-      const { customers: freshCustomers, error } = await getCustomers();
-      if (error) {
-        if (showNotice) showToast(`Sync failed: ${error}`, 'error');
-      } else if (freshCustomers) {
-        setCustomers(freshCustomers);
-        setLastSyncedAt(new Date());
-        if (showNotice) showToast('Customers synced with Supabase', 'success');
-      }
-    } catch {
-      if (showNotice) showToast('Failed to sync customers', 'error');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [showToast]);
+  }, [handleManualRefresh]);
 
   // Handle Role Change
   function handleRoleChange(id: string, newRole: string) {

@@ -44,7 +44,7 @@ export default function OrdersClient({
 
     async function syncOrders() {
       // If we already have initial orders from server and user matches, skip
-      if (initialOrders && initialOrders.length > 0 && orders.length > 0) {
+      if (initialOrders && initialOrders.length > 0) {
         setIsLoading(false);
         return;
       }
@@ -87,7 +87,7 @@ export default function OrdersClient({
     return () => {
       isMounted = false;
     };
-  }, [user?.id, user?.email, authLoading, initialOrders, initialIsAuthenticated]);
+  }, [user, authLoading, initialOrders, initialIsAuthenticated]);
 
   // Safety fallback: ensure spinner never hangs indefinitely
   useEffect(() => {

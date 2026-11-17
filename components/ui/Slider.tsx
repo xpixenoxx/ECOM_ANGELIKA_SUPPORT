@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, InputHTMLAttributes, ReactNode, useId, useRef, useState, useEffect } from 'react';
+import { forwardRef, InputHTMLAttributes, ReactNode, useId, useRef, useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 
@@ -57,7 +57,7 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
     const hintId = `${id}-hint`;
     const describedBy = [error && errorId, hint && hintId, ariaDescribedBy].filter(Boolean).join(' ') || undefined;
 
-    const values = Array.isArray(value) ? value : [value];
+    const values = useMemo(() => (Array.isArray(value) ? value : [value]), [value]);
     const [activeThumb, setActiveThumb] = useState<number | null>(null);
     const [localValues, setLocalValues] = useState(values);
     const thumbsRef = useRef<(HTMLButtonElement | null)[]>([]);

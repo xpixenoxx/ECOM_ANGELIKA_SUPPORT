@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   useEffect,
+  useCallback,
   createContext,
   useContext,
   forwardRef,
@@ -275,50 +276,53 @@ export const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const listboxRef = useRef<HTMLDivElement>(null);
 
-    const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-      const items = Array.from(optionRefs.current.values()).filter((el) => el.offsetParent !== null);
-      if (items.length === 0) return;
+    const handleKeyDown = useCallback(
+      (event: React.KeyboardEvent<HTMLDivElement> | KeyboardEvent) => {
+        const items = Array.from(optionRefs.current.values()).filter((el) => el.offsetParent !== null);
+        if (items.length === 0) return;
 
-      switch (event.key) {
-        case 'ArrowDown':
-          event.preventDefault();
-          setHighlightedIndex((prev) => Math.min(prev + 1, items.length - 1));
-          break;
-        case 'ArrowUp':
-          event.preventDefault();
-          setHighlightedIndex((prev) => Math.max(prev - 1, -1));
-          break;
-        case 'Home':
-          event.preventDefault();
-          setHighlightedIndex(0);
-          break;
-        case 'End':
-          event.preventDefault();
-          setHighlightedIndex(items.length - 1);
-          break;
-        case 'Enter':
-        case ' ':
-          if (highlightedIndex >= 0) {
+        switch (event.key) {
+          case 'ArrowDown':
             event.preventDefault();
-            items[highlightedIndex]?.click();
-          }
-          break;
-        case 'Escape':
-          setOpen(false);
-          triggerRef.current?.focus();
-          break;
-        case 'Tab':
-          setOpen(false);
-          break;
-      }
-    };
+            setHighlightedIndex((prev) => Math.min(prev + 1, items.length - 1));
+            break;
+          case 'ArrowUp':
+            event.preventDefault();
+            setHighlightedIndex((prev) => Math.max(prev - 1, -1));
+            break;
+          case 'Home':
+            event.preventDefault();
+            setHighlightedIndex(0);
+            break;
+          case 'End':
+            event.preventDefault();
+            setHighlightedIndex(items.length - 1);
+            break;
+          case 'Enter':
+          case ' ':
+            if (highlightedIndex >= 0) {
+              event.preventDefault();
+              items[highlightedIndex]?.click();
+            }
+            break;
+          case 'Escape':
+            setOpen(false);
+            triggerRef.current?.focus();
+            break;
+          case 'Tab':
+            setOpen(false);
+            break;
+        }
+      },
+      [highlightedIndex, optionRefs, setOpen, triggerRef]
+    );
 
     useEffect(() => {
       if (open && !disabled) {
         document.addEventListener('keydown', handleKeyDown as unknown as EventListener);
       }
       return () => document.removeEventListener('keydown', handleKeyDown as unknown as EventListener);
-    }, [open, disabled]);
+    }, [open, disabled, handleKeyDown]);
 
     if (!open || disabled) return null;
 

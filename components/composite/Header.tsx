@@ -157,7 +157,7 @@ export function Header({
       <header
         ref={headerRef}
         className={cn(
-          'sticky top-0 z-40 transition-all duration-200 ease-in-out',
+          'w-full transition-all duration-200 ease-in-out',
           'bg-white shadow-sm border-b border-[var(--color-whisper)]',
           className
         )}

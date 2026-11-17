@@ -64,7 +64,7 @@ export function Stepper({
 
   if (orientation === 'vertical' && variant !== 'cards') {
     return (
-      <div className={cn('space-y-6', className)} role="navigation" aria-label="Stepper" aria-orientation="vertical">
+      <div className={cn('space-y-6', className)} role="navigation" aria-label="Progress Stepper">
         {steps.map((step, index) => (
           <motion.div
             key={step.id}
@@ -135,7 +135,7 @@ export function Stepper({
   }
 
   return (
-    <div className={cn('w-full', className)} role="navigation" aria-label="Stepper" aria-orientation={orientation}>
+    <div className={cn('w-full', className)} role="navigation" aria-label="Progress Stepper">
       {variant === 'cards' ? (
         <div className="space-y-4" role="list">
           {steps.map((step, index) => (

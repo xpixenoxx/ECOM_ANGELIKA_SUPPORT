@@ -393,7 +393,7 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
     if (urlSearch !== searchQuery) {
       setSearchQuery(urlSearch);
     }
-  }, [urlSearch]);
+  }, [urlSearch, searchQuery]);
 
   // Sync month from URL query if provided
   useEffect(() => {
@@ -418,14 +418,15 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
   };
 
   // Determine active base product pool
-  const isSearchOrFilterActive = Boolean(
-    searchQuery.trim() || activeCategory !== 'All' || activeColor !== 'All'
+  const isSearchOrFilterActive = useMemo(
+    () => Boolean(searchQuery.trim() || activeCategory !== 'All' || activeColor !== 'All'),
+    [searchQuery, activeCategory, activeColor]
   );
-
-  const baseProductList = isSearchOrFilterActive ? allPicks : (currentEdit.products || []);
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
+    const baseProductList = isSearchOrFilterActive ? allPicks : (currentEdit.products || []);
+
     let result = baseProductList.filter((product) => {
       // Category filter
       if (activeCategory !== 'All' && product.category !== activeCategory) {
@@ -452,7 +453,7 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
     }
 
     return result;
-  }, [baseProductList, activeCategory, activeColor, searchQuery, sortBy]);
+  }, [isSearchOrFilterActive, allPicks, currentEdit.products, activeCategory, activeColor, searchQuery, sortBy]);
 
   const handleToggleWishlist = (productId: string) => {
     setWishlist((prev) =>

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion';
-import { forwardRef, ReactNode, useState, useEffect, useRef, isValidElement, cloneElement } from 'react';
+import { forwardRef, ReactNode, useState, useEffect, useRef, useCallback, isValidElement, cloneElement } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { hoverVariants, tapVariants, focusVariants, loadingVariants, badgeVariants, skeletonVariants } from '@/lib/animations';
 
@@ -147,23 +147,7 @@ export function Counter({
   const [hasAnimated, setHasAnimated] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry?.isIntersecting && !hasAnimated) {
-          animateValue();
-          setHasAnimated(true);
-        }
-      },
-      { threshold: 0.5 }
-    );
-
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, [hasAnimated]);
-
-  const animateValue = () => {
+  const animateValue = useCallback(() => {
     const startTime = performance.now();
     const startValue = 0;
 
@@ -184,7 +168,23 @@ export function Counter({
     };
 
     requestAnimationFrame(animate);
-  };
+  }, [duration, value, onComplete]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && !hasAnimated) {
+          animateValue();
+          setHasAnimated(true);
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [hasAnimated, animateValue]);
 
   const formatted = displayValue.toLocaleString(undefined, {
     minimumFractionDigits: decimals,

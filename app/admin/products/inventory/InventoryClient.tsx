@@ -98,6 +98,25 @@ export default function InventoryClient({ initialVariants }: Props) {
     }, 3500);
   }, []);
 
+  // Manual Refresh Handler
+  const handleManualRefresh = useCallback(async (showNotice = true) => {
+    setIsRefreshing(true);
+    try {
+      const { variants: freshVariants, error } = await getInventoryAlerts({ scope: 'all' });
+      if (error) {
+        if (showNotice) showToast(`Sync error: ${error}`, 'error');
+      } else if (freshVariants) {
+        setVariants(freshVariants);
+        setLastSyncedAt(new Date());
+        if (showNotice) showToast('Inventory synced with Supabase', 'success');
+      }
+    } catch (err: any) {
+      if (showNotice) showToast('Failed to sync inventory with Supabase', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [showToast]);
+
   // Realtime Supabase Subscription
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -148,26 +167,7 @@ export default function InventoryClient({ initialVariants }: Props) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  // Manual Refresh Handler
-  const handleManualRefresh = useCallback(async (showNotice = true) => {
-    setIsRefreshing(true);
-    try {
-      const { variants: freshVariants, error } = await getInventoryAlerts({ scope: 'all' });
-      if (error) {
-        if (showNotice) showToast(`Sync error: ${error}`, 'error');
-      } else if (freshVariants) {
-        setVariants(freshVariants);
-        setLastSyncedAt(new Date());
-        if (showNotice) showToast('Inventory synced with Supabase', 'success');
-      }
-    } catch (err: any) {
-      if (showNotice) showToast('Failed to sync inventory with Supabase', 'error');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [showToast]);
+  }, [handleManualRefresh]);
 
   // Inline Stock Edit Controls
   function startEdit(v: AdminInventoryVariant) {

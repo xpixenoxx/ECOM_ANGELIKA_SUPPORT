@@ -108,6 +108,23 @@ export default function ShipmentsClient({ initialOrders }: Props) {
     }, 3500);
   }, []);
 
+  // Manual Sync with Supabase
+  const handleManualRefresh = useCallback(async (showNotice = true) => {
+    setIsRefreshing(true);
+    try {
+      const fresh = await getOrders();
+      if (fresh) {
+        setOrders(fresh);
+        setLastSyncedAt(new Date());
+        if (showNotice) showToast('Shipments synced with Supabase', 'success');
+      }
+    } catch {
+      if (showNotice) showToast('Failed to sync shipments', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [showToast]);
+
   // Supabase Real-time Subscription on orders
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -159,24 +176,7 @@ export default function ShipmentsClient({ initialOrders }: Props) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
-
-  // Manual Sync with Supabase
-  const handleManualRefresh = useCallback(async (showNotice = true) => {
-    setIsRefreshing(true);
-    try {
-      const fresh = await getOrders();
-      if (fresh) {
-        setOrders(fresh);
-        setLastSyncedAt(new Date());
-        if (showNotice) showToast('Shipments synced with Supabase', 'success');
-      }
-    } catch {
-      if (showNotice) showToast('Failed to sync shipments', 'error');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [showToast]);
+  }, [handleManualRefresh]);
 
   // Copy AWB to Clipboard
   function copyToClipboard(awb: string) {

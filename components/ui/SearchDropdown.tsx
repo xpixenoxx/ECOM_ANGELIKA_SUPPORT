@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -245,6 +245,15 @@ export function SearchDropdown({
   // Active items for keyboard navigation
   const activeItems = hasMatches ? displayedResults : VIDHYAS_PICKS_LIST;
 
+  const handleSelect = useCallback((item: SearchResult) => {
+    onClose();
+    if (onSearch) {
+      onSearch(item.title);
+    } else {
+      router.push(`/vidhyas-picks?search=${encodeURIComponent(item.title)}`);
+    }
+  }, [onClose, onSearch, router]);
+
   useEffect(() => {
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (!dropdownRef.current) return;
@@ -274,16 +283,7 @@ export function SearchDropdown({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIndex, activeItems, onClose]);
-
-  const handleSelect = (item: SearchResult) => {
-    onClose();
-    if (onSearch) {
-      onSearch(item.title);
-    } else {
-      router.push(`/vidhyas-picks?search=${encodeURIComponent(item.title)}`);
-    }
-  };
+  }, [selectedIndex, activeItems, onClose, handleSelect]);
 
   const handleViewAll = () => {
     onClose();

@@ -242,7 +242,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [user, supabase, persistWishlist]);
+  }, [user, isTestEnv, supabase, persistWishlist]);
 
   useEffect(() => {
     loadWishlist();
@@ -308,7 +308,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       }
       return true;
     });
-  }, [items]);
+  }, [items, user, isTestEnv]);
 
   const addItem = async (
     productOrId: WishlistInput,

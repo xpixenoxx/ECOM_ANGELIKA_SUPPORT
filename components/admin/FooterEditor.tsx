@@ -204,26 +204,38 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
     loadData();
   }, [initialContent]);
 
-  // Handle local device image upload for logo
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle image upload for logo via storage endpoint
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 4 * 1024 * 1024) {
-        alert('Image must be under 4MB');
+        setStatusMessage({ type: 'error', text: 'Image must be under 4MB' });
         return;
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
+      try {
+        const body = new FormData();
+        body.append('file', file);
+        body.append('folder', 'footer');
+        const res = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          body,
+        });
+        const resJson = await res.json();
+        if (resJson.success && resJson.url) {
           setContent((prev) => ({
             ...prev,
-            logoUrl: event.target!.result as string,
+            logoUrl: resJson.url,
           }));
-          setStatusMessage({ type: 'success', text: 'Logo uploaded from device!' });
+          setStatusMessage({ type: 'success', text: 'Logo uploaded successfully!' });
           setTimeout(() => setStatusMessage(null), 3000);
+        } else {
+          setStatusMessage({ type: 'error', text: resJson.error || 'Failed to upload logo. Check storage permissions.' });
         }
-      };
-      reader.readAsDataURL(file);
+      } catch {
+        setStatusMessage({ type: 'error', text: 'Upload error: Please verify network and storage setup' });
+      } finally {
+        e.target.value = '';
+      }
     }
   };
 

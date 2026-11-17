@@ -535,6 +535,8 @@ function ImageUploadField({
 export default function AdminContentPage() {
   const [activeTab, setActiveTab] = useState<'sections' | 'pages' | 'blog'>('sections');
   const [editingSection, setEditingSection] = useState<string | null>('hero');
+  const editingSectionRef = useRef(editingSection);
+  editingSectionRef.current = editingSection;
   const [editingStaticPage, setEditingStaticPage] = useState<string | null>(null);
 
   // Content state for inline sections
@@ -574,8 +576,8 @@ export default function AdminContentPage() {
       .then((data) => {
         if (isMounted && data?.success && data.content) {
           setContentState(data.content);
-          if (editingSection && data.content[editingSection]) {
-            setFormData(JSON.parse(JSON.stringify(data.content[editingSection])));
+          if (editingSectionRef.current && data.content[editingSectionRef.current]) {
+            setFormData(JSON.parse(JSON.stringify(data.content[editingSectionRef.current])));
           }
         }
       })

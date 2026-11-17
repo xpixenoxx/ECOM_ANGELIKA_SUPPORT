@@ -259,27 +259,12 @@ export function NewArrivalsEditor({ onCancel, onSaved }: NewArrivalsEditorProps)
         setUploadMessage({ index, text: '✓ Image uploaded successfully!' });
         setTimeout(() => setUploadMessage(null), 3500);
       } else {
-        // Fallback: FileReader data URL
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            handleItemChange(index, 'image', reader.result);
-            setUploadMessage({ index, text: '✓ Image loaded from device!' });
-            setTimeout(() => setUploadMessage(null), 3500);
-          }
-        };
-        reader.readAsDataURL(file);
+        setUploadMessage({ index, text: '✕ Upload failed: ' + (resJson.error || 'Please check media storage permissions') });
+        setTimeout(() => setUploadMessage(null), 4000);
       }
-    } catch (err) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          handleItemChange(index, 'image', reader.result);
-          setUploadMessage({ index, text: '✓ Image loaded from device!' });
-          setTimeout(() => setUploadMessage(null), 3500);
-        }
-      };
-      reader.readAsDataURL(file);
+    } catch {
+      setUploadMessage({ index, text: '✕ Upload error: Please verify network connection and storage setup' });
+      setTimeout(() => setUploadMessage(null), 4000);
     } finally {
       setUploadingIndex(null);
       e.target.value = '';

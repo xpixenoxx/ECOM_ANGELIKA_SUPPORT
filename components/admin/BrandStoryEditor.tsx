@@ -172,27 +172,12 @@ export function BrandStoryEditor({ onCancel, onSaved }: BrandStoryEditorProps) {
         setUploadMessage({ text: '✓ Story photo uploaded successfully!' });
         setTimeout(() => setUploadMessage(null), 3500);
       } else {
-        // Fallback: FileReader
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            handleChange('image', reader.result);
-            setUploadMessage({ text: '✓ Photo loaded from device!' });
-            setTimeout(() => setUploadMessage(null), 3500);
-          }
-        };
-        reader.readAsDataURL(file);
+        setUploadMessage({ text: '✕ Upload failed: ' + (resJson.error || 'Please check media storage permissions') });
+        setTimeout(() => setUploadMessage(null), 4000);
       }
-    } catch (err) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          handleChange('image', reader.result);
-          setUploadMessage({ text: '✓ Photo loaded from device!' });
-          setTimeout(() => setUploadMessage(null), 3500);
-        }
-      };
-      reader.readAsDataURL(file);
+    } catch {
+      setUploadMessage({ text: '✕ Upload error: Please verify network connection and storage setup' });
+      setTimeout(() => setUploadMessage(null), 4000);
     } finally {
       setIsUploading(false);
       e.target.value = '';

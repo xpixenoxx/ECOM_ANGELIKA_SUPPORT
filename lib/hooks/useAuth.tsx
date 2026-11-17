@@ -34,6 +34,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => getSupabaseClient(), []);
 
+  const fetchProfile = useCallback(async (userId: string) => {
+    try {
+      const table = supabase.from?.('profiles');
+      if (!table) return;
+      const { data } = await table.select('*').eq('id', userId).single();
+      if (data) setProfile(data);
+    } catch (err) {
+      console.warn('Profile fetch warning:', err);
+    }
+  }, [supabase]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -78,18 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(safetyTimeout);
       subscription?.unsubscribe?.();
     };
-  }, [supabase]);
-
-  const fetchProfile = async (userId: string) => {
-    try {
-      const table = supabase.from?.('profiles');
-      if (!table) return;
-      const { data } = await table.select('*').eq('id', userId).single();
-      if (data) setProfile(data);
-    } catch (err) {
-      console.warn('Profile fetch warning:', err);
-    }
-  };
+  }, [supabase, fetchProfile]);
 
   const signUp = async (email: string, password: string, data?: string | Record<string, any>) => {
     const metadataObj = typeof data === 'string' ? { full_name: data } : data;
@@ -225,7 +225,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = useCallback(async () => {
     if (user) await fetchProfile(user.id);
-  }, [user]);
+  }, [user, fetchProfile]);
 
   return (
     <AuthContext.Provider

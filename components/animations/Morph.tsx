@@ -223,10 +223,13 @@ export function MorphBackground({ color, className, transition }: MorphBackgroun
   const [currentColor, setCurrentColor] = useState(color);
 
   useEffect(() => {
-    if (color !== currentColor) {
-      setPrevColor(currentColor);
-      setCurrentColor(color);
-    }
+    setCurrentColor((prev) => {
+      if (color !== prev) {
+        setPrevColor(prev);
+        return color;
+      }
+      return prev;
+    });
   }, [color]);
 
   return (

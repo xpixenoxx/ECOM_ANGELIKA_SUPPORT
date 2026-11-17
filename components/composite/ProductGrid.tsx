@@ -263,16 +263,16 @@ export function ProductCarousel({
     return () => clearInterval(interval);
   }, [autoPlay, autoPlayInterval, maxIndex, products.length, itemsPerView]);
 
-  const handleResize = () => {
-    const newItemsPerView = window.innerWidth >= 1024 ? 4 : window.innerWidth >= 768 ? 3 : 2;
-    const newMaxIndex = Math.max(0, products.length - newItemsPerView);
-    setCurrentIndex(Math.min(currentIndex, newMaxIndex));
-  };
-
   React.useEffect(() => {
+    const handleResize = () => {
+      const newItemsPerView = window.innerWidth >= 1024 ? 4 : window.innerWidth >= 768 ? 3 : 2;
+      const newMaxIndex = Math.max(0, products.length - newItemsPerView);
+      setCurrentIndex((prev) => Math.min(prev, newMaxIndex));
+    };
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [currentIndex, products.length]);
+  }, [products.length]);
 
   const visibleProducts = products.slice(currentIndex, currentIndex + itemsPerView);
 

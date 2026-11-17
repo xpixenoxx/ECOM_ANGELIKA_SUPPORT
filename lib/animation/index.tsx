@@ -207,6 +207,7 @@ export function useScrollProgress() {
 }
 
 export function useElementInView(options: IntersectionObserverInit = {}) {
+  const { threshold = 0.1, rootMargin = '0px', root = null } = options;
   const [isInView, setIsInView] = useState(false);
   const ref = useRef<HTMLElement>(null);
 
@@ -217,12 +218,12 @@ export function useElementInView(options: IntersectionObserverInit = {}) {
       ([entry]) => {
         if (entry) setIsInView(entry.isIntersecting);
       },
-      { threshold: 0.1, rootMargin: '0px', ...options }
+      { threshold, rootMargin, root }
     );
 
     observer.observe(ref.current);
     return () => observer.disconnect();
-  }, [options.threshold, options.rootMargin]);
+  }, [threshold, rootMargin, root]);
 
   return { ref, isInView };
 }

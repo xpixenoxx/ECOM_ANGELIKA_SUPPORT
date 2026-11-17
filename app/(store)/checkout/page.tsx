@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
@@ -360,24 +360,7 @@ export default function CheckoutPage() {
     }
   };
 
-  // Load saved addresses on mount
-  useEffect(() => {
-    if (user) {
-      loadAddresses();
-    } else {
-      setShowNewAddressForm(true);
-    }
-  }, [user]);
-
-  // Sync email/phone with profile
-  useEffect(() => {
-    if (profile) {
-      setEmail(profile.email || '');
-      setPhone(profile.phone || '');
-    }
-  }, [profile]);
-
-  const loadAddresses = async () => {
+  const loadAddresses = useCallback(async () => {
     if (!user) {
       setShowNewAddressForm(true);
       return;
@@ -396,7 +379,24 @@ export default function CheckoutPage() {
       console.error('Failed to load addresses:', err);
       setShowNewAddressForm(true);
     }
-  };
+  }, [user]);
+
+  // Load saved addresses on mount
+  useEffect(() => {
+    if (user) {
+      loadAddresses();
+    } else {
+      setShowNewAddressForm(true);
+    }
+  }, [user, loadAddresses]);
+
+  // Sync email/phone with profile
+  useEffect(() => {
+    if (profile) {
+      setEmail(profile.email || '');
+      setPhone(profile.phone || '');
+    }
+  }, [profile]);
 
   const handleSaveAddress = async (addressData: AddressFormData) => {
     if (!user) {
