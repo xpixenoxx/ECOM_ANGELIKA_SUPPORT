@@ -189,7 +189,7 @@ export async function saveHomepageHeroData(
             site_name: data.brandName,
             site_tagline: data.brandTagline,
             logo_url: data.logoUrl || null,
-            contact_whatsapp: data.conciergeWhatsApp || '+91 98765 43210',
+            contact_whatsapp: data.conciergeWhatsApp || '+917207256690',
             updated_at: new Date().toISOString(),
           })
           .eq('id', storeSetting.id);

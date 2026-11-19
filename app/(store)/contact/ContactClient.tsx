@@ -381,7 +381,7 @@ function ContactContent({ content }: ContactClientProps) {
                             value={formData.phone || ''}
                             onChange={handleChange}
                             error={errors['phone']}
-                            placeholder="+91 98765 43210"
+                            placeholder="+91 72072 56690"
                             autoComplete="tel"
                           />
                         </div>
