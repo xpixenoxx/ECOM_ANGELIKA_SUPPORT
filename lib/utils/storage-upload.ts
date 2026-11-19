@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import { randomHex } from '@/lib/utils/edge-crypto';
 import { hasValidServiceRoleKey, isCloudServerlessEnv } from '@/lib/env';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { MAX_UPLOAD_SIZE_BYTES, validateImageBuffer } from './file-validation';
@@ -54,7 +54,7 @@ export async function validateAndPersistAdminImage(params: {
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 32) || 'img';
   const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'img';
-  const uniqueSuffix = crypto.randomBytes(4).toString('hex');
+  const uniqueSuffix = randomHex(4);
   const filename = `${safePrefix}-${sanitizedBase}-${Date.now()}-${uniqueSuffix}${check.extension}`;
   const storagePath = `${folder}/${filename}`;
 

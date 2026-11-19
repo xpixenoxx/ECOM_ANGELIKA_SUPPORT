@@ -1,6 +1,6 @@
 'use server';
 
-import crypto from 'crypto';
+import { randomHex, sha256Hex } from '@/lib/utils/edge-crypto';
 import { headers } from 'next/headers';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { hasValidSupabaseConfig } from '@/lib/env';
@@ -97,7 +97,7 @@ export async function submitContactInquiry(
     };
   }
 
-  const referenceId = `INQ-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+  const referenceId = `INQ-${Date.now().toString(36).toUpperCase()}-${randomHex(3).toUpperCase()}`;
   const key = `inquiry_contact_${referenceId}`;
   const nowIso = new Date().toISOString();
 
@@ -213,7 +213,7 @@ export async function submitWholesaleInquiry(
     };
   }
 
-  const referenceId = `B2B-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+  const referenceId = `B2B-${Date.now().toString(36).toUpperCase()}-${randomHex(3).toUpperCase()}`;
   const key = `inquiry_wholesale_${referenceId}`;
   const nowIso = new Date().toISOString();
 
@@ -279,7 +279,7 @@ export async function submitWholesaleInquiry(
 
 async function persistNewsletterSubscription(email: string, source: string): Promise<void> {
   if (!hasValidSupabaseConfig()) return;
-  const normalizedHash = crypto.createHash('sha256').update(email).digest('hex').slice(0, 20);
+  const normalizedHash = sha256Hex(email).slice(0, 20);
   const key = `newsletter_sub_${normalizedHash}`;
   await supabaseAdmin
     .from('content_blocks')

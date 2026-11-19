@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import { hmacSha256Hex, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { getOptionalEnv } from '@/lib/env';
 
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -22,10 +22,7 @@ export function createOrderReceiptToken(
 ): string {
   const expiresAt = Date.now() + ttlMs;
   const payload = `${orderId}:${email.trim().toLowerCase()}:${expiresAt}`;
-  const sig = crypto
-    .createHmac('sha256', getSigningSecret())
-    .update(payload)
-    .digest('hex');
+  const sig = hmacSha256Hex(getSigningSecret(), payload);
   return `${expiresAt}.${sig}`;
 }
 
@@ -42,17 +39,10 @@ export function verifyOrderReceiptToken(
   if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return false;
   if (!providedSig || providedSig.length !== 64) return false;
 
-  const expectedSig = crypto
-    .createHmac('sha256', getSigningSecret())
-    .update(`${orderId}:${email.trim().toLowerCase()}:${expiresAt}`)
-    .digest('hex');
+  const expectedSig = hmacSha256Hex(
+    getSigningSecret(),
+    `${orderId}:${email.trim().toLowerCase()}:${expiresAt}`
+  );
 
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(providedSig, 'hex'),
-      Buffer.from(expectedSig, 'hex')
-    );
-  } catch {
-    return false;
-  }
+  return timingSafeEqualStrings(providedSig.toLowerCase(), expectedSig);
 }

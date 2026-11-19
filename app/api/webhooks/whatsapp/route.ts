@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 
-import crypto from 'crypto';
+import { hmacSha256Hex, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getOptionalEnv, hasValidServiceRoleKey } from '@/lib/env';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -40,11 +40,9 @@ export async function POST(request: NextRequest) {
 
   const rawBody = await request.text();
   const signatureHeader = request.headers.get('x-hub-signature-256') || '';
-  const expectedSig = `sha256=${crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex')}`;
+  const expectedSig = `sha256=${hmacSha256Hex(appSecret, rawBody)}`;
 
-  const bufA = Buffer.from(signatureHeader);
-  const bufB = Buffer.from(expectedSig);
-  if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) {
+  if (!timingSafeEqualStrings(signatureHeader, expectedSig)) {
     return NextResponse.json({ error: 'Invalid Meta webhook signature' }, { status: 401 });
   }
 

@@ -24,7 +24,7 @@ const nextConfig = {
   },
   experimental: {
     cpus: 2,
-    webpackBuildWorker: true,
+    webpackBuildWorker: false,
     // ppr: true, // Requires Next.js canary - disabled for stable build
     serverActions: {
       bodySizeLimit: '2mb',
@@ -127,16 +127,25 @@ const nextConfig = {
       },
     ];
   },
-  webpack(config, { isServer, dev }) {
+  webpack(config, { isServer, dev, nextRuntime }) {
     config.experiments = { ...config.experiments, topLevelAwait: true };
 
-    if (!isServer) {
+    if (!isServer || nextRuntime === 'edge') {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
+        'fs/promises': false,
+        path: false,
         net: false,
         tls: false,
         crypto: false,
+        http: false,
+        https: false,
+        child_process: false,
+        dns: false,
+        os: false,
+        zlib: false,
+        stream: false,
       };
     }
 

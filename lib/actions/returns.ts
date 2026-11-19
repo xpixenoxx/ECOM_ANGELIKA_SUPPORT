@@ -1,6 +1,6 @@
 'use server';
 
-import crypto from 'crypto';
+import { randomInt } from '@/lib/utils/edge-crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { executeGatewayRefund } from '@/lib/actions/payments';
@@ -396,7 +396,7 @@ export async function schedulePickup(input: SchedulePickupInput): Promise<Return
     }
     const supabase = supabaseAdmin;
 
-    const pickupOtp = crypto.randomInt(100000, 1000000).toString();
+    const pickupOtp = randomInt(100000, 1000000).toString();
 
     const { data: updatedReturn, error } = await supabase
       .from('returns')

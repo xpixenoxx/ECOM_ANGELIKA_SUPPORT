@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 
-import crypto from 'crypto';
+import { hmacSha256Hex, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getOptionalEnv, hasValidServiceRoleKey } from '@/lib/env';
 import { supabaseAdmin } from '@/lib/supabase/admin';
@@ -10,10 +10,7 @@ export const dynamic = 'force-dynamic';
 
 function timingSafeEquals(a: string, b: string): boolean {
   if (!a || !b) return false;
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return crypto.timingSafeEqual(bufA, bufB);
+  return timingSafeEqualStrings(a, b);
 }
 
 function mapDelhiveryStatus(rawStatus: string): string | null {
@@ -40,7 +37,7 @@ export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') || '';
   const customToken = request.headers.get('x-delhivery-token') || '';
   const hmacHeader = request.headers.get('x-delhivery-signature') || '';
-  const expectedHmac = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+  const expectedHmac = hmacSha256Hex(secret, rawBody);
 
   const authorized =
     timingSafeEquals(authHeader, secret) ||

@@ -1,6 +1,6 @@
 'use server';
 
-import crypto from 'crypto';
+import { hmacSha256Hex, randomInt, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { supabaseAdmin, adminCreateUser } from '@/lib/supabase/admin';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
 import { getOptionalEnv } from '@/lib/env';
@@ -27,19 +27,12 @@ function hashOtp(email: string, otp: string): string {
     getOptionalEnv('OTP_SECRET') ||
     getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY') ||
     'angelika-dev-otp-pepper';
-  return crypto
-    .createHmac('sha256', pepper)
-    .update(`${email.toLowerCase()}:${otp}`)
-    .digest('hex');
+  return hmacSha256Hex(pepper, `${email.toLowerCase()}:${otp}`);
 }
 
 function timingSafeHexEqual(a: string, b: string): boolean {
   if (!a || !b || a.length !== b.length) return false;
-  try {
-    return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
-  } catch {
-    return false;
-  }
+  return timingSafeEqualStrings(a.toLowerCase(), b.toLowerCase());
 }
 
 /**
@@ -165,7 +158,7 @@ export async function sendSignupOtp(
     }
 
     // Cryptographically secure 6-digit OTP; store only salted SHA-256 hash in inactive content block
-    const otp = crypto.randomInt(100000, 1000000).toString();
+    const otp = randomInt(100000, 1000000).toString();
     const otpHash = hashOtp(cleanEmail, otp);
     const key = `otp_signup_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
     const expiresAt = Date.now() + OTP_TTL_MS;
@@ -394,7 +387,7 @@ export async function sendPasswordResetOtp(
     }
 
     const userName = profile.full_name || 'Client';
-    const otp = crypto.randomInt(100000, 1000000).toString();
+    const otp = randomInt(100000, 1000000).toString();
     const otpHash = hashOtp(cleanEmail, otp);
     const key = `otp_reset_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
     const expiresAt = Date.now() + OTP_TTL_MS;

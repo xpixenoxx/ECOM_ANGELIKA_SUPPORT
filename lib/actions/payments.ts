@@ -1,6 +1,6 @@
 'use server';
 
-import crypto from 'crypto';
+import { hmacSha256Base64, hmacSha256Hex, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { getCashfreeApiBaseUrl, getOptionalEnv } from '@/lib/env';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
@@ -107,20 +107,9 @@ export async function handleRazorpayWebhook(
       return { success: false, error: 'Razorpay webhook secret not configured' };
     }
 
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(payload)
-      .digest('hex');
+    const expectedSignature = hmacSha256Hex(webhookSecret, payload);
 
-    if (expectedSignature.length !== signature.length) {
-      return { success: false, error: 'Invalid signature' };
-    }
-
-    const sigMatches = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(signature, 'hex')
-    );
-    if (!sigMatches) {
+    if (!timingSafeEqualStrings(expectedSignature, signature.toLowerCase())) {
       console.error('Invalid Razorpay webhook signature');
       return { success: false, error: 'Invalid signature' };
     }
@@ -385,14 +374,9 @@ export async function handleCashfreeWebhook(
     }
 
     const signedPayload = `${timestamp}${payload}`;
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(signedPayload)
-      .digest('base64');
+    const expectedSignature = hmacSha256Base64(webhookSecret, signedPayload);
 
-    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
-    const actualBuf = Buffer.from(signature, 'utf8');
-    if (expectedBuf.length !== actualBuf.length || !crypto.timingSafeEqual(expectedBuf, actualBuf)) {
+    if (!timingSafeEqualStrings(expectedSignature, signature)) {
       console.error('Invalid Cashfree webhook signature');
       return { success: false, error: 'Invalid signature' };
     }

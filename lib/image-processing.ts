@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import { randomUUID } from '@/lib/utils/edge-crypto';
 import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { hasValidServiceRoleKey } from '@/lib/env';
@@ -173,7 +173,7 @@ export async function processProductImage(
   options: ProductImageUploadOptions
 ): Promise<ImageUploadResult> {
   const supabase = getStorageDbClient();
-  const baseName = crypto.randomUUID();
+  const baseName = randomUUID();
   const { width: originalWidth, height: originalHeight, format: detectedFormat } =
     extractImageDimensions(fileBuffer);
   const ext = detectedFormat === 'png' ? 'png' : detectedFormat === 'webp' ? 'webp' : 'jpg';

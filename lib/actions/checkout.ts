@@ -1,6 +1,6 @@
 'use server';
 
-import crypto from 'crypto';
+import { hmacSha256Hex, randomInt, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
@@ -228,7 +228,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     });
 
     const initialOrderStatus = orderData.paymentMethod === 'cod' ? 'confirmed' : 'pending';
-    const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${crypto.randomInt(1000, 9999)}`;
+    const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${randomInt(1000, 9999)}`;
 
     // 6. Create pending order row first so atomic reservation RPCs bind to order_id
     const { data: order, error: orderError } = await supabase
@@ -766,20 +766,9 @@ export async function verifyRazorpayPayment(
       return { success: false, error: 'Razorpay not configured' };
     }
 
-    const expectedSignature = crypto
-      .createHmac('sha256', keySecret)
-      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-      .digest('hex');
+    const expectedSignature = hmacSha256Hex(keySecret, `${razorpayOrderId}|${razorpayPaymentId}`);
 
-    if (expectedSignature.length !== razorpaySignature.length) {
-      return { success: false, error: 'Invalid payment signature' };
-    }
-
-    const sigMatches = crypto.timingSafeEqual(
-      Buffer.from(expectedSignature, 'hex'),
-      Buffer.from(razorpaySignature, 'hex')
-    );
-    if (!sigMatches) {
+    if (!timingSafeEqualStrings(expectedSignature, razorpaySignature.toLowerCase())) {
       return { success: false, error: 'Invalid payment signature' };
     }
 
