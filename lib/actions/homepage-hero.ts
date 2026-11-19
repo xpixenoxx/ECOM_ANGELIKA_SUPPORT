@@ -1,11 +1,11 @@
 'use server';
 
+import { createPublicClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { hasValidSupabaseConfig, hasValidServiceRoleKey, isCloudServerlessEnv } from '@/lib/env';
 import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import type { Json } from '@/types/database';
-import { revalidatePath } from 'next/cache';
-import fs from 'fs';
-import path from 'path';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import {
   HomepageHeroData,
   defaultHeroData,
@@ -13,29 +13,52 @@ import {
 
 export type { HomepageHeroData, NavItemEdit } from './homepage-hero-types';
 
-const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'homepage-hero.json');
-
-function readLocalBackup(): HomepageHeroData | null {
+async function readLocalBackup(): Promise<HomepageHeroData | null> {
+  if (isCloudServerlessEnv()) return null;
   try {
-    if (fs.existsSync(DATA_FILE_PATH)) {
-      const content = fs.readFileSync(DATA_FILE_PATH, 'utf8');
-      return JSON.parse(content);
-    }
-  } catch (err) {
-    console.error('Failed to read local backup:', err);
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const filePath = path.join(process.cwd(), 'data', 'homepage-hero.json');
+    const content = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(content);
+  } catch {
+    return null;
   }
-  return null;
 }
 
-function writeLocalBackup(data: HomepageHeroData) {
+async function writeLocalBackup(data: HomepageHeroData): Promise<void> {
+  if (isCloudServerlessEnv()) return;
   try {
-    const dir = path.dirname(DATA_FILE_PATH);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const dataDir = path.join(process.cwd(), 'data');
+    await fs.mkdir(dataDir, { recursive: true });
+    await fs.writeFile(path.join(dataDir, 'homepage-hero.json'), JSON.stringify(data, null, 2), 'utf8');
+
+    const siteContentPath = path.join(dataDir, 'site-content.json');
+    try {
+      const scRaw = await fs.readFile(siteContentPath, 'utf8');
+      const scContent = JSON.parse(scRaw);
+      const combinedTitle =
+        data.headline && data.headlineHighlight
+          ? `${data.headline} ${data.headlineHighlight}`.trim()
+          : data.headline || data.headlineHighlight || scContent.hero?.title || 'Grace in Every Drape';
+      scContent.hero = {
+        ...(scContent.hero || {}),
+        title: combinedTitle,
+        subtitle: data.subtitle || scContent.hero?.subtitle || '',
+        ctaText: data.primaryCtaText || scContent.hero?.ctaText || 'Explore Collection',
+        ctaLink: data.primaryCtaLink || scContent.hero?.ctaLink || '/shop',
+        secondaryCtaText: data.secondaryCtaText || scContent.hero?.secondaryCtaText || "Vidhya's Picks",
+        secondaryCtaLink: data.secondaryCtaLink || scContent.hero?.secondaryCtaLink || '/vidhyas-picks',
+        backgroundImage: data.backgroundImage || scContent.hero?.backgroundImage || '/images/hero-new-couture.jpg',
+      };
+      await fs.writeFile(siteContentPath, JSON.stringify(scContent, null, 2), 'utf8');
+    } catch {
+      // Ignore if site-content.json doesn't exist locally
     }
-    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Failed to write local backup:', err);
+  } catch {
+    // Ignore on read-only serverless/edge filesystems
   }
 }
 
@@ -47,41 +70,46 @@ export async function getDefaultHeroData(): Promise<HomepageHeroData> {
 }
 
 /**
- * Fetch Homepage Hero & Header settings
+ * Fetch Homepage Hero & Header settings (Cloudflare Edge & ISR compatible)
  */
 export async function getHomepageHeroData(): Promise<HomepageHeroData> {
   let heroData: HomepageHeroData = { ...defaultHeroData };
 
-  // 1. Try Supabase content_blocks table first as base
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('content_blocks')
-      .select('content')
-      .eq('key', 'homepage_hero')
-      .single();
-
-    if (!error && data?.content && typeof data.content === 'object') {
-      heroData = {
-        ...heroData,
-        ...data.content,
-      };
-    }
-  } catch (err) {
-    console.warn('Could not fetch homepage_hero from Supabase, using fallback:', err);
-  }
-
-  // 2. Try to read local file backup (contains direct admin edits with guaranteed persistence)
-  const localBackup = readLocalBackup();
+  // 1. Optional local JSON backup as lowest-priority base in local dev
+  const localBackup = await readLocalBackup();
   if (localBackup) {
     heroData = { ...heroData, ...localBackup };
   }
 
-  // 3. Fallback: check store_settings and navbar_items if content_blocks had no record
+  if (!hasValidSupabaseConfig()) {
+    return heroData;
+  }
+
+  const client = hasValidServiceRoleKey() ? supabaseAdmin : createPublicClient();
+
+  // 2. Authoritative Supabase queries in parallel
   try {
-    const [settingsRes, navRes] = await Promise.all([
-      supabaseAdmin.from('store_settings').select('*').limit(1).single(),
-      supabaseAdmin.from('navbar_items').select('*').order('sort_order', { ascending: true }),
+    const [blockRes, settingsRes, navRes] = await Promise.all([
+      client
+        .from('content_blocks')
+        .select('content')
+        .eq('key', 'homepage_hero')
+        .eq('is_active', true)
+        .maybeSingle(),
+      client.from('store_settings').select('*').limit(1).maybeSingle(),
+      client
+        .from('navbar_items')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true }),
     ]);
+
+    if (!blockRes.error && blockRes.data?.content && typeof blockRes.data.content === 'object') {
+      heroData = {
+        ...heroData,
+        ...(blockRes.data.content as Record<string, any>),
+      };
+    }
 
     if (!settingsRes.error && settingsRes.data) {
       if (settingsRes.data.site_name) heroData.brandName = settingsRes.data.site_name;
@@ -99,7 +127,7 @@ export async function getHomepageHeroData(): Promise<HomepageHeroData> {
       }));
     }
   } catch (err) {
-    console.warn('Could not query fallback store_settings:', err);
+    console.warn('Could not fetch homepage_hero from Supabase, using fallback:', err);
   }
 
   return heroData;
@@ -116,32 +144,9 @@ export async function saveHomepageHeroData(
     if (!auth.authorized) {
       return { success: false, error: auth.error || 'Unauthorized' };
     }
-    // 1. Always write to local JSON backup
-    writeLocalBackup(data);
 
-    // 1b. Also sync to site-content.json hero block
-    try {
-      const siteContentPath = path.join(process.cwd(), 'data', 'site-content.json');
-      if (fs.existsSync(siteContentPath)) {
-        const scContent = JSON.parse(fs.readFileSync(siteContentPath, 'utf8'));
-        const combinedTitle = data.headline && data.headlineHighlight 
-          ? `${data.headline} ${data.headlineHighlight}`.trim() 
-          : (data.headline || data.headlineHighlight || scContent.hero?.title || 'Grace in Every Drape');
-        scContent.hero = {
-          ...(scContent.hero || {}),
-          title: combinedTitle,
-          subtitle: data.subtitle || scContent.hero?.subtitle || '',
-          ctaText: data.primaryCtaText || scContent.hero?.ctaText || 'Explore Collection',
-          ctaLink: data.primaryCtaLink || scContent.hero?.ctaLink || '/shop',
-          secondaryCtaText: data.secondaryCtaText || scContent.hero?.secondaryCtaText || "Vidhya's Picks",
-          secondaryCtaLink: data.secondaryCtaLink || scContent.hero?.secondaryCtaLink || '/vidhyas-picks',
-          backgroundImage: data.backgroundImage || scContent.hero?.backgroundImage || '/images/hero-new-couture.jpg',
-        };
-        fs.writeFileSync(siteContentPath, JSON.stringify(scContent, null, 2), 'utf8');
-      }
-    } catch (scErr) {
-      console.warn('Failed to sync site-content.json hero block:', scErr);
-    }
+    // 1. Write to local JSON backup in local dev only
+    await writeLocalBackup(data);
 
     // 2. Upsert to Supabase content_blocks table
     try {
@@ -149,7 +154,7 @@ export async function saveHomepageHeroData(
         .from('content_blocks')
         .select('id')
         .eq('key', 'homepage_hero')
-        .single();
+        .maybeSingle();
 
       if (existing?.id) {
         await supabaseAdmin
@@ -181,7 +186,7 @@ export async function saveHomepageHeroData(
 
     // 3. Sync to store_settings table
     try {
-      const { data: storeSetting } = await supabaseAdmin.from('store_settings').select('id').limit(1).single();
+      const { data: storeSetting } = await supabaseAdmin.from('store_settings').select('id').limit(1).maybeSingle();
       if (storeSetting?.id) {
         await supabaseAdmin
           .from('store_settings')
@@ -223,6 +228,9 @@ export async function saveHomepageHeroData(
       entityId: 'homepage_hero',
     });
 
+    revalidateTag('homepage-hero');
+    revalidateTag('site-content');
+    revalidateTag('store-settings');
     revalidatePath('/');
     revalidatePath('/admin/content');
     revalidatePath('/admin');

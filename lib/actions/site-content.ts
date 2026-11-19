@@ -1,25 +1,39 @@
 'use server';
 
-import fs from 'fs/promises';
-import path from 'path';
 import { unstable_cache, revalidateTag } from 'next/cache';
 import { createPublicClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { hasValidSupabaseConfig } from '@/lib/env';
+import { hasValidSupabaseConfig, isCloudServerlessEnv } from '@/lib/env';
 import type { Json } from '@/types/database';
 
 export type * from './site-content-types';
 import type { SiteContent } from './site-content-types';
 import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const CONTENT_FILE = path.join(DATA_DIR, 'site-content.json');
-
-async function ensureDataDir() {
+async function readLocalSiteContentFile(): Promise<Record<string, any> | null> {
+  if (isCloudServerlessEnv()) return null;
   try {
-    await fs.mkdir(DATA_DIR, { recursive: true });
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const filePath = path.join(process.cwd(), 'data', 'site-content.json');
+    const raw = await fs.readFile(filePath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
-    // Ignore on read-only serverless filesystems
+    return null;
+  }
+}
+
+async function writeLocalSiteContentFile(content: SiteContent): Promise<void> {
+  if (isCloudServerlessEnv()) return;
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const dataDir = path.join(process.cwd(), 'data');
+    await fs.mkdir(dataDir, { recursive: true });
+    await fs.writeFile(path.join(dataDir, 'site-content.json'), JSON.stringify(content, null, 2), 'utf-8');
+  } catch {
+    // Ignore on read-only serverless/edge filesystems
   }
 }
 
@@ -27,14 +41,9 @@ async function readSiteContentOverrides(): Promise<Record<string, any>> {
   let merged: Record<string, any> = {};
 
   // 1. Optional dev JSON file as lowest-priority base override
-  try {
-    const raw = await fs.readFile(CONTENT_FILE, 'utf-8');
-    const parsedFile = JSON.parse(raw);
-    if (parsedFile && typeof parsedFile === 'object') {
-      merged = { ...parsedFile };
-    }
-  } catch {
-    // Expected when file does not exist or on stateless deployments
+  const parsedFile = await readLocalSiteContentFile();
+  if (parsedFile) {
+    merged = { ...parsedFile };
   }
 
   // 2. Authoritative Supabase content_blocks table (only public active CMS sections)
@@ -968,16 +977,14 @@ export async function updateSectionContent(
       if (dbErr) {
         return { success: false, error: dbErr.message };
       }
-    } else if (!process.env['VERCEL']) {
-      await ensureDataDir();
-      await fs.writeFile(CONTENT_FILE, JSON.stringify(updatedContent, null, 2), 'utf-8');
+    } else if (!isCloudServerlessEnv()) {
+      await writeLocalSiteContentFile(updatedContent);
     } else {
       return { success: false, error: 'Database persistence is not configured.' };
     }
 
-    if (!process.env['VERCEL'] && hasValidSupabaseConfig()) {
-      await ensureDataDir();
-      await fs.writeFile(CONTENT_FILE, JSON.stringify(updatedContent, null, 2), 'utf-8').catch(() => {});
+    if (!isCloudServerlessEnv() && hasValidSupabaseConfig()) {
+      await writeLocalSiteContentFile(updatedContent);
     }
 
     try {

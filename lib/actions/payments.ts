@@ -2,7 +2,7 @@
 
 import crypto from 'crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { getOptionalEnv } from '@/lib/env';
+import { getCashfreeApiBaseUrl, getOptionalEnv } from '@/lib/env';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
 import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { fromPaise, toPaise } from '@/lib/pricing';
@@ -21,7 +21,7 @@ function parseMeta(json: Json): Record<string, unknown> {
 }
 
 async function claimWebhookEvent(
-  provider: 'razorpay' | 'stripe' | 'delhivery' | 'whatsapp',
+  provider: 'cashfree' | 'razorpay' | 'stripe' | 'delhivery' | 'whatsapp',
   eventId: string,
   eventType: string,
   payload: unknown
@@ -162,7 +162,7 @@ export async function handleRazorpayWebhook(
 
 async function confirmAndMarkOrderPaid(params: {
   order: Pick<OrderRow, 'id' | 'email' | 'total_amount' | 'payment_status' | 'status' | 'metadata'>;
-  provider: 'razorpay' | 'stripe';
+  provider: 'cashfree' | 'razorpay' | 'stripe';
   paymentId: string;
 }) {
   const { order, provider, paymentId } = params;
@@ -329,6 +329,202 @@ async function handleRazorpayRefundEvent(refund: RazorpayRefundEntity | undefine
 
   if (isFullRefund) {
     await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
+  }
+}
+
+// ============================================
+// CASHFREE WEBHOOK HANDLER (PG API v2023-08-01)
+// ============================================
+
+export interface CashfreeWebhookPayload {
+  type?: string;
+  event_time?: string;
+  data?: {
+    order?: {
+      order_id?: string;
+      order_amount?: number;
+      order_currency?: string;
+      order_tags?: Record<string, string>;
+    };
+    payment?: {
+      cf_payment_id?: string | number;
+      payment_status?: string;
+      payment_amount?: number;
+      payment_currency?: string;
+      payment_message?: string;
+      payment_time?: string;
+      payment_group?: string;
+    };
+    refund?: {
+      cf_refund_id?: string | number;
+      refund_id?: string;
+      order_id?: string;
+      refund_amount?: number;
+      refund_currency?: string;
+      refund_status?: string;
+      refund_note?: string;
+    };
+  };
+}
+
+export async function handleCashfreeWebhook(
+  payload: string,
+  signature: string,
+  timestamp: string,
+  deliveryEventId?: string | null
+): Promise<{ success: boolean; error?: string; duplicate?: boolean }> {
+  try {
+    const webhookSecret =
+      getOptionalEnv('CASHFREE_WEBHOOK_SECRET') || getOptionalEnv('CASHFREE_SECRET_KEY');
+    if (!webhookSecret) {
+      return { success: false, error: 'Cashfree webhook secret not configured' };
+    }
+
+    if (!signature || !timestamp) {
+      return { success: false, error: 'Invalid signature' };
+    }
+
+    const signedPayload = `${timestamp}${payload}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(signedPayload)
+      .digest('base64');
+
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+    const actualBuf = Buffer.from(signature, 'utf8');
+    if (expectedBuf.length !== actualBuf.length || !crypto.timingSafeEqual(expectedBuf, actualBuf)) {
+      console.error('Invalid Cashfree webhook signature');
+      return { success: false, error: 'Invalid signature' };
+    }
+
+    const event: CashfreeWebhookPayload = JSON.parse(payload);
+    const eventType = event.type || 'UNKNOWN_CASHFREE_EVENT';
+    const cfOrderId = event.data?.order?.order_id || event.data?.refund?.order_id || '';
+    const cfPaymentId = String(
+      event.data?.payment?.cf_payment_id ||
+        event.data?.refund?.cf_refund_id ||
+        event.data?.refund?.refund_id ||
+        cfOrderId ||
+        timestamp
+    );
+    const derivedEventId = deliveryEventId || `${eventType}:${cfOrderId}:${cfPaymentId}`;
+
+    const claim = await claimWebhookEvent('cashfree', derivedEventId, eventType, event);
+    if (claim.alreadyProcessed) {
+      return { success: true, duplicate: true };
+    }
+
+    const internalOrderId = event.data?.order?.order_tags?.['internal_order_id'];
+
+    const findOrderForCashfree = async () => {
+      if (internalOrderId) {
+        const { data: byId } = await supabaseAdmin
+          .from('orders')
+          .select('id, email, total_amount, payment_status, status, metadata')
+          .eq('id', internalOrderId)
+          .maybeSingle();
+        if (byId) return byId;
+      }
+      if (cfOrderId) {
+        const { data: byPaymentId } = await supabaseAdmin
+          .from('orders')
+          .select('id, email, total_amount, payment_status, status, metadata')
+          .eq('payment_id', cfOrderId)
+          .maybeSingle();
+        if (byPaymentId) return byPaymentId;
+      }
+      return null;
+    };
+
+    switch (eventType) {
+      case 'PAYMENT_SUCCESS_WEBHOOK': {
+        const order = await findOrderForCashfree();
+        if (order) {
+          const paidAmount = Number(
+            event.data?.payment?.payment_amount ?? event.data?.order?.order_amount ?? 0
+          );
+          if (paidAmount >= Number(order.total_amount)) {
+            await confirmAndMarkOrderPaid({
+              order,
+              provider: 'cashfree',
+              paymentId: String(event.data?.payment?.cf_payment_id || cfOrderId),
+            });
+          }
+        }
+        break;
+      }
+      case 'PAYMENT_FAILED_WEBHOOK':
+      case 'PAYMENT_USER_DROPPED_WEBHOOK': {
+        const order = await findOrderForCashfree();
+        if (order && order.payment_status !== 'paid' && order.payment_status !== 'refunded') {
+          const existingMeta = parseMeta(order.metadata);
+          const failureReason =
+            event.data?.payment?.payment_message ||
+            (eventType === 'PAYMENT_USER_DROPPED_WEBHOOK' ? 'Customer dropped payment' : 'Payment failed');
+          await supabaseAdmin
+            .from('orders')
+            .update({
+              payment_status: 'failed',
+              status: 'cancelled',
+              cancelled_at: new Date().toISOString(),
+              cancel_reason: failureReason,
+              metadata: {
+                ...existingMeta,
+                payment_failed_at: new Date().toISOString(),
+                payment_failure_reason: failureReason,
+                cashfree_order_id: cfOrderId,
+              } as unknown as Json,
+            })
+            .eq('id', order.id);
+
+          await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
+        }
+        break;
+      }
+      case 'REFUND_STATUS_WEBHOOK': {
+        const refund = event.data?.refund;
+        if (refund && refund.refund_status === 'SUCCESS') {
+          const order = await findOrderForCashfree();
+          if (order) {
+            const existingMeta = parseMeta(order.metadata);
+            const refundedInr = Number(refund.refund_amount || 0);
+            const previousRefundedInr = Number(existingMeta['refund_amount'] || 0);
+            const cumulativeRefundedInr = Math.min(
+              Number(order.total_amount),
+              Math.max(previousRefundedInr, refundedInr)
+            );
+            const isFullRefund = cumulativeRefundedInr >= Number(order.total_amount);
+
+            await supabaseAdmin
+              .from('orders')
+              .update({
+                payment_status: isFullRefund ? 'refunded' : 'partially_refunded',
+                ...(isFullRefund ? { status: 'cancelled', cancelled_at: new Date().toISOString() } : {}),
+                metadata: {
+                  ...existingMeta,
+                  refund_id: String(refund.cf_refund_id || refund.refund_id || ''),
+                  refund_amount: cumulativeRefundedInr,
+                  refund_amount_paise: toPaise(cumulativeRefundedInr),
+                  refunded_at: new Date().toISOString(),
+                } as unknown as Json,
+              })
+              .eq('id', order.id);
+
+            if (isFullRefund) {
+              await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
+            }
+          }
+        }
+        break;
+      }
+      default:
+        console.log(`Unhandled Cashfree webhook event: ${eventType}`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Cashfree webhook error:', error);
+    return { success: false, error: 'Webhook processing failed' };
   }
 }
 
@@ -808,8 +1004,61 @@ export async function executeGatewayRefund(
     const newCumulativeRefunded = alreadyRefundedInr + requestedInr;
     const isFullRefund = newCumulativeRefunded >= Number(order.total_amount);
 
+    const cashfreeOrderId = (meta['cashfree_order_id'] || order.payment_id) as string | undefined;
     const razorpayPaymentId = meta['razorpay_payment_id'] as string | undefined;
     const stripePaymentIntentId = (meta['stripe_payment_intent_id'] || order.payment_id) as string | undefined;
+
+    if (order.payment_method === 'cashfree' && cashfreeOrderId) {
+      const appId = getOptionalEnv('CASHFREE_APP_ID');
+      const secretKey = getOptionalEnv('CASHFREE_SECRET_KEY');
+      if (!appId || !secretKey) return { success: false, error: 'Cashfree not configured' };
+
+      const refundId = `ref_${orderId.replace(/-/g, '').slice(0, 12)}_${Date.now()}`;
+      const baseUrl = getCashfreeApiBaseUrl();
+      const response = await fetch(`${baseUrl}/orders/${encodeURIComponent(cashfreeOrderId)}/refunds`, {
+        method: 'POST',
+        headers: {
+          'x-client-id': appId,
+          'x-client-secret': secretKey,
+          'x-api-version': '2023-08-01',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          refund_amount: Number(requestedInr.toFixed(2)),
+          refund_id: refundId,
+          refund_note: reason || 'Customer requested refund',
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        return { success: false, error: data?.message || 'Cashfree refund failed' };
+      }
+
+      const resolvedRefundId = String(data.cf_refund_id || data.refund_id || refundId);
+
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          payment_status: isFullRefund ? 'refunded' : 'partially_refunded',
+          ...(isFullRefund ? { status: 'cancelled', cancelled_at: new Date().toISOString() } : {}),
+          metadata: {
+            ...meta,
+            refund_id: resolvedRefundId,
+            refund_amount: newCumulativeRefunded,
+            refund_amount_paise: toPaise(newCumulativeRefunded),
+            refunded_at: new Date().toISOString(),
+          } as unknown as Json,
+        })
+        .eq('id', orderId);
+
+      if (isFullRefund) {
+        await supabaseAdmin.rpc('release_order_inventory', { p_order_id: orderId });
+      }
+
+      return { success: true, refundId: resolvedRefundId };
+    }
 
     if (order.payment_method === 'razorpay' && razorpayPaymentId) {
       const keySecret = getOptionalEnv('RAZORPAY_KEY_SECRET');

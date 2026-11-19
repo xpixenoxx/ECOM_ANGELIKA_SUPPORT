@@ -5,6 +5,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { createOrderReceiptToken, verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
+import { getCashfreeApiBaseUrl, getCashfreeMode, getOptionalEnv } from '@/lib/env';
 import { calculateOrderTotals, PRICING_CONSTANTS, toPaise, type CouponSpec } from '@/lib/pricing';
 import { normalizeAddress } from '@/lib/utils/address';
 import {
@@ -25,7 +26,7 @@ export interface OrderData {
   items: CartItem[];
   shippingAddress: Address;
   billingAddress?: Address;
-  paymentMethod: 'razorpay' | 'cod' | 'stripe';
+  paymentMethod: 'cashfree' | 'razorpay' | 'cod' | 'stripe';
   email: string;
   phone: string;
   notes?: string;
@@ -41,6 +42,9 @@ export interface CreateOrderResult {
   success: boolean;
   orderId?: string;
   orderNumber?: string;
+  cashfreeOrderId?: string;
+  cashfreePaymentSessionId?: string;
+  cashfreeEnv?: 'sandbox' | 'production';
   razorpayOrderId?: string;
   receiptToken?: string;
   error?: string;
@@ -117,15 +121,28 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     if (cleanIdemKey) {
       const { data: existingOrder } = await supabase
         .from('orders')
-        .select('id, order_number, email, payment_id, status, payment_status')
+        .select('id, order_number, email, payment_id, payment_method, status, payment_status, metadata')
         .eq('idempotency_key', cleanIdemKey)
         .maybeSingle();
 
       if (existingOrder && existingOrder.status !== 'cancelled') {
+        const existingMeta =
+          existingOrder.metadata && typeof existingOrder.metadata === 'object' && !Array.isArray(existingOrder.metadata)
+            ? (existingOrder.metadata as Record<string, any>)
+            : {};
         return {
           success: true,
           orderId: existingOrder.id,
           orderNumber: existingOrder.order_number,
+          cashfreeOrderId:
+            existingOrder.payment_method === 'cashfree'
+              ? (existingMeta['cashfree_order_id'] || existingOrder.payment_id || undefined)
+              : undefined,
+          cashfreePaymentSessionId:
+            existingOrder.payment_method === 'cashfree'
+              ? (existingMeta['cashfree_payment_session_id'] || undefined)
+              : undefined,
+          cashfreeEnv: existingOrder.payment_method === 'cashfree' ? getCashfreeMode() : undefined,
           razorpayOrderId: existingOrder.payment_id || undefined,
           receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
         };
@@ -372,10 +389,55 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       await supabase.from('carts').delete().eq('user_id', userId);
     }
 
-    // 11. Finalize COD or Initialize Razorpay Order (paise conversion via toPaise)
+    // 11. Finalize COD or Initialize Cashfree / Razorpay Order
+    const receiptToken = createOrderReceiptToken(order.id, cleanEmail);
     let razorpayOrderId: string | undefined;
+    let cashfreeOrderId: string | undefined;
+    let cashfreePaymentSessionId: string | undefined;
+    let cashfreeEnv: 'sandbox' | 'production' | undefined;
+
     if (orderData.paymentMethod === 'cod') {
       await supabase.rpc('confirm_order_inventory', { p_order_id: order.id });
+    } else if (orderData.paymentMethod === 'cashfree') {
+      const cfResult = await createCashfreeOrder({
+        internalOrderId: order.id,
+        orderNumber: order.order_number,
+        amountInr: finalTotals.total,
+        currency: 'INR',
+        customerId: userId || `guest_${cleanPhone}`,
+        customerName: `${cleanShipping.firstName} ${cleanShipping.lastName || ''}`.trim() || 'Angelika Customer',
+        customerEmail: cleanEmail,
+        customerPhone: cleanPhone,
+        receiptToken,
+      });
+
+      if (!cfResult.success || !cfResult.cfOrderId || !cfResult.paymentSessionId) {
+        console.error('Cashfree order creation failed — releasing reservations & rolling back:', cfResult.error);
+        await cleanupOrder(true);
+        return {
+          success: false,
+          error: cfResult.error || 'Could not connect to Cashfree payment gateway. Please try again.',
+        };
+      }
+
+      cashfreeOrderId = cfResult.cfOrderId;
+      cashfreePaymentSessionId = cfResult.paymentSessionId;
+      cashfreeEnv = getCashfreeMode();
+
+      await supabase
+        .from('orders')
+        .update({
+          payment_id: cashfreeOrderId,
+          metadata: {
+            cod_fee: finalTotals.codFee,
+            included_gst_amount: finalTotals.includedGstAmount,
+            coupon_code: appliedCouponSpec?.code || null,
+            gift_wrap: Boolean(orderData.giftWrap),
+            cashfree_order_id: cashfreeOrderId,
+            cashfree_payment_session_id: cashfreePaymentSessionId,
+          } as unknown as Json,
+        })
+        .eq('id', order.id);
     } else if (orderData.paymentMethod === 'razorpay') {
       const razorpayResult = await createRazorpayOrder({
         amount: toPaise(finalTotals.total),
@@ -417,12 +479,227 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       success: true,
       orderId: order.id,
       orderNumber: order.order_number,
+      cashfreeOrderId,
+      cashfreePaymentSessionId,
+      cashfreeEnv,
       razorpayOrderId,
-      receiptToken: createOrderReceiptToken(order.id, cleanEmail),
+      receiptToken,
     };
   } catch (error) {
     console.error('Create order error:', error);
     return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+interface CashfreeOrderParams {
+  internalOrderId: string;
+  orderNumber: string;
+  amountInr: number;
+  currency: string;
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  receiptToken: string;
+}
+
+interface CashfreeOrderResult {
+  success: boolean;
+  cfOrderId?: string;
+  paymentSessionId?: string;
+  error?: string;
+}
+
+async function createCashfreeOrder(params: CashfreeOrderParams): Promise<CashfreeOrderResult> {
+  try {
+    const appId = getOptionalEnv('CASHFREE_APP_ID');
+    const secretKey = getOptionalEnv('CASHFREE_SECRET_KEY');
+
+    if (!appId || !secretKey) {
+      return { success: false, error: 'Cashfree payment gateway is not configured' };
+    }
+
+    const siteUrl = (process.env['NEXT_PUBLIC_SITE_URL'] || 'https://angelikafashions.com').replace(/\/+$/, '');
+    const cfOrderId = `cf_${params.internalOrderId.replace(/-/g, '')}`;
+    const baseUrl = getCashfreeApiBaseUrl();
+
+    const response = await fetch(`${baseUrl}/orders`, {
+      method: 'POST',
+      headers: {
+        'x-client-id': appId,
+        'x-client-secret': secretKey,
+        'x-api-version': '2023-08-01',
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        order_id: cfOrderId,
+        order_amount: Number(params.amountInr.toFixed(2)),
+        order_currency: params.currency,
+        customer_details: {
+          customer_id: params.customerId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 45),
+          customer_name: params.customerName.slice(0, 100),
+          customer_email: params.customerEmail,
+          customer_phone: params.customerPhone,
+        },
+        order_meta: {
+          return_url: `${siteUrl}/order-success?order_id=${params.internalOrderId}&cf_order_id={order_id}&token=${encodeURIComponent(params.receiptToken)}`,
+          notify_url: `${siteUrl}/api/webhooks/cashfree`,
+        },
+        order_tags: {
+          internal_order_id: params.internalOrderId,
+          order_number: params.orderNumber,
+        },
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data?.payment_session_id) {
+      console.error('Cashfree order creation failed:', data);
+      return {
+        success: false,
+        error: data?.message || 'Failed to initialize Cashfree payment session',
+      };
+    }
+
+    return {
+      success: true,
+      cfOrderId: data.order_id || cfOrderId,
+      paymentSessionId: data.payment_session_id,
+    };
+  } catch (error) {
+    console.error('Cashfree order error:', error);
+    return { success: false, error: 'Failed to create Cashfree payment order' };
+  }
+}
+
+export async function verifyCashfreePayment(
+  cashfreeOrderId: string
+): Promise<{ success: boolean; orderId?: string; receiptToken?: string; error?: string }> {
+  try {
+    const appId = getOptionalEnv('CASHFREE_APP_ID');
+    const secretKey = getOptionalEnv('CASHFREE_SECRET_KEY');
+    if (!appId || !secretKey) {
+      return { success: false, error: 'Cashfree not configured' };
+    }
+
+    const cleanCfOrderId = (cashfreeOrderId || '').trim();
+    if (!cleanCfOrderId) {
+      return { success: false, error: 'Missing Cashfree order ID' };
+    }
+
+    const baseUrl = getCashfreeApiBaseUrl();
+    const response = await fetch(`${baseUrl}/orders/${encodeURIComponent(cleanCfOrderId)}`, {
+      method: 'GET',
+      headers: {
+        'x-client-id': appId,
+        'x-client-secret': secretKey,
+        'x-api-version': '2023-08-01',
+        Accept: 'application/json',
+      },
+    });
+
+    const cfOrder = await response.json();
+    if (!response.ok) {
+      return {
+        success: false,
+        error: cfOrder?.message || 'Could not verify payment status with Cashfree',
+      };
+    }
+
+    if (cfOrder?.order_status !== 'PAID') {
+      return {
+        success: false,
+        error: `Payment status is ${cfOrder?.order_status || 'PENDING'}. If your account was debited, it will update automatically.`,
+      };
+    }
+
+    const supabase = supabaseAdmin;
+    const internalOrderIdFromTags = cfOrder?.order_tags?.internal_order_id;
+
+    let query = supabase
+      .from('orders')
+      .select('id, user_id, email, total_amount, metadata, payment_status, status');
+
+    if (internalOrderIdFromTags && UUID_REGEX.test(internalOrderIdFromTags)) {
+      query = query.eq('id', internalOrderIdFromTags);
+    } else {
+      query = query.eq('payment_id', cleanCfOrderId);
+    }
+
+    const { data: order, error: findError } = await query.maybeSingle();
+
+    if (findError || !order) {
+      return { success: false, error: 'Order not found' };
+    }
+
+    if (Number(cfOrder.order_amount || 0) < Number(order.total_amount || 0)) {
+      return { success: false, error: 'Payment amount mismatch' };
+    }
+
+    if (order.payment_status === 'paid') {
+      return {
+        success: true,
+        orderId: order.id,
+        receiptToken: createOrderReceiptToken(order.id, order.email),
+      };
+    }
+
+    // Confirm atomic inventory & coupon reservation
+    const confirmRes = await supabase.rpc('confirm_order_inventory', { p_order_id: order.id });
+    const confirmData = confirmRes.data as { confirmed?: boolean; stock_conflict?: boolean } | null;
+
+    const existingMeta =
+      typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata)
+        ? (order.metadata as Record<string, unknown>)
+        : {};
+
+    if (confirmRes.error || confirmData?.stock_conflict) {
+      await supabase
+        .from('orders')
+        .update({
+          metadata: {
+            ...existingMeta,
+            stock_conflict: true,
+            cashfree_order_id: cleanCfOrderId,
+            cf_order_id: cfOrder.cf_order_id,
+          } as unknown as Json,
+        })
+        .eq('id', order.id);
+
+      return {
+        success: false,
+        error: 'Item sold out during payment window. Our team will initiate an immediate automatic refund.',
+      };
+    }
+
+    await supabase
+      .from('orders')
+      .update({
+        payment_status: 'paid',
+        status: 'confirmed',
+        metadata: {
+          ...existingMeta,
+          cashfree_order_id: cleanCfOrderId,
+          cf_order_id: cfOrder.cf_order_id,
+          paid_at: new Date().toISOString(),
+        } as unknown as Json,
+      })
+      .eq('id', order.id);
+
+    if (order.user_id) {
+      await supabase.from('carts').delete().eq('user_id', order.user_id);
+    }
+
+    return {
+      success: true,
+      orderId: order.id,
+      receiptToken: createOrderReceiptToken(order.id, order.email),
+    };
+  } catch (error) {
+    console.error('Verify Cashfree payment error:', error);
+    return { success: false, error: 'Cashfree payment verification failed' };
   }
 }
 

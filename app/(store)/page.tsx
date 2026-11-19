@@ -3,8 +3,8 @@ import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import { getSiteContent } from '@/lib/actions/site-content';
 import HomePageClient from './HomePageClient';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// ISR: rebuilds at most every 60s. For immediate updates, POST /api/revalidate
+export const revalidate = 60;
 
 const homeJsonLd = {
   '@context': 'https://schema.org',

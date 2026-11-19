@@ -64,7 +64,8 @@ export async function updateSession(request: NextRequest) {
     }
 
   // Geo-based redirect
-  const country = request.headers.get('x-vercel-ip-country') || 'IN';
+  // Support both Vercel (x-vercel-ip-country) and Cloudflare (cf-ipcountry) geo headers
+  const country = request.headers.get('cf-ipcountry') || request.headers.get('x-vercel-ip-country') || 'IN';
   const currency = country === 'IN' ? 'INR' : country === 'US' ? 'USD' : 'EUR';
   const locale = country === 'IN' ? 'en-IN' : 'en-US';
 
@@ -153,37 +154,3 @@ export function isManager(userRole: UserRole | null): boolean {
 export function isDesigner(userRole: UserRole | null): boolean {
   return hasRole(userRole, ['admin', 'manager', 'designer']);
 }
-
-// Rate limiting helper
-const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
-
-export function rateLimit(
-  identifier: string,
-  maxRequests: number,
-  windowMs: number
-): { allowed: boolean; remaining: number; resetTime: number } {
-  const now = Date.now();
-  const record = rateLimitMap.get(identifier);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs });
-    return { allowed: true, remaining: maxRequests - 1, resetTime: now + windowMs };
-  }
-
-  if (record.count >= maxRequests) {
-    return { allowed: false, remaining: 0, resetTime: record.resetTime };
-  }
-
-  record.count++;
-  return { allowed: true, remaining: maxRequests - record.count, resetTime: record.resetTime };
-}
-
-// Cleanup old rate limit entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of rateLimitMap.entries()) {
-    if (now > value.resetTime) {
-      rateLimitMap.delete(key);
-    }
-  }
-}, 60 * 60 * 1000); // Every hour

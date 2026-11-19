@@ -67,6 +67,6 @@ export const defaultHeroData: HomepageHeroData = {
   backgroundImageAlt: 'Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya',
   conciergeTitle: "Vidhya's Concierge",
   conciergeSubtitle: 'Bespoke Styling Chat',
-  conciergeWhatsApp: '919876543210',
+  conciergeWhatsApp: '917207256690',
 };
 

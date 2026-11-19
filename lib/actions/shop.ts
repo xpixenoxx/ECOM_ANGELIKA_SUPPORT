@@ -1,14 +1,13 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createPublicClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import type { ShopProductCard, ShopFilters } from './shop-types';
 
 type CategoryRow = Database['public']['Tables']['categories']['Row'];
 
 async function getSupabaseClient() {
-  const { createClient } = await import('@/lib/supabase/server');
-  return createClient();
+  return createPublicClient();
 }
 
 function matchesColor(p: any, pRaw: any, color: string): boolean {

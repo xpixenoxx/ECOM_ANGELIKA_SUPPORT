@@ -1,0 +1,15 @@
+name = "angelika-fashions"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[vars]
+NEXT_PUBLIC_SITE_URL = "https://angelikafashions.com"
+
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "2f5452c5426645d7b74f65c0251e16b3"
+preview_id = "b3a09d978b3d4bc898fa8c49b84a12c2"
+
+[build]
+command = "npx @cloudflare/next-on-pages"

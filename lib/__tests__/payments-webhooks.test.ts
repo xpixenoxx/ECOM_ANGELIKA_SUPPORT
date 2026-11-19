@@ -88,7 +88,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   },
 }));
 
-import { handleRazorpayWebhook } from '@/lib/actions/payments';
+import { handleCashfreeWebhook, handleRazorpayWebhook } from '@/lib/actions/payments';
 import { cancelCustomerOrder, trackOrderPublic } from '@/lib/actions/customer-orders';
 
 describe('Webhooks Idempotency, Paise/INR Refund Bounds, Customer Cancel & Tracking', () => {
@@ -219,5 +219,66 @@ describe('Webhooks Idempotency, Paise/INR Refund Bounds, Customer Cancel & Track
     expect(validPhone.order?.destination_city).toBe('Jaipur');
     expect((validPhone.order as any)?.address1).toBeUndefined();
     expect((validPhone.order as any)?.email).toBeUndefined();
+  });
+
+  it('verifies Cashfree Base64 HMAC-SHA256 webhook signature, confirms inventory, and deduplicates replays', async () => {
+    const cfSecret = 'cf_secret_key_prod_test_999';
+    process.env['CASHFREE_SECRET_KEY'] = cfSecret;
+
+    ordersMap.set('order-cf-1', {
+      id: 'order-cf-1',
+      order_number: 'ORD-CF-001',
+      user_id: 'user-1',
+      email: 'priya@example.com',
+      phone: '9876543210',
+      payment_method: 'cashfree',
+      payment_id: 'cf_order_cf_1',
+      payment_status: 'pending',
+      status: 'pending',
+      total_amount: 5500,
+      currency: 'INR',
+      metadata: {},
+      shipping_address: { city: 'Jaipur', state: 'Rajasthan', address1: 'Secret Street 99' },
+      order_items: [{ product_name: 'Banarasi Saree', quantity: 1, variant_details: { size: 'Free Size', color: 'Crimson' } }],
+    });
+
+    const timestamp = '1700000123456';
+    const payload = JSON.stringify({
+      type: 'PAYMENT_SUCCESS_WEBHOOK',
+      event_time: '2026-11-19T18:00:00+05:30',
+      data: {
+        order: {
+          order_id: 'cf_order_cf_1',
+          order_amount: 5500,
+          order_currency: 'INR',
+          order_tags: { internal_order_id: 'order-cf-1' },
+        },
+        payment: {
+          cf_payment_id: 'cf_pay_777',
+          payment_status: 'SUCCESS',
+          payment_amount: 5500,
+          payment_currency: 'INR',
+        },
+      },
+    });
+
+    const badRes = await handleCashfreeWebhook(payload, 'invalid_base64_sig', timestamp, 'cf_evt_1');
+    expect(badRes.success).toBe(false);
+    expect(badRes.error).toBe('Invalid signature');
+
+    const validSig = crypto
+      .createHmac('sha256', cfSecret)
+      .update(`${timestamp}${payload}`)
+      .digest('base64');
+
+    const okRes = await handleCashfreeWebhook(payload, validSig, timestamp, 'cf_evt_1');
+    expect(okRes.success).toBe(true);
+    expect(ordersMap.get('order-cf-1').payment_status).toBe('paid');
+    expect(ordersMap.get('order-cf-1').status).toBe('confirmed');
+    expect(mockRpc).toHaveBeenCalledWith('confirm_order_inventory', { p_order_id: 'order-cf-1' });
+
+    const replayRes = await handleCashfreeWebhook(payload, validSig, timestamp, 'cf_evt_1');
+    expect(replayRes.success).toBe(true);
+    expect(replayRes.duplicate).toBe(true);
   });
 });

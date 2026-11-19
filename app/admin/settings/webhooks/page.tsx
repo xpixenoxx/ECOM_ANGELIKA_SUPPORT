@@ -20,11 +20,11 @@ export default function WebhooksSettingsPage() {
 
   const webhooks = [
     {
-      name: 'Razorpay Payment Capture Webhook',
-      endpoint: '/api/webhooks/razorpay',
-      configured: health?.razorpayWebhookConfigured ?? false,
-      envKey: 'RAZORPAY_WEBHOOK_SECRET',
-      events: 'payment.captured, payment.failed, refund.processed',
+      name: 'Cashfree Payment & Refund Webhook (Primary)',
+      endpoint: '/api/webhooks/cashfree',
+      configured: health?.cashfreeWebhookConfigured ?? false,
+      envKey: 'CASHFREE_WEBHOOK_SECRET (or CASHFREE_SECRET_KEY)',
+      events: 'PAYMENT_SUCCESS_WEBHOOK, PAYMENT_FAILED_WEBHOOK, REFUND_STATUS_WEBHOOK',
     },
     {
       name: 'Stripe Payment Intent Webhook',

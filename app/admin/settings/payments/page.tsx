@@ -14,8 +14,8 @@ export default function PaymentsSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const [razorpayConfigured, setRazorpayConfigured] = useState(false);
-  const [razorpayWebhookConfigured, setRazorpayWebhookConfigured] = useState(false);
+  const [cashfreeConfigured, setCashfreeConfigured] = useState(false);
+  const [cashfreeWebhookConfigured, setCashfreeWebhookConfigured] = useState(false);
   const [stripeConfigured, setStripeConfigured] = useState(false);
 
   const [codEnabled, setCodEnabled] = useState(true);
@@ -27,8 +27,8 @@ export default function PaymentsSettingsPage() {
   useEffect(() => {
     getExtendedStoreSettings()
       .then((res) => {
-        setRazorpayConfigured(res.serviceHealth.razorpayConfigured);
-        setRazorpayWebhookConfigured(res.serviceHealth.razorpayWebhookConfigured);
+        setCashfreeConfigured(res.serviceHealth.cashfreeConfigured);
+        setCashfreeWebhookConfigured(res.serviceHealth.cashfreeWebhookConfigured);
         setStripeConfigured(res.serviceHealth.stripeConfigured);
         setCodMaxAmount(String(res.codMaxAmount));
         setCodEnabled(res.extended.payments.codEnabled);
@@ -106,38 +106,38 @@ export default function PaymentsSettingsPage() {
         <div className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] p-6 shadow-sm space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[var(--color-whisper,#E5E5E5)]">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
-                R
+              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-sm">
+                CF
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-[var(--color-ink,#111111)]">Razorpay Payment Gateway</h3>
-                <p className="text-xs text-[var(--color-slate,#666666)]">Cards, UPI, Net Banking &amp; Wallets (INR)</p>
+                <h3 className="text-sm font-semibold text-[var(--color-ink,#111111)]">Cashfree Payment Gateway (Primary INR)</h3>
+                <p className="text-xs text-[var(--color-slate,#666666)]">UPI, Credit/Debit Cards, Net Banking, Wallets &amp; EMI (PG API v2023-08-01)</p>
               </div>
             </div>
             <span
               className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
-                razorpayConfigured
+                cashfreeConfigured
                   ? 'bg-green-50 text-green-700 border-green-200'
                   : 'bg-amber-50 text-amber-800 border-amber-200'
               }`}
             >
-              {razorpayConfigured ? 'ENV Keys Configured' : 'Needs ENV Credentials'}
+              {cashfreeConfigured ? 'ENV Keys Configured' : 'Needs ENV Credentials'}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="p-3.5 rounded-xl bg-[var(--color-snow,#F9F9F9)] border border-[var(--color-whisper,#E5E5E5)]">
-              <p className="font-semibold text-[var(--color-ink)]">RAZORPAY_KEY_ID / SECRET</p>
+              <p className="font-semibold text-[var(--color-ink)]">CASHFREE_APP_ID / SECRET_KEY</p>
               <p className="text-[var(--color-slate)] mt-1">
-                {razorpayConfigured
-                  ? 'Server gateway credentials detected in environment.'
-                  : 'Set NEXT_PUBLIC_RAZORPAY_KEY_ID, RAZORPAY_KEY_ID & RAZORPAY_KEY_SECRET in deployment environment.'}
+                {cashfreeConfigured
+                  ? 'Cashfree PG credentials detected in server environment.'
+                  : 'Set CASHFREE_APP_ID, CASHFREE_SECRET_KEY & NEXT_PUBLIC_CASHFREE_ENV in Cloudflare Pages.'}
               </p>
             </div>
             <div className="p-3.5 rounded-xl bg-[var(--color-snow,#F9F9F9)] border border-[var(--color-whisper,#E5E5E5)]">
-              <p className="font-semibold text-[var(--color-ink)]">RAZORPAY_WEBHOOK_SECRET &amp; Stripe</p>
+              <p className="font-semibold text-[var(--color-ink)]">CASHFREE WEBHOOK &amp; Stripe</p>
               <p className="text-[var(--color-slate)] mt-1">
-                Webhook Secret: <strong>{razorpayWebhookConfigured ? 'Configured' : 'Missing'}</strong> · Stripe Intl: <strong>{stripeConfigured ? 'Configured' : 'Not Configured'}</strong>
+                Webhook Secret: <strong>{cashfreeWebhookConfigured ? 'Configured' : 'Missing'}</strong> · Stripe Intl: <strong>{stripeConfigured ? 'Configured' : 'Not Configured'}</strong>
               </p>
             </div>
           </div>

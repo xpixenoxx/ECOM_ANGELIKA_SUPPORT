@@ -18,7 +18,7 @@ import { MagneticButton } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AuthModal } from '@/components/ui/AuthModal';
-import { createOrder, getUserAddresses, saveAddress, verifyRazorpayPayment } from '@/lib/actions/checkout';
+import { createOrder, getUserAddresses, saveAddress, verifyCashfreePayment, verifyRazorpayPayment } from '@/lib/actions/checkout';
 import { createClient } from '@/lib/supabase/client';
 import { lookupPincode, type PincodeDetails } from '@/lib/utils/pincode';
 import type { Address } from '@/types/commerce';
@@ -85,8 +85,8 @@ const indianStates = [
 
 const paymentMethods = [
   {
-    id: 'razorpay',
-    name: 'Online Payment',
+    id: 'cashfree',
+    name: 'Online Payment (Cashfree)',
     description: 'UPI, Credit/Debit Cards, Net Banking, Wallets, EMI',
     icon: (
       <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -183,7 +183,7 @@ export default function CheckoutPage() {
     isDefault: false,
   });
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<'razorpay' | 'cod'>('razorpay');
+  const [selectedPayment, setSelectedPayment] = useState<'cashfree' | 'razorpay' | 'cod'>('cashfree');
   const [email, setEmail] = useState(profile?.email || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [notes, setNotes] = useState('');
@@ -580,7 +580,63 @@ export default function CheckoutPage() {
         return;
       }
 
-      if (selectedPayment === 'razorpay' && result.razorpayOrderId) {
+      if (selectedPayment === 'cashfree' && result.cashfreePaymentSessionId && result.cashfreeOrderId) {
+        const launchCashfreeCheckout = async () => {
+          try {
+            const cashfreeFactory = (window as any).Cashfree;
+            if (typeof cashfreeFactory !== 'function') {
+              setError('Cashfree payment SDK could not be initialized. Please try again.');
+              setIsProcessing(false);
+              return;
+            }
+            const cashfree = cashfreeFactory({
+              mode: result.cashfreeEnv || (process.env['NEXT_PUBLIC_CASHFREE_ENV'] === 'sandbox' ? 'sandbox' : 'production'),
+            });
+            const checkoutRes = await cashfree.checkout({
+              paymentSessionId: result.cashfreePaymentSessionId,
+              redirectTarget: '_modal',
+            });
+
+            if (checkoutRes?.error) {
+              setError(checkoutRes.error.message || 'Payment was cancelled or failed. Please try again.');
+              setIsProcessing(false);
+              return;
+            }
+
+            const verifyResult = await verifyCashfreePayment(result.cashfreeOrderId!);
+            if (verifyResult.success) {
+              await clearCart();
+              const tokenParam = verifyResult.receiptToken
+                ? `&token=${encodeURIComponent(verifyResult.receiptToken)}`
+                : '';
+              window.location.href = `/order-success?order_id=${verifyResult.orderId}${tokenParam}`;
+            } else {
+              setError(verifyResult.error || 'Payment verification failed');
+              setIsProcessing(false);
+            }
+          } catch (cfErr: any) {
+            setError(cfErr?.message || 'Payment checkout failed. Please try again.');
+            setIsProcessing(false);
+          }
+        };
+
+        const existingCfScript = document.getElementById('cashfree-checkout-script');
+        if (existingCfScript && typeof (window as any).Cashfree === 'function') {
+          await launchCashfreeCheckout();
+        } else {
+          const script = document.createElement('script');
+          script.id = 'cashfree-checkout-script';
+          script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+          script.onload = () => {
+            launchCashfreeCheckout();
+          };
+          script.onerror = () => {
+            setError('Could not load Cashfree payment gateway. Please check your connection and try again.');
+            setIsProcessing(false);
+          };
+          document.body.appendChild(script);
+        }
+      } else if (selectedPayment === 'razorpay' && result.razorpayOrderId) {
         // Redirect to Razorpay checkout
         const razorpayOptions = {
           key: process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'],
@@ -1188,10 +1244,10 @@ export default function CheckoutPage() {
                             <div className="space-y-4">
                               {/* 1. Online Payment Card */}
                               <div
-                                onClick={() => setSelectedPayment('razorpay')}
+                                onClick={() => setSelectedPayment('cashfree')}
                                 className={cn(
                                   'p-4 border rounded-[var(--radius-lg)] cursor-pointer transition-all duration-200',
-                                  selectedPayment === 'razorpay'
+                                  selectedPayment === 'cashfree'
                                     ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-[var(--shadow-gold)]'
                                     : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]/60'
                                 )}
@@ -1200,9 +1256,9 @@ export default function CheckoutPage() {
                                   <div className="flex items-center gap-3">
                                     <div className={cn(
                                       'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                                      selectedPayment === 'razorpay' ? 'border-[var(--color-gold)] bg-[var(--color-gold)]' : 'border-[var(--color-whisper)]'
+                                      selectedPayment === 'cashfree' ? 'border-[var(--color-gold)] bg-[var(--color-gold)]' : 'border-[var(--color-whisper)]'
                                     )}>
-                                      {selectedPayment === 'razorpay' && <div className="w-2 h-2 rounded-full bg-[var(--color-ink)]" />}
+                                      {selectedPayment === 'cashfree' && <div className="w-2 h-2 rounded-full bg-[var(--color-ink)]" />}
                                     </div>
                                     <div>
                                       <p className="font-semibold text-sm text-[var(--color-ink)] flex items-center gap-2">
@@ -1212,7 +1268,7 @@ export default function CheckoutPage() {
                                         </span>
                                       </p>
                                       <p className="text-xs text-[var(--color-slate)] mt-0.5">
-                                        Instant confirmation • Zero convenience fee • Faster delivery
+                                        Instant confirmation • Zero convenience fee • Secured by Cashfree Payments
                                       </p>
                                     </div>
                                   </div>

@@ -55,3 +55,7 @@ storybook-static/
 # Supabase (local dev)
 supabase/.branches
 supabase/.temp
+
+
+# Cloudflare local dev secrets
+.dev.vars

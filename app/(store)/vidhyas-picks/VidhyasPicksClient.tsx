@@ -114,7 +114,7 @@ function ProductCardGrid({
   isWishlisted: boolean;
   onToggleWishlist: (id: string) => void;
 }) {
-  const whatsappUrl = `https://wa.me/919876543210?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/917207256690?text=${encodeURIComponent(
     `Hi Vidhya, I saw your curated pick "${product.name}" in ${product.color} (₹${product.price.toLocaleString()}) and would love personal drape advice on sizing and fabric.`
   )}`;
 
@@ -241,7 +241,7 @@ function ProductCardList({
   isWishlisted: boolean;
   onToggleWishlist: (id: string) => void;
 }) {
-  const whatsappUrl = `https://wa.me/919876543210?text=${encodeURIComponent(
+  const whatsappUrl = `https://wa.me/917207256690?text=${encodeURIComponent(
     `Hi Vidhya, I saw your curated pick "${product.name}" in ${product.color} (₹${product.price.toLocaleString()}) and would love styling advice on sizing and fabric.`
   )}`;
 
@@ -541,8 +541,8 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
     badge: "COMPLIMENTARY CONCIERGE",
     title: "Unsure About Draping, Blouse Cuts, or Sizing?",
     description: "Connect directly with designer Vidhya Sharma and our senior bridal styling desk. We provide drape video guides, bespoke size alterations, and fabric matching for your special occasion.",
-    whatsappNumber: "+91 98765 43210",
-    whatsappUrl: "https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20for%20an%20upcoming%20event.",
+    whatsappNumber: "+91 72072 56690",
+    whatsappUrl: "https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20for%20an%20upcoming%20event.",
     sizeGuideText: "Open Interactive Size Guide",
     sizeGuideHref: "/size-finder",
   };
@@ -1159,7 +1159,7 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
               <div className="flex flex-wrap gap-4 items-center">
                 <MagneticButton variant="whatsapp" size="lg" strength={0.3} asChild>
                   <Link
-                    href={concierge.whatsappUrl || 'https://wa.me/919876543210'}
+                    href={concierge.whatsappUrl || 'https://wa.me/917207256690'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2.5"

@@ -1,14 +1,15 @@
+// Cloudflare Pages compatible — see wrangler.toml for Workers config
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://js.stripe.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.cashfree.com https://*.cashfree.com https://checkout.razorpay.com https://js.stripe.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://graph.facebook.com https://*.cloudinary.com https://*.razorpay.com",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://api.stripe.com https://fonts.googleapis.com https://fonts.gstatic.com",
-  "frame-src https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com",
+  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://graph.facebook.com https://*.cloudinary.com https://*.cashfree.com https://*.razorpay.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.cashfree.com https://sandbox.cashfree.com https://*.cashfree.com https://api.razorpay.com https://lumberjack.razorpay.com https://api.stripe.com https://fonts.googleapis.com https://fonts.gstatic.com",
+  "frame-src https://sdk.cashfree.com https://api.cashfree.com https://sandbox.cashfree.com https://*.cashfree.com https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self' https://api.razorpay.com",
+  "form-action 'self' https://api.cashfree.com https://sandbox.cashfree.com https://*.cashfree.com https://api.razorpay.com",
   "frame-ancestors 'none'",
 ].join('; ');
 
@@ -22,10 +23,12 @@ const nextConfig = {
     ignoreDuringBuilds: false,
   },
   experimental: {
+    cpus: 2,
+    webpackBuildWorker: true,
     // ppr: true, // Requires Next.js canary - disabled for stable build
     serverActions: {
       bodySizeLimit: '2mb',
-      allowedOrigins: ['localhost:3000', 'angelikafashions.com'],
+      allowedOrigins: ['localhost:3000', 'angelikafashions.com', 'angelikafashions.pages.dev', '*.angelikafashions.com'],
     },
     optimizePackageImports: [
       'framer-motion',
@@ -36,7 +39,7 @@ const nextConfig = {
     ],
   },
   images: {
-    unoptimized: false,
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
@@ -44,6 +47,8 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.googleusercontent.com' },
       { protocol: 'https', hostname: 'graph.facebook.com' },
       { protocol: 'https', hostname: '*.cloudinary.com' },
+      { protocol: 'https', hostname: '*.r2.cloudflarestorage.com' },
+      { protocol: 'https', hostname: '*.cloudflare.com' },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2560, 3840],
@@ -83,6 +88,12 @@ const nextConfig = {
         source: '/api/:path*',
         headers: [
           { key: 'Cache-Control', value: 'no-store' },
+        ],
+      },
+      {
+        source: '/api/looks/active',
+        headers: [
+          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
         ],
       },
     ];
@@ -138,7 +149,6 @@ const nextConfig = {
 
     return config;
   },
-  output: 'standalone',
   poweredByHeader: false,
   compress: true,
   generateEtags: true,

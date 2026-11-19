@@ -1,7 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
 import crypto from 'crypto';
-import { hasValidServiceRoleKey } from '@/lib/env';
+import { hasValidServiceRoleKey, isCloudServerlessEnv } from '@/lib/env';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { MAX_UPLOAD_SIZE_BYTES, validateImageBuffer } from './file-validation';
 
@@ -17,9 +15,17 @@ export interface StoredUploadResult {
 
 const DEFAULT_MEDIA_BUCKET = 'media';
 
+function extractBaseName(originalName: string): string {
+  const slashIdx = Math.max(originalName.lastIndexOf('/'), originalName.lastIndexOf('\\'));
+  const fileOnly = slashIdx >= 0 ? originalName.slice(slashIdx + 1) : originalName;
+  const dotIdx = fileOnly.lastIndexOf('.');
+  return dotIdx > 0 ? fileOnly.slice(0, dotIdx) : fileOnly;
+}
+
 /**
  * Validates image buffer by magic bytes and persists to Supabase Storage
- * (when configured), falling back to local public directory in dev.
+ * (when configured), falling back to local public directory in local dev only.
+ * Cloudflare Workers safe: zero top-level fs/path imports.
  */
 export async function validateAndPersistAdminImage(params: {
   buffer: Buffer;
@@ -43,10 +49,10 @@ export async function validateAndPersistAdminImage(params: {
     return { success: false, error: check.error || 'Invalid image' };
   }
 
-  const sanitizedBase = path
-    .basename(originalName || 'upload', path.extname(originalName || ''))
-    .replace(/[^a-zA-Z0-9_-]/g, '_')
-    .slice(0, 32) || 'img';
+  const sanitizedBase =
+    extractBaseName(originalName || 'upload')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 32) || 'img';
   const safePrefix = prefix.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'img';
   const uniqueSuffix = crypto.randomBytes(4).toString('hex');
   const filename = `${safePrefix}-${sanitizedBase}-${Date.now()}-${uniqueSuffix}${check.extension}`;
@@ -82,38 +88,48 @@ export async function validateAndPersistAdminImage(params: {
     }
   }
 
-  // Local fallback for local development or if bucket isn't provisioned yet
-  if (process.env.NODE_ENV === 'production' && process.env['VERCEL']) {
+  // Serverless / Cloudflare Workers / Vercel environments cannot write to local disk
+  if (process.env.NODE_ENV === 'production' || isCloudServerlessEnv()) {
     return {
       success: false,
       error: 'Media storage bucket is not configured for production uploads.',
     };
   }
 
-  const localSubDir =
-    folder === 'icons'
-      ? path.join('public', 'uploads', 'icons')
-      : folder === 'products'
-        ? path.join('public', 'images', 'products')
-        : path.join('public', 'images', 'uploads');
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
 
-  const uploadDir = path.join(process.cwd(), localSubDir);
-  await fs.mkdir(uploadDir, { recursive: true });
-  await fs.writeFile(path.join(uploadDir, filename), buffer);
+    const localSubDir =
+      folder === 'icons'
+        ? path.join('public', 'uploads', 'icons')
+        : folder === 'products'
+          ? path.join('public', 'images', 'products')
+          : path.join('public', 'images', 'uploads');
 
-  const publicUrl =
-    folder === 'icons'
-      ? `/uploads/icons/${filename}`
-      : folder === 'products'
-        ? `/images/products/${filename}`
-        : `/images/uploads/${filename}`;
+    const uploadDir = path.join(process.cwd(), localSubDir);
+    await fs.mkdir(uploadDir, { recursive: true });
+    await fs.writeFile(path.join(uploadDir, filename), buffer);
 
-  return {
-    success: true,
-    url: publicUrl,
-    filename,
-    size: buffer.length,
-    mimeType: check.mimeType,
-    storageProvider: 'local',
-  };
+    const publicUrl =
+      folder === 'icons'
+        ? `/uploads/icons/${filename}`
+        : folder === 'products'
+          ? `/images/products/${filename}`
+          : `/images/uploads/${filename}`;
+
+    return {
+      success: true,
+      url: publicUrl,
+      filename,
+      size: buffer.length,
+      mimeType: check.mimeType,
+      storageProvider: 'local',
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Local storage write failed.',
+    };
+  }
 }

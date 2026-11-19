@@ -1,9 +1,13 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createPublicClient } from '@/lib/supabase/server';
 
 async function getSupabaseClient() {
   return createClient();
+}
+
+function getPublicSupabaseClient() {
+  return createPublicClient();
 }
 
 export interface Review {
@@ -58,14 +62,14 @@ export async function getProductReviews(
     sortBy?: 'newest' | 'oldest' | 'highest' | 'lowest' | 'helpful';
   } = {}
 ): Promise<{ reviews: Review[]; totalCount: number }> {
-  const supabase = await getSupabaseClient();
-
   const {
     limit = 10,
     offset = 0,
     includeUnpublished = false,
     sortBy = 'newest',
   } = options;
+
+  const supabase = includeUnpublished ? await getSupabaseClient() : getPublicSupabaseClient();
 
   let query = supabase
     .from('reviews')
@@ -115,7 +119,7 @@ export async function getProductReviews(
 }
 
 export async function getProductReviewSummary(productId: string): Promise<ReviewSummary> {
-  const supabase = await getSupabaseClient();
+  const supabase = getPublicSupabaseClient();
 
   const { data: reviews, error } = await supabase
     .from('reviews')

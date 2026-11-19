@@ -91,7 +91,10 @@ export async function GET() {
         .filter(Boolean),
     };
 
-    return NextResponse.json(shaped);
+    return NextResponse.json(shaped, {
+      status: 200,
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' },
+    });
   } catch (err) {
     console.error('Error fetching active look:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

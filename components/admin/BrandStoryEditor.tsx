@@ -34,7 +34,7 @@ const DEFAULT_BRAND_STORY: BrandStoryContent = {
   primaryCtaText: 'Read Our Story',
   primaryCtaLink: '/about',
   whatsappCtaText: 'Chat with Vidhya',
-  whatsappLink: "https://wa.me/91XXXXXXXXXX?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey",
+  whatsappLink: "https://wa.me/917207256690?text=Hi%20Vidhya,%20I'd%20like%20to%20know%20more%20about%20your%20journey",
 };
 
 const PRESET_STORY_IMAGES = [

@@ -55,7 +55,7 @@ export function SizeGuideClient({ content }: SizeGuideClientProps) {
         'Share your measurements with Vidhya on WhatsApp for custom tailored fit guidance before your order is cut.',
       buttonText: 'Consult Vidhya on WhatsApp →',
       whatsappLink:
-        'https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20like%20sizing%20guidance%20for%20my%20order.',
+        'https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20would%20like%20sizing%20guidance%20for%20my%20order.',
     },
   } = content || {};
 

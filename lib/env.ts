@@ -67,10 +67,18 @@ export function hasValidServiceRoleKey(): boolean {
   return Boolean(hasValidSupabaseConfig() && getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY'));
 }
 
+export function isCloudServerlessEnv(): boolean {
+  return Boolean(
+    process.env['CF_PAGES'] ||
+    process.env['CLOUDFLARE_WORKERS'] ||
+    process.env['VERCEL']
+  );
+}
+
 export function isLocalDevBypassAllowed(): boolean {
   return (
     process.env.NODE_ENV === 'development' &&
-    !process.env['VERCEL'] &&
+    !isCloudServerlessEnv() &&
     process.env['LOCAL_DEV_ADMIN_BYPASS'] === '1'
   );
 }
@@ -78,6 +86,8 @@ export function isLocalDevBypassAllowed(): boolean {
 export interface ServiceHealthFlags {
   supabaseConfigured: boolean;
   serviceRoleConfigured: boolean;
+  cashfreeConfigured: boolean;
+  cashfreeWebhookConfigured: boolean;
   razorpayConfigured: boolean;
   razorpayWebhookConfigured: boolean;
   stripeConfigured: boolean;
@@ -90,10 +100,35 @@ export interface ServiceHealthFlags {
   revalidationConfigured: boolean;
 }
 
+export function getCashfreeMode(): 'sandbox' | 'production' {
+  const explicitEnv = (
+    getOptionalEnv('CASHFREE_ENV') ||
+    getOptionalEnv('NEXT_PUBLIC_CASHFREE_ENV') ||
+    ''
+  ).toLowerCase();
+  if (explicitEnv === 'sandbox' || explicitEnv === 'test') return 'sandbox';
+  if (explicitEnv === 'production' || explicitEnv === 'prod') return 'production';
+  const appId = getOptionalEnv('CASHFREE_APP_ID') || '';
+  if (appId.toUpperCase().startsWith('TEST')) return 'sandbox';
+  return 'production';
+}
+
+export function getCashfreeApiBaseUrl(): string {
+  return getCashfreeMode() === 'sandbox'
+    ? 'https://sandbox.cashfree.com/pg'
+    : 'https://api.cashfree.com/pg';
+}
+
 export function getServiceHealthFlags(): ServiceHealthFlags {
   return {
     supabaseConfigured: hasValidSupabaseConfig(),
     serviceRoleConfigured: hasValidServiceRoleKey(),
+    cashfreeConfigured: Boolean(
+      getOptionalEnv('CASHFREE_APP_ID') && getOptionalEnv('CASHFREE_SECRET_KEY')
+    ),
+    cashfreeWebhookConfigured: Boolean(
+      getOptionalEnv('CASHFREE_WEBHOOK_SECRET') || getOptionalEnv('CASHFREE_SECRET_KEY')
+    ),
     razorpayConfigured: Boolean(
       getOptionalEnv('RAZORPAY_KEY_ID') &&
       getOptionalEnv('NEXT_PUBLIC_RAZORPAY_KEY_ID') &&
@@ -111,6 +146,8 @@ export function getServiceHealthFlags(): ServiceHealthFlags {
       getOptionalEnv('WHATSAPP_ACCESS_TOKEN') && getOptionalEnv('WHATSAPP_PHONE_NUMBER_ID')
     ),
     whatsappWebhookConfigured: Boolean(getOptionalEnv('WHATSAPP_WEBHOOK_VERIFY_TOKEN')),
-    revalidationConfigured: Boolean(getOptionalEnv('REVALIDATION_SECRET')),
+    revalidationConfigured: Boolean(
+      getOptionalEnv('REVALIDATION_SECRET') || getOptionalEnv('REVALIDATE_SECRET')
+    ),
   };
 }

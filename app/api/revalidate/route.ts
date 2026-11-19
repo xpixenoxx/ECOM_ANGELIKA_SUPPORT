@@ -1,67 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
-import crypto from 'crypto';
-import { isPlaceholderEnvValue } from '@/lib/env';
 
-const ALLOWED_TAGS = new Set([
-  'store-settings',
-  'navbar-items',
-  'site-content',
-  'products',
-  'categories',
-  'looks',
-]);
+export const dynamic = 'force-dynamic';
 
-function timingSafeMatch(provided: string, expected: string): boolean {
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
+const REVALIDATE_PATHS = ['/', '/shop', '/new-arrivals', '/sale', '/vidhyas-picks'];
+const CATEGORY_SLUGS = ['kurtis', 'sarees', 'lehengas', 'salwars', 'dupattas'];
 
 export async function POST(request: NextRequest) {
-  const secret = process.env['REVALIDATION_SECRET']?.trim() || '';
-  if (!secret || isPlaceholderEnvValue(secret)) {
-    return NextResponse.json(
-      { success: false, error: 'Revalidation is not configured on the server.' },
-      { status: 503 }
-    );
-  }
-
+  const secret = process.env['REVALIDATE_SECRET'] || process.env['REVALIDATION_SECRET'];
   const authHeader = request.headers.get('authorization') || '';
+  const headerSecret = request.headers.get('x-revalidate-secret')?.trim() || '';
   const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
     ? authHeader.slice(7).trim()
-    : '';
-  const headerSecret = request.headers.get('x-revalidate-secret')?.trim() || '';
+    : authHeader.trim();
   const provided = bearerToken || headerSecret;
 
-  if (!provided || !timingSafeMatch(provided, secret)) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  if (secret && provided !== secret) {
+    return NextResponse.json({ error: 'Unauthorized', success: false }, { status: 401 });
   }
 
-  let body: { tag?: string; path?: string } = {};
   try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ success: false, error: 'Invalid JSON payload' }, { status: 400 });
+    const url = new URL(request.url);
+    const body = await request.json().catch(() => ({}));
+    const tag = body.tag || url.searchParams.get('tag');
+    const path = body.path || url.searchParams.get('path');
+    const all = body.all || url.searchParams.get('all') === 'true';
+
+    if (tag) {
+      revalidateTag(tag);
+      return NextResponse.json({ success: true, revalidated: true, type: 'tag', tag });
+    }
+
+    if (path) {
+      revalidatePath(path);
+      return NextResponse.json({ success: true, revalidated: true, type: 'path', path });
+    }
+
+    if (all) {
+      REVALIDATE_PATHS.forEach((p) => revalidatePath(p));
+      CATEGORY_SLUGS.forEach((slug) => revalidatePath(`/shop/${slug}`));
+      return NextResponse.json({
+        success: true,
+        revalidated: true,
+        type: 'all',
+        paths: [...REVALIDATE_PATHS, ...CATEGORY_SLUGS.map((s) => `/shop/${s}`)],
+      });
+    }
+
+    return NextResponse.json({ error: 'Provide path, tag, or all:true', success: false }, { status: 400 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message, success: false }, { status: 500 });
   }
-
-  const revalidated: string[] = [];
-
-  if (typeof body.tag === 'string' && ALLOWED_TAGS.has(body.tag)) {
-    revalidateTag(body.tag);
-    revalidated.push(`tag:${body.tag}`);
-  }
-
-  if (typeof body.path === 'string' && body.path.startsWith('/') && !body.path.startsWith('//')) {
-    revalidatePath(body.path);
-    revalidated.push(`path:${body.path}`);
-  }
-
-  if (revalidated.length === 0) {
-    revalidatePath('/');
-    revalidated.push('path:/');
-  }
-
-  return NextResponse.json({ success: true, revalidated, timestamp: new Date().toISOString() });
 }

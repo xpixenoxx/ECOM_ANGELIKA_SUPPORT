@@ -26,7 +26,7 @@ export function FaqClient({ content }: FaqClientProps) {
       description:
         "Couldn't find your answer? Our team is here for you. No bots, no tickets - just real people who care.",
       whatsappButtonText: 'WhatsApp Us',
-      whatsappLink: 'https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20have%20a%20question',
+      whatsappLink: 'https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20have%20a%20question',
       emailButtonText: 'Email Us',
       emailLink: 'mailto:hello@angelikafashions.com',
       contactButtonText: 'Contact Form',

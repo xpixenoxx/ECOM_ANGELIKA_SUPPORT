@@ -3,7 +3,6 @@
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
-import { createTransport } from 'nodemailer';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
 import {
   CircleSubscriber,
@@ -68,12 +67,6 @@ export async function sendCircleEmailBroadcast(params: {
     };
   }
 
-  const host = process.env['SMTP_HOST'] || 'smtp.gmail.com';
-  const port = parseInt(process.env['SMTP_PORT'] || '587', 10);
-  const user = process.env['SMTP_USER'] || process.env['EMAIL_FROM'] || 'vidhya@angelikafashions.com';
-  const pass = process.env['SMTP_PASSWORD']?.trim();
-  const fromName = (process.env['EMAIL_FROM_NAME'] || 'Angelika Fashions').replace(/['"]/g, '');
-  const fromEmail = process.env['EMAIL_FROM'] || user;
   const siteUrl = process.env['NEXT_PUBLIC_SITE_URL'] || 'http://localhost:3000';
   const fullCtaUrl = cta_link?.startsWith('http') ? cta_link : `${siteUrl}${cta_link || '/shop'}`;
 
@@ -136,7 +129,7 @@ export async function sendCircleEmailBroadcast(params: {
 </body>
 </html>`;
 
-  // 1. Primary: Transmit via Resend REST API (No SMTP needed!)
+  // 1. Primary: Transmit via Resend REST API (Cloudflare Workers Edge compatible HTTPS fetch)
   if (isResendConfigured()) {
     try {
       for (const recipient of cleanRecipients) {
@@ -157,56 +150,18 @@ export async function sendCircleEmailBroadcast(params: {
       };
     } catch (err: any) {
       console.error('[Angelika Circle] Resend broadcast error:', err);
-    }
-  }
-
-  // 2. Secondary fallback: Transmit via SMTP if credentials are provided
-  if (pass) {
-    try {
-      const transporter = createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: {
-          user,
-          pass,
-        },
-        tls: {
-          rejectUnauthorized: false,
-        },
-      });
-
-      for (const recipient of cleanRecipients) {
-        await transporter.sendMail({
-          from: `"${fromName}" <${fromEmail}>`,
-          to: recipient,
-          subject,
-          text: `${title}\n\n${content}\n\nExplore at: ${fullCtaUrl}`,
-          html: htmlBody,
-        });
-      }
-
-      return {
-        sent: true,
-        recipientsCount: cleanRecipients.length,
-        recipients: cleanRecipients,
-        status: 'sent',
-        smtpConfigured: true,
-      };
-    } catch (err: any) {
-      console.error('[Angelika Circle] SMTP socket error:', err);
       return {
         sent: false,
         recipientsCount: cleanRecipients.length,
         recipients: cleanRecipients,
         status: 'failed',
-        error: err?.message || 'SMTP delivery failed. Check your SMTP host, user, and password.',
+        error: err?.message || 'Email broadcast delivery failed via Resend API.',
         smtpConfigured: true,
       };
     }
   }
 
-  // 3. Neither Resend nor SMTP is configured
+  // 2. Resend is not configured
   console.warn(
     `[Angelika Circle] RESEND_API_KEY is not configured in .env.local. Broadcast email to ${cleanRecipients.join(
       ', '

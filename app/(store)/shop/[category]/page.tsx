@@ -4,9 +4,18 @@ import type { ShopProductCard } from '@/lib/actions/shop-types';
 import { getSiteContent, SalwarProductItem, SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent } from '@/lib/actions/site-content';
 import { CategoryPageClient } from './CategoryPageClient';
 
+// ISR: rebuilds at most every 120s. For immediate updates, POST /api/revalidate
+export const revalidate = 120;
+
 export async function generateStaticParams() {
-  // This is optional - for static generation of popular categories
-  return [];
+  // Pre-build common categories at deploy time
+  return [
+    { category: 'kurtis' },
+    { category: 'sarees' },
+    { category: 'lehengas' },
+    { category: 'salwars' },
+    { category: 'dupattas' },
+  ];
 }
 
 function mapSalwarItemToProductCard(item: SalwarProductItem, index: number): ShopProductCard {
@@ -76,26 +85,27 @@ export default async function CategoryPage({
   const { category: categorySlug } = await params;
   const sp = await searchParams;
 
+  const [initialCategory, siteContent] = await Promise.all([
+    getCategoryBySlug(categorySlug),
+    getSiteContent(),
+  ]);
+
   let salwarsContent: SalwarsPageContent | null = null;
   let lehengasContent: LehengasPageContent | null = null;
   let sareesContent: SareesPageContent | null = null;
   let dupattasContent: DupattasPageContent | null = null;
   if (categorySlug === 'salwars') {
-    const siteContent = await getSiteContent();
     salwarsContent = siteContent['salwars-page'] || null;
   } else if (categorySlug === 'lehengas') {
-    const siteContent = await getSiteContent();
     lehengasContent = siteContent['lehengas-page'] || null;
   } else if (categorySlug === 'sarees') {
-    const siteContent = await getSiteContent();
     sareesContent = siteContent['sarees-page'] || null;
   } else if (categorySlug === 'dupattas') {
-    const siteContent = await getSiteContent();
     dupattasContent = siteContent['dupattas-page'] || null;
   }
 
   // Get category info
-  let category = await getCategoryBySlug(categorySlug);
+  let category = initialCategory;
   if (!category && categorySlug === 'salwars') {
     category = {
       id: 'cat-salwars',
@@ -211,7 +221,6 @@ export default async function CategoryPage({
     48
   );
 
-  const siteContent = await getSiteContent();
   const kurtisContent = (categorySlug || '').toLowerCase() === 'kurtis' ? (siteContent as any)?.['kurtis-page'] : undefined;
 
   const cmsProductMap: Record<string, any[] | undefined> = {
@@ -221,7 +230,10 @@ export default async function CategoryPage({
     dupattas: dupattasContent?.products,
   };
   const cmsList = cmsProductMap[categorySlug];
-  if (cmsList && cmsList.length > 0) {
+  const hasRealDbProducts = products.some(
+    (p) => typeof p.defaultVariantId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(p.defaultVariantId)
+  );
+  if (!hasRealDbProducts && cmsList && cmsList.length > 0) {
     let adminProducts = cmsList.map(mapSalwarItemToProductCard);
     if (filters.vidhyasPicksOnly) {
       adminProducts = adminProducts.filter((p) => p.is_vidyas_pick);

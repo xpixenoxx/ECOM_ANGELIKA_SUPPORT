@@ -372,7 +372,7 @@ export function ProductCompareModal({
         <div className="text-center pt-2 text-[11px] text-[var(--color-slate)]">
           Need bespoke drape consultation or custom blouse tailoring?{' '}
           <Link
-            href="https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20would%20like%20guidance%20comparing%20ensembles."
+            href="https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20would%20like%20guidance%20comparing%20ensembles."
             target="_blank"
             className="text-[var(--color-gold)] hover:underline font-semibold"
           >

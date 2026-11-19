@@ -803,7 +803,7 @@ export function SizeFinderClient({ content }: { content: SizeFinderPageContent }
                     </Link>
 
                     <a
-                      href={`https://wa.me/919876543210?text=${whatsappMessage}`}
+                      href={`https://wa.me/917207256690?text=${whatsappMessage}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#FCFAF7] hover:bg-white text-[var(--color-ink)] border border-[#E5DFD5] hover:border-[var(--color-gold)] text-xs font-medium transition-colors"

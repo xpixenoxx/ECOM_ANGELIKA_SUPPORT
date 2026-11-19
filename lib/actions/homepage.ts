@@ -1,9 +1,9 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createPublicClient } from '@/lib/supabase/server';
 
 async function getSupabaseClient() {
-  return createClient();
+  return createPublicClient();
 }
 
 export type { HomepageProductCard, LookData } from './homepage-types';

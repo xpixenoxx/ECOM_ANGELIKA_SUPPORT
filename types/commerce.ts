@@ -92,7 +92,7 @@ export interface CheckoutFormData {
   giftMessage: string;
 
   // Step 3: Payment
-  paymentMethod: 'cod' | 'upi' | 'card' | 'wallet' | 'razorpay' | 'stripe';
+  paymentMethod: 'cashfree' | 'cod' | 'upi' | 'card' | 'wallet' | 'razorpay' | 'stripe';
   paymentDetails?: PaymentDetails;
 }
 
@@ -111,6 +111,8 @@ export interface Address {
 }
 
 export interface PaymentDetails {
+  cashfreeOrderId?: string;
+  cashfreePaymentSessionId?: string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;

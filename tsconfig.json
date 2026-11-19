@@ -42,8 +42,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    "supabase/functions/**/*.ts"
+    ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "out", "dist", "build", "**/*.stories.tsx"]
+  "exclude": ["node_modules", ".next", "out", "dist", "build", "**/*.stories.tsx", "supabase/functions"]
 }

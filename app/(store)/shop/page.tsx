@@ -1,4 +1,7 @@
 import { getAllProducts } from '@/lib/actions/shop';
+
+// ISR: rebuilds at most every 120s. For immediate updates, POST /api/revalidate
+export const revalidate = 120;
 import { CategoryPageClient } from './[category]/CategoryPageClient';
 import type { Metadata } from 'next';
 import { getSiteContent } from '@/lib/actions/site-content';

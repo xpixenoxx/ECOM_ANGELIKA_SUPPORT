@@ -7,12 +7,13 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { getOrderById, convertGuestToAccount } from '@/lib/actions/checkout';
+import { getOrderById, convertGuestToAccount, verifyCashfreePayment } from '@/lib/actions/checkout';
 import { formatINR } from '@/lib/utils/currency';
 
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id');
+  const cfOrderId = searchParams.get('cf_order_id');
   const receiptToken = searchParams.get('token');
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,9 @@ function OrderSuccessContent() {
         return;
       }
       try {
+        if (cfOrderId && !cfOrderId.includes('{order_id}')) {
+          await verifyCashfreePayment(cfOrderId).catch(() => {});
+        }
         const data = await getOrderById(orderId, receiptToken);
         if (data) {
           setOrder(data);
@@ -51,7 +55,7 @@ function OrderSuccessContent() {
     }
 
     loadOrder();
-  }, [orderId, receiptToken]);
+  }, [orderId, cfOrderId, receiptToken]);
 
   const copyOrderId = () => {
     const idToCopy = order?.order_number || orderId;
@@ -475,7 +479,7 @@ function OrderSuccessContent() {
               <Link href="/shop">Explore New Arrivals</Link>
             </Button>
             <a
-              href={`https://wa.me/919876543210?text=${whatsappMessage}`}
+              href={`https://wa.me/917207256690?text=${whatsappMessage}`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-[var(--radius-md)] bg-[#25D366] text-white font-semibold text-xs hover:bg-[#1ebe5b] transition-colors shadow-sm"
@@ -497,8 +501,8 @@ function OrderSuccessContent() {
               care@angelikafashions.com
             </a>{' '}
             or call{' '}
-            <a href="tel:+919876543210" className="text-[var(--color-ink)] font-semibold">
-              +91 98765 43210
+            <a href="tel:+917207256690" className="text-[var(--color-ink)] font-semibold">
+              +91 72072 56690
             </a>
           </div>
         </motion.div>

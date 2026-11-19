@@ -3,7 +3,8 @@ import { getSiteContent } from '@/lib/actions/site-content';
 import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
 import { VidhyasPicksClient } from './VidhyasPicksClient';
 
-export const revalidate = 60;
+// ISR: rebuilds at most every 600s. For immediate updates, POST /api/revalidate
+export const revalidate = 600;
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteContent = await getSiteContent();

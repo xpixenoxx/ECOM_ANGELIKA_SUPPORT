@@ -15,7 +15,11 @@ const MAX_SEND_REQUESTS_PER_WINDOW = 5;
 const MAX_VERIFY_ATTEMPTS_PER_WINDOW = 10;
 
 function isProductionEnv(): boolean {
-  return process.env.NODE_ENV === 'production' || process.env['VERCEL_ENV'] === 'production';
+  return (
+    process.env.NODE_ENV === 'production' ||
+    process.env['VERCEL_ENV'] === 'production' ||
+    process.env['CF_PAGES'] === '1'
+  );
 }
 
 function hashOtp(email: string, otp: string): string {

@@ -117,7 +117,7 @@ export function calculateCouponDiscount(params: {
 export function calculateOrderTotals(params: {
   items: PricedLineItem[];
   coupon?: CouponSpec | null;
-  paymentMethod?: 'razorpay' | 'stripe' | 'cod';
+  paymentMethod?: 'cashfree' | 'razorpay' | 'stripe' | 'cod';
   giftWrap?: boolean;
   freeShippingThreshold?: number;
   standardShippingFee?: number;

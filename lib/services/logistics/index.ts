@@ -85,7 +85,7 @@ export async function createShipmentAwb(params: {
         method: 'POST',
         headers: {
           Authorization: `Token ${token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `format=json&data=${encodeURIComponent(JSON.stringify(payload))}`,
       });

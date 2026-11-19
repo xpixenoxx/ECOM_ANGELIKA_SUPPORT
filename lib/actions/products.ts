@@ -33,8 +33,8 @@ export async function getCartRecommendations(
 }
 
 async function getSupabaseClient() {
-  const { createClient } = await import('@/lib/supabase/server');
-  return createClient();
+  const { createPublicClient } = await import('@/lib/supabase/server');
+  return createPublicClient();
 }
 
 export async function getProductBySlug(slug: string): Promise<ProductWithRelations | null> {

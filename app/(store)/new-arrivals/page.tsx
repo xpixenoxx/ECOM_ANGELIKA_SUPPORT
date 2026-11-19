@@ -1,7 +1,8 @@
 import { getSiteContent } from '@/lib/actions/site-content';
 import NewArrivalsClient from './NewArrivalsClient';
 
-export const revalidate = 60;
+// ISR: rebuilds at most every 300s. For immediate updates, POST /api/revalidate
+export const revalidate = 300;
 
 export default async function NewArrivalsPage() {
   const siteContent = await getSiteContent();
