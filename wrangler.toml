@@ -10,6 +10,3 @@ NEXT_PUBLIC_SITE_URL = "https://angelikafashions.com"
 binding = "RATE_LIMIT_KV"
 id = "2f5452c5426645d7b74f65c0251e16b3"
 preview_id = "b3a09d978b3d4bc898fa8c49b84a12c2"
-
-[build]
-command = "npx @cloudflare/next-on-pages"
