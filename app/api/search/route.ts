@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { searchProducts, getSearchSuggestions, getPopularSearches } from '@/lib/actions/search';
 import { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } from '@/lib/data/store-catalogue';

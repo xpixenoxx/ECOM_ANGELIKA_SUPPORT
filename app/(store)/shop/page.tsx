@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { getAllProducts } from '@/lib/actions/shop';
 
 // ISR: rebuilds at most every 120s. For immediate updates, POST /api/revalidate

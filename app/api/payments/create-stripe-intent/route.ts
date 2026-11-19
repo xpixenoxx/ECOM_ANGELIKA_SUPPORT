@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createStripePaymentIntent } from '@/lib/actions/payments';
 import { createClient } from '@/lib/supabase/server';

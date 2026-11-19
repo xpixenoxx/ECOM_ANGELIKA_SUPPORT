@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { OPS_ADMIN_ROLES, logAdminAction, requireAdminApi } from '@/lib/supabase/admin-auth';
 import { getLoyaltyStats, getLoyaltyTransactions, getEarningRules, getRedemptionRules, getLoyaltyTiers } from '@/lib/actions/loyalty';

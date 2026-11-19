@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { notFound } from 'next/navigation';
 import { getProductsByCategory, getCategoryBySlug } from '@/lib/actions/shop';
 import type { ShopProductCard } from '@/lib/actions/shop-types';
