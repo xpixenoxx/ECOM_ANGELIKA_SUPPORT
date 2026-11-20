@@ -1,32 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import {
+  Heart,
+  Plus,
+  Minus,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Ruler,
+  ZoomIn,
+  MessageCircle,
+  Sparkles,
+} from 'lucide-react';
 import { useCart } from '@/lib/hooks/useCart';
 import { useWishlist } from '@/lib/hooks/useWishlist';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AuthModal } from '@/components/ui/AuthModal';
-import toast from 'react-hot-toast';
-import { Button } from '@/components/ui/Button';
-import { Card, ProductCard } from '@/components/ui/Card';
-import { SizeSelector } from '@/components/composite/SizeSelector';
+import { ProductCard } from '@/components/ui/Card';
 import { ProductCompareModal } from '@/components/composite/ProductCompareModal';
-import { ImageGallery } from '@/components/composite/ImageGallery';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { Accordion } from '@/components/ui/Accordion';
-import { SocialIcon } from '@/components/ui/SocialIcon';
-import { WriteReviewForm } from '@/components/composite/Reviews/WriteReviewForm';
 import { cn } from '@/lib/utils/cn';
-import { MagneticButton, MagneticCard, MagneticIcon } from '@/components/animations/MagneticButton';
-import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
-import { ScrollReveal } from '@/components/animations/ScrollReveal';
-import { LikeButton, Counter, ProgressRing } from '@/components/animations/MicroInteractions';
-
-import type { ClientProductData } from '@/lib/actions/products';
-import type { ProductCardData } from '@/lib/actions/products';
+import type { ClientProductData, ProductCardData } from '@/lib/actions/products';
 import type { Review, ReviewSummary } from '@/lib/actions/reviews';
 
 interface ProductClientProps {
@@ -36,49 +35,113 @@ interface ProductClientProps {
   reviewSummary?: ReviewSummary;
 }
 
-export function ProductClient({ product, relatedProducts, reviews = [], reviewSummary }: ProductClientProps) {
+/**
+ * Safari fallback for native `<dialog closedby="any">` light-dismiss:
+ * requires both pointerdown and pointerup outside the dialog bounding rect.
+ */
+function attachDialogLightDismiss(dialog: HTMLDialogElement | null) {
+  if (!dialog) return () => {};
+  if ('closedBy' in HTMLDialogElement.prototype) return () => {};
+
+  const isOutside = (e: PointerEvent) => {
+    const r = dialog.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
+
+  let pressedOutside = false;
+  const onDown = (e: PointerEvent) => {
+    pressedOutside = isOutside(e);
+  };
+  const onUp = (e: PointerEvent) => {
+    if (pressedOutside && isOutside(e)) {
+      dialog.close();
+    }
+    pressedOutside = false;
+  };
+
+  dialog.addEventListener('pointerdown', onDown);
+  dialog.addEventListener('pointerup', onUp);
+  return () => {
+    dialog.removeEventListener('pointerdown', onDown);
+    dialog.removeEventListener('pointerup', onUp);
+  };
+}
+
+export function ProductClient({
+  product,
+  relatedProducts,
+}: ProductClientProps) {
   const router = useRouter();
   const { user } = useAuth();
   const { addItem } = useCart();
   const { toggleItem: toggleWishlistItem, isInWishlist } = useWishlist();
+
   const [selectedColor, setSelectedColor] = useState(0);
-  const [selectedSize, setSelectedSize] = useState<string | null>(product.sizes?.[0] || 'Free Size');
-  const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState('description');
+  const hasSingleSize = (product.sizes?.length ?? 0) === 1;
+  const [selectedSize, setSelectedSize] = useState<string | null>(
+    hasSingleSize ? (product.sizes[0] ?? 'Free Size') : null
+  );
+  const [sizeTrayOpen, setSizeTrayOpen] = useState(false);
+  const [sizePromptError, setSizePromptError] = useState(false);
   const [addedToBag, setAddedToBag] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
 
-  const currentColor = product.colors[selectedColor] ?? product.colors[0] ?? { name: '', value: '', hex: '#CCCCCC', images: [] };
+  // Mobile carousel active index
+  const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
+  const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
+
+  // Native <dialog> refs for editorial fullscreen lightbox & size guide
+  const lightboxRef = useRef<HTMLDialogElement | null>(null);
+  const sizeGuideRef = useRef<HTMLDialogElement | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  useEffect(() => {
+    const cleanLightbox = attachDialogLightDismiss(lightboxRef.current);
+    const cleanSizeGuide = attachDialogLightDismiss(sizeGuideRef.current);
+    return () => {
+      cleanLightbox();
+      cleanSizeGuide();
+    };
+  }, []);
+
+  const currentColor = product.colors[selectedColor] ??
+    product.colors[0] ?? { name: 'Atelier Edition', value: 'default', hex: '#E8E2D8', images: [] };
+
   const activeVariant =
     product.variants?.find(
       (v) =>
-        v.size.toLowerCase() === (selectedSize || '').toLowerCase() &&
+        selectedSize &&
+        v.size.toLowerCase() === selectedSize.toLowerCase() &&
         (!currentColor?.name ||
           currentColor.name === 'Default' ||
           !v.colorName ||
           v.colorName.toLowerCase() === currentColor.name.toLowerCase())
     ) ||
-    product.variants?.find((v) => v.size.toLowerCase() === (selectedSize || '').toLowerCase()) ||
+    (selectedSize
+      ? product.variants?.find((v) => v.size.toLowerCase() === selectedSize.toLowerCase())
+      : undefined) ||
     product.variants?.[0];
+
   const currentPrice = activeVariant?.price ?? product.price;
   const currentOriginalPrice = activeVariant?.compare_at_price ?? product.originalPrice;
-  const discount = currentOriginalPrice ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100) : 0;
+  const discount =
+    currentOriginalPrice && currentOriginalPrice > currentPrice
+      ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)
+      : 0;
 
-  const displayRating = reviewSummary?.totalReviews
-    ? reviewSummary.averageRating
-    : product.rating || 0;
-  const displayReviewCount = reviewSummary?.totalReviews ?? product.reviewCount ?? 0;
+  const rawImages =
+    (currentColor.images?.length ?? 0) > 0 ? currentColor.images : product.images;
+  const galleryImages = (rawImages.length > 0 ? rawImages : ['/images/placeholder.jpg']).map(
+    (src, idx) => ({
+      src,
+      alt: `${product.name} — View ${idx + 1}`,
+    })
+  );
 
-  // Convert string arrays to proper types
-  const galleryImages = ((currentColor.images?.length ?? 0) > 0 ? currentColor.images : product.images).map((src): { src: string; alt: string } => ({
-    src,
-    alt: product.name,
-  }));
-
-  const sizeOptions = product.sizes.map((size) => {
-    const chart = product.sizeChart[size];
+  const sizeOptions = (product.sizes?.length ? product.sizes : ['Free Size']).map((size) => {
+    const chart = product.sizeChart?.[size];
     const sizeVariants = (product.variants || []).filter(
       (v) => v.size.toLowerCase() === size.toLowerCase()
     );
@@ -86,30 +149,66 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
       sizeVariants.length === 0
         ? product.inStock
         : sizeVariants.some((v) => (v.inventory_quantity ?? 0) > 0);
+    const variantPrice = sizeVariants[0]?.price;
     return {
       value: size,
       label: size,
       inStock: sizeInStock,
-      measurements: chart ? {
-        bust: chart.bust,
-        waist: chart.waist,
-        hips: chart.hips,
-        length: chart.length,
-      } : undefined,
+      price: variantPrice,
+      measurements: chart,
     };
   });
 
+  const openLightbox = useCallback((index: number) => {
+    setLightboxIndex(index);
+    const dialog = lightboxRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }, []);
+
+  const openSizeGuide = useCallback(() => {
+    const dialog = sizeGuideRef.current;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }, []);
+
+  const handleMobileScroll = () => {
+    const el = mobileCarouselRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    setMobileSlideIndex(Math.max(0, Math.min(galleryImages.length - 1, idx)));
+  };
+
+  const scrollToMobileSlide = (index: number) => {
+    const el = mobileCarouselRef.current;
+    if (!el) return;
+    el.scrollTo({ left: index * el.clientWidth, behavior: 'smooth' });
+    setMobileSlideIndex(index);
+  };
+
+  const handleSelectSize = (size: string) => {
+    setSelectedSize(size);
+    setSizePromptError(false);
+    setSizeTrayOpen(false);
+  };
+
   const handleAddToBag = async () => {
-    const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
+    if (!selectedSize) {
+      setSizeTrayOpen(true);
+      setSizePromptError(true);
+      return;
+    }
     const targetVariantId = activeVariant?.id || product.id;
     setIsSubmitting(true);
     try {
-      await addItem(targetVariantId, quantity, sizeToUse, {
+      await addItem(targetVariantId, 1, selectedSize, {
         product_id: product.id,
         product_name: product.name,
         price: currentPrice,
         image: galleryImages[0]?.src || product.images?.[0] || '/images/collection-kurtis.jpg',
-        size: sizeToUse,
+        size: selectedSize,
         color: currentColor?.name && currentColor.name !== 'Default' ? currentColor.name : undefined,
         is_vidyas_pick: product.isVidhyasPick,
       });
@@ -117,28 +216,34 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
       setTimeout(() => setAddedToBag(false), 3000);
     } catch (err) {
       console.error('Failed to add to bag:', err);
+      toast.error('Could not add to bag. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleBuyNow = async () => {
-    const sizeToUse = selectedSize || product.sizes?.[0] || 'Free Size';
+    if (!selectedSize) {
+      setSizeTrayOpen(true);
+      setSizePromptError(true);
+      return;
+    }
     const targetVariantId = activeVariant?.id || product.id;
     setIsSubmitting(true);
     try {
-      await addItem(targetVariantId, quantity, sizeToUse, {
+      await addItem(targetVariantId, 1, selectedSize, {
         product_id: product.id,
         product_name: product.name,
         price: currentPrice,
         image: galleryImages[0]?.src || product.images?.[0] || '/images/collection-kurtis.jpg',
-        size: sizeToUse,
+        size: selectedSize,
         color: currentColor?.name && currentColor.name !== 'Default' ? currentColor.name : undefined,
         is_vidyas_pick: product.isVidhyasPick,
       });
       router.push('/checkout');
     } catch (err) {
       console.error('Failed to process buy now:', err);
+      toast.error('Unable to proceed to checkout.');
     } finally {
       setIsSubmitting(false);
     }
@@ -147,28 +252,13 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   const shareOnWhatsApp = () => {
     const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
     const url = `https://wa.me/?text=${encodeURIComponent(
-      `Check out "${product.name}" (${selectedSize ? `Size: ${selectedSize}, ` : ''}₹${currentPrice.toLocaleString()}) from Angelika Fashions ${pageUrl}`
+      `Check out "${product.name}" (${selectedSize ? `Size: ${selectedSize}, ` : ''}₹${currentPrice.toLocaleString('en-IN')}) from Angelika Fashions ${pageUrl}`
     )}`;
-    window.open(url, '_blank');
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleAddRelatedToBag = async (related: ProductCardData) => {
-    try {
-      const rel = related as any;
-      await addItem(related.id, 1, 'Free Size', {
-        product_id: related.id,
-        product_name: related.name,
-        price: related.price,
-        image: rel.image || rel.images?.[0]?.url || rel.images?.[0] || '/images/collection-kurtis.jpg',
-        is_vidyas_pick: Boolean(rel.isVidhyasPick || rel.is_vidyas_pick),
-      });
-      toast.success(`Added "${related.name}" to your bag!`);
-    } catch (err) {
-      toast.error('Could not add to bag. Please try again.');
-    }
-  };
-
-  const isWishlisted = isInWishlist(product.id) || (product.slug ? isInWishlist(product.slug) : false);
+  const isWishlisted =
+    isInWishlist(product.id) || (product.slug ? isInWishlist(product.slug) : false);
 
   const handleToggleWishlist = async () => {
     if (!user) {
@@ -181,18 +271,38 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
         id: product.id,
         slug: product.slug,
         name: product.name,
-        price: product.price,
-        originalPrice: product.originalPrice,
-        discount: discount,
+        price: currentPrice,
+        originalPrice: currentOriginalPrice,
+        discount,
         image: galleryImages[0]?.src || product.images[0] || '/images/placeholder.jpg',
         category: product.category,
         color: currentColor.name || product.colors[0]?.name || 'Default',
-        colorHex: currentColor.hex || product.colors[0]?.hex || '#CCCCCC',
+        colorHex: currentColor.hex || product.colors[0]?.hex || '#E8E2D8',
         size: selectedSize || product.sizes[0] || 'Free Size',
         inStock: product.inStock,
       });
     } catch (err) {
       console.error('Failed to toggle wishlist:', err);
+    }
+  };
+
+  const handleAddRelatedToBag = async (related: ProductCardData) => {
+    try {
+      const rel = related as any;
+      await addItem(related.id, 1, 'Free Size', {
+        product_id: related.id,
+        product_name: related.name,
+        price: related.price,
+        image:
+          rel.image ||
+          rel.images?.[0]?.url ||
+          rel.images?.[0] ||
+          '/images/collection-kurtis.jpg',
+        is_vidyas_pick: Boolean(rel.isVidhyasPick || rel.is_vidyas_pick),
+      });
+      toast.success(`Added "${related.name}" to your bag!`);
+    } catch {
+      toast.error('Could not add to bag. Please try again.');
     }
   };
 
@@ -219,699 +329,705 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
     }
   };
 
+  const colorLabel =
+    currentColor?.name && currentColor.name !== 'Default'
+      ? currentColor.name
+      : product.fabric || 'Atelier Ivory';
+
+  const editorialDescription =
+    product.description ||
+    product.shortDescription ||
+    'Handcrafted with refined artisanal detailing at the Angelika atelier.';
+
   return (
-    <div className="min-h-screen bg-[var(--color-white)] pb-24 md:pb-12">
-      {/* Breadcrumb */}
-      <nav className="bg-[var(--color-snow)] border-b border-[var(--color-whisper)] py-4" aria-label="Breadcrumb">
-        <div className="container-custom px-6">
-          <ol className="flex items-center gap-2 text-sm text-[var(--color-mist)]">
-            <li><Link href="/" className="hover:text-[var(--color-gold)] transition-colors">Home</Link></li>
-            <li aria-hidden="true">/</li>
-            <li><Link href="/shop" className="hover:text-[var(--color-gold)] transition-colors">Shop</Link></li>
-            <li aria-hidden="true">/</li>
-            <li><Link href={`/shop/${product.category.toLowerCase()}`} className="hover:text-[var(--color-gold)] transition-colors capitalize">{product.category}</Link></li>
-            <li aria-hidden="true">/</li>
-            <li className="text-[var(--color-ink)] font-medium truncate max-w-[200px]">{product.name}</li>
-          </ol>
-        </div>
-      </nav>
-
-      {/* Product Main */}
-      <section className="py-10">
-        <div className="container-custom px-6">
-          <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
-            {/* Image Gallery */}
-            <div className="sticky top-24 lg:top-[100px]">
-              <ImageGallery
-                images={galleryImages}
-                className="rounded-[var(--radius-xl)] overflow-hidden"
-              />
-
-              {/* Color Swatches */}
-              <div className="mt-6">
-                <p className="text-sm font-medium text-[var(--color-ink)] mb-3">Select Color</p>
-                <StaggerContainer variant="default" className="flex flex-wrap gap-2">
-                  {product.colors.map((color, index) => (
-                    <StaggerItem key={color.value} delay={index * 0.03} variant="scale">
-                      <MagneticIcon strength={0.4} maxDistance={50}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedColor(index)}
-                          className={cn(
-                            'relative w-10 h-10 sm:w-12 sm:h-12 rounded-full border-3 transition-all duration-200 flex-shrink-0 cursor-pointer',
-                            'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--color-gold)]/40 focus-visible:ring-offset-2',
-                            selectedColor === index
-                              ? 'border-[var(--color-gold)] shadow-[var(--shadow-md)]'
-                              : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]'
-                          )}
-                          style={{ backgroundColor: color.hex }}
-                          aria-label={`Select color ${color.name}`}
-                          aria-pressed={selectedColor === index}
-                        >
-                          {selectedColor === index && (
-                            <svg className="absolute inset-0 m-auto h-5 w-5 text-white drop-shadow" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
-                        </button>
-                      </MagneticIcon>
-                    </StaggerItem>
-                  ))}
-                </StaggerContainer>
-                <motion.p
-                  className="mt-2 text-sm text-[var(--color-slate)]"
-                  key={currentColor.name}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {currentColor.name}
-                </motion.p>
+    <div className="min-h-screen bg-[#FFFFFF] text-[#1A1A1A] pb-24 lg:pb-16">
+      {/* ═══════════════════════════════════════════════════════════════════════
+          PRIMARY EDITORIAL SPLIT: 2-Column Seamless Lookbook + Sticky Info Rail
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <section className="w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_370px] xl:grid-cols-[minmax(0,1fr)_410px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
+          {/* ── LEFT: EDITORIAL PHOTOGRAPHY GRID (Desktop 2-col / Mobile Swipe) ── */}
+          <div className="bg-[#F3EFEA]">
+            {/* Mobile Horizontal Snap Carousel (< lg) */}
+            <div className="lg:hidden relative">
+              <div
+                ref={mobileCarouselRef}
+                onScroll={handleMobileScroll}
+                className="flex overflow-x-auto snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                aria-label={`${product.name} gallery`}
+              >
+                {galleryImages.map((img, idx) => (
+                  <button
+                    key={`${img.src}-${idx}`}
+                    type="button"
+                    onClick={() => openLightbox(idx)}
+                    className="relative flex-none w-full aspect-[3/4] snap-center bg-[#F3EFEA] overflow-hidden cursor-zoom-in focus-visible:outline-none"
+                    aria-label={`Inspect ${img.alt}`}
+                  >
+                    <Image
+                      src={img.src}
+                      alt={img.alt}
+                      fill
+                      sizes="100vw"
+                      priority={idx === 0}
+                      fetchPriority={idx === 0 ? 'high' : 'low'}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      className="object-cover object-top"
+                    />
+                  </button>
+                ))}
               </div>
 
-              {/* Share Actions */}
-              <div className="mt-6 flex items-center gap-3">
-                <span className="text-sm text-[var(--color-slate)]">Share:</span>
-                <MagneticButton variant="ghost" size="sm" onClick={shareOnWhatsApp} className="gap-1" strength={0.3}>
-                  <SocialIcon platform="whatsapp" size="sm" />
-                  WhatsApp
-                </MagneticButton>
-                <MagneticButton variant="ghost" size="sm" className="gap-1" strength={0.3}>
-                  <SocialIcon platform="facebook" size="sm" />
-                  Facebook
-                </MagneticButton>
-                <MagneticButton variant="ghost" size="sm" className="gap-1" strength={0.3}>
-                  <SocialIcon platform="instagram" size="sm" />
-                  Instagram
-                </MagneticButton>
-              </div>
+              {/* Minimal Slide Indicator Dots & Counter */}
+              {galleryImages.length > 1 && (
+                <div className="absolute bottom-4 inset-x-4 flex items-center justify-between pointer-events-none">
+                  <div className="flex items-center gap-1.5 pointer-events-auto bg-white/80 backdrop-blur-sm px-2.5 py-1.5 rounded-full">
+                    {galleryImages.map((_, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => scrollToMobileSlide(idx)}
+                        aria-label={`View photo ${idx + 1}`}
+                        className={cn(
+                          'h-1.5 rounded-full transition-all',
+                          mobileSlideIndex === idx ? 'w-5 bg-[#1A1A1A]' : 'w-1.5 bg-[#1A1A1A]/30'
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[11px] font-medium tracking-wider text-[#1A1A1A] bg-white/80 backdrop-blur-sm px-2.5 py-1 rounded-full tabular-nums">
+                    {mobileSlideIndex + 1} / {galleryImages.length}
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Product Info */}
-            <div className="space-y-6">
-              {/* Category & Badges */}
-              <div className="flex flex-wrap items-center gap-3">
-                <Link href={`/shop/${product.category.toLowerCase()}`} className="text-sm font-medium uppercase tracking-wider text-[var(--color-gold)] hover:underline">
-                  {product.category}
-                </Link>
-                {product.isNew && (
-                  <span className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-sm)]">
-                    New
-                  </span>
-                )}
-                {product.isVidhyasPick && (
-                  <span className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-ink)] text-[var(--color-gold)] rounded-[var(--radius-sm)]">
-                    Vidhya&apos;s Pick
-                  </span>
-                )}
-                {discount > 0 && (
-                  <span className="px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wider bg-[var(--color-error)] text-white rounded-[var(--radius-sm)]">
-                    {discount}% Off
-                  </span>
-                )}
-              </div>
-
-              {/* Title */}
-              <h1 className="text-[var(--font-display)] text-3xl md:text-4xl font-medium text-[var(--color-ink)] leading-tight">
-                {product.name}
-              </h1>
-
-              {/* Rating */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1">
-                  <svg className="h-5 w-5 text-[var(--color-gold)] fill-current" viewBox="0 0 20 20" aria-hidden="true">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                  <span className="text-lg font-bold text-[var(--color-ink)]">
-                    {displayReviewCount > 0 ? displayRating.toFixed(1) : 'New'}
-                  </span>
-                </div>
-                <span className="text-sm text-[var(--color-slate)]">
-                  {displayReviewCount > 0
-                    ? `(${displayReviewCount} ${displayReviewCount === 1 ? 'review' : 'reviews'})`
-                    : '(No reviews yet)'}
-                </span>
-                <Link href="#reviews" className="text-sm text-[var(--color-gold)] hover:underline font-medium">Write a review</Link>
-              </div>
-
-              {/* Price */}
-              <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="text-3xl md:text-4xl font-bold text-[var(--color-ink)] tabular-nums">₹{currentPrice.toLocaleString()}</span>
-                {currentOriginalPrice && (
-                  <span className="text-xl text-[var(--color-mist)] line-through tabular-nums">₹{currentOriginalPrice.toLocaleString()}</span>
-                )}
-                {discount > 0 && (
-                  <span className="px-3 py-1 text-sm font-semibold bg-[var(--color-error)] text-white rounded-[var(--radius-md)]">
-                    Save {discount}%
-                  </span>
-                )}
-              </div>
-
-              {/* Short Description */}
-              <p className="text-[var(--color-slate)] text-base leading-relaxed border-t border-[var(--color-whisper)] pt-6">
-                {product.shortDescription}
-              </p>
-
-              {/* Size Selector */}
-              <div>
-                <SizeSelector
-                  sizes={sizeOptions}
-                  selectedSize={selectedSize ?? undefined}
-                  onSizeChange={(size) => setSelectedSize(size)}
-                />
-              </div>
-
-              {/* Quantity Selector */}
-              <div className="border-t border-[var(--color-whisper)] pt-6">
-                <label className="block text-sm font-medium text-[var(--color-ink)] mb-3">Quantity</label>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center border border-[var(--color-whisper)] rounded-[var(--radius-md)] overflow-hidden">
-                    <button
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="p-3 text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors"
-                      aria-label="Decrease quantity"
-                      disabled={quantity <= 1}
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M5 12h14" />
-                      </svg>
-                    </button>
-                    <span className="px-6 text-center font-mono tabular-nums text-[var(--color-ink)] min-w-[3rem]">{quantity}</span>
-                    <button
-                      onClick={() => setQuantity(Math.min(10, quantity + 1))}
-                      className="p-3 text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-snow)] transition-colors"
-                      aria-label="Increase quantity"
-                      disabled={quantity >= 10}
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                    </button>
-                  </div>
-                  <span className="text-sm text-[var(--color-mist)]">Max 10 per order</span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 border-t border-[var(--color-whisper)] pt-6">
-                <MagneticButton
-                  size="xl"
-                  variant="gold"
-                  className="flex-1"
-                  onClick={handleAddToBag}
-                  disabled={!selectedSize || !product.inStock}
-                  strength={0.3}
-                >
-                  {addedToBag ? (
-                    <>
-                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                      Added to Bag
-                    </>
-                  ) : (
-                    'Add to Bag'
+            {/* Desktop Full-Bleed 2-Column Editorial Grid (>= lg) */}
+            <div
+              className={cn(
+                'hidden lg:grid gap-[1px] bg-[#EAE5DF]',
+                galleryImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+              )}
+            >
+              {galleryImages.map((img, idx) => (
+                <button
+                  key={`${img.src}-${idx}`}
+                  type="button"
+                  onClick={() => openLightbox(idx)}
+                  className={cn(
+                    'group relative w-full bg-[#F3EFEA] overflow-hidden cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1A1A1A]',
+                    galleryImages.length === 1
+                      ? 'aspect-[4/5] max-h-[88vh]'
+                      : 'aspect-[3/4]'
                   )}
-                </MagneticButton>
-                <MagneticButton
-                  size="xl"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={handleBuyNow}
-                  disabled={!selectedSize || !product.inStock}
-                  strength={0.3}
+                  aria-label={`Zoom ${img.alt}`}
                 >
-                  Buy Now
-                </MagneticButton>
-              </div>
-
-              {/* Wishlist & Compare */}
-              <div className="flex items-center gap-3 border-t border-[var(--color-whisper)] pt-6">
-                <div className="flex items-center gap-1.5">
-                  <LikeButton
-                    liked={isWishlisted}
-                    onChange={handleToggleWishlist}
-                    size="md"
-                    className="cursor-pointer"
+                  <Image
+                    src={img.src}
+                    alt={img.alt}
+                    fill
+                    sizes={galleryImages.length === 1 ? '72vw' : '36vw'}
+                    priority={idx < 2}
+                    fetchPriority={idx < 2 ? 'high' : undefined}
+                    loading={idx < 2 ? 'eager' : 'lazy'}
+                    className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                   />
-                  <button
-                    type="button"
-                    onClick={handleToggleWishlist}
-                    className="text-xs uppercase tracking-wider font-semibold text-[var(--color-slate)] hover:text-[var(--color-ink)] transition-colors cursor-pointer select-none"
-                    aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                  {/* Subtle dark circular editorial zoom icon (bottom-left like reference) */}
+                  <span
+                    className="absolute left-3.5 bottom-3.5 w-6 h-6 rounded-full bg-[#1A1A1A]/85 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+                    aria-hidden="true"
                   >
-                    {isWishlisted ? 'Wishlisted' : 'Wishlist'}
-                  </button>
-                </div>
-                <MagneticButton
-                  variant="ghost"
-                  size="sm"
-                  className="gap-2 cursor-pointer hover:text-[var(--color-gold)]"
-                  strength={0.3}
-                  onClick={() => setShowCompareModal(true)}
-                  aria-label="Compare ensemble specifications"
-                >
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                  Compare
-                </MagneticButton>
-                <span className="text-sm text-[var(--color-slate)] ml-auto">
-                  SKU: <span className="text-[var(--color-ink)] font-mono">{product.sku}</span>
-                </span>
-              </div>
-
-              {/* Delivery & Returns Info */}
-              <ScrollReveal variant="fadeUp" delay={0.2} className="grid grid-cols-2 gap-4 border-t border-[var(--color-whisper)] pt-6">
-                <MagneticCard className="flex items-start gap-3 p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)]" strength={0.1}>
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] flex-shrink-0">
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M21 15V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10" />
-                      <path d="M17 21h-2m2 0h-2m2 0h-2" />
-                      <path d="M3 21h18" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-[var(--color-ink)]">Free Shipping</p>
-                    <p className="text-sm text-[var(--color-slate)]">On orders above ₹2,999</p>
-                  </div>
-                </MagneticCard>
-                <MagneticCard className="flex items-start gap-3 p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)]" strength={0.1}>
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    product.returnWindowDays === 0
-                      ? 'bg-rose-100 text-rose-700'
-                      : 'bg-[var(--color-gold-light)] text-[var(--color-gold)]'
-                  }`}>
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-[var(--color-ink)]">
-                      {product.returnWindowDays === 0 ? 'Final Sale' : 'Easy Returns'}
-                    </p>
-                    <p className="text-sm text-[var(--color-slate)]">
-                      {product.returnWindowDays === 0
-                        ? 'Non-returnable item'
-                        : `${product.returnWindowDays !== undefined ? product.returnWindowDays : 7}-day doorstep returns`}
-                    </p>
-                  </div>
-                </MagneticCard>
-              </ScrollReveal>
+                    <ZoomIn className="w-3 h-3" />
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Product Details Tabs */}
-          <ScrollReveal variant="fadeUp" delay={0.3} className="mt-16">
-            <Tabs defaultValue="description" onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full justify-center lg:justify-start">
-                <TabsTrigger value="description">Description</TabsTrigger>
-                <TabsTrigger value="details">Details & Care</TabsTrigger>
-                <TabsTrigger value="size-guide">Size Guide</TabsTrigger>
-                <TabsTrigger value="shipping">Shipping & Returns</TabsTrigger>
-                <TabsTrigger value="reviews">Reviews ({product.reviewCount})</TabsTrigger>
-              </TabsList>
+          {/* ── RIGHT: STICKY ULTRA-MINIMAL LUXURY INFO RAIL ── */}
+          <aside className="bg-[#FFFFFF] lg:sticky lg:top-[84px] lg:self-start px-5 py-7 sm:px-8 lg:px-8 xl:px-10 lg:py-9">
+            {/* Minimal Breadcrumb Eyebrow */}
+            <nav aria-label="Breadcrumb" className="mb-4">
+              <ol className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-[#8A857D]">
+                <li>
+                  <Link href="/shop" className="hover:text-[#1A1A1A] transition-colors">
+                    Shop
+                  </Link>
+                </li>
+                <li aria-hidden="true">/</li>
+                <li>
+                  <Link
+                    href={`/shop/${(product.categorySlug || product.category).toLowerCase()}`}
+                    className="hover:text-[#1A1A1A] transition-colors"
+                  >
+                    {product.category}
+                  </Link>
+                </li>
+              </ol>
+            </nav>
 
-              <TabsContent value="description" className="mt-8">
-                <StaggerContainer variant="default">
-                  <StaggerItem variant="slide">
-                    <div className="prose prose-invert max-w-none">
-                      <p className="text-[var(--color-slate)] leading-relaxed">{product.description}</p>
-                    </div>
-                  </StaggerItem>
-                  <StaggerItem variant="slide">
-                    <h3 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)] mt-8 mb-4">Key Features</h3>
-                    <ul className="space-y-2 list-disc list-inside text-[var(--color-slate)]">
-                      {product.details.map((detail, i) => (
-                        <li key={i} className="relative pl-4">{detail}</li>
+            {/* Title + Minimal Outline Heart Wishlist Button */}
+            <div className="flex items-start justify-between gap-4">
+              <h1 className="text-[16px] sm:text-[17px] font-medium tracking-[-0.01em] text-[#1A1A1A] leading-snug">
+                {product.name}
+              </h1>
+              <button
+                type="button"
+                onClick={handleToggleWishlist}
+                aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                aria-pressed={isWishlisted}
+                className="flex-shrink-0 -mr-1.5 -mt-1 p-1.5 rounded-full text-[#1A1A1A] hover:bg-[#F5F3F0] transition-colors cursor-pointer"
+              >
+                <Heart
+                  className={cn(
+                    'w-[18px] h-[18px] transition-colors',
+                    isWishlisted ? 'fill-[#1A1A1A] text-[#1A1A1A]' : 'stroke-[1.4] text-[#3A3733]'
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+
+            {/* Price Line */}
+            <div className="mt-1.5 flex items-baseline gap-2.5 flex-wrap">
+              <span className="text-[13.5px] font-normal text-[#2E2C29] tabular-nums tracking-[0.01em]">
+                ₹{currentPrice.toLocaleString('en-IN')}
+              </span>
+              {currentOriginalPrice && currentOriginalPrice > currentPrice && (
+                <>
+                  <span className="text-[12px] text-[#9A958E] line-through tabular-nums">
+                    ₹{currentOriginalPrice.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[10.5px] uppercase tracking-[0.12em] text-[#74590E] font-medium">
+                    {discount}% Off
+                  </span>
+                </>
+              )}
+              <span className="text-[10.5px] text-[#8E8981] ml-auto">Incl. of all taxes</span>
+            </div>
+
+            {/* Color / Shade Portrait Swatches (Matching Reference Thumbnail Card) */}
+            <div className="mt-6">
+              <p className="text-[11.5px] text-[#6E6A63] mb-2.5">
+                Color:{' '}
+                <span className="text-[#1A1A1A] font-medium">{colorLabel}</span>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {(product.colors.length > 0
+                  ? product.colors
+                  : [{ name: colorLabel, value: 'default', hex: '#E8E2D8', images: product.images }]
+                ).map((color, idx) => {
+                  const thumbSrc = color.images?.[0] || galleryImages[0]?.src;
+                  const isActive = selectedColor === idx;
+                  return (
+                    <button
+                      key={`${color.value}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedColor(idx);
+                        setMobileSlideIndex(0);
+                      }}
+                      aria-label={`Select color ${color.name}`}
+                      aria-pressed={isActive}
+                      title={color.name}
+                      className={cn(
+                        'relative w-[44px] h-[58px] p-[2px] border transition-colors cursor-pointer bg-[#F3EFEA]',
+                        isActive
+                          ? 'border-[#1A1A1A]'
+                          : 'border-[#E5E1DB] hover:border-[#8C877F]'
+                      )}
+                    >
+                      {thumbSrc ? (
+                        <span className="relative block w-full h-full overflow-hidden">
+                          <Image
+                            src={thumbSrc}
+                            alt={color.name}
+                            fill
+                            sizes="44px"
+                            className="object-cover object-top"
+                          />
+                        </span>
+                      ) : (
+                        <span
+                          className="block w-full h-full"
+                          style={{ backgroundColor: color.hex || '#E8E2D8' }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── SIGNATURE DUAL FULL-WIDTH PILL CTAs ── */}
+            <div className="mt-7 space-y-2.5">
+              {/* Pill 1: SELECT SIZE */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSizeTrayOpen((prev) => !prev);
+                  setSizePromptError(false);
+                }}
+                aria-expanded={sizeTrayOpen}
+                className={cn(
+                  'w-full h-[42px] rounded-full border text-[11px] font-medium uppercase tracking-[0.16em] transition-colors flex items-center justify-center gap-2 cursor-pointer',
+                  sizePromptError
+                    ? 'border-[#B91C1C] bg-[#FEF2F2] text-[#991B1B]'
+                    : 'border-[#2B2B2B] bg-[#FFFFFF] text-[#1A1A1A] hover:bg-[#F7F6F4]'
+                )}
+              >
+                <span>
+                  {selectedSize ? `SIZE: ${selectedSize}` : 'SELECT SIZE'}
+                </span>
+              </button>
+
+              {/* Inline Minimal Size Tray (Opens cleanly on SELECT SIZE) */}
+              {sizeTrayOpen && (
+                <div className="rounded-xl border border-[#E6E2DC] bg-[#FAF9F7] p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] uppercase tracking-[0.14em] text-[#5C5852] font-medium">
+                      {sizePromptError ? 'Please choose your size' : 'Available Sizes'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={openSizeGuide}
+                      className="inline-flex items-center gap-1 text-[11px] underline underline-offset-2 text-[#1A1A1A] hover:text-[#74590E] cursor-pointer"
+                    >
+                      <Ruler className="w-3 h-3" aria-hidden="true" />
+                      Size Guide
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                    {sizeOptions.map((opt) => {
+                      const isPicked = selectedSize === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          disabled={!opt.inStock}
+                          onClick={() => handleSelectSize(opt.value)}
+                          className={cn(
+                            'h-9 px-2 rounded-full text-[11px] font-medium tracking-wider transition-all border cursor-pointer disabled:opacity-35 disabled:line-through disabled:cursor-not-allowed',
+                            isPicked
+                              ? 'bg-[#2B2B2B] text-white border-[#2B2B2B]'
+                              : 'bg-white text-[#1A1A1A] border-[#DCD7CF] hover:border-[#1A1A1A]'
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-1 flex items-center justify-between text-[11px] text-[#7A756E]">
+                    <span>Unsure of fit?</span>
+                    <Link
+                      href="/size-finder"
+                      className="underline underline-offset-2 text-[#1A1A1A] hover:text-[#74590E]"
+                    >
+                      Try Couture Fit Finder
+                    </Link>
+                  </div>
+                </div>
+              )}
+
+              {/* Pill 2: ADD TO BAG (Solid Dark Charcoal Pill matching reference) */}
+              <button
+                type="button"
+                onClick={handleAddToBag}
+                disabled={isSubmitting || !product.inStock}
+                className="w-full h-[42px] rounded-full bg-[#2B2B2B] hover:bg-[#141414] text-white text-[11px] font-medium uppercase tracking-[0.16em] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+              >
+                {!product.inStock ? (
+                  'OUT OF STOCK'
+                ) : addedToBag ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>ADDED TO BAG</span>
+                  </>
+                ) : isSubmitting ? (
+                  'ADDING...'
+                ) : (
+                  'ADD TO BAG'
+                )}
+              </button>
+
+              {/* Quiet Secondary Utility Row (Buy Now + Atelier Styling) */}
+              <div className="pt-1.5 flex items-center justify-between text-[11px] text-[#6E6A63]">
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  disabled={isSubmitting || !product.inStock}
+                  className="underline underline-offset-4 hover:text-[#1A1A1A] transition-colors cursor-pointer disabled:opacity-40"
+                >
+                  Express Buy Now
+                </button>
+                <button
+                  type="button"
+                  onClick={shareOnWhatsApp}
+                  className="inline-flex items-center gap-1 hover:text-[#1A1A1A] transition-colors cursor-pointer"
+                >
+                  <MessageCircle className="w-3 h-3" aria-hidden="true" />
+                  <span>Ask Stylist</span>
+                </button>
+              </div>
+            </div>
+
+            {/* ── EDITORIAL DESCRIPTION & PROVENANCE BLOCK ── */}
+            <div className="mt-8 space-y-3">
+              <p className="text-[12.5px] leading-[1.7] text-[#35322E]">
+                {editorialDescription}
+              </p>
+
+              <div className="text-[11.5px] leading-[1.6] text-[#5C5852] space-y-0.5 pt-1">
+                <p>Handcrafted in India</p>
+                {product.sku && (
+                  <p className="text-[11px] uppercase tracking-[0.1em] text-[#8E8980]">
+                    {product.sku}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* ── HAIRLINE NATIVE <details> ACCORDIONS (Matching Reference + / - Rows) ── */}
+            <div
+              className="pdp-accordion mt-7 border-t border-[#EAE6E0] divide-y divide-[#EAE6E0]"
+              aria-label="Product specifications"
+            >
+              {/* 1. Size & Fit */}
+              <details className="group">
+                <summary className="flex items-center justify-between py-4 text-[12px] font-medium text-[#1A1A1A] select-none">
+                  <span>Size &amp; Fit</span>
+                  <span className="text-[#5C5852]" aria-hidden="true">
+                    <Plus className="w-3.5 h-3.5 group-open:hidden stroke-[1.5]" />
+                    <Minus className="w-3.5 h-3.5 hidden group-open:block stroke-[1.5]" />
+                  </span>
+                </summary>
+                <div className="pb-4 text-[12px] leading-[1.65] text-[#5C5852] space-y-2.5">
+                  <p>
+                    Tailored for an effortless, graceful drape. Available in{' '}
+                    <span className="text-[#1A1A1A] font-medium">
+                      {sizeOptions.map((s) => s.label).join(', ')}
+                    </span>
+                    .
+                  </p>
+                  <div className="flex flex-wrap items-center gap-4 pt-1">
+                    <button
+                      type="button"
+                      onClick={openSizeGuide}
+                      className="text-[11.5px] text-[#1A1A1A] underline underline-offset-4 hover:text-[#74590E] cursor-pointer"
+                    >
+                      View Measurement Chart
+                    </button>
+                    <Link
+                      href="/size-finder"
+                      className="text-[11.5px] text-[#1A1A1A] underline underline-offset-4 hover:text-[#74590E]"
+                    >
+                      Couture Fit Finder
+                    </Link>
+                  </div>
+                </div>
+              </details>
+
+              {/* 2. Composition & Care */}
+              <details className="group">
+                <summary className="flex items-center justify-between py-4 text-[12px] font-medium text-[#1A1A1A] select-none">
+                  <span>Composition &amp; Care</span>
+                  <span className="text-[#5C5852]" aria-hidden="true">
+                    <Plus className="w-3.5 h-3.5 group-open:hidden stroke-[1.5]" />
+                    <Minus className="w-3.5 h-3.5 hidden group-open:block stroke-[1.5]" />
+                  </span>
+                </summary>
+                <div className="pb-4 text-[12px] leading-[1.65] text-[#5C5852] space-y-2.5">
+                  {product.fabric && (
+                    <p>
+                      <span className="text-[#1A1A1A] font-medium">Composition:</span>{' '}
+                      {product.fabric}
+                    </p>
+                  )}
+                  {product.details && product.details.length > 0 && (
+                    <ul className="space-y-1 list-disc list-inside">
+                      {product.details.map((item, idx) => (
+                        <li key={idx}>{item}</li>
                       ))}
                     </ul>
-                  </StaggerItem>
-                </StaggerContainer>
-              </TabsContent>
-
-              <TabsContent value="details" className="mt-8">
-                <StaggerContainer variant="default" className="grid md:grid-cols-2 gap-8">
-                  <StaggerItem variant="slide">
-                    <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)] mb-4">Fabric & Care</h3>
-                    <dl className="space-y-4">
-                      <div>
-                        <dt className="text-sm text-[var(--color-slate)]">Fabric</dt>
-                        <dd className="text-[var(--color-ink)] font-medium">{product.fabric}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-sm text-[var(--color-slate)]">Care Instructions</dt>
-                        <dd className="mt-2 space-y-1">
-                          {product.care.map((instruction, i) => (
-                            <div key={i} className="flex items-start gap-2 text-[var(--color-slate)]">
-                              <svg className="h-4 w-4 flex-shrink-0 mt-0.5 text-[var(--color-gold)]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              {instruction}
-                            </div>
-                          ))}
-                        </dd>
-                      </div>
-                    </dl>
-                  </StaggerItem>
-                  <StaggerItem variant="slide">
-                    <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)] mb-4">Product Details</h3>
-                    <dl className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
-                        {[
-                          { label: 'Category', value: product.category },
-                          { label: 'Fit', value: 'Regular' },
-                          { label: 'Sleeve', value: 'Three-quarter' },
-                          { label: 'Neckline', value: 'Round' },
-                          { label: 'Pattern', value: 'Hand Block Print' },
-                          { label: 'Occasion', value: 'Festive, Casual' },
-                          { label: 'Origin', value: 'Made in India' },
-                          { label: 'SKU', value: product.sku },
-                        ].map((item, i) => (
-                          <div key={i}>
-                            <dt className="text-sm text-[var(--color-slate)]">{item.label}</dt>
-                            <dd className="text-[var(--color-ink)] font-medium">{item.value}</dd>
-                          </div>
+                  )}
+                  {product.care && product.care.length > 0 && (
+                    <div className="pt-1">
+                      <p className="text-[#1A1A1A] font-medium mb-1">Care</p>
+                      <ul className="space-y-1">
+                        {product.care.map((instruction, idx) => (
+                          <li key={idx}>• {instruction}</li>
                         ))}
-                      </div>
-                    </dl>
-                  </StaggerItem>
-                </StaggerContainer>
-              </TabsContent>
-
-              <TabsContent value="size-guide" className="mt-8">
-                <StaggerContainer variant="default">
-                  <StaggerItem variant="slide">
-                    <div className="overflow-x-auto">
-                      <table className="w-full table">
-                        <thead>
-                          <tr>
-                            <th>Size</th>
-                            <th>Bust</th>
-                            <th>Waist</th>
-                            <th>Hips</th>
-                            <th>Length</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(product.sizeChart).map(([size, measurements]) => (
-                            <tr key={size}>
-                              <td className="font-medium">{size}</td>
-                              <td>{measurements.bust}</td>
-                              <td>{measurements.waist}</td>
-                              <td>{measurements.hips}</td>
-                              <td>{measurements.length}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      </ul>
                     </div>
-                  </StaggerItem>
-                  <StaggerItem variant="slide">
-                    <div className="mt-6 p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)]">
-                      <p className="text-sm text-[var(--color-slate)]">
-                        <strong className="text-[var(--color-ink)]">How to measure:</strong> Use a flexible measuring tape. Keep the tape parallel to the floor. For best results, measure over undergarments.
-                      </p>
-                    </div>
-                  </StaggerItem>
-                </StaggerContainer>
-              </TabsContent>
-
-              <TabsContent value="shipping" className="mt-8">
-                <StaggerContainer variant="default" className="space-y-6">
-                  <StaggerItem variant="slide">
-                    <Accordion
-                      items={[
-                        {
-                          id: 'shipping',
-                          title: 'Shipping Information',
-                          content: (
-                            <div className="space-y-3 text-[var(--color-slate)]">
-                              <p><strong className="text-[var(--color-ink)]">Free Shipping:</strong> On all orders above ₹2,999</p>
-                              <p><strong className="text-[var(--color-ink)]">Standard Delivery:</strong> 3-5 business days (₹99 for orders below ₹2,999)</p>
-                              <p><strong className="text-[var(--color-ink)]">Express Delivery:</strong> 1-2 business days (₹299)</p>
-                              <p><strong className="text-[var(--color-ink)]">International Shipping:</strong> Available to select countries. Duties and taxes may apply.</p>
-                            </div>
-                          ),
-                        },
-                        {
-                          id: 'returns',
-                          title: 'Returns & Exchanges',
-                          content: (
-                            <div className="space-y-3 text-[var(--color-slate)]">
-                              {product.returnWindowDays === 0 ? (
-                                <p className="text-rose-700 font-medium">
-                                  <strong className="text-rose-900">Final Sale (Non-Returnable):</strong> This handcrafted garment is not eligible for returns or exchanges once delivered.
-                                </p>
-                              ) : (
-                                <p>
-                                  <strong className="text-[var(--color-ink)]">{product.returnWindowDays !== undefined ? product.returnWindowDays : 7}-Day Doorstep Returns:</strong> Items can be returned or exchanged within {product.returnWindowDays !== undefined ? product.returnWindowDays : 7} days of doorstep delivery.
-                                </p>
-                              )}
-                              <p><strong className="text-[var(--color-ink)]">Condition:</strong> Items must be unworn, unwashed, with original security tags and designer packaging intact</p>
-                              <p><strong className="text-[var(--color-ink)]">Refunds:</strong> Processed within 5-7 business days after reverse inspection at our atelier</p>
-                              <p><strong className="text-[var(--color-ink)]">Size Exchanges:</strong> Doorstep size swap arranged with no additional pickup charges</p>
-                            </div>
-                          ),
-                        },
-                        {
-                          id: 'cod',
-                          title: 'Cash on Delivery (COD)',
-                          content: (
-                            <div className="space-y-3 text-[var(--color-slate)]">
-                              <p>COD is available for orders up to ₹10,000 in most pincodes.</p>
-                              <p>A COD handling fee of ₹49 applies.</p>
-                              <p>Please have exact change ready for delivery.</p>
-                            </div>
-                          ),
-                        },
-                      ]}
-                      allowMultiple
-                      variant="bordered"
-                      className="w-full"
-                    />
-                  </StaggerItem>
-                </StaggerContainer>
-              </TabsContent>
-
-              <TabsContent value="reviews" className="mt-8">
-                <StaggerContainer variant="default" className="space-y-6">
-                  <StaggerItem variant="scale">
-                    {/* Review Summary */}
-                    <MagneticCard className="flex flex-col md:flex-row gap-8 p-6 bg-[var(--color-snow)] rounded-[var(--radius-xl)]" strength={0.08}>
-                      <div className="text-center md:text-left md:min-w-[200px]">
-                        <Counter value={Math.round((reviewSummary?.averageRating || product.rating) * 10)} className="text-5xl font-bold text-[var(--color-ink)]" decimals={1} suffix="" duration={1.5} />
-                        <div className="flex items-center justify-center md:justify-start gap-1 mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <svg key={i} className="h-5 w-5 text-[var(--color-gold)] fill-current" viewBox="0 0 20 20" aria-hidden="true">
-                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
-                          ))}
-                        </div>
-                        <p className="text-sm text-[var(--color-slate)] mt-2">Based on {reviewSummary?.totalReviews || product.reviewCount} reviews</p>
-                        {reviewSummary?.verifiedPurchaseCount && (
-                          <p className="text-xs text-[var(--color-success)] mt-1">{reviewSummary.verifiedPurchaseCount} verified purchases</p>
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        {[5, 4, 3, 2, 1].map((star) => {
-                          const count = reviewSummary?.ratingDistribution?.[star] || 0;
-                          const total = reviewSummary?.totalReviews || 1;
-                          const percentage = (count / total) * 100;
-                          return (
-                            <div key={star} className="flex items-center gap-3">
-                              <span className="text-sm text-[var(--color-slate)] w-8">{star}★</span>
-                              <div className="flex-1 h-2 bg-[var(--color-whisper)] rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full bg-[var(--color-gold)] transition-all duration-500"
-                                  style={{ width: `${percentage}%` }}
-                                />
-                              </div>
-                              <span className="text-sm text-[var(--color-mist)] w-10 text-right">{count}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </MagneticCard>
-                  </StaggerItem>
-
-                  <StaggerItem variant="slide">
-                    {/* Reviews List */}
-                    <div className="space-y-6">
-                      {reviews && reviews.length > 0 ? (
-                        reviews.map((review, index) => (
-                          <StaggerItem key={review.id} delay={index * 0.05} variant="slide">
-                            <MagneticCard className="p-6" strength={0.05}>
-                              <div className="flex items-start gap-4">
-                                <div className="w-12 h-12 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center flex-shrink-0">
-                                  {review.user?.avatar_url ? (
-                                    <Image src={review.user.avatar_url} alt={review.user.full_name || 'User'} fill className="rounded-full object-cover" sizes="48px" />
-                                  ) : (
-                                    <span className="text-[var(--color-gold)] font-medium text-xl">
-                                      {(review.user?.full_name || (review as any).user_measurements?.reviewer_name || 'V').charAt(0).toUpperCase()}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between gap-4 mb-2">
-                                    <div>
-                                      <p className="font-medium text-[var(--color-ink)]">
-                                        {review.user?.full_name || (review as any).user_measurements?.reviewer_name || 'Verified Customer'}
-                                      </p>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        {[...Array(5)].map((_, i) => (
-                                          <svg
-                                            key={i}
-                                            className={`h-4 w-4 ${i < (review.rating || 0) ? 'text-[var(--color-gold)] fill-current' : 'text-[var(--color-whisper)]'}`}
-                                            viewBox="0 0 20 20"
-                                            aria-hidden="true"
-                                          >
-                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8-2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                          </svg>
-                                        ))}
-                                        {review.is_verified_purchase && (
-                                          <span className="px-2 py-0.5 text-xs font-medium bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-[var(--radius-sm)]">Verified Purchase</span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <time className="text-sm text-[var(--color-mist)]" dateTime={review.created_at}>
-                                      {new Date(review.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                                    </time>
-                                  </div>
-                                  {review.title && (
-                                    <h4 className="font-medium text-[var(--color-ink)] mb-1">{review.title}</h4>
-                                  )}
-                                  {review.body && (
-                                    <p className="text-[var(--color-slate)] leading-relaxed">{review.body}</p>
-                                  )}
-                                  {(review.quality_rating || review.fit_rating) && (
-                                    <div className="mt-3 flex gap-4 text-xs text-[var(--color-slate)]">
-                                      {review.quality_rating && (
-                                        <span className="flex items-center gap-1">
-                                          <svg className="h-3 w-3 text-[var(--color-gold)]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                          </svg>
-                                          Quality: {review.quality_rating}/5
-                                        </span>
-                                      )}
-                                      {review.fit_rating && (
-                                        <span className="flex items-center gap-1">
-                                          <svg className="h-3 w-3 text-[var(--color-gold)]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                          </svg>
-                                          Fit: {review.fit_rating}/5
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                  {review.photos && review.photos.length > 0 && (
-                                    <div className="mt-3 flex gap-2 overflow-x-auto">
-                                      {review.photos.map((photo, i) => (
-                                        <Image key={i} src={photo} alt={`Review photo ${i + 1}`} width={80} height={80} className="rounded-[var(--radius-md)] object-cover" />
-                                      ))}
-                                    </div>
-                                  )}
-                                  {review.vendor_response && (
-                                    <div className="mt-4 p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)]">
-                                      <div className="flex items-center gap-2 text-xs text-[var(--color-gold)] mb-1">
-                                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                                        </svg>
-                                        <span className="font-medium">Angelika Fashions</span>
-                                      </div>
-                                      <p className="text-[var(--color-slate)] text-sm">{review.vendor_response}</p>
-                                      <p className="text-xs text-[var(--color-mist)] mt-1">Response from our team</p>
-                                    </div>
-                                  )}
-                                  <div className="mt-3 flex items-center gap-4">
-                                    <Button variant="ghost" size="sm" className="gap-1">
-                                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-                                      </svg>
-                                      <span>{review.helpful_count || 0}</span>
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="gap-1 text-[var(--color-slate)] hover:text-[var(--color-gold)]">
-                                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                                        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                                        <polyline points="16 6 12 2 8 6" />
-                                      </svg>
-                                      <span>Reply</span>
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </MagneticCard>
-                          </StaggerItem>
-                        ))
-                      ) : (
-                        <div className="text-center py-12">
-                          <svg className="h-12 w-12 mx-auto text-[var(--color-mist)] mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                            <polyline points="22 6 12 13 2 6" />
-                          </svg>
-                          <p className="text-[var(--color-slate)] text-lg">No reviews yet</p>
-                          <p className="text-[var(--color-mist)] mt-1">Be the first to share your experience!</p>
-                        </div>
-                      )}
-                    </div>
-                  </StaggerItem>
-
-                  <StaggerItem variant="scale">
-                    {/* Write Review */}
-                    <WriteReviewForm productId={product.id} />
-                  </StaggerItem>
-                </StaggerContainer>
-              </TabsContent>
-            </Tabs>
-          </ScrollReveal>
-
-          {/* Related Products */}
-          {relatedProducts.length > 0 && (
-            <section className="mt-20 pt-12 border-t border-[var(--color-whisper)]">
-              <ScrollReveal variant="fadeUp" className="flex items-center justify-between mb-8">
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-widest text-[var(--color-gold)] mb-1 block">
-                    Curated Pairings &amp; Similar Silhouettes
-                  </span>
-                  <h2 className="text-[var(--font-display)] text-3xl md:text-4xl font-medium text-[var(--color-ink)]">
-                    You May Also Like
-                  </h2>
+                  )}
                 </div>
-                <MagneticButton variant="outline" asChild strength={0.3}>
-                  <Link href={product.categorySlug ? `/shop/${product.categorySlug}` : `/shop`}>
-                    View All {product.category} <span aria-hidden="true">→</span>
-                  </Link>
-                </MagneticButton>
-              </ScrollReveal>
-              <StaggerContainer variant="default" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 justify-items-center">
-                {relatedProducts.map((related, index) => (
-                  <StaggerItem key={related.id} delay={index * 0.08} variant="scale">
-                    <ProductCard
-                      {...related}
-                      image={related.images[0]?.url || '/images/collection-kurtis.jpg'}
-                      name={related.name}
-                      price={related.price}
-                      originalPrice={related.compare_at_price ?? undefined}
-                      category={related.category?.name || product.category}
-                      discount={related.discount}
-                      isVidhyasPick={related.is_vidyas_pick}
-                      isWishlisted={isInWishlist(related.id) || (related.slug ? isInWishlist(related.slug) : false)}
-                      rating={related.rating ?? 0}
-                      reviewCount={related.review_count ?? 0}
-                      href={`/product/${related.slug}`}
-                      onAddToBag={() => handleAddRelatedToBag(related)}
-                      onAddToWishlist={() => handleToggleRelatedWishlist(related)}
-                    />
-                  </StaggerItem>
-                ))}
-              </StaggerContainer>
-            </section>
-          )}
+              </details>
+
+              {/* 3. Shipping & Returns */}
+              <details className="group">
+                <summary className="flex items-center justify-between py-4 text-[12px] font-medium text-[#1A1A1A] select-none">
+                  <span>Shipping &amp; Returns</span>
+                  <span className="text-[#5C5852]" aria-hidden="true">
+                    <Plus className="w-3.5 h-3.5 group-open:hidden stroke-[1.5]" />
+                    <Minus className="w-3.5 h-3.5 hidden group-open:block stroke-[1.5]" />
+                  </span>
+                </summary>
+                <div className="pb-4 text-[12px] leading-[1.65] text-[#5C5852] space-y-2">
+                  <p>
+                    Complimentary insured shipping across India on orders above ₹2,999. Standard
+                    delivery within 3–5 business days.
+                  </p>
+                  <p>
+                    {product.returnWindowDays === 0 ? (
+                      <span className="text-[#991B1B]">
+                        Final Sale: This handcrafted couture piece is non-returnable once
+                        delivered.
+                      </span>
+                    ) : (
+                      <>
+                        {product.returnWindowDays !== undefined ? product.returnWindowDays : 7}
+                        -day doorstep returns &amp; complimentary size exchanges on unworn pieces
+                        with original tags intact.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </details>
+
+              {/* 4. Boutique Care */}
+              <details className="group">
+                <summary className="flex items-center justify-between py-4 text-[12px] font-medium text-[#1A1A1A] select-none">
+                  <span>Boutique Care</span>
+                  <span className="text-[#5C5852]" aria-hidden="true">
+                    <Plus className="w-3.5 h-3.5 group-open:hidden stroke-[1.5]" />
+                    <Minus className="w-3.5 h-3.5 hidden group-open:block stroke-[1.5]" />
+                  </span>
+                </summary>
+                <div className="pb-4 text-[12px] leading-[1.65] text-[#5C5852] space-y-2.5">
+                  <p>
+                    Need custom sleeve adjustments, drape styling advice, or matching dupatta
+                    recommendations from Vidhya&apos;s atelier desk?
+                  </p>
+                  <div className="flex flex-wrap items-center gap-4 pt-1">
+                    <button
+                      type="button"
+                      onClick={shareOnWhatsApp}
+                      className="text-[11.5px] text-[#1A1A1A] underline underline-offset-4 hover:text-[#74590E] cursor-pointer"
+                    >
+                      Message Atelier Concierge
+                    </button>
+                    {relatedProducts.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowCompareModal(true)}
+                        className="text-[11.5px] text-[#1A1A1A] underline underline-offset-4 hover:text-[#74590E] cursor-pointer"
+                      >
+                        Compare Pieces
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </details>
+            </div>
+          </aside>
         </div>
       </section>
 
+      {/* ═══════════════════════════════════════════════════════════════════════
+          BELOW THE FOLD: YOU MAY ALSO LIKE (Clean 4-Column Editorial Strip)
+         ═══════════════════════════════════════════════════════════════════════ */}
+      {relatedProducts.length > 0 && (
+        <section className="border-t border-[#ECE9E4] bg-[#FFFFFF] px-5 sm:px-8 lg:px-14 py-14 lg:py-20">
+          <div className="max-w-[1440px] mx-auto">
+            <div className="flex items-end justify-between gap-4 mb-9">
+              <div>
+                <p className="text-[10.5px] uppercase tracking-[0.2em] text-[#8A857D] mb-1.5">
+                  Curated Pairings
+                </p>
+                <h2 className="font-cormorant text-2xl sm:text-3xl font-normal text-[#1A1A1A]">
+                  You May Also Like
+                </h2>
+              </div>
+              <Link
+                href={product.categorySlug ? `/shop/${product.categorySlug}` : '/shop'}
+                className="text-[11px] uppercase tracking-[0.16em] text-[#1A1A1A] underline underline-offset-4 hover:text-[#74590E] transition-colors"
+              >
+                View All {product.category}
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              {relatedProducts.map((related) => (
+                <ProductCard
+                  key={related.id}
+                  {...related}
+                  image={related.images[0]?.url || '/images/collection-kurtis.jpg'}
+                  name={related.name}
+                  price={related.price}
+                  originalPrice={related.compare_at_price ?? undefined}
+                  category={related.category?.name || product.category}
+                  discount={related.discount}
+                  isVidhyasPick={related.is_vidyas_pick}
+                  isWishlisted={
+                    isInWishlist(related.id) ||
+                    (related.slug ? isInWishlist(related.slug) : false)
+                  }
+                  rating={related.rating ?? 0}
+                  reviewCount={related.review_count ?? 0}
+                  href={`/product/${related.slug}`}
+                  onAddToBag={() => handleAddRelatedToBag(related)}
+                  onAddToWishlist={() => handleToggleRelatedWishlist(related)}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          NATIVE <dialog> FULLSCREEN EDITORIAL LIGHTBOX
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <dialog
+        ref={lightboxRef}
+        aria-label={`${product.name} fullscreen photo viewer`}
+        {...({ closedby: 'any' } as any)}
+        className="m-auto max-w-[96vw] max-h-[94dvh] w-full h-full bg-[#F6F3EE] p-0 border-0 backdrop:bg-black/80 backdrop:backdrop-blur-xs open:flex open:flex-col"
+      >
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E5E0D8] bg-white">
+          <span className="text-[11px] uppercase tracking-[0.16em] text-[#5C5852] tabular-nums">
+            {product.name} · {lightboxIndex + 1} / {galleryImages.length}
+          </span>
+          <form method="dialog">
+            <button
+              type="submit"
+              autoFocus
+              aria-label="Close image viewer"
+              className="p-1.5 rounded-full text-[#1A1A1A] hover:bg-[#F3EFEA] transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5 stroke-[1.5]" />
+            </button>
+          </form>
+        </div>
+
+        <div className="relative flex-1 min-h-0 flex items-center justify-center p-4 sm:p-8 select-none">
+          {galleryImages.length > 1 && (
+            <button
+              type="button"
+              onClick={() =>
+                setLightboxIndex((prev) => (prev - 1 + galleryImages.length) % galleryImages.length)
+              }
+              aria-label="Previous image"
+              className="absolute left-3 sm:left-6 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white border border-[#E5E0D8] flex items-center justify-center text-[#1A1A1A] transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-5 h-5 stroke-[1.5]" />
+            </button>
+          )}
+
+          <div className="relative w-full h-full max-w-3xl">
+            {(() => {
+              const activeLightboxImage = galleryImages[lightboxIndex] ?? galleryImages[0];
+              if (!activeLightboxImage) return null;
+              return (
+                <Image
+                  src={activeLightboxImage.src}
+                  alt={activeLightboxImage.alt}
+                  fill
+                  sizes="90vw"
+                  className="object-contain"
+                />
+              );
+            })()}
+          </div>
+
+          {galleryImages.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setLightboxIndex((prev) => (prev + 1) % galleryImages.length)}
+              aria-label="Next image"
+              className="absolute right-3 sm:right-6 z-10 w-10 h-10 rounded-full bg-white/90 hover:bg-white border border-[#E5E0D8] flex items-center justify-center text-[#1A1A1A] transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-5 h-5 stroke-[1.5]" />
+            </button>
+          )}
+        </div>
+      </dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          NATIVE <dialog> SIZE GUIDE MODAL
+         ═══════════════════════════════════════════════════════════════════════ */}
+      <dialog
+        ref={sizeGuideRef}
+        aria-labelledby="pdp-size-guide-title"
+        {...({ closedby: 'any' } as any)}
+        className="m-auto w-full max-w-xl bg-white p-0 border border-[#E5E0D8] shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-xs"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#ECE8E2]">
+          <h2
+            id="pdp-size-guide-title"
+            className="text-[13px] font-medium uppercase tracking-[0.16em] text-[#1A1A1A]"
+          >
+            Size Guide
+          </h2>
+          <form method="dialog">
+            <button
+              type="submit"
+              autoFocus
+              aria-label="Close size guide"
+              className="p-1.5 rounded-full text-[#1A1A1A] hover:bg-[#F3EFEA] transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4 stroke-[1.5]" />
+            </button>
+          </form>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {product.sizeChart && Object.keys(product.sizeChart).length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-[12px]">
+                <thead>
+                  <tr className="border-b border-[#E5E0D8] text-[10.5px] uppercase tracking-[0.14em] text-[#7A756E]">
+                    <th className="py-2.5 pr-4 font-medium">Size</th>
+                    <th className="py-2.5 px-3 font-medium">Bust</th>
+                    <th className="py-2.5 px-3 font-medium">Waist</th>
+                    <th className="py-2.5 px-3 font-medium">Hips</th>
+                    <th className="py-2.5 pl-3 font-medium">Length</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0ECE6] text-[#2E2C29] tabular-nums">
+                  {Object.entries(product.sizeChart).map(([size, m]) => (
+                    <tr key={size}>
+                      <td className="py-2.5 pr-4 font-medium text-[#1A1A1A]">{size}</td>
+                      <td className="py-2.5 px-3">{m.bust}</td>
+                      <td className="py-2.5 px-3">{m.waist}</td>
+                      <td className="py-2.5 px-3">{m.hips}</td>
+                      <td className="py-2.5 pl-3">{m.length}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-[12.5px] text-[#5C5852]">
+              Standard Indian boutique sizing applies. Contact our atelier concierge for custom
+              tailoring measurements.
+            </p>
+          )}
+
+          <div className="bg-[#FAF8F5] border border-[#EFECE7] p-4 text-[12px] text-[#5C5852] leading-relaxed flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#C9A84C] flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <p>
+              <strong className="text-[#1A1A1A] font-medium">How to measure:</strong> Keep a
+              flexible tape parallel to the floor across the fullest part of your bust, natural
+              waist, and hips.
+            </p>
+          </div>
+        </div>
+      </dialog>
+
+      {/* Auth & Compare Modals */}
       {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
@@ -934,47 +1050,40 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
               size: item.size,
             });
             toast.success(`Added "${item.name}" (${item.size}) to your bag!`);
-          } catch (err) {
+          } catch {
             toast.error('Could not add to bag. Please try again.');
           }
         }}
       />
 
-      {/* ── Sticky Mobile Buy Bar (Visible on mobile screens < md) ── */}
-      <div className="fixed md:hidden bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[var(--color-whisper)] px-4 py-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3 safe-area-pb">
-        <div className="flex flex-col min-w-0">
-          <span className="text-[10px] uppercase tracking-wider text-[var(--color-slate)] font-semibold truncate">
-            {selectedSize ? `Size: ${selectedSize}` : 'Select Size'}
-          </span>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-base font-bold text-[var(--color-ink)] tabular-nums">
-              ₹{product.price.toLocaleString('en-IN')}
-            </span>
-            {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-xs text-[var(--color-mist)] line-through tabular-nums">
-                ₹{product.originalPrice.toLocaleString('en-IN')}
-              </span>
-            )}
-          </div>
+      {/* ── Sticky Minimal Mobile Buy Bar (< lg) ── */}
+      <div className="fixed lg:hidden bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#E8E4DE] px-4 py-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[11px] text-[#7A756E] truncate">
+            {selectedSize ? `Size: ${selectedSize}` : product.name}
+          </p>
+          <p className="text-[14px] font-medium text-[#1A1A1A] tabular-nums">
+            ₹{currentPrice.toLocaleString('en-IN')}
+          </p>
         </div>
-        <div className="flex items-center gap-2 flex-1 max-w-[210px]">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSizeTrayOpen(true);
+              window.scrollTo({ top: 360, behavior: 'smooth' });
+            }}
+            className="h-[38px] px-4 rounded-full border border-[#2B2B2B] text-[10.5px] font-medium uppercase tracking-[0.14em] text-[#1A1A1A] cursor-pointer"
+          >
+            {selectedSize || 'Size'}
+          </button>
           <button
             type="button"
             onClick={handleAddToBag}
-            disabled={!selectedSize || !product.inStock}
-            className="w-full py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-            aria-label="Add to Bag"
+            disabled={isSubmitting || !product.inStock}
+            className="h-[38px] px-5 rounded-full bg-[#2B2B2B] text-white text-[10.5px] font-medium uppercase tracking-[0.14em] disabled:opacity-45 cursor-pointer"
           >
-            {addedToBag ? (
-              <>
-                <svg className="w-4 h-4 fill-current text-[var(--color-ink)]" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-                <span>Added</span>
-              </>
-            ) : (
-              <span>Add to Bag</span>
-            )}
+            {addedToBag ? 'Added ✓' : 'Add to Bag'}
           </button>
         </div>
       </div>

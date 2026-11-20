@@ -315,3 +315,41 @@
     contain-intrinsic-size: auto 380px;
   }
 }
+
+/* --- Modern Web: Native <dialog> scroll containment & top-layer backdrop --- */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* --- Modern Web: Native <details> editorial accordion styling & progressive animation --- */
+.pdp-accordion details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.pdp-accordion details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pdp-accordion details::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+
+.pdp-accordion details:not([open])::details-content {
+  block-size: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pdp-accordion details::details-content {
+    transition: block-size 0.28s ease-in-out, content-visibility 0.28s ease-in-out allow-discrete;
+    transition-behavior: allow-discrete;
+  }
+}
+
