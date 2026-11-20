@@ -47,17 +47,17 @@ export interface ProductGridProps {
 }
 
 const gapStyles = {
-  sm: 'gap-4',
-  md: 'gap-6',
-  lg: 'gap-8',
+  sm: 'gap-3 sm:gap-4',
+  md: 'gap-3.5 sm:gap-5 md:gap-6',
+  lg: 'gap-4 sm:gap-6 md:gap-8',
 };
 
 const columnStyles = {
-  base: 'grid-cols-1',
+  base: 'grid-cols-2 sm:grid-cols-2',
   sm: 'sm:grid-cols-2',
   md: 'md:grid-cols-3',
   lg: 'lg:grid-cols-4',
-  xl: 'xl:grid-cols-5',
+  xl: 'xl:grid-cols-4',
 };
 
 export function ProductGrid({

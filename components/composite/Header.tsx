@@ -1039,6 +1039,7 @@ function MobileMenu({
                   </div>
                   <Link
                     href="/account"
+                    onClick={onClose}
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
                     <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /></svg>
@@ -1046,6 +1047,7 @@ function MobileMenu({
                   </Link>
                   <Link
                     href="/account/orders"
+                    onClick={onClose}
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
                     <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
@@ -1053,6 +1055,7 @@ function MobileMenu({
                   </Link>
                   <Link
                     href="/account/addresses"
+                    onClick={onClose}
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
                     <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
@@ -1060,6 +1063,7 @@ function MobileMenu({
                   </Link>
                   <Link
                     href="/account/loyalty"
+                    onClick={onClose}
                     className="flex items-center gap-3 px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   >
                     <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
@@ -1071,7 +1075,7 @@ function MobileMenu({
                       onClose();
                       window.location.href = '/login';
                     }}
-                    className="flex items-center gap-3 w-full px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
+                    className="flex items-center gap-3 w-full px-3 py-3 text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors cursor-pointer"
                   >
                     <svg className="h-5 w-5 text-[var(--color-slate)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></svg>
                     Sign Out
@@ -1081,12 +1085,14 @@ function MobileMenu({
                 <div className="pt-4 border-t border-[var(--color-whisper)] space-y-3">
                   <Link
                     href="/login"
+                    onClick={onClose}
                     className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-md)] hover:bg-[var(--color-gold-hover)] transition-all"
                   >
                     Sign In
                   </Link>
                   <Link
                     href="/register"
+                    onClick={onClose}
                     className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold uppercase tracking-wider border-2 border-[var(--color-gold)] text-[var(--color-gold)] rounded-[var(--radius-md)] hover:bg-[var(--color-gold-light)] transition-all"
                   >
                     Create Account

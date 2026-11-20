@@ -264,11 +264,10 @@ export function ProductCard({
         : 'NEW ARRIVAL';
 
   const cardContent = (
-    <div className={cn("group relative flex flex-col w-[320px] max-w-full mx-auto bg-white", className)}>
-      {/* ── 1. Image Viewport with Inset Badges (Explicit 320x400, No Zoom on Hover) ── */}
+    <div className={cn("group relative flex flex-col w-full max-w-[320px] mx-auto bg-white", className)}>
+      {/* ── 1. Image Viewport with Inset Badges (Responsive Aspect Ratio 4:5, Max 320px) ── */}
       <div
-        style={{ width: '320px', height: '400px' }}
-        className="relative w-[320px] h-[400px] max-w-full overflow-hidden bg-[#F7F5F0] mx-auto shrink-0"
+        className="relative w-full aspect-[4/5] max-w-[320px] overflow-hidden bg-[#F7F5F0] mx-auto shrink-0"
       >
         {isValidHref && href ? (
           <Link href={href} className="block w-full h-full cursor-pointer" aria-label={`View ${name}`}>
@@ -277,9 +276,9 @@ export function ProductCard({
               alt={name}
               width={320}
               height={400}
-              className="w-[320px] h-[400px] max-w-full object-cover object-top"
-              sizes="320px"
-              style={{ width: '320px', height: '400px', contentVisibility: 'auto' }}
+              className="w-full h-full max-w-full object-cover object-top"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
+              style={{ contentVisibility: 'auto' }}
             />
           </Link>
         ) : (
@@ -288,9 +287,9 @@ export function ProductCard({
             alt={name}
             width={320}
             height={400}
-            className="w-[320px] h-[400px] max-w-full object-cover object-top"
-            sizes="320px"
-            style={{ width: '320px', height: '400px', contentVisibility: 'auto' }}
+            className="w-full h-full max-w-full object-cover object-top"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
+            style={{ contentVisibility: 'auto' }}
           />
         )}
 
@@ -327,21 +326,22 @@ export function ProductCard({
         </div>
       </div>
 
-      {/* ── 2. Attached Action Bar: ADD TO CART + (320px × 33.8px, padding: 10px 0px, font: 13px) ── */}
+      {/* ── 2. Attached Action Bar: ADD TO CART + (Responsive fluid width, max 320px, font: 12-13px) ── */}
       <button
         type="button"
         onClick={handleAddToBag}
         disabled={isAdding}
         style={{
-          width: '320px',
-          height: '33.8px',
+          width: '100%',
+          maxWidth: '320px',
+          height: '36px',
           padding: '10px 0px',
-          fontSize: '13px',
-          lineHeight: '13.8px',
+          fontSize: '12px',
+          lineHeight: '14px',
           boxSizing: 'border-box',
         }}
         className={cn(
-          "btn-add-to-cart group/btn relative w-[320px] max-w-full h-[33.8px] py-[10px] px-0 text-[13px] font-bold uppercase tracking-[0.18em] flex items-center justify-center gap-1.5 focus:outline-hidden shrink-0 mx-auto leading-[13.8px] overflow-hidden cursor-pointer transition-colors duration-200",
+          "btn-add-to-cart group/btn relative w-full max-w-[320px] h-[36px] py-[10px] px-0 text-[11px] sm:text-[13px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.18em] flex items-center justify-center gap-1.5 focus:outline-hidden shrink-0 mx-auto leading-[14px] overflow-hidden cursor-pointer transition-colors duration-200",
           isAdded
             ? "bg-emerald-700 text-white"
             : isAdding

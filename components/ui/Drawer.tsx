@@ -31,10 +31,10 @@ export interface DrawerProps {
 }
 
 const sizeStyles = {
-  sm: 'w-72',
-  md: 'w-96',
-  lg: 'w-[400px]',
-  full: 'w-full max-w-md',
+  sm: 'w-full max-w-xs sm:w-72',
+  md: 'w-full max-w-sm sm:w-96',
+  lg: 'w-full max-w-md sm:w-[400px]',
+  full: 'w-full max-w-lg',
 };
 
 const positionStyles = {
@@ -146,7 +146,7 @@ export function Drawer({
             role="document"
           >
             {(title || showCloseButton) && (
-              <div className="flex items-start justify-between p-6 border-b border-[var(--color-whisper)] sticky top-0 bg-[var(--color-white)] z-10 flex-shrink-0">
+              <div className="flex items-start justify-between p-4 sm:p-6 border-b border-[var(--color-whisper)] sticky top-0 bg-[var(--color-white)] z-10 flex-shrink-0">
                 <div>
                   {title && (
                     <h2

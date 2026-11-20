@@ -220,7 +220,7 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-white)]">
+    <div className="min-h-screen bg-[var(--color-white)] pb-24 md:pb-12">
       {/* Breadcrumb */}
       <nav className="bg-[var(--color-snow)] border-b border-[var(--color-whisper)] py-4" aria-label="Breadcrumb">
         <div className="container-custom px-6">
@@ -939,6 +939,45 @@ export function ProductClient({ product, relatedProducts, reviews = [], reviewSu
           }
         }}
       />
+
+      {/* ── Sticky Mobile Buy Bar (Visible on mobile screens < md) ── */}
+      <div className="fixed md:hidden bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[var(--color-whisper)] px-4 py-2.5 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] flex items-center justify-between gap-3 safe-area-pb">
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] uppercase tracking-wider text-[var(--color-slate)] font-semibold truncate">
+            {selectedSize ? `Size: ${selectedSize}` : 'Select Size'}
+          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-base font-bold text-[var(--color-ink)] tabular-nums">
+              ₹{product.price.toLocaleString('en-IN')}
+            </span>
+            {product.originalPrice && product.originalPrice > product.price && (
+              <span className="text-xs text-[var(--color-mist)] line-through tabular-nums">
+                ₹{product.originalPrice.toLocaleString('en-IN')}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-1 max-w-[210px]">
+          <button
+            type="button"
+            onClick={handleAddToBag}
+            disabled={!selectedSize || !product.inStock}
+            className="w-full py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] disabled:opacity-50 transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+            aria-label="Add to Bag"
+          >
+            {addedToBag ? (
+              <>
+                <svg className="w-4 h-4 fill-current text-[var(--color-ink)]" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                <span>Added</span>
+              </>
+            ) : (
+              <span>Add to Bag</span>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
