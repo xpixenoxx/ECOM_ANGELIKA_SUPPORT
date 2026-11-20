@@ -500,10 +500,12 @@ export async function submitCustomerOrderReview(data: {
       // Find product by slug or name
       const searchTerms = [data.productId, data.productName].filter(Boolean);
       for (const term of searchTerms) {
+        const safeTerm = sanitizePostgrestSearchTerm(String(term || ''));
+        if (!safeTerm) continue;
         const { data: p } = await supabaseAdmin
           .from('products')
           .select('id, slug')
-          .or(`slug.eq.${term},name.ilike.%${term}%`)
+          .or(`slug.eq.${safeTerm},name.ilike.%${safeTerm}%`)
           .limit(1)
           .maybeSingle();
         if (p) {
@@ -529,7 +531,7 @@ export async function submitCustomerOrderReview(data: {
 
     const addr = normalizeAddress(order.shipping_address);
     const defaultName = addr.fullName || 'Verified Customer';
-    const reviewerName = (data.reviewerName || '').trim() || defaultName;
+    const reviewerName = stripHtmlTags(data.reviewerName || '').slice(0, 100) || defaultName;
 
     // Check if existing review
     let existingReview: any = null;
@@ -557,8 +559,8 @@ export async function submitCustomerOrderReview(data: {
       user_id: order.user_id || null,
       order_item_id: data.orderItemId || null,
       rating: Math.max(1, Math.min(5, Number(data.rating) || 5)),
-      title: data.title?.trim() || null,
-      body: data.body?.trim() || null,
+      title: data.title ? stripHtmlTags(data.title).slice(0, 200) : null,
+      body: data.body ? stripHtmlTags(data.body).slice(0, 2000) : null,
       quality_rating: data.qualityRating ? Math.max(1, Math.min(5, Number(data.qualityRating))) : null,
       fit_rating: data.fitRating ? Math.max(1, Math.min(5, Number(data.fitRating))) : null,
       is_verified_purchase: true,
@@ -753,10 +755,10 @@ export async function submitCustomerReturnRequest(data: {
       type: data.type === 'exchange' ? 'exchange' : 'return',
       status: 'requested',
       reason: sanitizedReason,
-      reason_detail: data.reasonDetail?.trim() || null,
+      reason_detail: data.reasonDetail ? stripHtmlTags(data.reasonDetail).slice(0, 1000) : null,
       refund_amount: calculatedRefund,
       pickup_address: data.pickupAddress || order.shipping_address || null,
-      exchange_size: data.exchangeSize || null,
+      exchange_size: data.exchangeSize ? stripHtmlTags(data.exchangeSize).slice(0, 50) : null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

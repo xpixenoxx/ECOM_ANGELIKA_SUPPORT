@@ -4,6 +4,7 @@ import { hmacSha256Hex, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { getOptionalEnv, hasValidServiceRoleKey } from '@/lib/env';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { checkRateLimitAsync, getClientIp } from '@/lib/utils/rate-limit';
 import type { Json } from '@/types/database';
 
 export const dynamic = 'force-dynamic';
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get('hub.verify_token');
   const challenge = request.nextUrl.searchParams.get('hub.challenge');
 
-  if (mode === 'subscribe' && token && token === verifyToken && challenge) {
+  if (mode === 'subscribe' && token && timingSafeEqualStrings(token, verifyToken) && challenge) {
     return new NextResponse(challenge, { status: 200 });
   }
 
@@ -30,6 +31,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rl = await checkRateLimitAsync(`webhook:whatsapp:${ip}`, 180, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
   const appSecret = getOptionalEnv('WHATSAPP_APP_SECRET');
   if (!appSecret) {
     return NextResponse.json(

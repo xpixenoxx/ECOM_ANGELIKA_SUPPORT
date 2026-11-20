@@ -3,14 +3,24 @@ export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { searchProducts, getSearchSuggestions, getPopularSearches } from '@/lib/actions/search';
 import { STORE_CATALOGUE, VIDHYAS_PICKS_LIST } from '@/lib/data/store-catalogue';
+import { checkRateLimitAsync, getClientIp } from '@/lib/utils/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await checkRateLimitAsync(`api_search_get:${ip}`, 60, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many search requests. Please wait a moment.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action') || 'search';
-    const query = searchParams.get('q') || '';
+    const query = (searchParams.get('q') || '').slice(0, 200);
 
     switch (action) {
       case 'search': {
@@ -20,8 +30,8 @@ export async function GET(request: NextRequest) {
         const maxPrice = searchParams.get('maxPrice') ? Number(searchParams.get('maxPrice')) : undefined;
         const inStockOnly = searchParams.get('inStockOnly') === 'true';
         const sortBy = (searchParams.get('sortBy') as any) || 'relevance';
-        const page = Number(searchParams.get('page')) || 1;
-        const pageSize = Number(searchParams.get('pageSize')) || 20;
+        const page = Math.max(1, Number(searchParams.get('page')) || 1);
+        const pageSize = Math.min(50, Math.max(1, Number(searchParams.get('pageSize')) || 20));
 
         let result = await searchProducts(query, {
           category,
@@ -78,13 +88,13 @@ export async function GET(request: NextRequest) {
       }
 
       case 'suggestions': {
-        const limit = Number(searchParams.get('limit')) || 10;
+        const limit = Math.min(25, Math.max(1, Number(searchParams.get('limit')) || 10));
         const suggestions = await getSearchSuggestions(query, limit);
         return NextResponse.json({ suggestions });
       }
 
       case 'popular': {
-        const limit = Number(searchParams.get('limit')) || 10;
+        const limit = Math.min(25, Math.max(1, Number(searchParams.get('limit')) || 10));
         const popular = await getPopularSearches(limit);
         return NextResponse.json({ popular });
       }
@@ -100,6 +110,15 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await checkRateLimitAsync(`api_search_post:${ip}`, 30, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many search requests. Please wait a moment.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const { query, filters, embedding } = body;
 
@@ -112,7 +131,7 @@ export async function POST(request: NextRequest) {
       if (query) {
         // Hybrid search
         const { searchProductsHybrid } = await import('@/lib/actions/search');
-        const result = await searchProductsHybrid(query, embedding, filters);
+        const result = await searchProductsHybrid(String(query).slice(0, 200), embedding, filters);
         return NextResponse.json(result);
       } else {
         // Pure semantic search
@@ -123,7 +142,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Default to full-text search
-    const result = await searchProducts(query, filters);
+    const result = await searchProducts(String(query).slice(0, 200), filters);
     return NextResponse.json(result);
   } catch (error) {
     console.error('Search API POST error:', error);

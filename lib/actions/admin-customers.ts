@@ -2,7 +2,7 @@
 
 import { OPS_ADMIN_ROLES, OWNER_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { supabaseAdmin } from '@/lib/supabase/admin';
-import { sanitizePostgrestSearchTerm } from '@/lib/validators/commerce';
+import { UUID_REGEX, sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
 import { revalidatePath } from 'next/cache';
 
 function getAdminDb() {
@@ -126,6 +126,9 @@ export async function getCustomerById(id: string): Promise<{
   if (!auth.authorized) {
     return { customer: null, orders: [], error: auth.error || 'Unauthorized' };
   }
+  if (!id || !UUID_REGEX.test(id)) {
+    return { customer: null, orders: [], error: 'Invalid customer identifier' };
+  }
   const supabase = getAdminDb();
 
   const { data: profile, error } = await supabase
@@ -139,11 +142,13 @@ export async function getCustomerById(id: string): Promise<{
     return { customer: null, orders: [], error: error?.message ?? 'Customer not found' };
   }
 
-  // Get orders by user_id or email
-  const { data: orders, error: ordersErr } = await supabase
+  // Get orders by user_id or sanitized email
+  const safeEmail = sanitizePostgrestSearchTerm(profile.email || '');
+  const orClause = safeEmail ? `user_id.eq.${id},email.eq.${safeEmail}` : `user_id.eq.${id}`;
+  const { data: orders } = await supabase
     .from('orders')
     .select('id, order_number, status, payment_status, total_amount, created_at, currency')
-    .or(`user_id.eq.${id},email.eq.${profile.email}`)
+    .or(orClause)
     .order('created_at', { ascending: false })
     .limit(30);
 
@@ -303,7 +308,7 @@ export async function inviteAdminUser(input: {
   }
 
   const email = input.email.trim().toLowerCase();
-  const fullName = input.fullName.trim();
+  const fullName = stripHtmlTags(input.fullName || '').slice(0, 120);
   if (!email || !email.includes('@')) {
     return { success: false, error: 'Valid email address is required.' };
   }

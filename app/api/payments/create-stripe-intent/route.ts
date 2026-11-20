@@ -5,11 +5,21 @@ import { createStripePaymentIntent } from '@/lib/actions/payments';
 import { createClient } from '@/lib/supabase/server';
 import { toPaise } from '@/lib/pricing';
 import { verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
+import { checkRateLimitAsync, getClientIp } from '@/lib/utils/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await checkRateLimitAsync(`stripe_intent_api:${ip}`, 25, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many payment intent requests. Please wait a moment.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const { orderId } = body;
 

@@ -70,11 +70,13 @@ export async function updateSession(request: NextRequest) {
   const locale = country === 'IN' ? 'en-IN' : 'en-US';
 
   // Set currency/locale cookies if not present
+  const isProd = process.env.NODE_ENV === 'production';
   if (!request.cookies.has('currency')) {
     response.cookies.set('currency', currency, {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
+      secure: isProd,
     });
   }
 
@@ -83,6 +85,7 @@ export async function updateSession(request: NextRequest) {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
+      secure: isProd,
     });
   }
 

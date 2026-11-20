@@ -2,11 +2,18 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { handleRazorpayWebhook } from '@/lib/actions/payments';
+import { checkRateLimitAsync, getClientIp } from '@/lib/utils/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await checkRateLimitAsync(`webhook:razorpay:${ip}`, 180, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    }
+
     const payload = await request.text();
     const signature = request.headers.get('x-razorpay-signature');
     const deliveryEventId = request.headers.get('x-razorpay-event-id');

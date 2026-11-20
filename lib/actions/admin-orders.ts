@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { canTransitionOrderStatus, canTransitionPaymentStatus } from '@/lib/orders/state-machine';
 import { normalizeAddress } from '@/lib/utils/address';
-import { sanitizePostgrestSearchTerm } from '@/lib/validators/commerce';
+import { sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
 import type { Json } from '@/types/database';
 import { revalidatePath } from 'next/cache';
 
@@ -238,10 +238,12 @@ export async function updateShipmentFulfillment(
     if (!canTransitionOrderStatus(currentOrder.status, targetStatus)) {
       return { success: false, error: `Invalid order transition from ${currentOrder.status} to ${targetStatus}` };
     }
+    const cleanCourier = stripHtmlTags(data.courierPartner || '').slice(0, 80);
+    const cleanTracking = stripHtmlTags(data.trackingNumber || '').slice(0, 100);
     const updates: Record<string, any> = {
       status: targetStatus,
-      courier_partner: data.courierPartner,
-      tracking_number: data.trackingNumber,
+      courier_partner: cleanCourier,
+      tracking_number: cleanTracking,
       updated_at: new Date().toISOString(),
     };
 
@@ -408,9 +410,10 @@ export async function updateVidyasNote(id: string, note: string): Promise<{ succ
       return { success: false, error: auth.error || 'Unauthorized' };
     }
 
+    const cleanNote = stripHtmlTags(note || '').slice(0, 1000);
     const { error } = await supabaseAdmin
       .from('orders')
-      .update({ vidyas_note: note, updated_at: new Date().toISOString() })
+      .update({ vidyas_note: cleanNote, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (!error) {

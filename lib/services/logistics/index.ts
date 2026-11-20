@@ -50,6 +50,7 @@ export async function getShiprocketAuthToken(): Promise<string> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+    signal: AbortSignal.timeout(15000),
   });
 
   const data = await res.json();
@@ -121,6 +122,7 @@ async function createShiprocketShipment(params: {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(orderPayload),
+      signal: AbortSignal.timeout(15000),
     });
 
     const orderData = await orderRes.json();
@@ -142,6 +144,7 @@ async function createShiprocketShipment(params: {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ shipment_id: shipmentId }),
+      signal: AbortSignal.timeout(15000),
     });
 
     const awbData = await awbRes.json();
@@ -236,6 +239,7 @@ export async function createShipmentAwb(params: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: `format=json&data=${encodeURIComponent(JSON.stringify(payload))}`,
+        signal: AbortSignal.timeout(15000),
       });
 
       const data = await res.json();

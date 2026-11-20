@@ -35,23 +35,44 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+type KvNamespaceLike = {
+  get: (k: string) => Promise<string | null>;
+  put: (k: string, v: string, o?: { expirationTtl?: number }) => Promise<void>;
+};
+
+function resolveCloudflareKv(explicitKv?: KvNamespaceLike | null): KvNamespaceLike | null {
+  if (explicitKv && typeof explicitKv.get === 'function' && typeof explicitKv.put === 'function') {
+    return explicitKv;
+  }
+  const globalKv = (globalThis as any)?.RATE_LIMIT_KV;
+  if (globalKv && typeof globalKv.get === 'function' && typeof globalKv.put === 'function') {
+    return globalKv;
+  }
+  const envKv = (process.env as any)?.RATE_LIMIT_KV;
+  if (envKv && typeof envKv.get === 'function' && typeof envKv.put === 'function') {
+    return envKv;
+  }
+  return null;
+}
+
 /**
  * Check rate limit using KV (Cloudflare) or in-memory (Node.js fallback).
- * On Cloudflare, pass the KV namespace as the fourth argument.
+ * Automatically resolves the Cloudflare RATE_LIMIT_KV binding when present.
  */
 export async function checkRateLimitAsync(
   key: string,
   maxRequests: number,
   windowMs: number,
-  kvNamespace?: { get: (k: string) => Promise<string | null>; put: (k: string, v: string, o?: { expirationTtl?: number }) => Promise<void> } | null
+  kvNamespace?: KvNamespaceLike | null
 ): Promise<RateLimitResult> {
   const now = Date.now();
   const windowStart = now - windowMs;
+  const resolvedKv = resolveCloudflareKv(kvNamespace);
 
-  if (kvNamespace) {
+  if (resolvedKv) {
     // Cloudflare KV path
     try {
-      const raw = await kvNamespace.get(key);
+      const raw = await resolvedKv.get(key);
       const timestamps: number[] = raw ? JSON.parse(raw) : [];
       const recent = timestamps.filter(ts => ts > windowStart);
 
@@ -68,7 +89,7 @@ export async function checkRateLimitAsync(
 
       recent.push(now);
       const ttlSeconds = Math.ceil(windowMs / 1000) + 10;
-      await kvNamespace.put(key, JSON.stringify(recent), { expirationTtl: ttlSeconds });
+      await resolvedKv.put(key, JSON.stringify(recent), { expirationTtl: ttlSeconds });
 
       const oldestInWindow = recent[0] ?? now;
       const resetAt = oldestInWindow + windowMs;
@@ -79,8 +100,7 @@ export async function checkRateLimitAsync(
         retryAfterSeconds: 0,
       };
     } catch {
-      // KV failure → allow (fail open for rate limiting)
-      return { allowed: true, remaining: maxRequests - 1, resetAt: now + windowMs, retryAfterSeconds: 0 };
+      // KV failure → fall through to in-memory check rather than failing completely unguarded
     }
   }
 

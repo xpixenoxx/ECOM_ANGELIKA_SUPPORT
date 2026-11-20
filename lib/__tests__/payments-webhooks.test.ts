@@ -90,6 +90,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { handleCashfreeWebhook, handleRazorpayWebhook, executeGatewayRefund } from '@/lib/actions/payments';
 import { cancelCustomerOrder, trackOrderPublic } from '@/lib/actions/customer-orders';
+import { checkRateLimitAsync } from '@/lib/utils/rate-limit';
+import { createOrderReceiptToken, verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
 
 describe('Webhooks Idempotency, Paise/INR Refund Bounds, Customer Cancel & Tracking', () => {
   const originalEnv = { ...process.env };
@@ -292,5 +294,40 @@ describe('Webhooks Idempotency, Paise/INR Refund Bounds, Customer Cancel & Track
     const idorRefund = await executeGatewayRefund('order-1', 1000, 'IDOR attempt');
     expect(idorRefund.success).toBe(false);
     expect(idorRefund.error).toMatch(/Unauthorized/);
+  });
+
+  it('auto-resolves Cloudflare RATE_LIMIT_KV from globalThis in checkRateLimitAsync', async () => {
+    const kvStore = new Map<string, string>();
+    (globalThis as any).RATE_LIMIT_KV = {
+      get: vi.fn(async (k: string) => kvStore.get(k) ?? null),
+      put: vi.fn(async (k: string, v: string) => {
+        kvStore.set(k, v);
+      }),
+    };
+
+    try {
+      const r1 = await checkRateLimitAsync('test_kv_key', 2, 60_000);
+      const r2 = await checkRateLimitAsync('test_kv_key', 2, 60_000);
+      const r3 = await checkRateLimitAsync('test_kv_key', 2, 60_000);
+
+      expect(r1.allowed).toBe(true);
+      expect(r2.allowed).toBe(true);
+      expect(r3.allowed).toBe(false);
+      expect((globalThis as any).RATE_LIMIT_KV.put).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (globalThis as any).RATE_LIMIT_KV;
+    }
+  });
+
+  it('fails closed for verifyOrderReceiptToken in production if signing secrets are missing', () => {
+    process.env['ORDER_TOKEN_SECRET'] = 'super_secret_prod_token_key_999';
+    const token = createOrderReceiptToken('order-1', 'priya@example.com');
+    expect(verifyOrderReceiptToken('order-1', 'priya@example.com', token)).toBe(true);
+
+    delete process.env['ORDER_TOKEN_SECRET'];
+    delete process.env['SUPABASE_SERVICE_ROLE_KEY'];
+    (process.env as any).NODE_ENV = 'production';
+
+    expect(verifyOrderReceiptToken('order-1', 'priya@example.com', token)).toBe(false);
   });
 });

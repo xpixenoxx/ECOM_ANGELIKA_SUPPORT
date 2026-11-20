@@ -2,11 +2,18 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { handleCashfreeWebhook } from '@/lib/actions/payments';
+import { checkRateLimitAsync, getClientIp } from '@/lib/utils/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await checkRateLimitAsync(`webhook:cashfree:${ip}`, 180, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+    }
+
     const payload = await request.text();
     const signature = request.headers.get('x-webhook-signature');
     const timestamp = request.headers.get('x-webhook-timestamp');

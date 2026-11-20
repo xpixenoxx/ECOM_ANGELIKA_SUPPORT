@@ -2,11 +2,21 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyRazorpayPayment } from '@/lib/actions/checkout';
+import { checkRateLimitAsync, getClientIp } from '@/lib/utils/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const rl = await checkRateLimitAsync(`verify_razorpay:${ip}`, 25, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Too many payment verification attempts. Please wait a moment.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
+
     const body = await request.json();
     const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 

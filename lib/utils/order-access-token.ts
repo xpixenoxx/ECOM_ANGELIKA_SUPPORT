@@ -4,11 +4,14 @@ import { getOptionalEnv } from '@/lib/env';
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 function getSigningSecret(): string {
-  return (
+  const configured =
     getOptionalEnv('ORDER_TOKEN_SECRET') ||
-    getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY') ||
-    'angelika-dev-order-token-secret'
-  );
+    getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY');
+  if (configured) return configured;
+  if (process.env.NODE_ENV !== 'production') {
+    return 'angelika-dev-order-token-secret';
+  }
+  return '';
 }
 
 /**
@@ -20,9 +23,11 @@ export function createOrderReceiptToken(
   email: string,
   ttlMs: number = DEFAULT_TTL_MS
 ): string {
+  const secret = getSigningSecret();
+  if (!secret) return '';
   const expiresAt = Date.now() + ttlMs;
   const payload = `${orderId}:${email.trim().toLowerCase()}:${expiresAt}`;
-  const sig = hmacSha256Hex(getSigningSecret(), payload);
+  const sig = hmacSha256Hex(secret, payload);
   return `${expiresAt}.${sig}`;
 }
 
@@ -31,7 +36,8 @@ export function verifyOrderReceiptToken(
   email: string,
   token?: string | null
 ): boolean {
-  if (!token || !orderId || !email) return false;
+  const secret = getSigningSecret();
+  if (!secret || !token || !orderId || !email) return false;
   const parts = token.split('.');
   if (parts.length !== 2) return false;
   const [expiresStr, providedSig] = parts;
@@ -40,7 +46,7 @@ export function verifyOrderReceiptToken(
   if (!providedSig || providedSig.length !== 64) return false;
 
   const expectedSig = hmacSha256Hex(
-    getSigningSecret(),
+    secret,
     `${orderId}:${email.trim().toLowerCase()}:${expiresAt}`
   );
 

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOptionalEnv, hasValidServiceRoleKey } from '@/lib/env';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { canTransitionOrderStatus } from '@/lib/orders/state-machine';
+import { checkRateLimitAsync, getClientIp } from '@/lib/utils/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,12 @@ function mapDelhiveryStatus(rawStatus: string): string | null {
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const rl = await checkRateLimitAsync(`webhook:delhivery:${ip}`, 180, 60_000);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
+  }
+
   const secret = getOptionalEnv('DELHIVERY_WEBHOOK_SECRET');
   if (!secret) {
     return NextResponse.json(

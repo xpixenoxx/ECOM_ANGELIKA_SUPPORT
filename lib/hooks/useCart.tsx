@@ -505,6 +505,105 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     const targetSize = size || productData?.size || 'Free Size';
     const targetColor = productData?.color || 'Default';
+    const isUuid = (val?: string) =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
+
+    // Resolve canonical UUID variant_id from Supabase when available so non-UUID or product-UUID references never break checkout
+    let resolvedDbVariant: any = null;
+    if (!isTestEnv && hasValidSupabaseConfig()) {
+      try {
+        const resolveVariantFromDb = async () => {
+          const selectCols = `
+            id, price, inventory_quantity, size, is_active,
+            color:colors(id, name, hex),
+            product:products!product_variants_product_id_fkey(
+              id, name, slug, is_vidyas_pick,
+              product_images!product_images_product_id_fkey(url, is_primary)
+            )
+          `;
+
+          if (isUuid(variantId)) {
+            const { data: vById } = await supabase
+              .from('product_variants')
+              .select(selectCols)
+              .eq('id', variantId)
+              .maybeSingle();
+            if (vById) return vById;
+
+            const { data: vByProd } = await supabase
+              .from('product_variants')
+              .select(selectCols)
+              .eq('product_id', variantId)
+              .eq('is_active', true)
+              .limit(1)
+              .maybeSingle();
+            if (vByProd) return vByProd;
+          }
+
+          if (isUuid(productData?.product_id)) {
+            const { data: vByProdId } = await supabase
+              .from('product_variants')
+              .select(selectCols)
+              .eq('product_id', productData!.product_id!)
+              .eq('is_active', true)
+              .limit(1)
+              .maybeSingle();
+            if (vByProdId) return vByProdId;
+          }
+
+          const candidateName = productData?.product_name?.trim();
+          const candidateSlug = !isUuid(variantId) ? variantId.trim() : '';
+          if (candidateSlug) {
+            const { data: prodBySlug } = await supabase
+              .from('products')
+              .select('id')
+              .eq('slug', candidateSlug)
+              .eq('is_active', true)
+              .maybeSingle();
+            if (prodBySlug?.id) {
+              const { data: vBySlugProd } = await supabase
+                .from('product_variants')
+                .select(selectCols)
+                .eq('product_id', prodBySlug.id)
+                .eq('is_active', true)
+                .limit(1)
+                .maybeSingle();
+              if (vBySlugProd) return vBySlugProd;
+            }
+          }
+
+          if (candidateName) {
+            const { data: prodByName } = await supabase
+              .from('products')
+              .select('id')
+              .ilike('name', candidateName)
+              .eq('is_active', true)
+              .limit(1)
+              .maybeSingle();
+            if (prodByName?.id) {
+              const { data: vByNameProd } = await supabase
+                .from('product_variants')
+                .select(selectCols)
+                .eq('product_id', prodByName.id)
+                .eq('is_active', true)
+                .limit(1)
+                .maybeSingle();
+              if (vByNameProd) return vByNameProd;
+            }
+          }
+
+          return null;
+        };
+
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1200));
+        resolvedDbVariant = await Promise.race([resolveVariantFromDb(), timeoutPromise]);
+        if (resolvedDbVariant?.id) {
+          variantId = resolvedDbVariant.id;
+        }
+      } catch (err) {
+        console.warn('Canonical variant lookup notice:', err);
+      }
+    }
 
     const existingIndex = state.items.findIndex((i) =>
       isSameCartLine(i, variantId, targetSize, targetColor)
@@ -518,6 +617,35 @@ export function CartProvider({ children }: { children: ReactNode }) {
           ? { ...item, quantity: Math.min(item.quantity + quantity, item.max_quantity || 10) }
           : item
       );
+      await persistCart(newItems);
+      toast.success('Added to bag!', { icon: '🛍️' });
+      return true;
+    }
+
+    if (resolvedDbVariant) {
+      const primaryImg =
+        resolvedDbVariant.product?.product_images?.find((img: any) => img.is_primary)?.url ||
+        resolvedDbVariant.product?.product_images?.[0]?.url ||
+        productData?.image ||
+        '/images/collection-kurtis.jpg';
+
+      const newItem: CartItem = {
+        id: generateCartItemId(),
+        product_id: resolvedDbVariant.product?.id || productData?.product_id || variantId,
+        variant_id: resolvedDbVariant.id,
+        quantity,
+        product_name: resolvedDbVariant.product?.name || productData?.product_name || 'Handcrafted Luxury Couture',
+        size: size || resolvedDbVariant.size || productData?.size || 'Free Size',
+        color: resolvedDbVariant.color?.name || targetColor,
+        color_hex: resolvedDbVariant.color?.hex || productData?.color_hex || '#C9A84C',
+        price: Number(resolvedDbVariant.price) || cleanPrice,
+        image: primaryImg,
+        is_vidyas_pick: Boolean(resolvedDbVariant.product?.is_vidyas_pick ?? productData?.is_vidyas_pick),
+        inventory_quantity: resolvedDbVariant.inventory_quantity || 10,
+        max_quantity: Math.max(1, Math.min(10, resolvedDbVariant.inventory_quantity || 10)),
+      };
+
+      newItems = [...state.items, newItem];
       await persistCart(newItems);
       toast.success('Added to bag!', { icon: '🛍️' });
       return true;
@@ -581,93 +709,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return true;
     }
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(variantId);
-    let variant: any = null;
+    const fallbackItem: CartItem = {
+      id: generateCartItemId(),
+      product_id: variantId,
+      variant_id: variantId,
+      quantity,
+      product_name: productData?.product_name || 'Handcrafted Luxury Couture',
+      size: targetSize,
+      color: targetColor,
+      color_hex: productData?.color_hex || '#C9A84C',
+      price: cleanPrice,
+      image: productData?.image || '/images/collection-kurtis.jpg',
+      is_vidyas_pick: Boolean(productData?.is_vidyas_pick),
+      inventory_quantity: 10,
+      max_quantity: 10,
+    };
 
-    if (isUuid) {
-      try {
-        const fetchVariantPromise = async () => {
-          const { data: vById } = await supabase
-            .from('product_variants')
-            .select(`
-              id, price, inventory_quantity, size,
-              color:colors(id, name, hex),
-              product:products!product_variants_product_id_fkey(
-                id, name, slug, is_vidyas_pick,
-                product_images!product_images_product_id_fkey(url, is_primary)
-              )
-            `)
-            .eq('id', variantId)
-            .maybeSingle();
-
-          if (vById) return vById;
-
-          const { data: vByProd } = await supabase
-            .from('product_variants')
-            .select(`
-              id, price, inventory_quantity, size,
-              color:colors(id, name, hex),
-              product:products!product_variants_product_id_fkey(
-                id, name, slug, is_vidyas_pick,
-                product_images!product_images_product_id_fkey(url, is_primary)
-              )
-            `)
-            .eq('product_id', variantId)
-            .limit(1)
-            .maybeSingle();
-
-          return vByProd || null;
-        };
-
-        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1000));
-        variant = await Promise.race([fetchVariantPromise(), timeoutPromise]);
-      } catch (err) {
-        console.warn('Supabase variant lookup error:', err);
-      }
-    }
-
-    if (variant) {
-      const primaryImg =
-        variant.product?.product_images?.find((img: any) => img.is_primary)?.url ||
-        variant.product?.product_images?.[0]?.url ||
-        '/images/collection-kurtis.jpg';
-
-      const newItem: CartItem = {
-        id: generateCartItemId(),
-        product_id: variant.product?.id || variant.product_id,
-        variant_id: variant.id,
-        quantity,
-        product_name: variant.product?.name || productData?.product_name || 'Handcrafted Luxury Couture',
-        size: size || variant.size || productData?.size || 'Free Size',
-        color: variant.color?.name || targetColor,
-        color_hex: variant.color?.hex || productData?.color_hex || '#C9A84C',
-        price: Number(variant.price) || cleanPrice,
-        image: primaryImg,
-        is_vidyas_pick: Boolean(variant.product?.is_vidyas_pick || productData?.is_vidyas_pick),
-        inventory_quantity: variant.inventory_quantity || 10,
-        max_quantity: Math.max(1, Math.min(10, variant.inventory_quantity || 10)),
-      };
-
-      newItems = [...state.items, newItem];
-    } else {
-      const fallbackItem: CartItem = {
-        id: generateCartItemId(),
-        product_id: variantId,
-        variant_id: variantId,
-        quantity,
-        product_name: productData?.product_name || 'Handcrafted Luxury Couture',
-        size: targetSize,
-        color: targetColor,
-        color_hex: productData?.color_hex || '#C9A84C',
-        price: cleanPrice,
-        image: productData?.image || '/images/collection-kurtis.jpg',
-        is_vidyas_pick: Boolean(productData?.is_vidyas_pick),
-        inventory_quantity: 10,
-        max_quantity: 10,
-      };
-
-      newItems = [...state.items, fallbackItem];
-    }
+    newItems = [...state.items, fallbackItem];
 
     await persistCart(newItems);
     toast.success('Added to bag!', { icon: '🛍️' });
