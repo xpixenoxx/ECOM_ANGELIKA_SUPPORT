@@ -304,6 +304,8 @@ function OrderSuccessContent() {
                           </label>
                           <Input
                             type="password"
+                            autoComplete="new-password"
+                            enterKeyHint="done"
                             value={vipPassword}
                             onChange={(e) => setVipPassword(e.target.value)}
                             placeholder="At least 6 characters"

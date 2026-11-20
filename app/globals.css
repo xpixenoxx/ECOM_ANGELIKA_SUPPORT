@@ -4,6 +4,9 @@
 
 @layer base {
   :root {
+    color-scheme: light;
+    accent-color: #C9A84C;
+
     /* ============================================
        DESIGN TOKENS - Auto-generated from Supabase
        Version: 1.0.0-default
@@ -138,6 +141,8 @@
      ============================================ */
 
   .dark {
+    color-scheme: dark;
+    accent-color: #D4B85C;
     --color-ink: #FAFAFA;
     --color-charcoal: #F5F5F5;
     --color-slate: #D4D4D4;
@@ -177,6 +182,17 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    scrollbar-color: var(--color-mist) var(--color-whisper);
+    scrollbar-width: auto;
+  }
+
+  /* --- Modern Web Typography: Balanced Headings & Pretty Copy --- */
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+  }
+
+  p, blockquote {
+    text-wrap: pretty;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -233,6 +249,19 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--color-slate);
   }
+
+  /* --- Modern Web: Post-Interaction Validation States (:user-invalid) --- */
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):user-invalid,
+  textarea:user-invalid,
+  select:user-invalid {
+    border-color: var(--color-error);
+    background-color: var(--color-error-bg);
+  }
+
+  /* --- Modern Web: Natural button micro-interaction active scale --- */
+  :where(button, [role="button"]):active:not(:disabled) {
+    transform: scale(0.98);
+  }
 }
 
 @layer components {
@@ -278,5 +307,11 @@
     background: linear-gradient(135deg, #D4AF37 0%, #F5EBCC 50%, #B8963D 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+
+  /* --- Modern Web: Defer offscreen catalog feed rendering to preserve 60fps scrolling --- */
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 380px;
   }
 }

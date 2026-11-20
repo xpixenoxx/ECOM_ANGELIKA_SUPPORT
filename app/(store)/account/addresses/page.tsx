@@ -297,6 +297,8 @@ export default function AddressesPage() {
                       <input
                         type="text"
                         required
+                        autoComplete="name"
+                        enterKeyHint="next"
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         placeholder="e.g. Priya Sharma"
@@ -310,6 +312,9 @@ export default function AddressesPage() {
                       <input
                         type="tel"
                         required
+                        autoComplete="tel"
+                        inputMode="tel"
+                        enterKeyHint="next"
                         maxLength={10}
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -326,6 +331,8 @@ export default function AddressesPage() {
                     <input
                       type="text"
                       required
+                      autoComplete="address-line1"
+                      enterKeyHint="next"
                       value={formData.address_line1}
                       onChange={(e) => setFormData({ ...formData, address_line1: e.target.value })}
                       placeholder="e.g. Flat 402, Royal Palms Residency"
@@ -339,6 +346,8 @@ export default function AddressesPage() {
                     </label>
                     <input
                       type="text"
+                      autoComplete="address-line2"
+                      enterKeyHint="next"
                       value={formData.address_line2}
                       onChange={(e) => setFormData({ ...formData, address_line2: e.target.value })}
                       placeholder="e.g. 12th Main, Indiranagar"
@@ -354,6 +363,8 @@ export default function AddressesPage() {
                       <input
                         type="text"
                         required
+                        autoComplete="address-level2"
+                        enterKeyHint="next"
                         value={formData.city}
                         onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                         placeholder="e.g. Bangalore"
@@ -366,6 +377,7 @@ export default function AddressesPage() {
                         State *
                       </label>
                       <select
+                        autoComplete="address-level1"
                         value={formData.state}
                         onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                         className="w-full px-3.5 py-2.5 text-sm bg-[var(--color-snow)]/60 border border-[var(--color-whisper)] rounded-xl focus:border-[var(--color-gold)] focus:outline-none"
@@ -383,6 +395,10 @@ export default function AddressesPage() {
                       <input
                         type="text"
                         required
+                        autoComplete="postal-code"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        enterKeyHint="done"
                         maxLength={6}
                         value={formData.pincode}
                         onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}

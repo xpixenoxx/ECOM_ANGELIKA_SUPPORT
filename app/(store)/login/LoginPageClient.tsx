@@ -349,6 +349,10 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
+                    enterKeyHint="done"
                     maxLength={6}
                     placeholder="123456"
                     value={signupOtp}
@@ -459,6 +463,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                           }}
                           error={errors.fullName}
                           autoComplete="name"
+                          enterKeyHint="next"
                           disabled={isSubmitting}
                           size="md"
                         />
@@ -469,6 +474,8 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                     <StaggerItem variant="slide">
                       <Input
                         type="email"
+                        inputMode="email"
+                        spellCheck={false}
                         label="Email Address"
                         placeholder="you@example.com"
                         value={email}
@@ -478,6 +485,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                         }}
                         error={errors.email}
                         autoComplete="email"
+                        enterKeyHint="next"
                         disabled={isSubmitting}
                         size="md"
                       />
@@ -497,6 +505,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                           }}
                           error={errors.password}
                           autoComplete={isLogin ? 'current-password' : 'new-password'}
+                          enterKeyHint={isLogin ? 'done' : 'next'}
                           disabled={isSubmitting}
                           size="md"
                           rightIcon={
@@ -541,6 +550,7 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
                           }}
                           error={errors.confirmPassword}
                           autoComplete="new-password"
+                          enterKeyHint="done"
                           disabled={isSubmitting}
                           size="md"
                           rightIcon={

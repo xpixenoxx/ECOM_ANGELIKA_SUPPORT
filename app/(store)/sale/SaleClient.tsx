@@ -140,7 +140,7 @@ function ProductCardGrid({ product }: { product: SaleProductItemPage }) {
             <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Sold Out</span>
           </div>
         )}
-        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-300">
           <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
             <Link href={`/product/${product.slug || product.id}`} className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -218,7 +218,7 @@ function ProductCardList({ product }: { product: SaleProductItemPage }) {
             <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Sold Out</span>
           </div>
         )}
-        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-300">
           <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
             <Link href={`/product/${product.slug || product.id}`} className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

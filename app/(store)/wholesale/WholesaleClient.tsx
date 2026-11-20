@@ -215,6 +215,8 @@ export function WholesaleClient({ content, configuredWhatsapp }: WholesaleClient
                     id="businessName"
                     type="text"
                     required
+                    autoComplete="organization"
+                    enterKeyHint="next"
                     value={formData.businessName}
                     onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
                     placeholder="e.g. Saffron Bridal Salon"
@@ -233,6 +235,8 @@ export function WholesaleClient({ content, configuredWhatsapp }: WholesaleClient
                     id="contactName"
                     type="text"
                     required
+                    autoComplete="name"
+                    enterKeyHint="next"
                     value={formData.contactName}
                     onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
                     placeholder="e.g. Priya Sharma"
@@ -251,6 +255,10 @@ export function WholesaleClient({ content, configuredWhatsapp }: WholesaleClient
                     id="email"
                     type="email"
                     required
+                    inputMode="email"
+                    autoComplete="email"
+                    spellCheck={false}
+                    enterKeyHint="next"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="you@boutique.com"
@@ -269,6 +277,9 @@ export function WholesaleClient({ content, configuredWhatsapp }: WholesaleClient
                     id="phone"
                     type="tel"
                     required
+                    inputMode="tel"
+                    autoComplete="tel"
+                    enterKeyHint="next"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+1 (555) 000-0000 or +91 98765 43210"
@@ -287,6 +298,8 @@ export function WholesaleClient({ content, configuredWhatsapp }: WholesaleClient
                     id="cityCountry"
                     type="text"
                     required
+                    autoComplete="address-level2"
+                    enterKeyHint="next"
                     value={formData.cityCountry}
                     onChange={(e) => setFormData({ ...formData, cityCountry: e.target.value })}
                     placeholder="e.g. London, UK or Fremont, CA"

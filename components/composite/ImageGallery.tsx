@@ -203,6 +203,8 @@ export function ImageGallery({
         <motion.img
           src={currentImage.src}
           alt={currentImage.alt}
+          fetchPriority={index === 0 ? "high" : undefined}
+          decoding="async"
           className="w-full h-full object-contain transition-transform duration-100"
           style={{
             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
@@ -268,6 +270,7 @@ export function ImageGallery({
               alt=""
               className="w-full h-full object-cover"
               loading="lazy"
+              decoding="async"
               aria-hidden="true"
             />
             {image.video && (
@@ -547,7 +550,7 @@ export function ProductImageGallery({
             </div>
           )}
           <motion.button
-            className="p-2 rounded-full bg-white/90 backdrop-blur-sm text-[var(--color-ink)] opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-white hover:shadow-[var(--shadow-md)]"
+            className="p-2 rounded-full bg-white/90 backdrop-blur-sm text-[var(--color-ink)] opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-300 hover:bg-white hover:shadow-[var(--shadow-md)]"
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={onAddToWishlist}
@@ -560,7 +563,7 @@ export function ProductImageGallery({
         </div>
 
         <motion.div
-          className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300"
+          className="absolute bottom-3 left-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 translate-y-4 group-hover:translate-y-0 group-focus-within:translate-y-0 [@media(hover:none)]:translate-y-0 transition-all duration-300"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
         >

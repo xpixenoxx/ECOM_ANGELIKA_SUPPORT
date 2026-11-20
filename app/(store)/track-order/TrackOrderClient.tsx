@@ -150,7 +150,7 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
         </div>
 
         <div className="bg-white border border-[#EAE4D9] rounded-2xl p-6 sm:p-8 shadow-xs">
-          <form onSubmit={handleTrack} className="space-y-4">
+          <form onSubmit={handleTrack} name="track-order" className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="orderId" className="block text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)] mb-1.5">
@@ -158,8 +158,13 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
                 </label>
                 <input
                   id="orderId"
+                  name="orderId"
                   type="text"
                   required
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  enterKeyHint="next"
                   placeholder="e.g. AF-2026-0001"
                   value={orderId}
                   onChange={(e) => setOrderId(e.target.value)}
@@ -173,8 +178,13 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
                 </label>
                 <input
                   id="phoneOrEmail"
+                  name="phoneOrEmail"
                   type="text"
                   required
+                  autoComplete="tel email"
+                  inputMode="text"
+                  spellCheck={false}
+                  enterKeyHint="search"
                   placeholder="e.g. 9876543210 or you@example.com"
                   value={phoneOrEmail}
                   onChange={(e) => setPhoneOrEmail(e.target.value)}

@@ -229,7 +229,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             aria-describedby={describedBy}
             className={cn(
               'w-full bg-[var(--color-white)] border rounded-[var(--radius-md)]',
-              'font-sans font-normal resize-y min-h-[100px]',
+              'font-sans font-normal resize-y min-h-[100px] max-h-[280px] [field-sizing:content]',
               'text-[var(--color-ink)] placeholder:text-[var(--color-mist)]',
               'transition-all duration-150 ease-[var(--ease-standard)]',
               'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--color-gold)]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-white)]',

@@ -929,6 +929,10 @@ export default function CheckoutPage() {
                                       <Input
                                         id="email"
                                         type="email"
+                                        inputMode="email"
+                                        autoComplete="email"
+                                        spellCheck={false}
+                                        enterKeyHint="next"
                                         value={email || newAddress.email || ''}
                                         onChange={(e) => handleEmailChange(e.target.value)}
                                         onBlur={handleEmailBlur}
@@ -946,6 +950,9 @@ export default function CheckoutPage() {
                                         <Input
                                           id="phone"
                                           type="tel"
+                                          inputMode="tel"
+                                          autoComplete="tel"
+                                          enterKeyHint="next"
                                           className="pl-16"
                                           value={phone || newAddress.phone || ''}
                                           onChange={(e) => handlePhoneChange(e.target.value)}
@@ -987,6 +994,8 @@ export default function CheckoutPage() {
                                       <label htmlFor="firstName" className="input-label">First Name *</label>
                                       <Input
                                         id="firstName"
+                                        autoComplete="given-name"
+                                        enterKeyHint="next"
                                         value={newAddress.firstName || ''}
                                         onChange={(e) => {
                                           setNewAddress({ ...newAddress, firstName: e.target.value });
@@ -1002,6 +1011,8 @@ export default function CheckoutPage() {
                                       <label htmlFor="lastName" className="input-label">Last Name *</label>
                                       <Input
                                         id="lastName"
+                                        autoComplete="family-name"
+                                        enterKeyHint="next"
                                         value={newAddress.lastName || ''}
                                         onChange={(e) => {
                                           setNewAddress({ ...newAddress, lastName: e.target.value });
@@ -1019,6 +1030,8 @@ export default function CheckoutPage() {
                                     <label htmlFor="address1" className="input-label">Flat / House No., Apartment &amp; Street Address *</label>
                                     <Input
                                       id="address1"
+                                      autoComplete="address-line1"
+                                      enterKeyHint="next"
                                       value={newAddress.address1 || ''}
                                       onChange={(e) => {
                                         setNewAddress({ ...newAddress, address1: e.target.value });
@@ -1035,6 +1048,8 @@ export default function CheckoutPage() {
                                     <label htmlFor="address2" className="input-label">Landmark / Floor (Optional)</label>
                                     <Input
                                       id="address2"
+                                      autoComplete="address-line2"
+                                      enterKeyHint="next"
                                       value={newAddress.address2 || ''}
                                       onChange={(e) => setNewAddress({ ...newAddress, address2: e.target.value })}
                                       placeholder="e.g. Near Indiranagar Metro Station"
@@ -1055,6 +1070,10 @@ export default function CheckoutPage() {
                                       <Input
                                         id="postalCode"
                                         type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        autoComplete="postal-code"
+                                        enterKeyHint="next"
                                         value={newAddress.postalCode || ''}
                                         onChange={(e) => handlePincodeChange(e.target.value)}
                                         onBlur={handlePincodeBlur}
@@ -1068,6 +1087,8 @@ export default function CheckoutPage() {
                                       <label htmlFor="city" className="input-label">City / District *</label>
                                       <Input
                                         id="city"
+                                        autoComplete="address-level2"
+                                        enterKeyHint="next"
                                         value={newAddress.city || ''}
                                         onChange={(e) => {
                                           setNewAddress({ ...newAddress, city: e.target.value });
@@ -1648,6 +1669,9 @@ export default function CheckoutPage() {
                           <div className="flex gap-2">
                             <Input
                               value={couponCodeInput}
+                              autoCapitalize="characters"
+                              spellCheck={false}
+                              enterKeyHint="go"
                               onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {

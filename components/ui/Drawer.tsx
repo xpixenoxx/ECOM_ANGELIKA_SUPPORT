@@ -40,7 +40,7 @@ const sizeStyles = {
 const positionStyles = {
   right: 'right-0',
   left: 'left-0',
-  bottom: 'bottom-0 left-0 right-0 max-h-[80vh]',
+  bottom: 'bottom-0 left-0 right-0 max-h-[80vh] max-h-[80dvh]',
 };
 
 const drawerVariants = {
@@ -132,11 +132,11 @@ export function Drawer({
           <motion.div
             className={cn(
               'fixed bg-[var(--color-white)] shadow-[var(--shadow-2xl)]',
-              'flex flex-col h-full max-h-screen',
+              'flex flex-col h-full max-h-screen max-h-dvh',
               sizeStyles[size],
               position === 'right' && 'inset-y-0 right-0 rounded-l-[var(--radius-xl)]',
               position === 'left' && 'inset-y-0 left-0 rounded-r-[var(--radius-xl)]',
-              position === 'bottom' && 'bottom-0 inset-x-0 max-h-[85vh] rounded-t-[var(--radius-xl)]',
+              position === 'bottom' && 'bottom-0 inset-x-0 max-h-[85vh] max-h-[85dvh] rounded-t-[var(--radius-xl)]',
               className
             )}
             initial="hidden"
@@ -180,7 +180,7 @@ export function Drawer({
                 )}
               </div>
             )}
-            <div className="flex-1 p-6 overflow-y-auto flex flex-col min-h-0">
+            <div className="flex-1 p-6 overflow-y-auto overscroll-contain flex flex-col min-h-0">
               {children}
             </div>
           </motion.div>

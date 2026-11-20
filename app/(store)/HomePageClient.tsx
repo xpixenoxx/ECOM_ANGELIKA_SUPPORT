@@ -322,7 +322,7 @@ export default function HomePageClient({
   return (
     <div className="bg-[var(--color-sand)] text-[var(--color-ink)]">
       {/* Hero Section */}
-      <section className="relative min-h-[92vh] md:min-h-[96vh] flex items-center overflow-hidden mb-[10px]" style={{ marginBottom: '10px' }}>
+      <section className="relative min-h-[92vh] min-h-[92dvh] md:min-h-[96vh] md:min-h-[96dvh] flex items-center overflow-hidden mb-[10px]" style={{ marginBottom: '10px' }}>
         <Image
           src={heroBg}
           alt={heroBgAlt}
@@ -757,6 +757,10 @@ export default function HomePageClient({
                   <input
                     type="email"
                     id="newsletter-email"
+                    name="email"
+                    inputMode="email"
+                    spellCheck={false}
+                    enterKeyHint="send"
                     value={circleEmail}
                     onChange={(e) => setCircleEmail(e.target.value)}
                     placeholder="Enter your email"
@@ -865,7 +869,7 @@ export default function HomePageClient({
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/0 transition-colors duration-300 flex items-center justify-center">
                     <MagneticButton
-                      className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[var(--color-gold-light)]"
+                      className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-300 hover:bg-[var(--color-gold-light)] shadow-sm"
                       strength={0.3}
                       asChild
                     >
@@ -901,11 +905,11 @@ export default function HomePageClient({
 // Skeleton component for placeholder products
 function SkeletonProductCard() {
   return (
-    <div className="group relative flex flex-col w-[320px] max-w-full mx-auto bg-white">
-      <div style={{ width: '320px', height: '400px' }} className="relative w-[320px] h-[400px] max-w-full overflow-hidden bg-[#F7F5F0] shrink-0">
+    <div className="group relative flex flex-col w-full max-w-[320px] mx-auto bg-white">
+      <div className="relative w-full aspect-[4/5] max-w-[320px] overflow-hidden bg-[#F7F5F0] shrink-0">
         <div className="absolute inset-0 skeleton" />
       </div>
-      <div style={{ width: '320px', height: '33.8px' }} className="w-[320px] h-[33.8px] bg-[#FBF4EC] skeleton mx-auto shrink-0" />
+      <div className="w-full max-w-[320px] h-[34px] bg-[#FBF4EC] skeleton mx-auto shrink-0" />
       <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center space-y-2">
         <div className="h-3 w-3/4 skeleton rounded" />
         <div className="h-3 w-1/2 skeleton rounded" />

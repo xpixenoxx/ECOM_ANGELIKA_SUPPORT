@@ -840,6 +840,8 @@ export default function AccountPage() {
                     </label>
                     <Input
                       type="text"
+                      autoComplete="name"
+                      enterKeyHint="next"
                       value={profileName}
                       onChange={(e) => setProfileName(e.target.value)}
                       placeholder="e.g. Ananya Rao"
@@ -867,6 +869,9 @@ export default function AccountPage() {
                     </label>
                     <Input
                       type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      enterKeyHint="done"
                       value={profilePhone}
                       onChange={(e) => setProfilePhone(e.target.value)}
                       placeholder="+91 98765 43210"

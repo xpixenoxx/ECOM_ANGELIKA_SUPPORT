@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
+import { toast } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils/cn';
 import { ScrollReveal } from '@/components/animations/ScrollReveal';
 import { StaggerContainer, StaggerItem, StaggerGrid } from '@/components/animations/Stagger';
@@ -114,7 +115,7 @@ function ProductCardGrid({ product }: { product: NewArrivalProduct }) {
             <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Out of Stock</span>
           </div>
         )}
-        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-300">
           <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
             <Link href={`/product/${product.slug || product.id}`} className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -181,7 +182,7 @@ function ProductCardList({ product }: { product: NewArrivalProduct }) {
             <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Out of Stock</span>
           </div>
         )}
-        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-300">
           <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
             <Link href={`/product/${product.slug || product.id}`} className="flex items-center gap-1">
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -490,9 +491,22 @@ export default function NewArrivalsClient({ initialContent }: { initialContent?:
               <p className="text-[var(--color-white)]/70 text-lg mb-8">
                 Get early access to new arrivals, exclusive pre-orders, and behind-the-scenes stories from our artisan partners.
               </p>
-              <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto" onSubmit={(e) => { e.preventDefault(); alert('Subscribed! Check your email for confirmation.'); }}>
+              <form
+                className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  toast.success('Subscribed!', 'You will receive early alerts for our next handcrafted drops.');
+                  (e.currentTarget as HTMLFormElement).reset();
+                }}
+              >
                 <Input
                   type="email"
+                  name="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  spellCheck={false}
+                  enterKeyHint="send"
+                  required
                   placeholder="Enter your email"
                   className="flex-1"
                   aria-label="Email for new arrival alerts"

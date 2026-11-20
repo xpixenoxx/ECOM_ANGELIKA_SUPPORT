@@ -350,6 +350,7 @@ function ContactContent({ content }: ContactClientProps) {
                             error={errors['name']}
                             placeholder="Your name"
                             autoComplete="name"
+                            enterKeyHint="next"
                           />
                         </div>
                         <div>
@@ -360,11 +361,14 @@ function ContactContent({ content }: ContactClientProps) {
                             id="email"
                             name="email"
                             type="email"
+                            inputMode="email"
+                            spellCheck={false}
                             value={formData.email || ''}
                             onChange={handleChange}
                             error={errors['email']}
                             placeholder="you@example.com"
                             autoComplete="email"
+                            enterKeyHint="next"
                           />
                         </div>
                       </div>
@@ -378,11 +382,13 @@ function ContactContent({ content }: ContactClientProps) {
                             id="phone"
                             name="phone"
                             type="tel"
+                            inputMode="tel"
                             value={formData.phone || ''}
                             onChange={handleChange}
                             error={errors['phone']}
                             placeholder="+91 72072 56690"
                             autoComplete="tel"
+                            enterKeyHint="next"
                           />
                         </div>
                         <div>
@@ -606,6 +612,10 @@ function ContactContent({ content }: ContactClientProps) {
               >
                 <Input
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  spellCheck={false}
+                  enterKeyHint="send"
                   value={newsletterEmail}
                   onChange={(e) => setNewsletterEmail(e.target.value)}
                   placeholder={newsletter.placeholder || 'Enter your email'}

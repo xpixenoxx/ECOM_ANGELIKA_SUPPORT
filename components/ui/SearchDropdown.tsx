@@ -589,6 +589,11 @@ export function QuickSearch({
         <input
           ref={inputRef}
           type="search"
+          inputMode="search"
+          enterKeyHint="search"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder={placeholder}
           value={query}
           onChange={(e) => {

@@ -1208,6 +1208,11 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
               <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
                 <input
                   type="email"
+                  name="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  spellCheck={false}
+                  enterKeyHint="send"
                   required
                   placeholder="Enter your email address"
                   value={subscribedEmail}

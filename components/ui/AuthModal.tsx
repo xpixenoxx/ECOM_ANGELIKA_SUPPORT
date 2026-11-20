@@ -323,6 +323,7 @@ export function AuthModal({ onClose, onSuccess, defaultTab = 'signin' }: AuthMod
                     onChange={(e) => { setFullName(e.target.value); if (errors.fullName) setErrors(p => ({ ...p, fullName: '' })); }}
                     error={errors.fullName}
                     autoComplete="name"
+                    enterKeyHint="next"
                     disabled={submitting}
                   />
                 </div>
@@ -333,11 +334,14 @@ export function AuthModal({ onClose, onSuccess, defaultTab = 'signin' }: AuthMod
                 <label className="block text-sm font-medium text-[var(--color-ink)] mb-1.5">Email Address</label>
                 <Input
                   type="email"
+                  inputMode="email"
+                  spellCheck={false}
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors(p => ({ ...p, email: '' })); }}
                   error={errors.email}
                   autoComplete="email"
+                  enterKeyHint="next"
                   disabled={submitting}
                 />
               </div>
@@ -353,6 +357,7 @@ export function AuthModal({ onClose, onSuccess, defaultTab = 'signin' }: AuthMod
                     onChange={(e) => { setPassword(e.target.value); if (errors.password) setErrors(p => ({ ...p, password: '' })); }}
                     error={errors.password}
                     autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
+                    enterKeyHint={tab === 'signin' ? 'done' : 'next'}
                     disabled={submitting}
                     rightIcon={
                       <button type="button" onClick={() => setShowPassword(p => !p)} className="text-[var(--color-slate)] hover:text-[var(--color-gold)] p-1 transition-colors" tabIndex={-1} aria-label={showPassword ? 'Hide password' : 'Show password'}>

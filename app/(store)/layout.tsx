@@ -47,7 +47,13 @@ export default async function StoreLayout({ children }: { children: ReactNode })
   const whatsappNumber = rawWhatsapp && rawWhatsapp !== '919876543210' ? rawWhatsapp : '';
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen min-h-dvh flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[120] focus:px-4 focus:py-2.5 focus:rounded-md focus:bg-[var(--color-ink)] focus:text-[var(--color-white)] focus:font-semibold focus:text-sm focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]"
+      >
+        Skip to main content
+      </a>
       <div className="sticky top-0 z-50 w-full">
         <AnnouncementBar
           enabled={settings?.announcement_bar_enabled}
@@ -64,7 +70,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
           logoHref={logoHref}
         />
       </div>
-      <main id="main-content" className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
         {children}
       </main>
       <Footer

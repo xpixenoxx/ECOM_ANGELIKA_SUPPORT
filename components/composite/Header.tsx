@@ -183,6 +183,8 @@ export function Header({
                     <img
                       src={logoUrl || "/images/logo.png"}
                       alt={`${brandName} ${brandTagline}`}
+                      fetchPriority="high"
+                      decoding="async"
                       className="h-9 md:h-11 w-auto object-contain rounded-sm"
                     />
                     <div className="hidden sm:flex lg:hidden xl:flex flex-col">
@@ -229,6 +231,11 @@ export function Header({
                   <input
                     ref={searchInputRef}
                     type="search"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     placeholder={searchPlaceholder}
                     value={searchQuery}
                     onChange={(e) => {
@@ -478,6 +485,8 @@ function NavItemComponent({ item, index, searchInputRef, setShowSearchResults }:
                           alt={item.megaMenu.featured.title}
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                           loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                         />
                         <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-sm text-[10px] uppercase tracking-wider text-white rounded">
                           Featured
@@ -924,6 +933,8 @@ function MobileMenu({
                 <img
                   src={logoUrl || "/images/logo.png"}
                   alt={`${brandName} ${brandTagline}`}
+                  fetchPriority="high"
+                  decoding="async"
                   className="h-8 w-auto object-contain rounded-sm"
                 />
                 <div className="flex flex-col">
@@ -946,7 +957,7 @@ function MobileMenu({
               </motion.button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-6">
               <div className="relative">
                 <form onSubmit={(e) => { e.preventDefault(); if (searchQuery.trim()) { setShowSearchResults(false); onClose(); if (onSearch) onSearch(searchQuery.trim()); else router.push(`/vidhyas-picks?search=${encodeURIComponent(searchQuery.trim())}`); } }}>
                   <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-mist)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -955,6 +966,11 @@ function MobileMenu({
                   </svg>
                   <input
                     type="search"
+                    inputMode="search"
+                    enterKeyHint="search"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     placeholder="Search products..."
                     value={searchQuery}
                     onChange={(e) => {
@@ -1148,6 +1164,9 @@ function MobileNavItem({ item, onClose }: { item: NavItem; onClose: () => void }
                     <img
                       src={item.megaMenu.featured.image}
                       alt={item.megaMenu.featured.title}
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
                       className="w-12 h-12 object-cover rounded"
                     />
                     <div className="flex-1 min-w-0">

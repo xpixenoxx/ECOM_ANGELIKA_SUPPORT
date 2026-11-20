@@ -264,7 +264,7 @@ export function ProductCard({
         : 'NEW ARRIVAL';
 
   const cardContent = (
-    <div className={cn("group relative flex flex-col w-full max-w-[320px] mx-auto bg-white", className)}>
+    <div className={cn("group relative flex flex-col w-full max-w-[320px] mx-auto bg-white content-visibility-auto", className)}>
       {/* ── 1. Image Viewport with Inset Badges (Responsive Aspect Ratio 4:5, Max 320px) ── */}
       <div
         className="relative w-full aspect-[4/5] max-w-[320px] overflow-hidden bg-[#F7F5F0] mx-auto shrink-0"
@@ -276,9 +276,10 @@ export function ProductCard({
               alt={name}
               width={320}
               height={400}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full max-w-full object-cover object-top"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
-              style={{ contentVisibility: 'auto' }}
             />
           </Link>
         ) : (
@@ -287,9 +288,10 @@ export function ProductCard({
             alt={name}
             width={320}
             height={400}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full max-w-full object-cover object-top"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
-            style={{ contentVisibility: 'auto' }}
           />
         )}
 
