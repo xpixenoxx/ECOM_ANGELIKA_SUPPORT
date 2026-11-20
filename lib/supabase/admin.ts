@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
+import { getOptionalEnv } from '@/lib/env';
+import { createClient as createServerSessionClient } from '@/lib/supabase/server';
 
 if (typeof window !== 'undefined' && !process.env['VITEST']) {
   throw new Error('lib/supabase/admin must never be imported in client/browser bundles.');
@@ -12,18 +14,29 @@ let cachedAdminKeySignature = '';
 
 /**
  * Resolves the Supabase service-role client lazily INSIDE the active request context.
- * Critical for Cloudflare Pages / Workers (`@cloudflare/next-on-pages`), where runtime
- * secrets like SUPABASE_SERVICE_ROLE_KEY are bound via request AsyncLocalStorage rather
- * than at module top-level startup.
+ * Reads secrets from both `process.env` and Cloudflare Pages' `__cloudflare-request-context__`
+ * (`@cloudflare/next-on-pages` runtime bindings). If the service-role secret is unavailable
+ * inside an authenticated admin request, safely falls back to the signed-in admin's SSR
+ * session client (which holds full admin RLS write permissions) instead of failing with
+ * `'placeholder-service-key'`.
  */
 export function getSupabaseAdmin(): SupabaseClient<Database> {
-  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const rawUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || getOptionalEnv('NEXT_PUBLIC_SUPABASE_URL'))?.trim();
   const supabaseUrl =
     rawUrl && !rawUrl.includes('placeholder') && !rawUrl.includes('your-project-id')
       ? rawUrl
       : PROD_SUPABASE_URL;
-  const supabaseServiceKey =
-    process.env['SUPABASE_SERVICE_ROLE_KEY']?.trim() || 'placeholder-service-key';
+  const resolvedServiceKey = getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!resolvedServiceKey && !process.env['VITEST']) {
+    try {
+      return createServerSessionClient() as unknown as SupabaseClient<Database>;
+    } catch {
+      // Outside a Next.js request context (e.g., build/script) — fall through to placeholder
+    }
+  }
+
+  const supabaseServiceKey = resolvedServiceKey || 'placeholder-service-key';
 
   const sig = `${supabaseUrl}::${supabaseServiceKey}`;
   if (!cachedAdminClient || cachedAdminKeySignature !== sig) {

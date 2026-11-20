@@ -44,8 +44,38 @@ export function isPlaceholderEnvValue(value?: string | null): boolean {
   return PLACEHOLDER_PREFIXES.some((prefix) => lower.startsWith(prefix));
 }
 
+/**
+ * Reads runtime environment bindings from Cloudflare Pages request context
+ * (`@cloudflare/next-on-pages` attaches env to Symbol.for('__cloudflare-request-context__'))
+ * before falling back to `process.env`. Works across all Cloudflare compatibility dates.
+ */
+export function getCloudflareRequestEnv(): Record<string, unknown> | undefined {
+  try {
+    const ctx = (globalThis as any)?.[Symbol.for('__cloudflare-request-context__')];
+    if (ctx && typeof ctx === 'object' && ctx.env && typeof ctx.env === 'object') {
+      return ctx.env as Record<string, unknown>;
+    }
+  } catch {
+    // Ignore outside Cloudflare runtime
+  }
+  return undefined;
+}
+
+export function getRawEnv(name: string): string | undefined {
+  const procVal = process.env[name];
+  if (typeof procVal === 'string' && procVal.trim()) {
+    return procVal.trim();
+  }
+  const cfEnv = getCloudflareRequestEnv();
+  const cfVal = cfEnv?.[name];
+  if (typeof cfVal === 'string' && cfVal.trim()) {
+    return cfVal.trim();
+  }
+  return undefined;
+}
+
 export function getOptionalEnv(name: string): string | undefined {
-  const val = process.env[name]?.trim();
+  const val = getRawEnv(name);
   return isPlaceholderEnvValue(val) ? undefined : val;
 }
 
@@ -80,6 +110,7 @@ export function hasValidServiceRoleKey(): boolean {
 
 export function isCloudServerlessEnv(): boolean {
   return Boolean(
+    getCloudflareRequestEnv() ||
     process.env['CF_PAGES'] ||
     process.env['CLOUDFLARE_WORKERS'] ||
     process.env['VERCEL']

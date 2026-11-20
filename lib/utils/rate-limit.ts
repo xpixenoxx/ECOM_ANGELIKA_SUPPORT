@@ -44,6 +44,10 @@ function resolveCloudflareKv(explicitKv?: KvNamespaceLike | null): KvNamespaceLi
   if (explicitKv && typeof explicitKv.get === 'function' && typeof explicitKv.put === 'function') {
     return explicitKv;
   }
+  const cfCtxKv = (globalThis as any)?.[Symbol.for('__cloudflare-request-context__')]?.env?.RATE_LIMIT_KV;
+  if (cfCtxKv && typeof cfCtxKv.get === 'function' && typeof cfCtxKv.put === 'function') {
+    return cfCtxKv;
+  }
   const globalKv = (globalThis as any)?.RATE_LIMIT_KV;
   if (globalKv && typeof globalKv.get === 'function' && typeof globalKv.put === 'function') {
     return globalKv;

@@ -154,7 +154,7 @@ export async function getAdminClient(allowedRoles: AdminRole[] = OPS_ADMIN_ROLES
   }
 
   return {
-    supabase: supabaseAdmin,
+    supabase: hasValidServiceRoleKey() ? supabaseAdmin : createClient(),
     isAdmin: true,
     userId: auth.userId,
     role: auth.role,
