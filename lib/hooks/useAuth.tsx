@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithOAuth = async (provider: 'google' | 'github' | 'facebook') => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env['NEXT_PUBLIC_SITE_URL'] || 'http://localhost:3000');
+    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://angelikafashions.com');
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -184,8 +184,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    const origin = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://angelikafashions.com');
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env['NEXT_PUBLIC_SITE_URL']}/auth/reset-password`,
+      redirectTo: `${origin}/auth/reset-password`,
     });
     return { error: error ? new Error(error.message) : null };
   };

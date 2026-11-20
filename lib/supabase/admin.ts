@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 
 if (typeof window !== 'undefined' && !process.env['VITEST']) {
@@ -6,18 +6,52 @@ if (typeof window !== 'undefined' && !process.env['VITEST']) {
 }
 
 const PROD_SUPABASE_URL = 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
-const PROD_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mjk0MjU1NCwiZXhwIjoyMTA4NTE4NTU0fQ.m55v1r2zLg-3lpl88GX_F9K0AM-Y82bPyoBxPY9Bd3k';
 
-const supabaseUrl = process.env['NEXT_PUBLIC_SUPABASE_URL'] || PROD_SUPABASE_URL;
-const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || PROD_SERVICE_ROLE_KEY;
+let cachedAdminClient: SupabaseClient<Database> | null = null;
+let cachedAdminKeySignature = '';
 
-export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+/**
+ * Resolves the Supabase service-role client lazily INSIDE the active request context.
+ * Critical for Cloudflare Pages / Workers (`@cloudflare/next-on-pages`), where runtime
+ * secrets like SUPABASE_SERVICE_ROLE_KEY are bound via request AsyncLocalStorage rather
+ * than at module top-level startup.
+ */
+export function getSupabaseAdmin(): SupabaseClient<Database> {
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseUrl =
+    rawUrl && !rawUrl.includes('placeholder') && !rawUrl.includes('your-project-id')
+      ? rawUrl
+      : PROD_SUPABASE_URL;
+  const supabaseServiceKey =
+    process.env['SUPABASE_SERVICE_ROLE_KEY']?.trim() || 'placeholder-service-key';
+
+  const sig = `${supabaseUrl}::${supabaseServiceKey}`;
+  if (!cachedAdminClient || cachedAdminKeySignature !== sig) {
+    cachedAdminClient = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+      global: {
+        fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      },
+    });
+    cachedAdminKeySignature = sig;
+  }
+
+  return cachedAdminClient;
+}
+
+export const supabaseAdmin: SupabaseClient<Database> = new Proxy(
+  {} as SupabaseClient<Database>,
+  {
+    get(_target, prop) {
+      const client = getSupabaseAdmin();
+      const value = (client as any)[prop];
+      return typeof value === 'function' ? value.bind(client) : value;
+    },
+  }
+);
 
 // Admin-only operations
 export async function adminGetUser(userId: string) {

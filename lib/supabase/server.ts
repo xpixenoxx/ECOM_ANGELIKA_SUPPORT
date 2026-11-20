@@ -7,10 +7,23 @@ const PROD_SUPABASE_URL = 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
 const PROD_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NDI1NTQsImV4cCI6MjEwODUxODU1NH0.rKWX5kFwxom9mxCR7NQlP2M6MJRtQveEb8UQMmZ86L0';
 
+function resolveServerSupabaseConfig() {
+  const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const url =
+    envUrl && !envUrl.includes('placeholder') && !envUrl.includes('your-project-id')
+      ? envUrl
+      : PROD_SUPABASE_URL;
+  const anonKey =
+    envKey && !envKey.startsWith('placeholder') && !envKey.startsWith('your-')
+      ? envKey
+      : PROD_SUPABASE_ANON_KEY;
+  return { url, anonKey };
+}
+
 /** Cookie-less anon client safe for public Edge SSR reads under RLS (always fetches fresh live data on Cloudflare Edge). */
 export function createPublicClient() {
-  const url = process.env['NEXT_PUBLIC_SUPABASE_URL'] || PROD_SUPABASE_URL;
-  const anonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || PROD_SUPABASE_ANON_KEY;
+  const { url, anonKey } = resolveServerSupabaseConfig();
   return createSupabaseJsClient<Database>(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: {
@@ -21,31 +34,29 @@ export function createPublicClient() {
 
 export function createClient() {
   const cookieStore = cookies();
-  const url = process.env['NEXT_PUBLIC_SUPABASE_URL'] || PROD_SUPABASE_URL;
-  const anonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || PROD_SUPABASE_ANON_KEY;
+  const { url, anonKey } = resolveServerSupabaseConfig();
 
-  return createServerClient<Database>(
-    url,
-    anonKey,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
+  return createServerClient<Database>(url, anonKey, {
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+    },
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // The `setAll` method was called from a Server Component.
+          // This can be ignored if you have middleware refreshing
+          // user sessions.
+        }
+      },
+    },
+  });
 }
 
 export async function getUser() {

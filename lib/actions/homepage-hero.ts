@@ -148,65 +148,80 @@ export async function saveHomepageHeroData(
     // 1. Write to local JSON backup in local dev only
     await writeLocalBackup(data);
 
-    // 2. Upsert to Supabase content_blocks table
-    try {
-      const { data: existing } = await supabaseAdmin
-        .from('content_blocks')
-        .select('id')
-        .eq('key', 'homepage_hero')
-        .maybeSingle();
+    // 2. Upsert to Supabase content_blocks table (authoritative — fail loudly if DB write fails)
+    const { data: existing, error: lookupErr } = await supabaseAdmin
+      .from('content_blocks')
+      .select('id')
+      .eq('key', 'homepage_hero')
+      .maybeSingle();
 
-      if (existing?.id) {
-        await supabaseAdmin
-          .from('content_blocks')
-          .update({
-            title: 'Homepage Hero & Header',
-            type: 'hero',
-            content: data as unknown as Json,
-            is_active: true,
-            published_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existing.id);
-      } else {
-        await supabaseAdmin
-          .from('content_blocks')
-          .insert({
-            key: 'homepage_hero',
-            type: 'hero',
-            title: 'Homepage Hero & Header',
-            content: data as unknown as Json,
-            is_active: true,
-            published_at: new Date().toISOString(),
-          });
+    if (lookupErr) {
+      return { success: false, error: `Failed to read hero block: ${lookupErr.message}` };
+    }
+
+    if (existing?.id) {
+      const { error: updateErr } = await supabaseAdmin
+        .from('content_blocks')
+        .update({
+          title: 'Homepage Hero & Header',
+          type: 'hero',
+          content: data as unknown as Json,
+          is_active: true,
+          published_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
+
+      if (updateErr) {
+        return { success: false, error: `Failed to update homepage hero: ${updateErr.message}` };
       }
-    } catch (dbErr) {
-      console.warn('Failed to save to content_blocks:', dbErr);
+    } else {
+      const { error: insertErr } = await supabaseAdmin
+        .from('content_blocks')
+        .insert({
+          key: 'homepage_hero',
+          type: 'hero',
+          title: 'Homepage Hero & Header',
+          content: data as unknown as Json,
+          is_active: true,
+          published_at: new Date().toISOString(),
+        });
+
+      if (insertErr) {
+        return { success: false, error: `Failed to save homepage hero: ${insertErr.message}` };
+      }
     }
 
     // 3. Sync to store_settings table
-    try {
-      const { data: storeSetting } = await supabaseAdmin.from('store_settings').select('id').limit(1).maybeSingle();
-      if (storeSetting?.id) {
-        await supabaseAdmin
-          .from('store_settings')
-          .update({
-            site_name: data.brandName,
-            site_tagline: data.brandTagline,
-            logo_url: data.logoUrl || null,
-            contact_whatsapp: data.conciergeWhatsApp || '+917207256690',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', storeSetting.id);
+    const { data: storeSetting, error: settingLookupErr } = await supabaseAdmin
+      .from('store_settings')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+
+    if (!settingLookupErr && storeSetting?.id) {
+      const { error: settingUpdateErr } = await supabaseAdmin
+        .from('store_settings')
+        .update({
+          site_name: data.brandName,
+          site_tagline: data.brandTagline,
+          logo_url: data.logoUrl || null,
+          contact_whatsapp: data.conciergeWhatsApp || '+917207256690',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', storeSetting.id);
+      if (settingUpdateErr) {
+        console.warn('Failed to sync store_settings:', settingUpdateErr.message);
       }
-    } catch (sErr) {
-      console.warn('Failed to sync store_settings:', sErr);
     }
 
     // 4. Sync navbar_items
-    try {
-      if (Array.isArray(data.navigation) && data.navigation.length > 0) {
-        await supabaseAdmin.from('navbar_items').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (Array.isArray(data.navigation) && data.navigation.length > 0) {
+      const { error: delNavErr } = await supabaseAdmin
+        .from('navbar_items')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+      if (!delNavErr) {
         const rows = data.navigation.map((item, index) => ({
           label: item.label,
           href: item.href,
@@ -214,10 +229,11 @@ export async function saveHomepageHeroData(
           is_active: item.is_active ?? true,
           badge_color: '#C9A84C',
         }));
-        await supabaseAdmin.from('navbar_items').insert(rows);
+        const { error: insNavErr } = await supabaseAdmin.from('navbar_items').insert(rows);
+        if (insNavErr) {
+          console.warn('Failed to insert navbar_items:', insNavErr.message);
+        }
       }
-    } catch (nErr) {
-      console.warn('Failed to sync navbar_items:', nErr);
     }
 
     // 5. Audit & revalidate storefront and admin paths

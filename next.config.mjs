@@ -28,7 +28,14 @@ const nextConfig = {
     // ppr: true, // Requires Next.js canary - disabled for stable build
     serverActions: {
       bodySizeLimit: '2mb',
-      allowedOrigins: ['localhost:3000', 'angelikafashions.com', 'angelikafashions.pages.dev', '*.angelikafashions.com'],
+      allowedOrigins: [
+        'localhost:3000',
+        'angelikafashions.com',
+        'www.angelikafashions.com',
+        'angelika-fashions.pages.dev',
+        'angelikafashions.pages.dev',
+        '*.angelikafashions.com',
+      ],
     },
     optimizePackageImports: [
       'framer-motion',
@@ -95,7 +102,7 @@ const nextConfig = {
       {
         source: '/api/looks/active',
         headers: [
-          { key: 'Cache-Control', value: 'public, s-maxage=60, stale-while-revalidate=300' },
+          { key: 'Cache-Control', value: 'no-store' },
         ],
       },
     ];

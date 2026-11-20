@@ -38,10 +38,13 @@ import {
   Search,
   Home,
   Star,
+  LogOut,
+  ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTheme } from '@/lib/hooks/useTheme';
 import { canAccessAdminPath, type AdminRole } from '@/lib/supabase/rbac';
+import { adminSignOutAction } from '@/lib/actions/admin-auth';
 
 const navigation = [
   {
@@ -127,10 +130,21 @@ interface AdminShellProps {
 
 export function AdminShell({ children, initialRole, initialEmail }: AdminShellProps) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleAdminSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await Promise.allSettled([adminSignOutAction(), signOut()]);
+    } finally {
+      window.location.href = '/admin/login?signedout=true';
+    }
+  };
 
   const visibleNavigation = navigation
     .map((section) => ({
@@ -326,9 +340,11 @@ export function AdminShell({ children, initialRole, initialEmail }: AdminShellPr
               {/* User menu */}
               <div className="relative">
                 <button
+                  type="button"
+                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
                   className="flex items-center gap-2 p-2 rounded-[var(--radius-md)] hover:bg-[var(--color-whisper)] transition-colors"
                   aria-label="User menu"
-                  aria-expanded="false"
+                  aria-expanded={isUserMenuOpen}
                 >
                   <div className="w-8 h-8 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center">
                     <span className="text-[var(--font-display)] text-[var(--color-gold)] font-bold text-sm">
@@ -345,8 +361,47 @@ export function AdminShell({ children, initialRole, initialEmail }: AdminShellPr
                       </span>
                     </div>
                   )}
-                  {!isSidebarCollapsed && <ChevronRight className="h-4 w-4 text-[var(--color-mist)]" />}
+                  {!isSidebarCollapsed && <ChevronRight className={cn('h-4 w-4 text-[var(--color-mist)] transition-transform', isUserMenuOpen && 'rotate-90')} />}
                 </button>
+
+                {isUserMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      aria-hidden="true"
+                    />
+                    <div className="absolute right-0 mt-2 w-60 rounded-[var(--radius-lg)] bg-[var(--color-white)] border border-[var(--color-whisper)] shadow-xl z-50 py-2">
+                      <div className="px-4 py-2.5 border-b border-[var(--color-whisper)]">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
+                          {initialRole}
+                        </p>
+                        <p className="text-sm font-medium text-[var(--color-ink)] truncate">
+                          {displayEmail}
+                        </p>
+                      </div>
+                      <Link
+                        href="/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[var(--color-whisper)] transition-colors"
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        <span>View Live Storefront</span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleAdminSignOut}
+                        disabled={isSigningOut}
+                        className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                      >
+                        <LogOut className="h-4 w-4" aria-hidden="true" />
+                        <span>{isSigningOut ? 'Signing out...' : 'Sign Out of Admin'}</span>
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
