@@ -5,6 +5,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { createOrderReceiptToken, verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
+import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { getCashfreeApiBaseUrl, getCashfreeMode, getOptionalEnv } from '@/lib/env';
 import { calculateOrderTotals, PRICING_CONSTANTS, toPaise, type CouponSpec } from '@/lib/pricing';
 import { normalizeAddress } from '@/lib/utils/address';
@@ -989,6 +990,11 @@ export async function convertGuestToAccount({
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail || !password || password.length < 8) {
       return { success: false, error: 'Password must be at least 8 characters long' };
+    }
+
+    const rl = checkRateLimit(`guest_convert:${orderId}:${cleanEmail}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      return { success: false, error: 'Too many activation attempts. Please try again later.' };
     }
 
     const { data: order, error: orderErr } = await supabase

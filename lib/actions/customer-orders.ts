@@ -6,6 +6,7 @@ import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { canCustomerCancelOrder } from '@/lib/orders/state-machine';
 import { normalizeAddress } from '@/lib/utils/address';
 import { normalizeIndianPhone, sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
+import { checkRateLimit } from '@/lib/utils/rate-limit';
 import { revalidatePath } from 'next/cache';
 import type { Json } from '@/types/database';
 
@@ -942,6 +943,14 @@ export async function trackOrderPublic(params: {
     const rawContact = (params.contact || '').trim();
     if (!cleanOrderNum || !rawContact) {
       return { success: false, error: 'Order number and email or phone number are required.' };
+    }
+
+    const rl = checkRateLimit(`track_order:${cleanOrderNum}`, 15, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      return {
+        success: false,
+        error: 'Too many tracking lookup attempts for this order. Please wait a few minutes and try again.',
+      };
     }
 
     const { data: order, error } = await supabaseAdmin

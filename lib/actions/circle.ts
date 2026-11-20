@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
+import { checkRateLimit } from '@/lib/utils/rate-limit';
+import { stripHtmlTags } from '@/lib/validators/commerce';
 import {
   CircleSubscriber,
   CircleUpdate,
@@ -186,11 +188,20 @@ export async function subscribeToAngelikaCircle(
   name?: string
 ): Promise<{ success: boolean; message: string; isNew?: boolean }> {
   try {
-    const cleanEmail = email.trim().toLowerCase();
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanName = name ? stripHtmlTags(name).slice(0, 100) : undefined;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!cleanEmail || !emailRegex.test(cleanEmail)) {
       return { success: false, message: 'Please enter a valid email address.' };
+    }
+
+    const rl = checkRateLimit(`circle_sub:${cleanEmail}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      return {
+        success: false,
+        message: 'Too many subscription attempts for this email. Please wait a few minutes.',
+      };
     }
 
     const key = `circle_sub_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
@@ -204,7 +215,7 @@ export async function subscribeToAngelikaCircle(
       .single();
 
     if (existing) {
-      // Re-activate if was unsubscribed
+      // Re-activate if was unsubscribed (keep is_active: false in content_blocks so public RLS never leaks subscriber PII)
       const content = (existing.content as Record<string, any>) || {};
       content['status'] = 'active';
       content['updated_at'] = new Date().toISOString();
@@ -213,7 +224,7 @@ export async function subscribeToAngelikaCircle(
         .from('content_blocks')
         .update({
           content,
-          is_active: true,
+          is_active: false,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existing.id);
@@ -228,10 +239,10 @@ export async function subscribeToAngelikaCircle(
       };
     }
 
-    // Insert new subscriber record into content_blocks
+    // Insert new subscriber record into content_blocks with is_active: false to protect PII from public RLS
     const newSubscriberContent = {
       email: cleanEmail,
-      name: name || null,
+      name: cleanName || null,
       status: 'active',
       subscribed_at: new Date().toISOString(),
       source: 'homepage_circle',
@@ -248,7 +259,7 @@ export async function subscribeToAngelikaCircle(
         settings: {
           kind: 'circle_subscriber',
         },
-        is_active: true,
+        is_active: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
@@ -555,7 +566,6 @@ export async function publishCircleUpdate(data: {
             status: dispatchReport.status,
             sent_at: publishedAt,
             recipients_count: recipientsCount,
-            recipients: recipientEmails,
             error: dispatchReport.error || null,
           },
         },
@@ -757,7 +767,7 @@ export async function toggleSubscriberStatus(
         .from('content_blocks')
         .update({
           content: c,
-          is_active: newStatus === 'active',
+          is_active: false,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id);

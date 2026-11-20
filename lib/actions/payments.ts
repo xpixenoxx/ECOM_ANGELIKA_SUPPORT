@@ -2,6 +2,7 @@
 
 import { hmacSha256Base64, hmacSha256Hex, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
 import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createClient as createServerClient } from '@/lib/supabase/server';
 import { getCashfreeApiBaseUrl, getOptionalEnv } from '@/lib/env';
 import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
 import { OPS_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
@@ -181,7 +182,7 @@ async function confirmAndMarkOrderPaid(params: {
       })
       .eq('id', order.id);
 
-    await executeGatewayRefund(order.id, order.total_amount, 'Stock conflict after reservation expiry');
+    await executeGatewayRefundInternal(order.id, order.total_amount, 'Stock conflict after reservation expiry');
     return;
   }
 
@@ -541,6 +542,22 @@ export async function createStripePaymentIntent(
       return { success: false, error: 'Stripe not configured' };
     }
 
+    const { data: existingOrder } = await supabaseAdmin
+      .from('orders')
+      .select('id, user_id, email, payment_status, metadata')
+      .eq('id', params.orderId)
+      .maybeSingle();
+
+    if (!existingOrder) {
+      return { success: false, error: 'Order not found' };
+    }
+    if (existingOrder.payment_status === 'paid') {
+      return { success: false, error: 'Order is already paid' };
+    }
+    if (existingOrder.email.toLowerCase() !== (params.email || '').trim().toLowerCase()) {
+      return { success: false, error: 'Unauthorized order payment request' };
+    }
+
     const Stripe = (await import('stripe')).default;
     const stripe = new Stripe(secretKey, { apiVersion: '2024-04-10' });
 
@@ -556,11 +573,6 @@ export async function createStripePaymentIntent(
       receipt_email: params.email,
     });
 
-    const { data: existingOrder } = await supabaseAdmin
-      .from('orders')
-      .select('metadata')
-      .eq('id', params.orderId)
-      .maybeSingle();
     const existingMeta = parseMeta(existingOrder?.metadata ?? {});
 
     await supabaseAdmin
@@ -952,7 +964,7 @@ Total: ₹${Number(order.total_amount).toLocaleString('en-IN')}
 // PAYMENT REFUND (Gateway Execution & RBAC Guarded Action)
 // ============================================
 
-export async function executeGatewayRefund(
+async function executeGatewayRefundInternal(
   orderId: string,
   amountInr?: number,
   reason?: string
@@ -1132,6 +1144,45 @@ export async function executeGatewayRefund(
   }
 }
 
+export async function executeGatewayRefund(
+  orderId: string,
+  amountInr?: number,
+  reason?: string
+): Promise<{ success: boolean; refundId?: string; error?: string }> {
+  // Enforce strict caller authorization on the exported Server Action:
+  // Either an authenticated OPS_ADMIN_ROLES admin OR the authenticated customer who owns an already-cancelled order.
+  const adminAuth = await requireAdminRole(OPS_ADMIN_ROLES);
+  if (!adminAuth.authorized) {
+    try {
+      const serverSupabase = createServerClient();
+      const { data: { user } } = await serverSupabase.auth.getUser();
+      if (!user) {
+        return { success: false, error: 'Unauthorized refund request' };
+      }
+
+      const { data: order } = await supabaseAdmin
+        .from('orders')
+        .select('id, user_id, email, status')
+        .eq('id', orderId)
+        .maybeSingle();
+
+      const isOwner = Boolean(
+        order &&
+          ((order.user_id && order.user_id === user.id) ||
+            (user.email && order.email.toLowerCase() === user.email.toLowerCase()))
+      );
+
+      if (!order || !isOwner || order.status !== 'cancelled') {
+        return { success: false, error: 'Unauthorized refund request' };
+      }
+    } catch {
+      return { success: false, error: 'Unauthorized refund request' };
+    }
+  }
+
+  return executeGatewayRefundInternal(orderId, amountInr, reason);
+}
+
 export async function processRefund(
   orderId: string,
   amount?: number,
@@ -1142,7 +1193,7 @@ export async function processRefund(
     return { success: false, error: auth.error || 'Unauthorized' };
   }
 
-  const res = await executeGatewayRefund(orderId, amount, reason);
+  const res = await executeGatewayRefundInternal(orderId, amount, reason);
   if (res.success) {
     await logAdminAction({
       actorId: auth.userId,

@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient, createPublicClient } from '@/lib/supabase/server';
+import { checkRateLimit } from '@/lib/utils/rate-limit';
+import { stripHtmlTags, UUID_REGEX } from '@/lib/validators/commerce';
 
 async function getSupabaseClient() {
   return createClient();
@@ -168,12 +170,32 @@ export async function createReview(
   const supabase = await getSupabaseClient();
 
   try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || (userId && user.id !== userId)) {
+      return { success: false, error: 'Please sign in to submit a review' };
+    }
+    const verifiedUserId = user.id;
+
+    if (!data.productId || !UUID_REGEX.test(data.productId)) {
+      return { success: false, error: 'Invalid product identifier' };
+    }
+
+    const rl = checkRateLimit(`review_create:${verifiedUserId}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+      return { success: false, error: 'Too many review submissions. Please wait a few minutes.' };
+    }
+
+    const cleanRating = Math.min(5, Math.max(1, Math.round(Number(data.rating) || 5)));
+    const cleanTitle = data.title ? stripHtmlTags(data.title).slice(0, 150) : null;
+    const cleanBody = data.body ? stripHtmlTags(data.body).slice(0, 2000) : null;
+    const cleanBodyHi = data.bodyHi ? stripHtmlTags(data.bodyHi).slice(0, 2000) : null;
+
     // Check if user already reviewed this product
     const { data: existingReview } = await supabase
       .from('reviews')
       .select('id')
       .eq('product_id', data.productId)
-      .eq('user_id', userId)
+      .eq('user_id', verifiedUserId)
       .single();
 
     if (existingReview) {
@@ -195,7 +217,7 @@ export async function createReview(
           .from('orders')
           .select('id, user_id, status')
           .eq('id', orderItem.order_id)
-          .eq('user_id', userId)
+          .eq('user_id', verifiedUserId)
           .in('status', ['delivered', 'returned'])
           .single();
 
@@ -220,7 +242,7 @@ export async function createReview(
       if (orderItems) {
         const hasDeliveredOrder = orderItems.some(
           (item: any) =>
-            item.order?.user_id === userId &&
+            item.order?.user_id === verifiedUserId &&
             ['delivered', 'returned'].includes(item.order?.status)
         );
         if (hasDeliveredOrder) {
@@ -232,12 +254,12 @@ export async function createReview(
     const { data: review, error: reviewError } = await supabase
       .from('reviews')
       .insert({
-        user_id: userId,
+        user_id: verifiedUserId,
         product_id: data.productId,
-        rating: data.rating,
-        title: data.title || null,
-        body: data.body || null,
-        body_hi: data.bodyHi || null,
+        rating: cleanRating,
+        title: cleanTitle,
+        body: cleanBody,
+        body_hi: cleanBodyHi,
         quality_rating: data.qualityRating || null,
         fit_rating: data.fitRating || null,
         photos: data.photos || null,
@@ -326,24 +348,29 @@ export async function updateReview(
   const supabase = await getSupabaseClient();
 
   try {
-    // Verify ownership
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || (userId && user.id !== userId)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    // Verify ownership against authenticated session user.id
     const { data: existingReview } = await supabase
       .from('reviews')
       .select('user_id')
       .eq('id', reviewId)
       .single();
 
-    if (!existingReview || existingReview.user_id !== userId) {
+    if (!existingReview || existingReview.user_id !== user.id) {
       return { success: false, error: 'Review not found or unauthorized' };
     }
 
     const { error } = await supabase
       .from('reviews')
       .update({
-        rating: data.rating,
-        title: data.title,
-        body: data.body,
-        body_hi: data.bodyHi,
+        rating: data.rating !== undefined ? Math.min(5, Math.max(1, Math.round(Number(data.rating) || 5))) : undefined,
+        title: data.title !== undefined ? (data.title ? stripHtmlTags(data.title).slice(0, 150) : null) : undefined,
+        body: data.body !== undefined ? (data.body ? stripHtmlTags(data.body).slice(0, 2000) : null) : undefined,
+        body_hi: data.bodyHi !== undefined ? (data.bodyHi ? stripHtmlTags(data.bodyHi).slice(0, 2000) : null) : undefined,
         quality_rating: data.qualityRating,
         fit_rating: data.fitRating,
         photos: data.photos,
@@ -367,9 +394,12 @@ export async function deleteReview(reviewId: string, userId: string): Promise<{ 
   const supabase = await getSupabaseClient();
 
   try {
-    // Verify ownership or admin
+    // Verify ownership or admin against authenticated session user.id
     const { data: { user } } = await supabase.auth.getUser();
-    const isAdmin = user ? await supabase.rpc('is_admin').then(({ data }) => data) : false;
+    if (!user || (userId && user.id !== userId)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    const isAdmin = await supabase.rpc('is_admin').then(({ data }) => Boolean(data));
 
     const { data: existingReview } = await supabase
       .from('reviews')
@@ -377,7 +407,7 @@ export async function deleteReview(reviewId: string, userId: string): Promise<{ 
       .eq('id', reviewId)
       .single();
 
-    if (!existingReview || (existingReview.user_id !== userId && !isAdmin)) {
+    if (!existingReview || (existingReview.user_id !== user.id && !isAdmin)) {
       return { success: false, error: 'Review not found or unauthorized' };
     }
 

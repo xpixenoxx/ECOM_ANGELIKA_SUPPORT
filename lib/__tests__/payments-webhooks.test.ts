@@ -88,7 +88,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   },
 }));
 
-import { handleCashfreeWebhook, handleRazorpayWebhook } from '@/lib/actions/payments';
+import { handleCashfreeWebhook, handleRazorpayWebhook, executeGatewayRefund } from '@/lib/actions/payments';
 import { cancelCustomerOrder, trackOrderPublic } from '@/lib/actions/customer-orders';
 
 describe('Webhooks Idempotency, Paise/INR Refund Bounds, Customer Cancel & Tracking', () => {
@@ -280,5 +280,17 @@ describe('Webhooks Idempotency, Paise/INR Refund Bounds, Customer Cancel & Track
     const replayRes = await handleCashfreeWebhook(payload, validSig, timestamp, 'cf_evt_1');
     expect(replayRes.success).toBe(true);
     expect(replayRes.duplicate).toBe(true);
+  });
+
+  it('blocks unauthenticated or non-owner calls to exported executeGatewayRefund server action', async () => {
+    mockAuthUser.mockResolvedValueOnce({ data: { user: null }, error: null });
+    const unauthRefund = await executeGatewayRefund('order-1', 1000, 'Unauthorized attempt');
+    expect(unauthRefund.success).toBe(false);
+    expect(unauthRefund.error).toMatch(/Unauthorized/);
+
+    mockAuthUser.mockResolvedValueOnce({ data: { user: { id: 'attacker-99', email: 'evil@example.com' } }, error: null });
+    const idorRefund = await executeGatewayRefund('order-1', 1000, 'IDOR attempt');
+    expect(idorRefund.success).toBe(false);
+    expect(idorRefund.error).toMatch(/Unauthorized/);
   });
 });

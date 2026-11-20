@@ -2,6 +2,9 @@ export const runtime = 'edge';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
+import { timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
+import { CONTENT_ADMIN_ROLES, requireAdminApi } from '@/lib/supabase/admin-auth';
+import { getOptionalEnv } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +12,7 @@ const REVALIDATE_PATHS = ['/', '/shop', '/new-arrivals', '/sale', '/vidhyas-pick
 const CATEGORY_SLUGS = ['kurtis', 'sarees', 'lehengas', 'salwars', 'dupattas'];
 
 export async function POST(request: NextRequest) {
-  const secret = process.env['REVALIDATE_SECRET'] || process.env['REVALIDATION_SECRET'];
+  const secret = getOptionalEnv('REVALIDATE_SECRET') || getOptionalEnv('REVALIDATION_SECRET');
   const authHeader = request.headers.get('authorization') || '';
   const headerSecret = request.headers.get('x-revalidate-secret')?.trim() || '';
   const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
@@ -17,8 +20,12 @@ export async function POST(request: NextRequest) {
     : authHeader.trim();
   const provided = bearerToken || headerSecret;
 
-  if (secret && provided !== secret) {
-    return NextResponse.json({ error: 'Unauthorized', success: false }, { status: 401 });
+  const hasValidSecret = Boolean(secret && provided && timingSafeEqualStrings(provided, secret));
+  if (!hasValidSecret) {
+    const adminGuard = await requireAdminApi(request, CONTENT_ADMIN_ROLES);
+    if (!adminGuard.ok) {
+      return NextResponse.json({ error: 'Unauthorized', success: false }, { status: 401 });
+    }
   }
 
   try {

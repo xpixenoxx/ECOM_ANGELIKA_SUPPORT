@@ -32,7 +32,11 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
   const router = useRouter();
   const { signIn, signUp, signInWithOAuth, resetPassword, loading: authLoading } = useAuth();
 
-  const redirectTo = searchParams.get('redirect') || '/account';
+  const rawRedirect = searchParams.get('redirect') || '/account';
+  const redirectTo =
+    rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') && !rawRedirect.startsWith('/\\')
+      ? rawRedirect
+      : '/account';
   const isLogout = searchParams.get('logout') === 'true';
   const paramMode = searchParams.get('mode');
 
