@@ -343,13 +343,14 @@ export function ProductClient({
     <div className="min-h-screen bg-[#FFFFFF] text-[#1A1A1A] pb-24 lg:pb-16">
       {/* ═══════════════════════════════════════════════════════════════════════
           PRIMARY EDITORIAL SPLIT: 2-Column Seamless Lookbook + Sticky Info Rail
+          Target Reference: 561.92px × 773.18px image cards + 396.93px content rail
          ═══════════════════════════════════════════════════════════════════════ */}
-      <section className="w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_370px] xl:grid-cols-[minmax(0,1fr)_410px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
+      <section className="w-full bg-[#FFFFFF]">
+        <div className="w-full max-w-[1565px] mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_440.93px] xl:grid-cols-[1123.84px_440.93px] justify-center">
           {/* ── LEFT: EDITORIAL PHOTOGRAPHY GRID (Desktop 2-col / Mobile Swipe) ── */}
-          <div className="bg-[#F3EFEA]">
+          <div className="bg-[#FFFFFF] xl:w-[1123.84px] mx-auto w-full">
             {/* Mobile Horizontal Snap Carousel (< lg) */}
-            <div className="lg:hidden relative">
+            <div className="lg:hidden relative bg-[#F3EFEA]">
               <div
                 ref={mobileCarouselRef}
                 onScroll={handleMobileScroll}
@@ -361,7 +362,7 @@ export function ProductClient({
                     key={`${img.src}-${idx}`}
                     type="button"
                     onClick={() => openLightbox(idx)}
-                    className="relative flex-none w-full aspect-[3/4] snap-center bg-[#F3EFEA] overflow-hidden cursor-zoom-in focus-visible:outline-none"
+                    className="relative flex-none w-full aspect-[561.92/773.18] snap-center bg-[#F3EFEA] overflow-hidden cursor-zoom-in focus-visible:outline-none"
                     aria-label={`Inspect ${img.alt}`}
                   >
                     <Image
@@ -402,11 +403,13 @@ export function ProductClient({
               )}
             </div>
 
-            {/* Desktop Full-Bleed 2-Column Editorial Grid (>= lg) */}
+            {/* Desktop 2-Column Editorial Grid (>= lg) */}
             <div
               className={cn(
-                'hidden lg:grid gap-[1px] bg-[#EAE5DF]',
-                galleryImages.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                'hidden lg:grid bg-[#FFFFFF]',
+                galleryImages.length === 1
+                  ? 'grid-cols-1'
+                  : 'grid-cols-2 xl:grid-cols-[561.92px_561.92px]'
               )}
             >
               {galleryImages.map((img, idx) => (
@@ -415,26 +418,28 @@ export function ProductClient({
                   type="button"
                   onClick={() => openLightbox(idx)}
                   className={cn(
-                    'group relative w-full bg-[#F3EFEA] overflow-hidden cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1A1A1A]',
-                    galleryImages.length === 1
-                      ? 'aspect-[4/5] max-h-[88vh]'
-                      : 'aspect-[3/4]'
+                    'group relative w-full xl:w-[561.92px] xl:h-[773.18px] aspect-[561.92/773.18] bg-[#F3EFEA] overflow-hidden cursor-zoom-in text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1A1A1A]',
+                    galleryImages.length === 1 && 'max-w-[561.92px] mx-auto'
                   )}
+                  style={{
+                    maxWidth: '561.92px',
+                    aspectRatio: '561.92 / 773.18',
+                  }}
                   aria-label={`Zoom ${img.alt}`}
                 >
                   <Image
                     src={img.src}
                     alt={img.alt}
                     fill
-                    sizes={galleryImages.length === 1 ? '72vw' : '36vw'}
+                    sizes="(min-width: 1280px) 561.92px, (min-width: 1024px) 36vw, 100vw"
                     priority={idx < 2}
                     fetchPriority={idx < 2 ? 'high' : undefined}
                     loading={idx < 2 ? 'eager' : 'lazy'}
                     className="object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.02]"
                   />
-                  {/* Subtle dark circular editorial zoom icon (bottom-left like reference) */}
+                  {/* Subtle dark circular editorial zoom tag icon */}
                   <span
-                    className="absolute left-3.5 bottom-3.5 w-6 h-6 rounded-full bg-[#1A1A1A]/85 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+                    className="absolute left-3.5 bottom-3.5 w-6 h-6 rounded-full bg-[#1A1A1A]/85 text-white flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-sm"
                     aria-hidden="true"
                   >
                     <ZoomIn className="w-3 h-3" />
@@ -445,259 +450,266 @@ export function ProductClient({
           </div>
 
           {/* ── RIGHT: STICKY ULTRA-MINIMAL LUXURY INFO RAIL ── */}
-          <aside className="bg-[#FFFFFF] lg:sticky lg:top-[84px] lg:self-start px-5 py-7 sm:px-8 lg:px-8 xl:px-10 lg:py-9">
-            {/* Minimal Breadcrumb Eyebrow */}
-            <nav aria-label="Breadcrumb" className="mb-4">
-              <ol className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-[#8A857D]">
-                <li>
-                  <Link href="/shop" className="hover:text-[#1A1A1A] transition-colors">
-                    Shop
-                  </Link>
-                </li>
-                <li aria-hidden="true">/</li>
-                <li>
-                  <Link
-                    href={`/shop/${(product.categorySlug || product.category).toLowerCase()}`}
-                    className="hover:text-[#1A1A1A] transition-colors"
-                  >
-                    {product.category}
-                  </Link>
-                </li>
-              </ol>
-            </nav>
-
-            {/* Title + Minimal Outline Heart Wishlist Button */}
-            <div className="flex items-start justify-between gap-4">
-              <h1 className="text-[16px] sm:text-[17px] font-medium tracking-[-0.01em] text-[#1A1A1A] leading-snug">
-                {product.name}
-              </h1>
-              <button
-                type="button"
-                onClick={handleToggleWishlist}
-                aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-                aria-pressed={isWishlisted}
-                className="flex-shrink-0 -mr-1.5 -mt-1 p-1.5 rounded-full text-[#1A1A1A] hover:bg-[#F5F3F0] transition-colors cursor-pointer"
-              >
-                <Heart
-                  className={cn(
-                    'w-[18px] h-[18px] transition-colors',
-                    isWishlisted ? 'fill-[#1A1A1A] text-[#1A1A1A]' : 'stroke-[1.4] text-[#3A3733]'
-                  )}
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
-
-            {/* Price Line */}
-            <div className="mt-1.5 flex items-baseline gap-2.5 flex-wrap">
-              <span className="text-[13.5px] font-normal text-[#2E2C29] tabular-nums tracking-[0.01em]">
-                ₹{currentPrice.toLocaleString('en-IN')}
-              </span>
-              {currentOriginalPrice && currentOriginalPrice > currentPrice && (
-                <>
-                  <span className="text-[12px] text-[#9A958E] line-through tabular-nums">
-                    ₹{currentOriginalPrice.toLocaleString('en-IN')}
-                  </span>
-                  <span className="text-[10.5px] uppercase tracking-[0.12em] text-[#74590E] font-medium">
-                    {discount}% Off
-                  </span>
-                </>
-              )}
-              <span className="text-[10.5px] text-[#8E8981] ml-auto">Incl. of all taxes</span>
-            </div>
-
-            {/* Color / Shade Portrait Swatches (Matching Reference Thumbnail Card) */}
-            <div className="mt-6">
-              <p className="text-[11.5px] text-[#6E6A63] mb-2.5">
-                Color:{' '}
-                <span className="text-[#1A1A1A] font-medium">{colorLabel}</span>
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                {(product.colors.length > 0
-                  ? product.colors
-                  : [{ name: colorLabel, value: 'default', hex: '#E8E2D8', images: product.images }]
-                ).map((color, idx) => {
-                  const thumbSrc = color.images?.[0] || galleryImages[0]?.src;
-                  const isActive = selectedColor === idx;
-                  return (
-                    <button
-                      key={`${color.value}-${idx}`}
-                      type="button"
-                      onClick={() => {
-                        setSelectedColor(idx);
-                        setMobileSlideIndex(0);
-                      }}
-                      aria-label={`Select color ${color.name}`}
-                      aria-pressed={isActive}
-                      title={color.name}
-                      className={cn(
-                        'relative w-[44px] h-[58px] p-[2px] border transition-colors cursor-pointer bg-[#F3EFEA]',
-                        isActive
-                          ? 'border-[#1A1A1A]'
-                          : 'border-[#E5E1DB] hover:border-[#8C877F]'
-                      )}
-                    >
-                      {thumbSrc ? (
-                        <span className="relative block w-full h-full overflow-hidden">
-                          <Image
-                            src={thumbSrc}
-                            alt={color.name}
-                            fill
-                            sizes="44px"
-                            className="object-cover object-top"
-                          />
-                        </span>
-                      ) : (
-                        <span
-                          className="block w-full h-full"
-                          style={{ backgroundColor: color.hex || '#E8E2D8' }}
-                        />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ── SIGNATURE DUAL FULL-WIDTH PILL CTAs ── */}
-            <div className="mt-7 space-y-2.5">
-              {/* Pill 1: SELECT SIZE */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSizeTrayOpen((prev) => !prev);
-                  setSizePromptError(false);
-                }}
-                aria-expanded={sizeTrayOpen}
-                className={cn(
-                  'w-full h-[42px] rounded-full border text-[11px] font-medium uppercase tracking-[0.16em] transition-colors flex items-center justify-center gap-2 cursor-pointer',
-                  sizePromptError
-                    ? 'border-[#B91C1C] bg-[#FEF2F2] text-[#991B1B]'
-                    : 'border-[#2B2B2B] bg-[#FFFFFF] text-[#1A1A1A] hover:bg-[#F7F6F4]'
-                )}
-              >
-                <span>
-                  {selectedSize ? `SIZE: ${selectedSize}` : 'SELECT SIZE'}
-                </span>
-              </button>
-
-              {/* Inline Minimal Size Tray (Opens cleanly on SELECT SIZE) */}
-              {sizeTrayOpen && (
-                <div className="rounded-xl border border-[#E6E2DC] bg-[#FAF9F7] p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] uppercase tracking-[0.14em] text-[#5C5852] font-medium">
-                      {sizePromptError ? 'Please choose your size' : 'Available Sizes'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={openSizeGuide}
-                      className="inline-flex items-center gap-1 text-[11px] underline underline-offset-2 text-[#1A1A1A] hover:text-[#74590E] cursor-pointer"
-                    >
-                      <Ruler className="w-3 h-3" aria-hidden="true" />
-                      Size Guide
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-                    {sizeOptions.map((opt) => {
-                      const isPicked = selectedSize === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          disabled={!opt.inStock}
-                          onClick={() => handleSelectSize(opt.value)}
-                          className={cn(
-                            'h-9 px-2 rounded-full text-[11px] font-medium tracking-wider transition-all border cursor-pointer disabled:opacity-35 disabled:line-through disabled:cursor-not-allowed',
-                            isPicked
-                              ? 'bg-[#2B2B2B] text-white border-[#2B2B2B]'
-                              : 'bg-white text-[#1A1A1A] border-[#DCD7CF] hover:border-[#1A1A1A]'
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="pt-1 flex items-center justify-between text-[11px] text-[#7A756E]">
-                    <span>Unsure of fit?</span>
-                    <Link
-                      href="/size-finder"
-                      className="underline underline-offset-2 text-[#1A1A1A] hover:text-[#74590E]"
-                    >
-                      Try Couture Fit Finder
-                    </Link>
-                  </div>
-                </div>
-              )}
-
-              {/* Pill 2: ADD TO BAG (Solid Dark Charcoal Pill matching reference) */}
-              <button
-                type="button"
-                onClick={handleAddToBag}
-                disabled={isSubmitting || !product.inStock}
-                className="w-full h-[42px] rounded-full bg-[#2B2B2B] hover:bg-[#141414] text-white text-[11px] font-medium uppercase tracking-[0.16em] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
-              >
-                {!product.inStock ? (
-                  'OUT OF STOCK'
-                ) : addedToBag ? (
-                  <>
-                    <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>ADDED TO BAG</span>
-                  </>
-                ) : isSubmitting ? (
-                  'ADDING...'
-                ) : (
-                  'ADD TO BAG'
-                )}
-              </button>
-
-              {/* Quiet Secondary Utility Row (Buy Now + Atelier Styling) */}
-              <div className="pt-1.5 flex items-center justify-between text-[11px] text-[#6E6A63]">
-                <button
-                  type="button"
-                  onClick={handleBuyNow}
-                  disabled={isSubmitting || !product.inStock}
-                  className="underline underline-offset-4 hover:text-[#1A1A1A] transition-colors cursor-pointer disabled:opacity-40"
-                >
-                  Express Buy Now
-                </button>
-                <button
-                  type="button"
-                  onClick={shareOnWhatsApp}
-                  className="inline-flex items-center gap-1 hover:text-[#1A1A1A] transition-colors cursor-pointer"
-                >
-                  <MessageCircle className="w-3 h-3" aria-hidden="true" />
-                  <span>Ask Stylist</span>
-                </button>
-              </div>
-            </div>
-
-            {/* ── EDITORIAL DESCRIPTION & PROVENANCE BLOCK ── */}
-            <div className="mt-8 space-y-3">
-              <p className="text-[12.5px] leading-[1.7] text-[#35322E]">
-                {editorialDescription}
-              </p>
-
-              <div className="text-[11.5px] leading-[1.6] text-[#5C5852] space-y-0.5 pt-1">
-                <p>Handcrafted in India</p>
-                {product.sku && (
-                  <p className="text-[11px] uppercase tracking-[0.1em] text-[#8E8980]">
-                    {product.sku}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* ── HAIRLINE NATIVE <details> ACCORDIONS (Matching Reference + / - Rows) ── */}
+          <aside className="bg-[#FFFFFF] lg:sticky lg:top-[84px] lg:self-start w-full lg:w-[440.93px] lg:min-w-[440.93px] lg:max-w-[440.93px]">
             <div
-              className="pdp-accordion mt-7 border-t border-[#EAE6E0] divide-y divide-[#EAE6E0]"
-              aria-label="Product specifications"
+              className="ProductDetailDescription__product-detail-description ProductDetailDescription__product-detail-description--JpCc1 pt-[40px] pr-[20px] pb-[24px] pl-[24px] w-full"
+              style={{
+                boxSizing: 'border-box',
+                maxWidth: '440.93px',
+              }}
             >
-              {/* 1. Size & Fit */}
-              <details className="group">
-                <summary className="flex items-center justify-between py-4 text-[12px] font-medium text-[#1A1A1A] select-none">
+              {/* Minimal Breadcrumb Eyebrow */}
+              <nav aria-label="Breadcrumb" className="mb-4">
+                <ol className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-[#8A857D]">
+                  <li>
+                    <Link href="/shop" className="hover:text-[#1A1A1A] transition-colors">
+                      Shop
+                    </Link>
+                  </li>
+                  <li aria-hidden="true">/</li>
+                  <li>
+                    <Link
+                      href={`/shop/${(product.categorySlug || product.category).toLowerCase()}`}
+                      className="hover:text-[#1A1A1A] transition-colors"
+                    >
+                      {product.category}
+                    </Link>
+                  </li>
+                </ol>
+              </nav>
+
+              {/* Title + Minimal Outline Heart Wishlist Button */}
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-[16px] sm:text-[17px] font-medium tracking-[-0.01em] text-[#1A1A1A] leading-snug">
+                  {product.name}
+                </h1>
+                <button
+                  type="button"
+                  onClick={handleToggleWishlist}
+                  aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                  aria-pressed={isWishlisted}
+                  className="flex-shrink-0 -mr-1.5 -mt-1 p-1.5 rounded-full text-[#1A1A1A] hover:bg-[#F5F3F0] transition-colors cursor-pointer"
+                >
+                  <Heart
+                    className={cn(
+                      'w-[18px] h-[18px] transition-colors',
+                      isWishlisted ? 'fill-[#1A1A1A] text-[#1A1A1A]' : 'stroke-[1.4] text-[#3A3733]'
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+              </div>
+
+              {/* Price Line */}
+              <div className="mt-1.5 flex items-baseline gap-2.5 flex-wrap">
+                <span className="text-[13.5px] font-normal text-[#2E2C29] tabular-nums tracking-[0.01em]">
+                  ₹{currentPrice.toLocaleString('en-IN')}
+                </span>
+                {currentOriginalPrice && currentOriginalPrice > currentPrice && (
+                  <>
+                    <span className="text-[12px] text-[#9A958E] line-through tabular-nums">
+                      ₹{currentOriginalPrice.toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10.5px] uppercase tracking-[0.12em] text-[#74590E] font-medium">
+                      {discount}% Off
+                    </span>
+                  </>
+                )}
+                <span className="text-[10.5px] text-[#8E8981] ml-auto">VAT inc.</span>
+              </div>
+
+              {/* Color / Shade Portrait Swatches (Matching Reference Thumbnail Card) */}
+              <div className="mt-6">
+                <p className="text-[11.5px] text-[#6E6A63] mb-2.5">
+                  Color:{' '}
+                  <span className="text-[#1A1A1A] font-medium">{colorLabel}</span>
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  {(product.colors.length > 0
+                    ? product.colors
+                    : [{ name: colorLabel, value: 'default', hex: '#E8E2D8', images: product.images }]
+                  ).map((color, idx) => {
+                    const thumbSrc = color.images?.[0] || galleryImages[0]?.src;
+                    const isActive = selectedColor === idx;
+                    return (
+                      <button
+                        key={`${color.value}-${idx}`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedColor(idx);
+                          setMobileSlideIndex(0);
+                        }}
+                        aria-label={`Select color ${color.name}`}
+                        aria-pressed={isActive}
+                        title={color.name}
+                        className={cn(
+                          'relative w-[42px] h-[56px] p-[2px] border transition-colors cursor-pointer bg-[#F3EFEA]',
+                          isActive
+                            ? 'border-[#1A1A1A]'
+                            : 'border-[#E5E1DB] hover:border-[#8C877F]'
+                        )}
+                      >
+                        {thumbSrc ? (
+                          <span className="relative block w-full h-full overflow-hidden">
+                            <Image
+                              src={thumbSrc}
+                              alt={color.name}
+                              fill
+                              sizes="42px"
+                              className="object-cover object-top"
+                            />
+                          </span>
+                        ) : (
+                          <span
+                            className="block w-full h-full"
+                            style={{ backgroundColor: color.hex || '#E8E2D8' }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* ── SIGNATURE DUAL FULL-WIDTH PILL CTAs ── */}
+              <div className="mt-7 space-y-2.5">
+                {/* Pill 1: SELECT SIZE */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSizeTrayOpen((prev) => !prev);
+                    setSizePromptError(false);
+                  }}
+                  aria-expanded={sizeTrayOpen}
+                  className={cn(
+                    'w-full h-[42px] rounded-full border text-[11px] font-medium uppercase tracking-[0.16em] transition-colors flex items-center justify-center gap-2 cursor-pointer',
+                    sizePromptError
+                      ? 'border-[#B91C1C] bg-[#FEF2F2] text-[#991B1B]'
+                      : 'border-[#2B2B2B] bg-[#FFFFFF] text-[#1A1A1A] hover:bg-[#F7F6F4]'
+                  )}
+                >
+                  <span>
+                    {selectedSize ? `SIZE: ${selectedSize}` : 'SELECT SIZE'}
+                  </span>
+                </button>
+
+                {/* Inline Minimal Size Tray (Opens cleanly on SELECT SIZE) */}
+                {sizeTrayOpen && (
+                  <div className="rounded-xl border border-[#E6E2DC] bg-[#FAF9F7] p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] uppercase tracking-[0.14em] text-[#5C5852] font-medium">
+                        {sizePromptError ? 'Please choose your size' : 'Available Sizes'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={openSizeGuide}
+                        className="inline-flex items-center gap-1 text-[11px] underline underline-offset-2 text-[#1A1A1A] hover:text-[#74590E] cursor-pointer"
+                      >
+                        <Ruler className="w-3 h-3" aria-hidden="true" />
+                        Size Guide
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                      {sizeOptions.map((opt) => {
+                        const isPicked = selectedSize === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            disabled={!opt.inStock}
+                            onClick={() => handleSelectSize(opt.value)}
+                            className={cn(
+                              'h-9 px-2 rounded-full text-[11px] font-medium tracking-wider transition-all border cursor-pointer disabled:opacity-35 disabled:line-through disabled:cursor-not-allowed',
+                              isPicked
+                                ? 'bg-[#2B2B2B] text-white border-[#2B2B2B]'
+                                : 'bg-white text-[#1A1A1A] border-[#DCD7CF] hover:border-[#1A1A1A]'
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-between text-[11px] text-[#7A756E]">
+                      <span>Unsure of fit?</span>
+                      <Link
+                        href="/size-finder"
+                        className="underline underline-offset-2 text-[#1A1A1A] hover:text-[#74590E]"
+                      >
+                        Try Couture Fit Finder
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pill 2: ADD TO BAG (Solid Dark Charcoal Pill matching reference) */}
+                <button
+                  type="button"
+                  onClick={handleAddToBag}
+                  disabled={isSubmitting || !product.inStock}
+                  className="w-full h-[42px] rounded-full bg-[#2B2B2B] hover:bg-[#141414] text-white text-[11px] font-medium uppercase tracking-[0.16em] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed"
+                >
+                  {!product.inStock ? (
+                    'OUT OF STOCK'
+                  ) : addedToBag ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>ADDED TO BAG</span>
+                    </>
+                  ) : isSubmitting ? (
+                    'ADDING...'
+                  ) : (
+                    'ADD TO BAG'
+                  )}
+                </button>
+
+                {/* Quiet Secondary Utility Row (Buy Now + Atelier Styling) */}
+                <div className="pt-1.5 flex items-center justify-between text-[11px] text-[#6E6A63]">
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    disabled={isSubmitting || !product.inStock}
+                    className="underline underline-offset-4 hover:text-[#1A1A1A] transition-colors cursor-pointer disabled:opacity-40"
+                  >
+                    Express Buy Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={shareOnWhatsApp}
+                    className="inline-flex items-center gap-1 hover:text-[#1A1A1A] transition-colors cursor-pointer"
+                  >
+                    <MessageCircle className="w-3 h-3" aria-hidden="true" />
+                    <span>Ask Stylist</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* ── EDITORIAL DESCRIPTION & PROVENANCE BLOCK ── */}
+              <div className="mt-8 space-y-3">
+                <p className="text-[12.5px] leading-[1.7] text-[#35322E]">
+                  {editorialDescription}
+                </p>
+
+                <div className="text-[11.5px] leading-[1.6] text-[#5C5852] space-y-0.5 pt-1">
+                  <p>Handcrafted in India</p>
+                  {product.sku && (
+                    <p className="text-[11px] uppercase tracking-[0.1em] text-[#8E8980]">
+                      {product.sku}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* ── HAIRLINE NATIVE <details> ACCORDIONS (Matching Reference + / - Rows) ── */}
+              <div
+                className="pdp-accordion mt-7 border-t border-[#EAE6E0] divide-y divide-[#EAE6E0]"
+                aria-label="Product specifications"
+              >
+                {/* 1. Size & Fit */}
+                <details className="group">
+                  <summary className="flex items-center justify-between py-4 text-[12px] font-medium text-[#1A1A1A] select-none">
                   <span>Size &amp; Fit</span>
                   <span className="text-[#5C5852]" aria-hidden="true">
                     <Plus className="w-3.5 h-3.5 group-open:hidden stroke-[1.5]" />
@@ -832,7 +844,8 @@ export function ProductClient({
                 </div>
               </details>
             </div>
-          </aside>
+          </div>
+        </aside>
         </div>
       </section>
 
