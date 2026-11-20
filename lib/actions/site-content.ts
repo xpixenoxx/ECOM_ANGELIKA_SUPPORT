@@ -85,10 +85,11 @@ async function loadMergedSiteContent(): Promise<SiteContent> {
       'vidhyas-picks': {
         ...DEFAULT_SITE_CONTENT['vidhyas-picks'],
         ...(parsed['vidhyas-picks'] || {}),
+        hasCustomItems: Boolean(parsed['vidhyas-picks']?.items && parsed['vidhyas-picks'].items.length > 0),
         items: (parsed['vidhyas-picks']?.items && parsed['vidhyas-picks'].items.length > 0)
           ? parsed['vidhyas-picks'].items
           : DEFAULT_SITE_CONTENT['vidhyas-picks']!.items,
-      },
+      } as any,
       categories: {
         ...DEFAULT_SITE_CONTENT.categories,
         ...(parsed.categories || {}),
@@ -762,14 +763,8 @@ async function loadMergedSiteContent(): Promise<SiteContent> {
   }
 }
 
-const fetchCachedSiteContent = unstable_cache(
-  async (): Promise<SiteContent> => loadMergedSiteContent(),
-  ['site-content'],
-  { revalidate: 60, tags: ['site-content'] }
-);
-
 export async function getSiteContent(): Promise<SiteContent> {
-  return fetchCachedSiteContent();
+  return loadMergedSiteContent();
 }
 
 export async function updateSectionContent(

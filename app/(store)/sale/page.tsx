@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { getSiteContent } from '@/lib/actions/site-content';
 import SaleClient from './SaleClient';
 
-// ISR: rebuilds at most every 300s. For immediate updates, POST /api/revalidate
-export const revalidate = 300;
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteContent = await getSiteContent();

@@ -7,9 +7,9 @@ import { getSiteContent, SalwarProductItem, SalwarsPageContent, LehengasPageCont
 import { CategoryPageClient } from './CategoryPageClient';
 
 // ISR: rebuilds at most every 120s. For immediate updates, POST /api/revalidate
-export const revalidate = 120;
+export const dynamic = 'force-dynamic';
 
-export async function generateStaticParams() {
+async function _disabledStaticParams() {
   // Pre-build common categories at deploy time
   return [
     { category: 'kurtis' },

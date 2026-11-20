@@ -209,36 +209,42 @@ export default function HomePageClient({
   };
 
   const vidhyasPicksSection = siteContent?.['vidhyas-picks'];
-  const activeVidhyasPicks: HomepageProductCard[] = (vidhyasPicksSection?.items && vidhyasPicksSection.items.length > 0)
-    ? vidhyasPicksSection.items.map((item: any, idx: number) => {
-      const priceNum = Number(String(item.price ?? '').replace(/[^0-9.]/g, '')) || 0;
-      const compareNum = item.originalPrice || item.compare_at_price
-        ? Number(String(item.originalPrice || item.compare_at_price).replace(/[^0-9.]/g, ''))
-        : null;
-      const discountVal = item.discount ?? (
-        compareNum && priceNum > 0 && compareNum > priceNum
-          ? Math.round(((compareNum - priceNum) / compareNum) * 100)
-          : 0
-      );
-      return {
-        id: item.id || `vp-${idx + 1}`,
-        slug: item.slug || (item.name ? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `product-${idx + 1}`),
-        name: item.name || '',
-        variant_id: null,
-        price: priceNum,
-        compare_at_price: compareNum,
-        images: [{ url: item.image || '/images/placeholder.jpg', alt_text: item.name || 'Product' }],
-        category: {
-          id: `cat-${idx + 1}`,
-          name: item.category || 'Collection',
-          slug: (item.category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        },
-        discount: discountVal,
-        is_vidyas_pick: item.isVidhyasPick ?? true,
-        is_new: false,
-      };
-    })
-    : vidhyasPicks;
+  const hasCustomCmsVidhyasPicks = Boolean(
+    (vidhyasPicksSection as any)?.hasCustomItems &&
+    Array.isArray(vidhyasPicksSection?.items) &&
+    vidhyasPicksSection.items.length > 0
+  );
+  const mappedCmsVidhyasPicks: HomepageProductCard[] = (vidhyasPicksSection?.items || []).map((item: any, idx: number) => {
+    const priceNum = Number(String(item.price ?? '').replace(/[^0-9.]/g, '')) || 0;
+    const compareNum = item.originalPrice || item.compare_at_price
+      ? Number(String(item.originalPrice || item.compare_at_price).replace(/[^0-9.]/g, ''))
+      : null;
+    const discountVal = item.discount ?? (
+      compareNum && priceNum > 0 && compareNum > priceNum
+        ? Math.round(((compareNum - priceNum) / compareNum) * 100)
+        : 0
+    );
+    return {
+      id: item.id || `vp-${idx + 1}`,
+      slug: item.slug || (item.name ? item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') : `product-${idx + 1}`),
+      name: item.name || '',
+      variant_id: null,
+      price: priceNum,
+      compare_at_price: compareNum,
+      images: [{ url: item.image || '/images/placeholder.jpg', alt_text: item.name || 'Product' }],
+      category: {
+        id: `cat-${idx + 1}`,
+        name: item.category || 'Collection',
+        slug: (item.category || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      },
+      discount: discountVal,
+      is_vidyas_pick: item.isVidhyasPick ?? true,
+      is_new: false,
+    };
+  });
+  const activeVidhyasPicks: HomepageProductCard[] = hasCustomCmsVidhyasPicks
+    ? mappedCmsVidhyasPicks
+    : (vidhyasPicks && vidhyasPicks.length > 0 ? vidhyasPicks : mappedCmsVidhyasPicks);
 
   const brandStorySection = siteContent?.['brand-story'];
   const myAngelikaLookContent = siteContent?.['my-angelika-look'];

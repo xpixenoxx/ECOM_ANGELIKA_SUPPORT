@@ -6,9 +6,9 @@ import { ProductClient } from './ProductClient';
 
 // ISR: product pages rebuild every 5 minutes.
 // Admin product updates trigger on-demand revalidation via POST /api/revalidate?path=/product/{slug}
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
-export async function generateStaticParams() {
+async function _disabledStaticParams() {
   // Pre-build active products at deploy time for faster edge delivery.
   // Falls back gracefully if DB is unavailable during build.
   try {

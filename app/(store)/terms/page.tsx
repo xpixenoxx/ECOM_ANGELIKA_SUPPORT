@@ -2,7 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getSiteContent } from '@/lib/actions/site-content';
 
-export const revalidate = 60;
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteContent = await getSiteContent();

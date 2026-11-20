@@ -3,12 +3,15 @@ import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Database } from '@/types/database';
 
-/** Cookie-less anon client safe for public ISR / unstable_cache reads under RLS. */
+/** Cookie-less anon client safe for public Edge SSR reads under RLS (always fetches fresh live data on Cloudflare Edge). */
 export function createPublicClient() {
   const url = process.env['NEXT_PUBLIC_SUPABASE_URL'] || 'https://placeholder.supabase.co';
   const anonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || 'placeholder-anon-key';
   return createSupabaseJsClient<Database>(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+    },
   });
 }
 

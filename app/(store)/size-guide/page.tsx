@@ -3,7 +3,8 @@ import { getSiteContent } from '@/lib/actions/site-content';
 import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
 import { SizeGuideClient } from './SizeGuideClient';
 
-export const revalidate = 60;
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteContent = await getSiteContent();

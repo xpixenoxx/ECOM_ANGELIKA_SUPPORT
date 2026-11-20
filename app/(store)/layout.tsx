@@ -7,7 +7,8 @@ import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import { getSiteContent } from '@/lib/actions/site-content';
 import type { ReactNode } from 'react';
 
-export const revalidate = 60;
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
   const [settings, navbarItems, heroData, siteContent] = await Promise.all([

@@ -5,7 +5,8 @@ import { getStoreSettings } from '@/lib/actions/store-settings';
 import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import { WholesaleClient } from './WholesaleClient';
 
-export const revalidate = 60;
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteContent = await getSiteContent();

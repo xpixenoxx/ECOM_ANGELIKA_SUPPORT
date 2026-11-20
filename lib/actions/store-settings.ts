@@ -50,20 +50,12 @@ export interface NavbarItem {
   updated_at: string;
 }
 
-const fetchCachedStoreSettings = unstable_cache(
-  async (): Promise<StoreSettings | null> => {
-    if (!hasValidSupabaseConfig()) return null;
-    const supabase = createPublicClient();
-    const { data, error } = await supabase.from('store_settings').select('*').limit(1).maybeSingle();
-    if (error) return null;
-    return data as StoreSettings | null;
-  },
-  ['store-settings'],
-  { revalidate: 300, tags: ['store-settings'] }
-);
-
 export async function getStoreSettings(): Promise<StoreSettings | null> {
-  return fetchCachedStoreSettings();
+  if (!hasValidSupabaseConfig()) return null;
+  const supabase = createPublicClient();
+  const { data, error } = await supabase.from('store_settings').select('*').limit(1).maybeSingle();
+  if (error) return null;
+  return data as StoreSettings | null;
 }
 
 export async function updateStoreSettings(
@@ -92,22 +84,14 @@ export async function updateStoreSettings(
   return { success: true };
 }
 
-const fetchCachedNavbarItems = unstable_cache(
-  async (): Promise<NavbarItem[]> => {
-    if (!hasValidSupabaseConfig()) return [];
-    const supabase = createPublicClient();
-    const { data } = await supabase
-      .from('navbar_items')
-      .select('*')
-      .order('sort_order', { ascending: true });
-    return (data || []) as NavbarItem[];
-  },
-  ['navbar-items'],
-  { revalidate: 300, tags: ['navbar-items'] }
-);
-
 export async function getNavbarItems(): Promise<NavbarItem[]> {
-  return fetchCachedNavbarItems();
+  if (!hasValidSupabaseConfig()) return [];
+  const supabase = createPublicClient();
+  const { data } = await supabase
+    .from('navbar_items')
+    .select('*')
+    .order('sort_order', { ascending: true });
+  return (data || []) as NavbarItem[];
 }
 
 export async function createNavbarItem(
