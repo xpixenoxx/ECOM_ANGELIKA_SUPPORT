@@ -579,3 +579,35 @@ export async function verifyPasswordResetOtp(data: {
     };
   }
 }
+
+/**
+ * Server Action for resilient direct login.
+ * Executes on Cloudflare Edge Worker and writes the Supabase auth session cookie.
+ * Serves as an infallible fallback if client-side browser fetch fails (e.g. ad blockers or network CORS issues).
+ */
+export async function serverLoginAction(
+  email: string,
+  password: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !password) {
+      return { success: false, error: 'Email and password are required.' };
+    }
+
+    const { createClient } = await import('@/lib/supabase/server');
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
+
+    if (error || !data.user) {
+      return { success: false, error: error?.message || 'Invalid login credentials' };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Authentication failed' };
+  }
+}

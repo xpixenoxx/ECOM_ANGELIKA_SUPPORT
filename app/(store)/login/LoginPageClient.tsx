@@ -13,7 +13,7 @@ import { ScrollReveal } from '@/components/animations/ScrollReveal';
 import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { toast } from '@/components/ui/Toast';
-import { sendSignupOtp, verifySignupOtp } from '@/lib/actions/auth-otp';
+import { sendSignupOtp, verifySignupOtp, serverLoginAction } from '@/lib/actions/auth-otp';
 
 type FormErrors = {
   fullName?: string;
@@ -139,26 +139,45 @@ export function LoginPageClient({ initialMode }: LoginPageClientProps) {
       const targetUrl = redirectTo || '/account';
 
       if (isLogin) {
-        // Sign In Flow with timeout protection
-        const signInPromise = signIn(email.trim(), password);
-        const timeoutPromise = new Promise<{ error: Error }>((_, reject) =>
-          setTimeout(() => reject(new Error('Sign-in request timed out. Please check your internet connection and try again.')), 7000)
-        );
+        // Sign In Flow with timeout protection and infallible server action fallback
+        let signInSuccess = false;
+        try {
+          const signInPromise = signIn(email.trim(), password);
+          const timeoutPromise = new Promise<{ error: Error }>((_, reject) =>
+            setTimeout(() => reject(new Error('Sign-in request timed out. Please check your internet connection and try again.')), 7000)
+          );
 
-        const { error } = await Promise.race([signInPromise, timeoutPromise]);
-        if (error) {
-          const msg = error.message.toLowerCase();
-          if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
-            toast.error('Invalid Credentials', 'Incorrect email or password. Please verify your details or create a new account.');
+          const { error } = await Promise.race([signInPromise, timeoutPromise]);
+          if (!error) {
+            signInSuccess = true;
           } else {
-            toast.error('Sign In Failed', error.message);
+            const msg = error.message.toLowerCase();
+            if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+              toast.error('Invalid Credentials', 'Incorrect email or password. Please verify your details or create a new account.');
+              return;
+            }
+            console.warn('Client signIn error, attempting serverLoginAction fallback:', error.message);
           }
-          return;
+        } catch (fetchErr: any) {
+          console.warn('Client signIn threw, attempting serverLoginAction fallback:', fetchErr);
+        }
+
+        if (!signInSuccess) {
+          const serverRes = await serverLoginAction(email.trim(), password);
+          if (!serverRes.success) {
+            const msg = (serverRes.error || '').toLowerCase();
+            if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
+              toast.error('Invalid Credentials', 'Incorrect email or password. Please verify your details or create a new account.');
+            } else {
+              toast.error('Sign In Failed', serverRes.error || 'Authentication failed. Please try again.');
+            }
+            return;
+          }
         }
 
         toast.success('Welcome Back!', 'Signing you into Angelika Fashions...');
-        router.refresh();
-        router.push(targetUrl);
+        window.location.href = targetUrl;
+        return;
       } else {
         // Sign Up Flow: Send 6-Digit Verification Code via Resend
         const otpRes = await sendSignupOtp(email.trim(), fullName.trim());

@@ -8,9 +8,15 @@ export async function createMiddlewareClient(request: NextRequest) {
     request: { headers: request.headers },
   });
 
+  const url =
+    process.env['NEXT_PUBLIC_SUPABASE_URL'] || 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
+  const anonKey =
+    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NDI1NTQsImV4cCI6MjEwODUxODU1NH0.rKWX5kFwxom9mxCR7NQlP2M6MJRtQveEb8UQMmZ86L0';
+
   const supabase = createServerClient(
-    process.env['NEXT_PUBLIC_SUPABASE_URL']!,
-    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY']!,
+    url,
+    anonKey,
     {
       cookies: {
         getAll() {

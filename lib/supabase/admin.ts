@@ -5,8 +5,12 @@ if (typeof window !== 'undefined' && !process.env['VITEST']) {
   throw new Error('lib/supabase/admin must never be imported in client/browser bundles.');
 }
 
-const supabaseUrl = process.env['NEXT_PUBLIC_SUPABASE_URL'] || 'https://placeholder.supabase.co';
-const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || 'placeholder-service-key';
+const PROD_SUPABASE_URL = 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
+const PROD_SERVICE_ROLE_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mjk0MjU1NCwiZXhwIjoyMTA4NTE4NTU0fQ.m55v1r2zLg-3lpl88GX_F9K0AM-Y82bPyoBxPY9Bd3k';
+
+const supabaseUrl = process.env['NEXT_PUBLIC_SUPABASE_URL'] || PROD_SUPABASE_URL;
+const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'] || PROD_SERVICE_ROLE_KEY;
 
 export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseServiceKey, {
   auth: {

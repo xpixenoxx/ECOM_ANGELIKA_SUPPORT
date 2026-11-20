@@ -3,10 +3,14 @@ import { createClient as createSupabaseJsClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import type { Database } from '@/types/database';
 
+const PROD_SUPABASE_URL = 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
+const PROD_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NDI1NTQsImV4cCI6MjEwODUxODU1NH0.rKWX5kFwxom9mxCR7NQlP2M6MJRtQveEb8UQMmZ86L0';
+
 /** Cookie-less anon client safe for public Edge SSR reads under RLS (always fetches fresh live data on Cloudflare Edge). */
 export function createPublicClient() {
-  const url = process.env['NEXT_PUBLIC_SUPABASE_URL'] || 'https://placeholder.supabase.co';
-  const anonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || 'placeholder-anon-key';
+  const url = process.env['NEXT_PUBLIC_SUPABASE_URL'] || PROD_SUPABASE_URL;
+  const anonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || PROD_SUPABASE_ANON_KEY;
   return createSupabaseJsClient<Database>(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: {
@@ -17,8 +21,8 @@ export function createPublicClient() {
 
 export function createClient() {
   const cookieStore = cookies();
-  const url = process.env['NEXT_PUBLIC_SUPABASE_URL'] || 'https://placeholder.supabase.co';
-  const anonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || 'placeholder-anon-key';
+  const url = process.env['NEXT_PUBLIC_SUPABASE_URL'] || PROD_SUPABASE_URL;
+  const anonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || PROD_SUPABASE_ANON_KEY;
 
   return createServerClient<Database>(
     url,

@@ -111,21 +111,42 @@ export function AuthModal({ onClose, onSuccess, defaultTab = 'signin' }: AuthMod
       }
 
       if (tab === 'signin') {
-        const timeoutPromise = new Promise<{ error: Error }>((_, reject) =>
-          setTimeout(() => reject(new Error('Sign-in request timed out. Please try again.')), 7000)
-        );
-        const { error } = await Promise.race([signIn(email.trim(), password), timeoutPromise]);
-        if (error) {
-          const msg = error.message.toLowerCase();
-          if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
-            setAuthError('Incorrect email or password. Please try again.');
+        let signInSuccess = false;
+        try {
+          const timeoutPromise = new Promise<{ error: Error }>((_, reject) =>
+            setTimeout(() => reject(new Error('Sign-in request timed out. Please try again.')), 7000)
+          );
+          const { error } = await Promise.race([signIn(email.trim(), password), timeoutPromise]);
+          if (!error) {
+            signInSuccess = true;
           } else {
-            setAuthError(error.message);
+            const msg = error.message.toLowerCase();
+            if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+              setAuthError('Incorrect email or password. Please try again.');
+              return;
+            }
           }
-          return;
+        } catch {
+          // Fallback to serverLoginAction
         }
+
+        if (!signInSuccess) {
+          const { serverLoginAction } = await import('@/lib/actions/auth-otp');
+          const serverRes = await serverLoginAction(email.trim(), password);
+          if (!serverRes.success) {
+            const msg = (serverRes.error || '').toLowerCase();
+            if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+              setAuthError('Incorrect email or password. Please try again.');
+            } else {
+              setAuthError(serverRes.error || 'Sign-in failed. Please try again.');
+            }
+            return;
+          }
+        }
+
         toast.success('Welcome back!');
         onSuccess();
+        window.location.reload();
       } else {
         const timeoutPromise = new Promise<{ error: Error | null }>((_, reject) =>
           setTimeout(() => reject(new Error('Registration timed out. Please try again.')), 7000)

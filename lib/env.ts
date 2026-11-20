@@ -57,14 +57,29 @@ export function requireServerEnv(name: string): string {
   return val;
 }
 
+export const PROD_SUPABASE_URL = 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
+export const PROD_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NDI1NTQsImV4cCI6MjEwODUxODU1NH0.rKWX5kFwxom9mxCR7NQlP2M6MJRtQveEb8UQMmZ86L0';
+export const PROD_SUPABASE_SERVICE_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5Mjk0MjU1NCwiZXhwIjoyMTA4NTE4NTU0fQ.m55v1r2zLg-3lpl88GX_F9K0AM-Y82bPyoBxPY9Bd3k';
+
 export function hasValidSupabaseConfig(): boolean {
-  const url = getOptionalEnv('NEXT_PUBLIC_SUPABASE_URL');
-  const anonKey = getOptionalEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const rawUrl = process.env['NEXT_PUBLIC_SUPABASE_URL'];
+  const rawAnonKey = process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
+  if (rawUrl && isPlaceholderEnvValue(rawUrl)) return false;
+  if (rawAnonKey && isPlaceholderEnvValue(rawAnonKey)) return false;
+
+  const url = getOptionalEnv('NEXT_PUBLIC_SUPABASE_URL') || PROD_SUPABASE_URL;
+  const anonKey = getOptionalEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || PROD_SUPABASE_ANON_KEY;
   return Boolean(url && anonKey && /^https:\/\/.+\.supabase\.co|^http:\/\/(127\.0\.0\.1|localhost)/.test(url));
 }
 
 export function hasValidServiceRoleKey(): boolean {
-  return Boolean(hasValidSupabaseConfig() && getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY'));
+  const rawServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+  if (rawServiceKey && isPlaceholderEnvValue(rawServiceKey)) return false;
+
+  const serviceKey = getOptionalEnv('SUPABASE_SERVICE_ROLE_KEY') || PROD_SUPABASE_SERVICE_KEY;
+  return Boolean(hasValidSupabaseConfig() && serviceKey);
 }
 
 export function isCloudServerlessEnv(): boolean {
