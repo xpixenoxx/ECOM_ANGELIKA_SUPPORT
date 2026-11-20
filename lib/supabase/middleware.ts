@@ -25,7 +25,13 @@ export async function createMiddlewareClient(request: NextRequest) {
 
   const supabase = createServerClient(url, anonKey, {
     global: {
-      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      // Cloudflare Workers rejects `RequestInit.cache`; strip it safely.
+      fetch: (input, init) => {
+        const { cache: _cache, ...rest } = (init || {}) as RequestInit;
+        const headers = new Headers(rest.headers);
+        if (!headers.has('Cache-Control')) headers.set('Cache-Control', 'no-store');
+        return fetch(input, { ...rest, headers });
+      },
     },
     cookies: {
       getAll() {

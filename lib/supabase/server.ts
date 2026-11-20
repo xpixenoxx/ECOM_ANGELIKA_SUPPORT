@@ -21,13 +21,21 @@ function resolveServerSupabaseConfig() {
   return { url, anonKey };
 }
 
+/** Cloudflare Workers-safe fetch wrapper (strips RequestInit.cache which throws on workerd). */
+function edgeSafeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const { cache: _cache, ...rest } = (init || {}) as RequestInit;
+  const headers = new Headers(rest.headers);
+  if (!headers.has('Cache-Control')) headers.set('Cache-Control', 'no-store');
+  return fetch(input, { ...rest, headers });
+}
+
 /** Cookie-less anon client safe for public Edge SSR reads under RLS (always fetches fresh live data on Cloudflare Edge). */
 export function createPublicClient() {
   const { url, anonKey } = resolveServerSupabaseConfig();
   return createSupabaseJsClient<Database>(url, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: {
-      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      fetch: edgeSafeFetch,
     },
   });
 }
@@ -38,7 +46,7 @@ export function createClient() {
 
   return createServerClient<Database>(url, anonKey, {
     global: {
-      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+      fetch: edgeSafeFetch,
     },
     cookies: {
       getAll() {

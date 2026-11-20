@@ -33,7 +33,13 @@ export function getSupabaseAdmin(): SupabaseClient<Database> {
         persistSession: false,
       },
       global: {
-        fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+        // Cloudflare Workers rejects `RequestInit.cache` on older compat dates; strip it and use Cache-Control header instead.
+        fetch: (input, init) => {
+          const { cache: _cache, ...rest } = (init || {}) as RequestInit;
+          const headers = new Headers(rest.headers);
+          if (!headers.has('Cache-Control')) headers.set('Cache-Control', 'no-store');
+          return fetch(input, { ...rest, headers });
+        },
       },
     });
     cachedAdminKeySignature = sig;
