@@ -305,7 +305,6 @@ export function WhatsAppFloatButton({
             ) : (
               <div className="relative w-full h-full flex items-center justify-center flex-shrink-0 transition-transform">
                 <WhatsAppIcon className="w-12 h-12 md:w-14 md:h-14" />
-                <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-[#16A34A] border-2 border-white shadow-xs" />
               </div>
             )}
           </motion.button>

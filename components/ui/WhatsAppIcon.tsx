@@ -3,15 +3,17 @@ import React from 'react';
 export interface WhatsAppIconProps {
   className?: string;
   size?: number | string;
-  withStroke?: boolean;
 }
 
 /**
- * Official WhatsApp Logotype SVG extracted from official Wikimedia Commons / WhatsApp brand asset.
- * Rendered inline as a vector graphic with zero external network dependencies.
- * By default renders without outer white stroke/background for a clean modern look.
+ * Official WhatsApp Logotype SVG (Derivative of WhatsApp_logo.svg extracted from official https://www.whatsapp.com / Wikimedia Commons).
+ * Matches the official Wikimedia Commons file specifications:
+ * - Drop-shadow filter (#b3b3b3 with Gaussian blur stdDeviation="3.531")
+ * - White outer speech bubble border (#fff)
+ * - Official gradient speech bubble (#57d163 to #23b33a)
+ * - Official white telephone handset
  */
-export function WhatsAppIcon({ className = 'w-10 h-10', size, withStroke = false }: WhatsAppIconProps) {
+export function WhatsAppIcon({ className = 'w-10 h-10', size }: WhatsAppIconProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -34,20 +36,34 @@ export function WhatsAppIcon({ className = 'w-10 h-10', size, withStroke = false
           <stop offset="0" stopColor="#57d163" />
           <stop offset="1" stopColor="#23b33a" />
         </linearGradient>
+        <filter
+          id="wa-official-shadow"
+          width="1.115"
+          height="1.114"
+          x="-.057"
+          y="-.057"
+          colorInterpolationFilters="sRGB"
+        >
+          <feGaussianBlur stdDeviation="3.531" />
+        </filter>
       </defs>
-      {/* Outer subtle border shape - rendered only if withStroke is explicitly enabled */}
-      {withStroke && (
-        <path
-          fill="#fff"
-          d="m12.966 161.238 10.439-38.114a73.42 73.42 0 0 1-9.821-36.772c.017-40.556 33.021-73.55 73.578-73.55 19.681.01 38.154 7.669 52.047 21.572s21.537 32.383 21.53 52.037c-.018 40.553-33.027 73.553-73.578 73.553h-.032c-12.313-.005-24.412-3.094-35.159-8.954z"
-        />
-      )}
-      {/* Green circular speech bubble background */}
+      {/* 1. Official drop-shadow path */}
+      <path
+        fill="#b3b3b3"
+        d="m54.532 138.45 2.235 1.324c9.387 5.571 20.15 8.518 31.126 8.523h.023c33.707 0 61.139-27.426 61.153-61.135.006-16.335-6.349-31.696-17.895-43.251A60.75 60.75 0 0 0 87.94 25.983c-33.733 0-61.166 27.423-61.178 61.13a60.98 60.98 0 0 0 9.349 32.535l1.455 2.312-6.179 22.558zm-40.811 23.544L24.16 123.88c-6.438-11.154-9.825-23.808-9.821-36.772.017-40.556 33.021-73.55 73.578-73.55 19.681.01 38.154 7.669 52.047 21.572s21.537 32.383 21.53 52.037c-.018 40.553-33.027 73.553-73.578 73.553h-.032c-12.313-.005-24.412-3.094-35.159-8.954zm0 0"
+        filter="url(#wa-official-shadow)"
+      />
+      {/* 2. Official white outer speech bubble border */}
+      <path
+        fill="#fff"
+        d="m12.966 161.238 10.439-38.114a73.42 73.42 0 0 1-9.821-36.772c.017-40.556 33.021-73.55 73.578-73.55 19.681.01 38.154 7.669 52.047 21.572s21.537 32.383 21.53 52.037c-.018 40.553-33.027 73.553-73.578 73.553h-.032c-12.313-.005-24.412-3.094-35.159-8.954z"
+      />
+      {/* 3. Official green gradient speech bubble background */}
       <path
         fill="url(#wa-official-grad)"
         d="M87.184 25.227c-33.733 0-61.166 27.423-61.178 61.13a60.98 60.98 0 0 0 9.349 32.535l1.455 2.313-6.179 22.558 23.146-6.069 2.235 1.324c9.387 5.571 20.15 8.517 31.126 8.523h.023c33.707 0 61.14-27.426 61.153-61.135a60.75 60.75 0 0 0-17.895-43.251 60.75 60.75 0 0 0-43.235-17.928z"
       />
-      {/* White telephone handset */}
+      {/* 4. Official white telephone handset */}
       <path
         fill="#fff"
         fillRule="evenodd"

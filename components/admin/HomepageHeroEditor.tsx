@@ -966,7 +966,6 @@ export function HomepageHeroEditor({ onCancel, onSaved }: HomepageHeroEditorProp
           <div className="p-6 rounded-lg bg-zinc-900 flex justify-end">
             <div className="relative w-12 h-12 flex items-center justify-center flex-shrink-0 cursor-pointer drop-shadow-[0_4px_16px_rgba(37,211,102,0.4)]">
               <WhatsAppIcon className="w-12 h-12" />
-              <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-[#16A34A] border-2 border-white shadow-xs" />
             </div>
           </div>
         </div>
