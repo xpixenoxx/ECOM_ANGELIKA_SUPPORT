@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/Card';
+import { Card, CardContent, ProductCard } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
@@ -92,68 +92,17 @@ const mockNewArrivals: NewArrivalProduct[] = Array.from({ length: 24 }, (_, i) =
 
 function ProductCardGrid({ product }: { product: NewArrivalProduct }) {
   return (
-    <article className="group relative bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-xl)] overflow-hidden hover:shadow-[var(--shadow-lg)] transition-all duration-300">
-      <div className="relative aspect-[3/4] overflow-hidden">
-        <Image
-          src={product.image}
-          alt={product.name}
-          fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-        />
-        <div className="absolute top-3 left-3 flex flex-col gap-2">
-          {product.isNew && <Badge variant="gold" className="text-xs">New</Badge>}
-          {product.isTrending && <Badge variant="gold" className="text-xs">Trending</Badge>}
-          {product.discount > 0 && (
-            <Badge variant="outline" className="bg-[var(--color-gold)] text-[var(--color-ink)] border-[var(--color-gold)] text-xs">
-              -{product.discount}%
-            </Badge>
-          )}
-        </div>
-        {!product.inStock && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="text-sm font-semibold text-white bg-[var(--color-error)] px-3 py-1 rounded-[var(--radius-sm)]">Out of Stock</span>
-          </div>
-        )}
-        <div className="absolute bottom-3 left-3 right-3 flex justify-between opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity duration-300">
-          <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
-            <Link href={`/product/${product.slug || product.id}`} className="flex items-center gap-1">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 6v6l4 2" />
-              </svg>
-              <span className="hidden sm:inline">View</span>
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" className="bg-[var(--color-white)]/90 backdrop-blur-sm rounded-full px-3" asChild>
-            <Link href="/wishlist" className="flex items-center gap-1">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-              <span className="hidden sm:inline">Save</span>
-            </Link>
-          </Button>
-        </div>
-      </div>
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs text-[var(--color-gold)] font-medium uppercase tracking-wide">{product.category}</span>
-          {product.tags.map((tag: string, ti: number) => <Badge key={tag} variant="outline" className="text-xs px-2 py-0.5">{tag}</Badge>)}
-        </div>
-        <Link href={`/product/${product.slug || product.id}`} className="hover:underline">
-          <h3 className="text-[var(--font-display)] text-sm md:text-base font-medium text-[var(--color-ink)] line-clamp-2 mb-1">{product.name}</h3>
-        </Link>
-        <div className="flex items-center gap-2 text-sm text-[var(--color-slate)] mb-2">
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: product.colorHex }} aria-hidden="true" />{product.color}
-          </span>
-        </div>
-        <div className="flex items-baseline gap-2">
-          <span className="font-bold text-[var(--color-ink)]">{product.price.toLocaleString()}</span>
-          {product.originalPrice > product.price && <span className="text-sm text-[var(--color-mist)] line-through">{product.originalPrice.toLocaleString()}</span>}
-        </div>
-      </div>
-    </article>
+    <ProductCard
+      image={product.image}
+      name={product.name}
+      price={product.price}
+      originalPrice={product.originalPrice > product.price ? product.originalPrice : undefined}
+      category={product.category}
+      isNew={product.isNew}
+      discount={product.discount}
+      colors={[product.color]}
+      href={`/product/${product.slug || product.id}`}
+    />
   );
 }
 
@@ -383,7 +332,7 @@ export default function NewArrivalsClient({ initialContent }: { initialContent?:
 
       {/* Product Grid */}
       <section className="py-10 bg-[var(--color-white)]">
-        <div className="container-custom px-6">
+        <div className="max-w-[1560px] mx-auto px-4 sm:px-6">
           <ScrollReveal variant="fadeUp" delay={0.3}>
             {viewMode === 'grid' ? (
               <StaggerGrid
@@ -394,8 +343,8 @@ export default function NewArrivalsClient({ initialContent }: { initialContent?:
                   </StaggerItem>
                 )}
                 columns={4}
-                gap={24}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                gap={0}
+                className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-x-4 lg:gap-y-8 w-full"
               />
             ) : (
               <StaggerContainer variant="default" className="space-y-4">

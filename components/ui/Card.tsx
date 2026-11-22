@@ -168,6 +168,21 @@ export interface ProductCardProps {
   [key: string]: any;
 }
 
+function getColorHex(colorName?: string): string {
+  if (!colorName) return '#C5A059';
+  const c = colorName.toLowerCase();
+  if (c.includes('red') || c.includes('crimson') || c.includes('ruby') || c.includes('maroon')) return '#8B1E28';
+  if (c.includes('green') || c.includes('emerald') || c.includes('olive') || c.includes('sage')) return '#2E4A3E';
+  if (c.includes('blue') || c.includes('navy') || c.includes('indigo') || c.includes('teal')) return '#1E3A5F';
+  if (c.includes('purple') || c.includes('plum') || c.includes('violet') || c.includes('mauve')) return '#5C2D50';
+  if (c.includes('pink') || c.includes('rose') || c.includes('blush') || c.includes('peach')) return '#D98282';
+  if (c.includes('yellow') || c.includes('mustard') || c.includes('haldi')) return '#D4A017';
+  if (c.includes('gold') || c.includes('zari') || c.includes('champagne')) return '#C5A059';
+  if (c.includes('white') || c.includes('ivory') || c.includes('cream')) return '#F4F0EA';
+  if (c.includes('black') || c.includes('noir') || c.includes('charcoal')) return '#1A1A1A';
+  return '#B8977E';
+}
+
 export function ProductCard({
   id,
   image,
@@ -267,12 +282,22 @@ export function ProductCard({
   };
 
   const badgeText = badge
-    ? badge.toUpperCase()
+    ? badge
     : isNew || isVidhyasPick
-      ? 'NEW ARRIVAL'
+      ? 'New'
       : isSale && calculatedDiscount
-        ? `SALE ${calculatedDiscount}%`
-        : 'NEW ARRIVAL';
+        ? `Sale ${calculatedDiscount}%`
+        : 'New';
+
+  // Derive 3 circular swatches matching the exact inspect-element specs
+  const rawColors = Array.isArray(colors) && colors.length > 0 ? colors : (rest['color'] ? [rest['color']] : []);
+  const baseColorHex = getColorHex(rawColors[0] || rest['color'] || name);
+  const displaySwatches = [
+    baseColorHex,
+    baseColorHex === '#F4F0EA' ? '#2E4A3E' : '#F4F0EA',
+    baseColorHex === '#1A1A1A' ? '#C5A059' : '#1A1A1A',
+  ];
+  const extraColorsCount = 2;
 
   const cardContent = (
     <div
@@ -282,18 +307,18 @@ export function ProductCard({
       )}
       style={{ boxSizing: 'border-box' }}
     >
-      {/* ── 1. Image Viewport (Aspect Ratio: 377.2 / 554.7 ≈ 1 : 1.4705) ── */}
-      <div className="relative w-full aspect-[377.2/554.7] overflow-hidden bg-[#F7F5F0]">
+      {/* ── 1. Image Viewport (Exact Target Size: 374px × 468.03px -> aspect-[374/468.03]) ── */}
+      <div className="relative w-full aspect-[374/468.03] overflow-hidden bg-[#F7F5F0]">
         {isValidHref ? (
           <Link href={finalHref} className="block w-full h-full cursor-pointer" aria-label={`View ${name}`}>
             <img
               src={image}
               alt={name}
-              width={378}
-              height={555}
+              width={374}
+              height={468}
               loading="lazy"
               decoding="async"
-              className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+              className="ProductItem__Image w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
             />
           </Link>
@@ -301,21 +326,26 @@ export function ProductCard({
           <img
             src={image}
             alt={name}
-            width={378}
-            height={555}
+            width={374}
+            height={468}
             loading="lazy"
             decoding="async"
-            className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+            className="ProductItem__Image w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
           />
         )}
 
-        {/* Minimal Outline Heart (20x20 matching svg.icon-wishlist-add-dims) */}
+        {/* ── Badge (span.ProductItem__Label: 40.14 x 20.5, font: 10px, bg: #FFFFFFCC, color: #282B30, padding: 2px 9px) ── */}
+        <span className="ProductItem__Label Heading Text--subdued absolute top-2 left-2 z-10 inline-flex items-center justify-center bg-[#FFFFFFCC] backdrop-blur-xs text-[#282B30] text-[10px] font-normal leading-tight px-[9px] py-[2px] shadow-2xs">
+          {badgeText}
+        </span>
+
+        {/* Minimal Outline Heart Wishlist button */}
         {(onAddToWishlist || isWishlisted) && (
           <button
             type="button"
             onClick={handleWishlist}
-            className="absolute top-3 right-3 p-1 z-10 cursor-pointer text-[#1A1A1A] hover:scale-110 transition-transform"
+            className="absolute top-2 right-2 p-1.5 z-10 cursor-pointer text-[#1A1A1A] hover:scale-110 transition-transform"
             aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
           >
@@ -330,74 +360,86 @@ export function ProductCard({
             </svg>
           </button>
         )}
-
-        {/* Minimal Slide / Active Indicator Line below image */}
-        <div className="absolute bottom-0 inset-x-0 h-[2px] bg-[#EAE5DF]">
-          <div className="h-full w-10 bg-[#424242]" />
-        </div>
       </div>
 
-      {/* ── 2. Text Container (div.SearchHitsItem__search-hit__text-container) ── */}
-      <div className="SearchHitsItem__search-hit__text-container flex flex-col w-full text-left">
-        {/* Product Name (div.ProductHitName__product-hit__name, padding: 16px 12px 0px) */}
-        <div className="ProductHitName__product-hit__name pt-[16px] px-[12px] pb-0">
-          {isValidHref ? (
-            <Link href={finalHref} className="block group/title hover:no-underline" aria-label={`View ${name}`}>
-              <span className="ProductHitName__product-hit__name-text block text-[14px] font-semibold text-[#424242] leading-[1.3] line-clamp-2 hover:underline">
+      {/* ── Quick Add to Cart Bar (Reference: ADD TO CART +) ── */}
+      <button
+        type="button"
+        onClick={handleAddToBag}
+        disabled={isAdding}
+        className="w-full py-2 bg-[#FAF7F2] hover:bg-[#1C1B1B] text-[#1C1B1B] hover:text-white transition-colors text-[11px] font-medium uppercase tracking-[0.16em] flex items-center justify-center gap-1.5 cursor-pointer border-t border-b border-[#EFECE6] active:scale-[0.99]"
+        aria-label={`Add ${name} to cart`}
+      >
+        <span>{isAdded ? "Added to Cart ✓" : isAdding ? "Adding..." : "ADD TO CART +"}</span>
+      </button>
+
+      {/* ── 2. Title & Price Wrapper (div.title-price-wrapper: 276.71 x 37.95, font: 13px) ── */}
+      <div className="title-price-wrapper w-full pt-[10px] px-0 pb-0">
+        <div className="flex items-start justify-between gap-2 w-full">
+          <div className="flex-1 min-w-0">
+            {/* Product Title (a.product-title-text.product-href: 235.2 x 19.8, font: 12px, color: #1C1B1B) */}
+            {isValidHref ? (
+              <Link href={finalHref} className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate hover:underline" title={name}>
+                {name}
+              </Link>
+            ) : (
+              <span className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate" title={name}>
                 {name}
               </span>
-            </Link>
-          ) : (
-            <span className="ProductHitName__product-hit__name-text block text-[14px] font-semibold text-[#424242] leading-[1.3] line-clamp-2">
-              {name}
+            )}
+
+            {/* Product Price (span.money: 47.13 x 14.4, font: 11px, color: #2D333D, text: ₹ 17,000) */}
+            <div className="flex items-baseline gap-2 mt-[2px]">
+              <span className="money text-[11px] font-normal text-[#2D333D] tabular-nums">
+                ₹ {price.toLocaleString('en-IN')}
+              </span>
+              {originalPrice && originalPrice > price && (
+                <span className="text-[10px] text-[#8C877F] line-through tabular-nums">
+                  ₹ {originalPrice.toLocaleString('en-IN')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Minimal Shopping Bag Icon / Quick Add on right side */}
+          <div className="shrink-0 flex items-center gap-1.5 pt-0.5">
+            {rest['fabric'] && (
+              <span className="hidden sm:inline-block border border-[#D1D5DB] px-1 py-0.5 text-[9px] font-normal uppercase tracking-wider text-[#4B5563]">
+                {rest['fabric']}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleAddToBag}
+              disabled={isAdding}
+              className="p-1 text-[#1C1B1B] hover:opacity-70 transition-opacity cursor-pointer shrink-0"
+              aria-label={`Add ${name} to bag`}
+              title={isAdded ? "Added to bag" : "Add to bag"}
+            >
+              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── 3. Color Swatch List (div.ProductItem__ColorSwatchList: 368.95 x 19.8, margin: 5px 0px 0px) ── */}
+        <div className="ProductItem__ColorSwatchList mt-[5px] flex items-center gap-[6px]">
+          {displaySwatches.map((colorVal, idx) => (
+            <span
+              key={idx}
+              className="ColorSwatch ColorSwatch--small w-[14px] h-[14px] rounded-full border border-black/15 shadow-2xs inline-block transition-transform hover:scale-110 cursor-pointer"
+              style={{ backgroundColor: colorVal }}
+              title={`Color tone ${idx + 1}`}
+            />
+          ))}
+          {extraColorsCount > 0 && (
+            <span className="text-[11px] text-[#666] leading-none ml-0.5">
+              +{extraColorsCount} more
             </span>
           )}
-        </div>
-
-        {/* Product Price (div.ProductPrice__product-price, padding: 8px 12px 0px, font: 12px) */}
-        <div className="ProductPrice__product-price pt-[8px] px-[12px] pb-0 flex items-baseline gap-2">
-          {isValidHref ? (
-            <Link href={finalHref} className="inline-flex items-baseline gap-2 hover:no-underline" aria-label={`Price for ${name}`}>
-              <span className="text-[12px] font-normal text-[#424242] tabular-nums tracking-normal">
-                ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {originalPrice && originalPrice > price && (
-                <span className="text-[11px] text-[#8C877F] line-through tabular-nums">
-                  ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              )}
-            </Link>
-          ) : (
-            <>
-              <span className="text-[12px] font-normal text-[#424242] tabular-nums tracking-normal">
-                ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {originalPrice && originalPrice > price && (
-                <span className="text-[11px] text-[#8C877F] line-through tabular-nums">
-                  ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Available Colors / Bottom Space (div.ProductHitAvailableColors, margin: 8px 0 0, padding: 0 12px 16px) */}
-        <div className="ProductHitAvailableColors__product-hit__available-colors mt-[8px] px-[12px] pb-[16px] text-[11px] text-[#7A756E] min-h-[24px] flex items-center justify-between">
-          <span>{category || 'Atelier Collection'}</span>
-
-          {/* Discreet Quick Add Pill on hover for luxury convenience */}
-          <button
-            type="button"
-            onClick={handleAddToBag}
-            disabled={isAdding}
-            className={cn(
-              "text-[10px] uppercase tracking-[0.14em] font-medium transition-all opacity-0 group-hover:opacity-100 hover:text-[#1A1A1A] cursor-pointer",
-              isAdded ? "text-emerald-700 opacity-100 font-semibold" : "text-[#5C5852]"
-            )}
-            aria-label={`Add ${name} to bag`}
-          >
-            {isAdded ? "Added ✓" : isAdding ? "Adding..." : "+ Add to Bag"}
-          </button>
         </div>
       </div>
     </div>

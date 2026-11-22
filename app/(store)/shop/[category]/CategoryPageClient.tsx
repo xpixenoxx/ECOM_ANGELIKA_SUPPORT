@@ -50,10 +50,15 @@ interface CategoryPageClientProps {
 
 const CATEGORIES_NAVIGATION = [
   { slug: '', name: 'All Collections', image: '/images/hero-new-couture.jpg', href: '/shop' },
-  { slug: 'kurtis', name: 'Kurtis', image: '/images/collection-kurtis.jpg', href: '/shop/kurtis' },
-  { slug: 'salwars', name: 'Salwars', image: '/images/collection-salwars.jpg', href: '/shop/salwars' },
-  { slug: 'lehengas', name: 'Lehengas', image: '/images/collection-lehengas.jpg', href: '/shop/lehengas' },
-  { slug: 'sarees', name: 'Sarees', image: '/images/collection-sarees.jpg', href: '/shop/sarees' },
+  { slug: 'party-wear-sarees', name: 'Party Sarees', image: '/images/category-showcase/showcase-party-wear-sarees.jpg', href: '/shop/sarees?occasion=party' },
+  { slug: 'daily-wear-sarees', name: 'Daily Sarees', image: '/images/category-showcase/showcase-daily-wear-sarees.jpg', href: '/shop/sarees?occasion=casual' },
+  { slug: 'office-wear-3piece', name: 'Office 3-Piece', image: '/images/category-showcase/showcase-office-wear-3piece.jpg', href: '/shop/salwars?occasion=office' },
+  { slug: 'coord-sets', name: 'Co-ord Sets', image: '/images/category-showcase/showcase-coord-sets.jpg', href: '/shop/kurtis?type=coord-sets' },
+  { slug: 'lehengas', name: 'Lehengas', image: '/images/category-showcase/showcase-lehengas.jpg', href: '/shop/lehengas' },
+  { slug: 'womens-frocks', name: "Women's Frocks", image: '/images/category-showcase/showcase-womens-frocks.jpg', href: '/shop/salwars?type=anarkali' },
+  { slug: 'kurtis', name: 'Kurtas & Tunics', image: '/images/collection-kurtis.jpg', href: '/shop/kurtis' },
+  { slug: 'salwars', name: 'Salwars & Suits', image: '/images/collection-salwars.jpg', href: '/shop/salwars' },
+  { slug: 'sarees', name: 'Saris & Blouses', image: '/images/collection-sarees.jpg', href: '/shop/sarees' },
   { slug: 'dupattas', name: 'Dupattas', image: '/images/collection-dupattas.jpg', href: '/shop/dupattas' },
 ];
 
@@ -630,14 +635,11 @@ export function CategoryPageClient({
         </section>
       ) : null}
 
-      {/* Visual Category Quick-Browse Strip */}
+      {/* Visual Category Quick-Browse Strip (Inspect: div.img-scroll-div 1397.38px × 199.4px, margin: 0 21.71px, padding: 0 10px) */}
       {(showCategoryNav && (activeCategoryContent?.navigation?.enabled ?? true)) && (
-        <section className="bg-[var(--color-snow)] border-b border-[var(--color-whisper)] py-4 overflow-x-auto no-scrollbar">
-          <div className="container-custom px-6">
-            <div className="flex items-center gap-3 sm:gap-4 min-w-max">
-              <span className="text-xs uppercase tracking-wider text-[var(--color-slate)] font-semibold mr-2 hidden sm:inline">
-                {activeCategoryContent?.navigation?.label || 'Collections:'}
-              </span>
+        <section className="bg-white border-b border-[#F0EBE1] py-2">
+          <div className="img-scroll-div max-w-[1560px] mx-auto px-[10px] overflow-x-auto no-scrollbar scroll-smooth">
+            <div className="flex items-start gap-1 min-w-max py-2">
               {(activeCategoryContent?.navigation?.items && activeCategoryContent.navigation.items.length > 0 ? activeCategoryContent.navigation.items : CATEGORIES_NAVIGATION).map((cat) => {
                 const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
                 return (
@@ -645,18 +647,28 @@ export function CategoryPageClient({
                     key={cat.name}
                     href={cat.href}
                     className={cn(
-                      "flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border transition-all text-xs font-medium uppercase tracking-wider",
-                      isActive
-                        ? "bg-[var(--color-ink)] text-white border-[var(--color-gold)] shadow-md"
-                        : "bg-white text-[var(--color-slate)] border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:text-[var(--color-ink)]"
+                      "w-[122px] min-w-[122px] py-[15px] px-[5px] flex flex-col items-center shrink-0 text-center transition-all group",
+                      isActive ? "opacity-100" : "opacity-90 hover:opacity-100"
                     )}
                   >
-                    <img
-                      src={cat.image}
-                      alt={cat.name}
-                      className="w-6 h-6 rounded-full object-cover border border-[var(--color-gold)]/40"
-                    />
-                    <span>{cat.name}</span>
+                    <div className={cn(
+                      "w-[112px] h-[150px] overflow-hidden bg-[#F7F5F0] transition-all",
+                      isActive ? "ring-2 ring-[#1C1B1B] shadow-sm" : "group-hover:shadow-sm"
+                    )}>
+                      <img
+                        src={cat.image}
+                        alt={cat.name}
+                        width={112}
+                        height={150}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    </div>
+                    <span className={cn(
+                      "w-[100px] text-[11px] font-normal leading-normal text-[#424A54] mt-[5px] ml-[3px] text-center truncate block",
+                      isActive && "font-semibold text-[#1C1B1B]"
+                    )}>
+                      {cat.name}
+                    </span>
                   </Link>
                 );
               })}
@@ -665,105 +677,93 @@ export function CategoryPageClient({
         </section>
       )}
 
-      {/* Main Content */}
-      <section className="py-10">
-        <div className="container-custom px-6">
-          <div className="flex flex-col lg:flex-row gap-8">
-            {/* Mobile Filter Button */}
-            {showSidebar && (
-              <MagneticButton variant="outline" className="lg:hidden w-full justify-between" strength={0.3} onClick={() => setSidebarOpen(true)}>
-                <span className="flex items-center gap-2">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      {/* Main Content (Edge-to-Edge 4-Column Luxury Grid) */}
+      <section className="py-6 sm:py-8 bg-white">
+        <div className="max-w-[1560px] mx-auto px-4 sm:px-6">
+          {/* Header Bar: Category title / count + Filter & Sort actions */}
+          <div className="flex flex-row items-center justify-between pb-4 mb-4 border-b border-[#EBE6DE]">
+            <div>
+              <h1 className="text-sm sm:text-base font-semibold uppercase tracking-[0.16em] text-[#1C1B1B] inline-block mr-3">
+                {pageTitle}
+              </h1>
+              <span className="text-[12px] font-normal text-[#666666]">
+                {sortedProducts.length} Products
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Select value={localSortBy} onValueChange={handleSortChange} className="w-40 sm:w-48 text-[12px]">
+                <SelectTrigger placeholder="Sort by" />
+                <SelectContent>
+                  {SHOP_SORT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {showSidebar && (
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[#1C1B1B] text-[#1C1B1B] text-[11px] font-semibold uppercase tracking-[0.16em] hover:bg-[#1C1B1B] hover:text-white transition-colors cursor-pointer"
+                >
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                     <line x1="4" y1="6" x2="20" y2="6" />
                     <line x1="4" y1="12" x2="20" y2="12" />
                     <line x1="4" y1="18" x2="20" y2="18" />
                   </svg>
-                  Filters
-                </span>
-                {activeFilterCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </MagneticButton>
-            )}
+                  <span>Filters</span>
+                  {activeFilterCount > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-[#C9A84C] text-[#1C1B1B] text-[10px] font-bold flex items-center justify-center">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
 
-            {/* Desktop Sidebar */}
-            {showSidebar && (
-              <ScrollRevealAnim variant="fadeUp" delay={0.2} className="lg:block hidden w-full lg:w-64 flex-shrink-0">
-                <div className="bg-[var(--color-snow)]/70 rounded-[var(--radius-lg)] p-5 border border-[var(--color-whisper)] sticky top-28 shadow-sm">
-                  <CategoryFilterFields
-                    filters={filters}
-                    onFilterChange={handleFilterChange}
-                    activeFilterCount={activeFilterCount}
-                    onClearFilters={handleClearFilters}
-                    categorySlug={categorySlug}
-                    categoryName={category.name}
-                    categoryCounts={categoryCounts}
-                    fabricCounts={fabricCounts}
-                    inStockCount={inStockCount}
-                    vidhyasCount={vidhyasCount}
-                    sidebarContent={activeCategoryContent?.sidebar}
-                  />
-                </div>
-              </ScrollRevealAnim>
-            )}
-
-            {/* Mobile Sidebar Drawer */}
-            <Drawer
-              isOpen={sidebarOpen}
-              onClose={() => setSidebarOpen(false)}
-              title="Filters"
-              description="Refine your collection"
-              size="lg"
-              position="right"
-              className="max-w-sm flex flex-col"
-            >
-              <div className="flex-1 overflow-y-auto p-6 max-h-[calc(100vh-140px)]">
-                <CategoryFilterFields
-                  filters={filters}
-                  onFilterChange={handleFilterChange}
-                  activeFilterCount={activeFilterCount}
-                  onClearFilters={handleClearFilters}
-                  categorySlug={categorySlug}
-                  categoryName={category.name}
-                  categoryCounts={categoryCounts}
-                  fabricCounts={fabricCounts}
-                  inStockCount={inStockCount}
-                  vidhyasCount={vidhyasCount}
-                />
-              </div>
-              <div className="p-4 border-t border-[var(--color-whisper)] bg-white flex items-center gap-3">
-                {activeFilterCount > 0 && (
-                  <Button variant="outline" size="sm" onClick={handleClearFilters} className="flex-1">
-                    Reset
-                  </Button>
-                )}
-                <Button variant="primary" size="sm" className="flex-1" onClick={() => setSidebarOpen(false)}>
-                  Show {sortedProducts.length} Pieces
+          {/* Slide-out Filters Drawer (Available on both desktop & mobile) */}
+          <Drawer
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            title="Filters"
+            description="Refine your collection"
+            size="lg"
+            position="right"
+            className="max-w-sm flex flex-col"
+          >
+            <div className="flex-1 overflow-y-auto p-6 max-h-[calc(100vh-140px)]">
+              <CategoryFilterFields
+                filters={filters}
+                onFilterChange={handleFilterChange}
+                activeFilterCount={activeFilterCount}
+                onClearFilters={handleClearFilters}
+                categorySlug={categorySlug}
+                categoryName={category.name}
+                categoryCounts={categoryCounts}
+                fabricCounts={fabricCounts}
+                inStockCount={inStockCount}
+                vidhyasCount={vidhyasCount}
+                sidebarContent={activeCategoryContent?.sidebar}
+              />
+            </div>
+            <div className="p-4 border-t border-[var(--color-whisper)] bg-white flex items-center gap-3">
+              {activeFilterCount > 0 && (
+                <Button variant="outline" size="sm" onClick={handleClearFilters} className="flex-1">
+                  Reset
                 </Button>
-              </div>
-            </Drawer>
+              )}
+              <Button variant="primary" size="sm" className="flex-1" onClick={() => setSidebarOpen(false)}>
+                Show {sortedProducts.length} Pieces
+              </Button>
+            </div>
+          </Drawer>
 
-            {/* Product Grid & Active Filters Bar */}
-            <ScrollRevealAnim variant="fadeUp" delay={0.1} className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                <p className="text-sm text-[var(--color-slate)]">
-                  Showing <span className="font-semibold text-[var(--color-ink)]">{sortedProducts.length}</span> of {allProducts.length} products
-                </p>
-                <div className="flex items-center gap-3">
-                  <Select value={localSortBy} onValueChange={handleSortChange} className="w-48">
-                    <SelectTrigger placeholder="Sort by" />
-                    <SelectContent>
-                      {SHOP_SORT_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+          {/* Product Grid & Active Filters Area */}
+          <ScrollRevealAnim variant="fadeUp" delay={0.1} className="w-full min-w-0">
 
               {/* Active Filter Pills Strip */}
               {activeFilterCount > 0 && (
@@ -918,7 +918,6 @@ export function CategoryPageClient({
                 </div>
               )}
             </ScrollRevealAnim>
-          </div>
         </div>
       </section>
 
@@ -1373,7 +1372,7 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
             )}
             columns={4}
             gap={0}
-            className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-0 w-full"
+            className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-x-4 lg:gap-y-8 w-full"
           />
         ) : (
           <StaggerContainer key="list" variant="default" className="space-y-4">

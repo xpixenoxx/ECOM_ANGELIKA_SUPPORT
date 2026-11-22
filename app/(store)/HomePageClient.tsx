@@ -564,7 +564,7 @@ export default function HomePageClient({
 
         return (
           <section className="section bg-white">
-            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+            <div className="max-w-[1560px] mx-auto px-4 sm:px-6 py-12">
               <div className="flex items-center justify-between border-b border-[#EBE6DE] pb-3 mb-8">
                 <h2 className="text-xs sm:text-sm font-bold uppercase tracking-[0.22em] text-[#111111]">
                   {headingTitle}
@@ -576,7 +576,7 @@ export default function HomePageClient({
                   {ctaText}
                 </Link>
               </div>
-              <StaggerContainer variant="fast" className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-0 w-full">
+              <StaggerContainer variant="fast" className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-x-4 lg:gap-y-8 w-full">
                 {productsToDisplay.length > 0 ? (
                   productsToDisplay.map((product: any, index: number) => {
                     const imgUrl = product.image || product.images?.[0]?.url || '/images/placeholder.jpg';

@@ -47,9 +47,9 @@ export interface ProductGridProps {
 }
 
 const gapStyles = {
-  sm: 'gap-2 sm:gap-3 lg:gap-0',
-  md: 'gap-3 sm:gap-4 lg:gap-0',
-  lg: 'gap-4 sm:gap-6 lg:gap-0',
+  sm: 'gap-2 sm:gap-3 lg:gap-x-3 lg:gap-y-6',
+  md: 'gap-3 sm:gap-4 lg:gap-x-4 lg:gap-y-8',
+  lg: 'gap-4 sm:gap-6 lg:gap-x-6 lg:gap-y-10',
 };
 
 const columnStyles = {
