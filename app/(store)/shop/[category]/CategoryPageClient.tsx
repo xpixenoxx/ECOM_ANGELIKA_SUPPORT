@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card, ProductCard } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Select, SelectTrigger, SelectContent, SelectValue, SelectItem } from '@/components/ui/Select';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Slider } from '@/components/ui/Slider';
 import { Drawer } from '@/components/ui/Drawer';
@@ -105,6 +104,23 @@ export function CategoryPageClient({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [localSortBy, setLocalSortBy] = useState(sortBy);
   const [isClientLoaded, setIsClientLoaded] = useState(false);
+  const [isModelView, setIsModelView] = useState(true);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    }
+    if (isSortOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isSortOpen]);
   const activeCategoryContent = shopContent || salwarsContent || lehengasContent || sareesContent || dupattasContent;
 
   // Dynamic Kurtis Page configurations from admin panel
@@ -553,52 +569,107 @@ export function CategoryPageClient({
       )}
 
       {/* Main Content (Edge-to-Edge 4-Column Luxury Grid) */}
-      <section className="py-6 sm:py-8 bg-white">
-        <div className="max-w-[1560px] mx-auto px-4 sm:px-6">
-          {/* Header Bar: Category title / count + Filter & Sort actions */}
-          <div className="flex flex-row items-center justify-between pb-4 mb-4 border-b border-[#EBE6DE]">
-            <div>
-              <h1 className="text-sm sm:text-base font-semibold uppercase tracking-[0.16em] text-[#1C1B1B] inline-block mr-3">
-                {pageTitle}
-              </h1>
-              <span className="text-[12px] font-normal text-[#666666]">
-                {sortedProducts.length} Products
-              </span>
-            </div>
+      <section className="bg-white">
+        {/* Luxury Minimal Toolbar Strip matching inspect spec (34 PRODUCTS | [o ] MODEL VIEW | SORT BY v | FILTERS) */}
+        <div className="w-full border-t border-b border-[#EAE6DE] bg-white sticky top-[68px] sm:top-[76px] z-30">
+          <div className="max-w-[1560px] mx-auto px-4 sm:px-6 md:px-8 py-3.5 flex items-center justify-between">
+            {/* Left: Product count */}
+            <span className="text-[11px] font-medium uppercase tracking-[0.2em] text-[#1C1B1B] select-none">
+              {sortedProducts.length} PRODUCTS
+            </span>
 
-            <div className="flex items-center gap-3">
-              <Select value={localSortBy} onValueChange={handleSortChange} className="w-40 sm:w-48 text-[12px]">
-                <SelectTrigger placeholder="Sort by" />
-                <SelectContent>
-                  {SHOP_SORT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Right: Model View Toggle, Sort By, Filters */}
+            <div className="flex items-center gap-6 sm:gap-8">
+              {/* Model View Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsModelView(!isModelView)}
+                className="flex items-center gap-2 cursor-pointer group select-none"
+                aria-label="Toggle Model View"
+              >
+                <div
+                  className={cn(
+                    "w-[34px] h-[18px] rounded-full p-[2px] flex items-center transition-colors duration-200",
+                    isModelView ? "bg-[#1C1B1B]" : "bg-[#D1D1D1]"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-[14px] h-[14px] rounded-full bg-white shadow-xs transition-transform duration-200",
+                      isModelView ? "translate-x-[16px]" : "translate-x-0"
+                    )}
+                  />
+                </div>
+                <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#1C1B1B] group-hover:opacity-70 transition-opacity">
+                  MODEL VIEW
+                </span>
+              </button>
+
+              {/* Sort By Dropdown */}
+              <div className="relative" ref={sortDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsSortOpen(!isSortOpen)}
+                  className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-[#1C1B1B] hover:opacity-70 transition-opacity cursor-pointer select-none"
+                  aria-expanded={isSortOpen}
+                >
+                  <span>SORT BY</span>
+                  <svg
+                    className={cn("w-3 h-3 text-[#1C1B1B] transition-transform duration-200", isSortOpen && "rotate-180")}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    aria-hidden="true"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+
+                {isSortOpen && (
+                  <div className="absolute right-0 mt-3 w-52 bg-white border border-[#EAE6DE] shadow-xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                    {SHOP_SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          handleSortChange(opt.value);
+                          setIsSortOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-4 py-2 text-xs uppercase tracking-[0.12em] transition-colors cursor-pointer",
+                          localSortBy === opt.value
+                            ? "font-bold text-[#1C1B1B] bg-[#F7F5F0]"
+                            : "text-[#666666] hover:bg-[#FAF8F5] hover:text-[#1C1B1B]"
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {showSidebar && (
                 <button
                   type="button"
                   onClick={() => setSidebarOpen(true)}
-                  className="inline-flex items-center gap-2 px-3.5 py-1.5 border border-[#1C1B1B] text-[#1C1B1B] text-[11px] font-semibold uppercase tracking-[0.16em] hover:bg-[#1C1B1B] hover:text-white transition-colors cursor-pointer"
+                  className="text-[11px] font-medium uppercase tracking-[0.18em] text-[#1C1B1B] hover:opacity-70 transition-opacity cursor-pointer select-none flex items-center gap-1"
+                  aria-label="Open Filters"
                 >
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <line x1="4" y1="6" x2="20" y2="6" />
-                    <line x1="4" y1="12" x2="20" y2="12" />
-                    <line x1="4" y1="18" x2="20" y2="18" />
-                  </svg>
-                  <span>Filters</span>
+                  <span>FILTERS</span>
                   {activeFilterCount > 0 && (
-                    <span className="w-4 h-4 rounded-full bg-[#C9A84C] text-[#1C1B1B] text-[10px] font-bold flex items-center justify-center">
-                      {activeFilterCount}
+                    <span className="text-[10px] font-bold text-[#B85D3B]">
+                      ({activeFilterCount})
                     </span>
                   )}
                 </button>
               )}
             </div>
           </div>
+        </div>
+
+        <div className="max-w-[1560px] mx-auto px-4 sm:px-6 pt-6 pb-12">
 
           {/* Slide-out Filters Drawer (Available on both desktop & mobile) */}
           <Drawer
@@ -761,6 +832,7 @@ export function CategoryPageClient({
                   filters={filters}
                   onFilterChange={handleFilterChange}
                   onAddToBag={handleAddToBag}
+                  isModelView={isModelView}
                 />
               ) : (
                 <ScrollRevealAnim variant="fadeUp" className="text-center py-20 px-6 border border-dashed border-[var(--color-gold)]/40 rounded-[var(--radius-lg)] bg-[var(--color-snow)]/40">
@@ -1142,13 +1214,14 @@ function CategoryFilterFields({
 }
 
 // ProductGridView component
-function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilterChange, onAddToBag }: {
+function ProductGridView({ products, viewMode = 'grid', onViewModeChange, filters, onFilterChange, onAddToBag, isModelView = true }: {
   products: any[];
-  viewMode: 'grid' | 'list';
-  onViewModeChange: (mode: 'grid' | 'list') => void;
+  viewMode?: 'grid' | 'list';
+  onViewModeChange?: (mode: 'grid' | 'list') => void;
   filters: any;
   onFilterChange: (key: string, value: any) => void;
   onAddToBag: (product: any) => void;
+  isModelView?: boolean;
 }) {
   const { toggleItem, isInWishlist } = useWishlist();
 
@@ -1171,80 +1244,41 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
   };
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-[var(--color-slate)]">View:</span>
-          <div className="flex bg-[var(--color-snow)] rounded-[var(--radius-md)] p-1">
-            <MagneticButton
-              variant="ghost"
-              size="sm"
-              strength={0.3}
-              onClick={() => onViewModeChange('grid')}
-              className={cn(
-                'p-2 rounded-[var(--radius-sm)] transition-colors',
-                viewMode === 'grid' ? 'bg-white text-[var(--color-ink)] shadow-[var(--shadow-sm)]' : 'text-[var(--color-mist)] hover:text-[var(--color-ink)]'
-              )}
-              aria-label="Grid view"
-              aria-pressed={viewMode === 'grid'}
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-              </svg>
-            </MagneticButton>
-            <MagneticButton
-              variant="ghost"
-              size="sm"
-              strength={0.3}
-              onClick={() => onViewModeChange('list')}
-              className={cn(
-                'p-2 rounded-[var(--radius-sm)] transition-colors',
-                viewMode === 'list' ? 'bg-white text-[var(--color-ink)] shadow-[var(--shadow-sm)]' : 'text-[var(--color-mist)] hover:text-[var(--color-ink)]'
-              )}
-              aria-label="List view"
-              aria-pressed={viewMode === 'list'}
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </MagneticButton>
-          </div>
-        </div>
-      </div>
-
       <AnimatePresence mode="popLayout">
         {viewMode === 'grid' ? (
           <StaggerGrid
             key="grid"
             items={products}
-            renderItem={(product, index) => (
-              <StaggerItem variant="scale" style={{ transitionDelay: `${index * 0.05}s` }}>
-                <div className="group w-full">
-                  <ProductCard
-                    {...product}
-                    image={product.image || product.images?.[0]?.url || '/images/collection-kurtis.jpg'}
-                    name={product.name}
-                    price={product.price}
-                    originalPrice={product.originalPrice || product.compare_at_price}
-                    category={product.category?.name || product.category || 'Ethnic Wear'}
-                    isNew={product.isNew || product.is_featured}
-                    isSale={product.isSale || (product.discount && product.discount > 0)}
-                    isVidhyasPick={product.isVidhyasPick || product.is_vidyas_pick}
-                    discount={product.discount}
-                    rating={product.rating || 4.8}
-                    reviewCount={product.reviewCount || 12}
-                    href={product.slug ? `/product/${product.slug}` : '/shop'}
-                    onAddToBag={() => onAddToBag(product)}
-                    onAddToWishlist={() => handleToggleWishlist(product)}
-                    isWishlisted={isInWishlist(product.slug || product.id)}
-                  />
-                </div>
-              </StaggerItem>
-            )}
+            renderItem={(product, index) => {
+              const primaryImg = product.image || product.images?.[0]?.url || product.images?.[0] || '/images/collection-kurtis.jpg';
+              const secondImg = product.images?.[1]?.url || product.images?.[1];
+              const displayImg = (!isModelView && secondImg) ? secondImg : primaryImg;
+
+              return (
+                <StaggerItem variant="scale" style={{ transitionDelay: `${index * 0.05}s` }}>
+                  <div className="group w-full">
+                    <ProductCard
+                      {...product}
+                      image={displayImg}
+                      name={product.name}
+                      price={product.price}
+                      originalPrice={product.originalPrice || product.compare_at_price}
+                      category={product.category?.name || product.category || 'Ethnic Wear'}
+                      isNew={product.isNew || product.is_featured}
+                      isSale={product.isSale || (product.discount && product.discount > 0)}
+                      isVidhyasPick={product.isVidhyasPick || product.is_vidyas_pick}
+                      discount={product.discount}
+                      rating={product.rating || 4.8}
+                      reviewCount={product.reviewCount || 12}
+                      href={product.slug ? `/product/${product.slug}` : '/shop'}
+                      onAddToBag={() => onAddToBag(product)}
+                      onAddToWishlist={() => handleToggleWishlist(product)}
+                      isWishlisted={isInWishlist(product.slug || product.id)}
+                    />
+                  </div>
+                </StaggerItem>
+              );
+            }}
             columns={4}
             gap={0}
             className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-x-4 lg:gap-y-8 w-full"
