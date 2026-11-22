@@ -375,48 +375,28 @@ export function ProductCard({
 
       {/* ── 2. Title & Price Wrapper (div.title-price-wrapper: 276.71 x 37.95, font: 13px) ── */}
       <div className="title-price-wrapper w-full pt-[10px] px-0 pb-0">
-        <div className="flex items-start justify-between gap-2 w-full">
-          <div className="flex-1 min-w-0">
-            {/* Product Title (a.product-title-text.product-href: 235.2 x 19.8, font: 12px, color: #1C1B1B) */}
-            {isValidHref ? (
-              <Link href={finalHref} className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate hover:underline" title={name}>
-                {name}
-              </Link>
-            ) : (
-              <span className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate" title={name}>
-                {name}
+        <div className="w-full">
+          {/* Product Title (a.product-title-text.product-href: 235.2 x 19.8, font: 12px, color: #1C1B1B) */}
+          {isValidHref ? (
+            <Link href={finalHref} className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate hover:underline" title={name}>
+              {name}
+            </Link>
+          ) : (
+            <span className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate" title={name}>
+              {name}
+            </span>
+          )}
+
+          {/* Product Price (span.money: 47.13 x 14.4, font: 11px, color: #2D333D, text: ₹ 17,000) */}
+          <div className="flex items-baseline gap-2 mt-[2px]">
+            <span className="money text-[11px] font-normal text-[#2D333D] tabular-nums">
+              ₹ {price.toLocaleString('en-IN')}
+            </span>
+            {originalPrice && originalPrice > price && (
+              <span className="text-[10px] text-[#8C877F] line-through tabular-nums">
+                ₹ {originalPrice.toLocaleString('en-IN')}
               </span>
             )}
-
-            {/* Product Price (span.money: 47.13 x 14.4, font: 11px, color: #2D333D, text: ₹ 17,000) */}
-            <div className="flex items-baseline gap-2 mt-[2px]">
-              <span className="money text-[11px] font-normal text-[#2D333D] tabular-nums">
-                ₹ {price.toLocaleString('en-IN')}
-              </span>
-              {originalPrice && originalPrice > price && (
-                <span className="text-[10px] text-[#8C877F] line-through tabular-nums">
-                  ₹ {originalPrice.toLocaleString('en-IN')}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Minimal Shopping Bag Icon / Quick Add on right side */}
-          <div className="shrink-0 flex items-center gap-1.5 pt-0.5">
-            <button
-              type="button"
-              onClick={handleAddToBag}
-              disabled={isAdding}
-              className="p-1 text-[#1C1B1B] hover:opacity-70 transition-opacity cursor-pointer shrink-0"
-              aria-label={`Add ${name} to bag`}
-              title={isAdded ? "Added to bag" : "Add to bag"}
-            >
-              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
-                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
-            </button>
           </div>
         </div>
 
