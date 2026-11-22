@@ -109,28 +109,9 @@ export function CategoryPageClient({
 
   // Dynamic Kurtis Page configurations from admin panel
   const isKurtis = (categorySlug || '').toLowerCase() === 'kurtis';
-  const pageBadge = isKurtis && kurtisContent?.badge
-    ? kurtisContent.badge
-    : activeCategoryContent?.hero?.badge || 'Handcrafted Luxury Edit';
   const pageTitle = isKurtis && kurtisContent?.title
     ? kurtisContent.title
     : (activeCategoryContent?.hero?.title || category.name || 'All Collections');
-  const pageDesc = isKurtis && kurtisContent?.description
-    ? kurtisContent.description
-    : (activeCategoryContent?.hero?.description || category.description || 'Discover our curated collection of handcrafted Indian ethnic couture.');
-  const heroBg = isKurtis && kurtisContent?.heroImage
-    ? kurtisContent.heroImage
-    : (activeCategoryContent?.hero?.backgroundImage || category.image_url || '/images/hero-new-couture.jpg');
-  const cardImg = isKurtis && kurtisContent?.cardImage
-    ? kurtisContent.cardImage
-    : (activeCategoryContent?.hero?.featuredCardImage || category.image_url || '/images/collection-kurtis.jpg');
-  const cardBadgeText = isKurtis && kurtisContent?.cardBadge
-    ? kurtisContent.cardBadge
-    : (activeCategoryContent?.hero?.featuredCardTag || 'Curated by Vidhya');
-  const cardSubtitleText = isKurtis && kurtisContent?.cardSubtitle
-    ? kurtisContent.cardSubtitle
-    : (activeCategoryContent?.hero?.featuredCardText || `${totalCount} Pieces`);
-  const showPromo = isKurtis && kurtisContent?.showPromoBanner !== false && Boolean(kurtisContent?.promoText);
   const showCategoryNav = isKurtis ? kurtisContent?.showCategoryStrip !== false : true;
   const showSidebar = isKurtis ? kurtisContent?.showSidebar !== false : true;
   const showStyling = isKurtis && kurtisContent?.showStylingGuide !== false;
@@ -518,123 +499,7 @@ export function CategoryPageClient({
   }));
 
   return (
-    <div className="min-h-screen bg-[var(--color-white)]">
-      {/* Page Header with Hero Banner */}
-      <section className="relative bg-gradient-to-r from-[#171412] via-[#2A231C] to-[#171412] text-white border-b border-[var(--color-whisper)] py-12 md:py-16 overflow-hidden">
-        {/* Subtle background ambient image */}
-        <div className="absolute inset-0 opacity-20 mix-blend-overlay">
-          <img
-            src={heroBg}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/30" />
-
-        <div className="container-custom px-6 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-            <ScrollRevealAnim variant="fadeUp" className="max-w-2xl">
-              <nav className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/60 mb-4" aria-label="Breadcrumb">
-                <Link href="/" className="hover:text-[var(--color-gold)] transition-colors">Home</Link>
-                <span aria-hidden="true">/</span>
-                <Link href="/shop" className="hover:text-[var(--color-gold)] transition-colors">Shop</Link>
-                <span aria-hidden="true">/</span>
-                <span className="text-[var(--color-gold)] font-medium capitalize">{pageTitle}</span>
-              </nav>
-
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-gold)]/20 border border-[var(--color-gold)]/40 text-[var(--color-gold)] text-xs uppercase tracking-widest font-semibold mb-3">
-                <span>{pageBadge}</span>
-              </div>
-
-              <h1 className="text-[var(--font-display)] text-4xl md:text-5xl lg:text-6xl font-normal text-white mb-3 capitalize">
-                {pageTitle}
-              </h1>
-              <p className="text-white/80 text-base md:text-lg max-w-xl font-light leading-relaxed">
-                {pageDesc}
-              </p>
-            </ScrollRevealAnim>
-
-            {/* Featured category banner card */}
-            {(activeCategoryContent?.hero?.showFeaturedCard ?? true) && (
-              <ScrollRevealAnim variant="fadeLeft" delay={0.2} className="hidden md:block w-72 flex-shrink-0">
-                <div className="relative rounded-[var(--radius-lg)] overflow-hidden border border-[var(--color-gold)]/40 shadow-2xl bg-black/40 backdrop-blur-sm group">
-                  <div className="aspect-[4/3] overflow-hidden">
-                    <img
-                      src={cardImg}
-                      alt={pageTitle}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="p-3 bg-black/80 backdrop-blur-md flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-wider text-[var(--color-gold)] font-medium">{cardBadgeText}</span>
-                    <span className="text-xs text-white/70">{cardSubtitleText}</span>
-                  </div>
-                </div>
-              </ScrollRevealAnim>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Promotional Announcement Banner */}
-      {showPromo ? (
-        <section className="bg-gradient-to-r from-[var(--color-ink)] via-[#2b241c] to-[var(--color-ink)] text-white border-b border-[var(--color-gold)]/40 py-3 px-6 shadow-md">
-          <div className="container-custom flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              {kurtisContent?.promoBadge && (
-                <span className="px-2.5 py-0.5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold uppercase tracking-wider">
-                  {kurtisContent.promoBadge}
-                </span>
-              )}
-              <p className="text-xs sm:text-sm text-white/95 font-medium">
-                {kurtisContent?.promoText}
-              </p>
-            </div>
-            {kurtisContent?.promoCtaText && (
-              <Link
-                href={kurtisContent.promoCtaLink || '/shop/kurtis'}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-gold)] hover:text-white uppercase tracking-wider transition-colors shrink-0"
-              >
-                <span>{kurtisContent.promoCtaText}</span>
-                <span>→</span>
-              </Link>
-            )}
-          </div>
-        </section>
-      ) : activeCategoryContent?.announcement?.enabled ? (
-        <section className="bg-gradient-to-r from-[#1b1714] via-[#2A231C] to-[#1b1714] text-white py-3 px-4 border-b border-[var(--color-gold)]/30 shadow-inner">
-          <div className="container-custom px-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="px-2.5 py-0.5 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] font-bold text-[10px] uppercase tracking-wider shadow-xs">
-                {activeCategoryContent?.announcement?.badge || 'Offer'}
-              </span>
-              <span className="text-white/90 font-medium">
-                {activeCategoryContent.announcement.headline}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              {activeCategoryContent.announcement.code && (
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-black/60 border border-[var(--color-gold)]/40 shadow-xs">
-                  <span className="text-white/60 text-[10px] uppercase tracking-wider font-semibold">CODE:</span>
-                  <span className="font-mono font-bold text-[var(--color-gold)] text-xs tracking-wider">
-                    {activeCategoryContent.announcement.code}
-                  </span>
-                </div>
-              )}
-              {activeCategoryContent.announcement.link && (
-                <Link
-                  href={activeCategoryContent.announcement.link}
-                  className="text-[var(--color-gold)] hover:text-white transition-colors font-medium text-xs flex items-center gap-1"
-                >
-                  <span>{activeCategoryContent?.announcement?.linkText || 'Shop Offer →'}</span>
-                  <span>→</span>
-                </Link>
-              )}
-            </div>
-          </div>
-        </section>
-      ) : null}
-
+    <div className="min-h-screen bg-white">
       {/* Visual Category Quick-Browse Strip (Inspect: div.img-scroll-div 1397.38px × 199.4px, margin: 0 21.71px, padding: 0 10px) */}
       {(showCategoryNav && (activeCategoryContent?.navigation?.enabled ?? true)) && (
         <section className="bg-white border-b border-[#F0EBE1] py-2">
