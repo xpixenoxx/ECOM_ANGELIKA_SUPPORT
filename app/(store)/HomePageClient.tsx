@@ -328,23 +328,25 @@ export default function HomePageClient({
   return (
     <div className="bg-[var(--color-sand)] text-[var(--color-ink)]">
       {/* Hero Section */}
-      <section className="relative min-h-[92vh] min-h-[92dvh] md:min-h-[96vh] md:min-h-[96dvh] flex items-center overflow-hidden mb-[10px]" style={{ marginBottom: '10px' }}>
+      <section className="relative min-h-[580px] md:min-h-[660px] lg:min-h-[720px] max-h-[820px] flex items-center overflow-hidden mb-[10px]" style={{ marginBottom: '10px' }}>
         <Image
           src={heroBg}
           alt={heroBgAlt}
           fill
           priority
-          className="object-cover object-[80%_center] md:object-right lg:object-center z-0"
+          quality={100}
+          unoptimized
+          className="object-cover object-left z-0"
           sizes="100vw"
         />
 
-        {/* Editorial Cinematic Overlays for Text Legibility */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent z-[1]" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 z-[1]" />
+        {/* Crisp, Crystal-Clear Overlays: Left side (Model) is 100% clear and unblurred; subtle right-side gradient for text legibility */}
+        <div className="hidden md:block absolute inset-0 bg-gradient-to-l from-black/65 via-black/25 to-transparent z-[1] pointer-events-none" />
+        <div className="md:hidden absolute inset-0 bg-black/40 z-[1] pointer-events-none" />
 
-        <div className="relative z-10 container-custom px-6 sm:px-10 py-24 md:py-32">
+        <div className="relative z-10 container-custom px-6 sm:px-10 py-16 md:py-24 flex justify-end w-full">
           <motion.div
-            className="max-w-lg lg:max-w-xl text-left"
+            className="max-w-lg lg:max-w-xl text-left ml-auto"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
