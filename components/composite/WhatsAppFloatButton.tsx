@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/Button';
 import { SocialIcon } from '@/components/ui/SocialIcon';
+import { WhatsAppIcon } from '@/components/ui/WhatsAppIcon';
 
 export interface WhatsAppAction {
   label: string;
@@ -212,10 +213,8 @@ export function WhatsAppFloatButton({
               >
                 <div className="p-4 bg-[var(--color-gold)] text-[var(--color-ink)] flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                      <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm.01 16.72c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c.02 4.54-3.68 8.23-8.22 8.23zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.4-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.61.12.17 1.78 2.71 4.3 3.8.6.26 1.07.41 1.44.53.6.19 1.15.16 1.59.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.23-.17-.48-.29z" />
-                      </svg>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+                      <WhatsAppIcon className="w-10 h-10" />
                     </div>
                     <div>
                       <p className="font-semibold text-sm">{businessName}</p>
@@ -290,7 +289,7 @@ export function WhatsAppFloatButton({
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)] focus-visible:ring-offset-2',
               isExpanded
                 ? 'w-12 h-12 rounded-full bg-[var(--color-ink)] border-[var(--color-gold)] text-white justify-center'
-                : 'rounded-full bg-[var(--color-ink)] hover:bg-[#25221E] border-[var(--color-gold)]/60 hover:border-[var(--color-gold)] p-1.5 md:pr-4 md:pl-2'
+                : 'rounded-full bg-[var(--color-ink)] hover:bg-[#25221E] border-[var(--color-gold)]/60 hover:border-[var(--color-gold)] p-1 md:pr-4 md:pl-1.5'
             )}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
@@ -304,12 +303,10 @@ export function WhatsAppFloatButton({
               </svg>
             ) : (
               <div className="flex items-center gap-2.5">
-                {/* Official WhatsApp SVG Icon Badge */}
-                <div className="relative w-10 h-10 rounded-full bg-[#25D366] text-white flex items-center justify-center flex-shrink-0 shadow-md transition-transform group-hover:scale-105">
-                  <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm.01 16.72c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.2 8.2 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24 2.2 0 4.27.86 5.82 2.42a8.18 8.18 0 0 1 2.41 5.83c.02 4.54-3.68 8.23-8.22 8.23zm4.52-6.16c-.25-.12-1.47-.72-1.7-.81-.23-.08-.4-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43s-.56-1.34-.76-1.84c-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1 0 1.24.9 2.44 1.03 2.61.12.17 1.78 2.71 4.3 3.8.6.26 1.07.41 1.44.53.6.19 1.15.16 1.59.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.23-.17-.48-.29z" />
-                  </svg>
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#22C55E] border-2 border-[var(--color-ink)]" />
+                {/* Official WhatsApp Vector Icon */}
+                <div className="relative w-10 h-10 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105">
+                  <WhatsAppIcon className="w-10 h-10" />
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A34A] border-2 border-[var(--color-ink)]" />
                 </div>
 
                 {/* Desktop Text Details */}
