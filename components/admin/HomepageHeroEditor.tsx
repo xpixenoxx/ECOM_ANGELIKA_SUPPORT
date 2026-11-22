@@ -963,9 +963,15 @@ export function HomepageHeroEditor({ onCancel, onSaved }: HomepageHeroEditorProp
 
           {/* Concierge Badge Preview */}
           <div className="p-6 rounded-lg bg-zinc-900 flex justify-end">
-            <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-full bg-black/80 border border-white/10 shadow-xl">
-              <div className="w-8 h-8 rounded-full bg-[var(--color-gold)] text-black flex items-center justify-center font-bold text-xs">
-                💬
+            <div className="inline-flex items-center gap-3 px-3 py-1.5 rounded-full bg-black/80 border border-white/10 shadow-xl">
+              <div className="relative w-8 h-8 flex items-center justify-center flex-shrink-0">
+                <img
+                  src="https://media.limechat.in/lcmedia/assets/images/whatsapp/static-without-stroke.png"
+                  alt="WhatsApp Icon"
+                  className="w-8 h-8 object-contain"
+                  style={{ width: '32px', opacity: 1 }}
+                />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#16A34A] border border-black" />
               </div>
               <div className="flex flex-col items-start pr-2">
                 <span className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-gold)]">

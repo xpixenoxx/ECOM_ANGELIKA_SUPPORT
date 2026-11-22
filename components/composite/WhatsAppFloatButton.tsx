@@ -212,8 +212,13 @@ export function WhatsAppFloatButton({
               >
                 <div className="p-4 bg-[var(--color-gold)] text-[var(--color-ink)] flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--color-ink)] flex items-center justify-center">
-                      <SocialIcon platform="whatsapp" size="lg" className="text-[var(--color-gold)]" />
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+                      <img
+                        src="https://media.limechat.in/lcmedia/assets/images/whatsapp/static-without-stroke.png"
+                        alt="WhatsApp Icon"
+                        className="w-10 h-10 object-contain"
+                        style={{ width: '40px', opacity: 1 }}
+                      />
                     </div>
                     <div>
                       <p className="font-semibold text-sm">{businessName}</p>
@@ -288,7 +293,7 @@ export function WhatsAppFloatButton({
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)] focus-visible:ring-offset-2',
               isExpanded
                 ? 'w-12 h-12 rounded-full bg-[var(--color-ink)] border-[var(--color-gold)] text-white justify-center'
-                : 'rounded-full bg-[var(--color-ink)] hover:bg-[#25221E] border-[var(--color-gold)]/60 hover:border-[var(--color-gold)] p-1.5 md:pr-4 md:pl-2'
+                : 'rounded-full bg-[var(--color-ink)] hover:bg-[#25221E] border-[var(--color-gold)]/60 hover:border-[var(--color-gold)] p-1 md:pr-4 md:pl-1.5'
             )}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
@@ -302,9 +307,14 @@ export function WhatsAppFloatButton({
               </svg>
             ) : (
               <div className="flex items-center gap-2.5">
-                {/* Gold WhatsApp Icon Disc */}
-                <div className="relative w-10 h-10 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] flex items-center justify-center flex-shrink-0 shadow-sm transition-transform group-hover:scale-105">
-                  <SocialIcon platform="whatsapp" size="md" />
+                {/* Official LimeChat WhatsApp Icon */}
+                <div className="relative w-11 h-11 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105">
+                  <img
+                    src="https://media.limechat.in/lcmedia/assets/images/whatsapp/static-without-stroke.png"
+                    alt="WhatsApp Icon"
+                    style={{ width: '44px', opacity: 1 }}
+                    className="w-11 h-11 object-contain"
+                  />
                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A34A] border-2 border-[var(--color-ink)]" />
                 </div>
 
