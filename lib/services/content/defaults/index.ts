@@ -936,7 +936,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       "inStock": true,
       "isVidhyasPick": true,
       "rating": 4.8,
-      "reviewCount": 12
+      "reviewCount": 12,
+      "occasion": ["Party", "Festive", "Wedding", "Reception"],
+      "tags": ["Sarees", "Kanjivaram", "Silk", "Gold Zari", "Party Wear Sarees", "Wedding", "Festive"]
     },
     {
       "id": "saree-2",
@@ -957,7 +959,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       "inStock": true,
       "isVidhyasPick": false,
       "rating": 4.8,
-      "reviewCount": 12
+      "reviewCount": 12,
+      "occasion": ["Party", "Festive", "Celebration", "Office"],
+      "tags": ["Sarees", "Chanderi", "Gold Zari", "Handwoven", "Party Wear Sarees", "Office Wear Sarees", "Festive"]
     },
     {
       "id": "saree-3",
@@ -978,7 +982,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       "inStock": true,
       "isVidhyasPick": true,
       "rating": 4.8,
-      "reviewCount": 12
+      "reviewCount": 12,
+      "occasion": ["Party", "Festive", "Cocktail", "Evening"],
+      "tags": ["Sarees", "Chikankari", "Mukaish", "Georgette", "Party Wear Sarees", "Pastel"]
     },
     {
       "id": "saree-4",
@@ -999,7 +1005,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       "inStock": true,
       "isVidhyasPick": false,
       "rating": 4.8,
-      "reviewCount": 12
+      "reviewCount": 12,
+      "occasion": ["Daily Wear", "Casual", "Office", "Workwear"],
+      "tags": ["Sarees", "Mulberry Silk", "Classic", "Daily Wear Sarees", "Office Wear Sarees", "Casual"]
     },
     {
       "id": "saree-5",
@@ -1020,7 +1028,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       "inStock": true,
       "isVidhyasPick": true,
       "rating": 4.8,
-      "reviewCount": 12
+      "reviewCount": 12,
+      "occasion": ["Party", "Wedding", "Festive", "Cocktail"],
+      "tags": ["Sarees", "Banarasi", "Brocade", "Silk", "Party Wear Sarees", "Wedding", "Festive"]
     },
     {
       "id": "saree-6",
@@ -1041,7 +1051,9 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
       "inStock": true,
       "isVidhyasPick": false,
       "rating": 4.8,
-      "reviewCount": 12
+      "reviewCount": 12,
+      "occasion": ["Party", "Casual", "Daily Wear", "Office", "Day Event"],
+      "tags": ["Sarees", "Organza", "Hand-Painted", "Floral", "Party Wear Sarees", "Daily Wear Sarees", "Office Wear Sarees"]
     }
   ]
 },

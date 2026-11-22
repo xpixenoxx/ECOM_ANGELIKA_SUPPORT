@@ -13,6 +13,7 @@ export interface CatalogueProduct {
   color?: string;
   colorFamily?: 'red' | 'green' | 'blue' | 'gold' | 'yellow' | 'pink' | 'white' | 'black';
   tags?: string[];
+  occasion?: string[];
   vidhyaNote?: string;
   origin?: string;
   discount?: number;

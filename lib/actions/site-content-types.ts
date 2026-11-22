@@ -120,6 +120,8 @@ export interface SalwarProductItem {
   isVidhyasPick?: boolean;
   rating?: number;
   reviewCount?: number;
+  occasion?: string[] | string;
+  tags?: string[];
 }
 
 export interface SalwarsCollectionNavItem {

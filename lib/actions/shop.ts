@@ -3,6 +3,7 @@
 import { createPublicClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import type { ShopProductCard, ShopFilters } from './shop-types';
+import { STORE_CATALOGUE, type CatalogueProduct } from '@/lib/data/store-catalogue';
 
 type CategoryRow = Database['public']['Tables']['categories']['Row'];
 
@@ -85,6 +86,85 @@ function mapProductToCard(p: any): ShopProductCard {
   };
 }
 
+function mapCatalogueProductToCard(p: CatalogueProduct): ShopProductCard {
+  const catSlug = (p.category || 'kurtis').toLowerCase();
+  const slug = p.href ? p.href.replace(/^\/product\//, '') : p.id;
+  const price = p.price || 4999;
+  const compareAt = p.originalPrice || null;
+  const discount = p.discount || (compareAt && compareAt > price ? Math.round(((compareAt - price) / compareAt) * 100) : 0);
+  const img = p.image || `/images/collection-${catSlug}.jpg`;
+
+  const tags = p.tags || [];
+  const text = `${p.title} ${tags.join(' ')} ${p.fabric || ''} ${p.category}`.toLowerCase();
+  const occasions: string[] = p.occasion ? [...p.occasion] : [];
+  if (occasions.length === 0) {
+    if (text.includes('party') || text.includes('evening') || text.includes('sangeet') || text.includes('wedding') || text.includes('reception') || text.includes('zari') || text.includes('zardozi') || text.includes('kanjivaram') || text.includes('banarasi') || text.includes('tissue') || text.includes('organza') || text.includes('velvet') || text.includes('cocktail')) {
+      occasions.push('Party', 'Festive');
+    }
+    if (text.includes('wedding') || text.includes('bridal') || text.includes('zari') || text.includes('kanjivaram') || text.includes('zardozi')) {
+      occasions.push('Wedding', 'Reception');
+    }
+    if (text.includes('office') || text.includes('workwear') || text.includes('palazzo') || text.includes('cotton') || text.includes('mulberry') || text.includes('chanderi') || text.includes('ajrakh')) {
+      occasions.push('Office', 'Workwear', 'Formal');
+    }
+    if (text.includes('daily') || text.includes('casual') || text.includes('summer') || text.includes('block print') || text.includes('mulmul')) {
+      occasions.push('Casual', 'Daily Wear');
+    }
+    if (occasions.length === 0) {
+      occasions.push('Festive', 'Celebration');
+    }
+  }
+
+  return {
+    id: p.id,
+    slug,
+    name: p.title,
+    price,
+    compare_at_price: compareAt,
+    image: img,
+    images: [{
+      id: `img-${p.id}`,
+      product_id: p.id,
+      url: img,
+      alt_text: p.title,
+      sort_order: 0,
+      is_primary: true,
+      created_at: new Date().toISOString(),
+      type: 'image',
+      variant_id: null,
+    }] as any,
+    category: {
+      id: `cat-${catSlug}`,
+      name: p.category,
+      slug: catSlug,
+      description: null,
+      image_url: img,
+      parent_id: null,
+      sort_order: 1,
+      is_active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any,
+    discount,
+    is_featured: Boolean(p.isVidhyasPick),
+    is_vidyas_pick: Boolean(p.isVidhyasPick),
+    created_at: new Date().toISOString(),
+    rating: 4.8,
+    review_count: 12,
+    variants: ['S', 'M', 'L', 'XL'].map((sz, idx) => ({
+      id: `var-${p.id}-${idx}`,
+      size: sz,
+      price,
+      compare_at_price: compareAt,
+      inventory_quantity: 10,
+    })),
+    defaultVariantId: `var-${p.id}-0`,
+    fabric: p.fabric || 'Pure Silk',
+    tags: Array.from(new Set([...tags, p.fabric || '', p.category, ...occasions])),
+    occasion: Array.from(new Set(occasions)),
+  };
+}
+
 export async function getProductsByCategory(
   categorySlug: string,
   filters: ShopFilters = {},
@@ -149,118 +229,79 @@ export async function getProductsByCategory(
     }
   }
 
-  // Graceful fallback products for kurtis and other categories if database returned empty
+  // Graceful fallback products from catalogue if database returned empty
   if (!rawProducts || rawProducts.length === 0) {
-    const fallbackProducts: any[] = [
-      {
-        id: 'na-4',
-        slug: 'hand-block-printed-chanderi-cotton-kurti',
-        name: 'Hand-Block Printed Chanderi Cotton Kurti',
-        price: 6499,
-        compare_at_price: 7999,
-        image: '/images/collection-kurtis.jpg',
-        images: [{ id: 'img-1', url: '/images/collection-kurtis.jpg', alt_text: 'Hand-Block Printed Chanderi Cotton Kurti', sort_order: 0, is_primary: true }],
-        category: { id: 'cat-kurtis', name: 'Kurtis', slug: 'kurtis' },
-        discount: 19,
-        is_featured: true,
-        is_vidyas_pick: true,
-        created_at: '2026-01-10T00:00:00Z',
-        rating: 0,
-        review_count: 0,
-        variants: [
-          { id: 'v-1', size: 'S', price: 6499, compare_at_price: 7999, inventory_quantity: 8 },
-          { id: 'v-2', size: 'M', price: 6499, compare_at_price: 7999, inventory_quantity: 12 },
-          { id: 'v-3', size: 'L', price: 6499, compare_at_price: 7999, inventory_quantity: 6 },
-          { id: 'v-4', size: 'XL', price: 6499, compare_at_price: 7999, inventory_quantity: 4 },
-        ],
-        defaultVariantId: 'v-2',
-        fabric: 'Chanderi Cotton',
-        tags: ['Handloom', 'Block Print', 'Summer Festive'],
-        occasion: ['Festive', 'Casual'],
-      },
-      {
-        id: 'na-2',
-        slug: 'handcrafted-velvet-zardosi-couture-ensemble',
-        name: 'Handcrafted Velvet Zardosi Kurti Ensemble',
-        price: 11999,
-        compare_at_price: 14999,
-        image: '/images/cat-kurtis.jpg',
-        images: [{ id: 'img-2', url: '/images/cat-kurtis.jpg', alt_text: 'Handcrafted Velvet Zardosi Ensemble', sort_order: 0, is_primary: true }],
-        category: { id: 'cat-kurtis', name: 'Kurtis', slug: 'kurtis' },
-        discount: 20,
-        is_featured: true,
-        is_vidyas_pick: false,
-        created_at: '2026-01-15T00:00:00Z',
-        rating: 0,
-        review_count: 0,
-        variants: [
-          { id: 'v-5', size: 'M', price: 11999, compare_at_price: 14999, inventory_quantity: 5 },
-          { id: 'v-6', size: 'L', price: 11999, compare_at_price: 14999, inventory_quantity: 7 },
-        ],
-        defaultVariantId: 'v-5',
-        fabric: 'Pure Velvet',
-        tags: ['Zardosi', 'Royal', 'Winter Wedding'],
-        occasion: ['Wedding', 'Evening'],
-      },
-      {
-        id: 'na-9',
-        slug: 'mulmul-angrakha-flared-anarkali-kurti',
-        name: 'Mulmul Angrakha Flared Anarkali Kurti',
-        price: 8499,
-        compare_at_price: 10499,
-        image: '/images/collection-salwars.jpg',
-        images: [{ id: 'img-3', url: '/images/collection-salwars.jpg', alt_text: 'Mulmul Angrakha Flared Anarkali', sort_order: 0, is_primary: true }],
-        category: { id: 'cat-kurtis', name: 'Kurtis', slug: 'kurtis' },
-        discount: 19,
-        is_featured: true,
-        is_vidyas_pick: true,
-        created_at: '2026-01-05T00:00:00Z',
-        rating: 0,
-        review_count: 0,
-        variants: [
-          { id: 'v-7', size: 'S', price: 8499, compare_at_price: 10499, inventory_quantity: 4 },
-          { id: 'v-8', size: 'M', price: 8499, compare_at_price: 10499, inventory_quantity: 9 },
-          { id: 'v-9', size: 'XL', price: 8499, compare_at_price: 10499, inventory_quantity: 3 },
-        ],
-        defaultVariantId: 'v-8',
-        fabric: 'Organic Mulmul',
-        tags: ['Anarkali', 'Angrakha', 'Flared'],
-        occasion: ['Festive', 'Puja'],
-      },
-      {
-        id: 'na-10',
-        slug: 'tussar-silk-straight-cut-festive-kurti',
-        name: 'Tussar Silk Straight-Cut Festive Kurti',
-        price: 9299,
-        compare_at_price: 11500,
-        image: '/images/cat-sarees.jpg',
-        images: [{ id: 'img-4', url: '/images/cat-sarees.jpg', alt_text: 'Tussar Silk Straight-Cut Kurti', sort_order: 0, is_primary: true }],
-        category: { id: 'cat-kurtis', name: 'Kurtis', slug: 'kurtis' },
-        discount: 19,
-        is_featured: false,
-        is_vidyas_pick: false,
-        created_at: '2026-01-08T00:00:00Z',
-        rating: 0,
-        review_count: 0,
-        variants: [
-          { id: 'v-10', size: 'M', price: 9299, compare_at_price: 11500, inventory_quantity: 6 },
-          { id: 'v-11', size: 'L', price: 9299, compare_at_price: 11500, inventory_quantity: 8 },
-        ],
-        defaultVariantId: 'v-10',
-        fabric: 'Tussar Silk',
-        tags: ['Pure Silk', 'Gota Patti'],
-        occasion: ['Festive', 'Party'],
-      },
-    ];
+    const matchingCatalogue = STORE_CATALOGUE.filter(
+      (p) => (p.category || '').toLowerCase() === categorySlug.toLowerCase()
+    );
+    let mappedCatalogue = (matchingCatalogue.length > 0 ? matchingCatalogue : STORE_CATALOGUE).map(mapCatalogueProductToCard);
 
-    let filteredFallback = fallbackProducts;
     if (filters.vidhyasPicksOnly) {
-      filteredFallback = filteredFallback.filter(p => p.is_vidyas_pick);
+      mappedCatalogue = mappedCatalogue.filter((p) => p.is_vidyas_pick);
     }
+    if (filters.occasion && filters.occasion.length > 0) {
+      const wanted = filters.occasion.map((o) => o.toLowerCase());
+      mappedCatalogue = mappedCatalogue.filter((p) =>
+        wanted.some((w) => {
+          const hay = `${(p.occasion || []).join(' ')} ${(p.tags || []).join(' ')} ${p.name}`.toLowerCase();
+          if (w === 'casual' && (hay.includes('casual') || hay.includes('daily'))) return true;
+          if (w === 'office' && (hay.includes('office') || hay.includes('work') || hay.includes('formal'))) return true;
+          if (w === 'party' && (hay.includes('party') || hay.includes('festive') || hay.includes('wedding') || hay.includes('reception') || hay.includes('evening') || hay.includes('sangeet') || hay.includes('cocktail'))) return true;
+          return hay.includes(w);
+        })
+      );
+    }
+    if (filters.type && filters.type.length > 0) {
+      const wantedTypes = filters.type.map((t) => t.toLowerCase());
+      mappedCatalogue = mappedCatalogue.filter((p) => {
+        const hay = `${(p.tags || []).join(' ')} ${p.name} ${p.slug}`.toLowerCase();
+        return wantedTypes.some((t) => {
+          if (t === 'anarkali' && (hay.includes('anarkali') || hay.includes('frock') || hay.includes('flared'))) return true;
+          if (t === 'frock' && (hay.includes('frock') || hay.includes('anarkali') || hay.includes('flared'))) return true;
+          if (t === 'coord-sets' && (hay.includes('coord') || hay.includes('co-ord') || hay.includes('set') || hay.includes('pants'))) return true;
+          return hay.includes(t);
+        });
+      });
+    }
+    if (filters.fabrics && filters.fabrics.length > 0) {
+      const selectedFabrics = filters.fabrics.map((f) => f.toLowerCase());
+      mappedCatalogue = mappedCatalogue.filter((p) => {
+        const fText = `${p.fabric || ''} ${(p.tags || []).join(' ')}`.toLowerCase();
+        return selectedFabrics.some((f) => fText.includes(f));
+      });
+    }
+    if (filters.priceRange) {
+      const [minP, maxP] = filters.priceRange;
+      mappedCatalogue = mappedCatalogue.filter((p) => p.price >= minP && p.price <= maxP);
+    }
+
+    switch (sortBy) {
+      case 'price-asc':
+        mappedCatalogue.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-desc':
+        mappedCatalogue.sort((a, b) => b.price - a.price);
+        break;
+      case 'popularity':
+        mappedCatalogue.sort((a, b) => b.review_count - a.review_count);
+        break;
+      case 'discount':
+        mappedCatalogue.sort((a, b) => b.discount - a.discount);
+        break;
+      case 'newest':
+      default:
+        mappedCatalogue.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+    }
+
+    const totalCount = mappedCatalogue.length;
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    const paginated = mappedCatalogue.slice((page - 1) * pageSize, page * pageSize);
+
     return {
-      products: filteredFallback,
-      totalCount: filteredFallback.length,
-      totalPages: 1,
+      products: paginated,
+      totalCount,
+      totalPages,
     };
   }
 
@@ -414,9 +455,69 @@ export async function getAllProducts(
 
   const { data: rawProducts, error } = await query.order('created_at', { ascending: false });
 
-  if (error || !rawProducts) {
-    console.error('Error fetching all products:', error);
-    return { products: [], totalCount: 0, totalPages: 0 };
+  if (error || !rawProducts || rawProducts.length === 0) {
+    let mapped = STORE_CATALOGUE.map(mapCatalogueProductToCard);
+
+    if (filters.categories && filters.categories.length > 0) {
+      mapped = mapped.filter((p) => p.category && filters.categories?.includes(p.category.slug));
+    }
+    if (filters.vidhyasPicksOnly) {
+      mapped = mapped.filter((p) => p.is_vidyas_pick);
+    }
+    if (filters.occasion && filters.occasion.length > 0) {
+      const wanted = filters.occasion.map((o) => o.toLowerCase());
+      mapped = mapped.filter((p) =>
+        wanted.some((w) => {
+          const hay = `${(p.occasion || []).join(' ')} ${(p.tags || []).join(' ')} ${p.name}`.toLowerCase();
+          if (w === 'casual' && (hay.includes('casual') || hay.includes('daily'))) return true;
+          if (w === 'office' && (hay.includes('office') || hay.includes('work') || hay.includes('formal'))) return true;
+          if (w === 'party' && (hay.includes('party') || hay.includes('festive') || hay.includes('wedding') || hay.includes('reception') || hay.includes('evening') || hay.includes('sangeet') || hay.includes('cocktail'))) return true;
+          return hay.includes(w);
+        })
+      );
+    }
+    if (filters.search && filters.search.trim().length > 0) {
+      const q = filters.search.toLowerCase().trim();
+      mapped = mapped.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.tags || []).some((t) => t.toLowerCase().includes(q)) ||
+          (p.fabric || '').toLowerCase().includes(q)
+      );
+    }
+    if (filters.priceRange) {
+      const [minP, maxP] = filters.priceRange;
+      mapped = mapped.filter((p) => p.price >= minP && p.price <= maxP);
+    }
+
+    switch (sortBy) {
+      case 'price-asc':
+        mapped.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-desc':
+        mapped.sort((a, b) => b.price - a.price);
+        break;
+      case 'popularity':
+        mapped.sort((a, b) => b.review_count - a.review_count);
+        break;
+      case 'discount':
+        mapped.sort((a, b) => b.discount - a.discount);
+        break;
+      case 'newest':
+      default:
+        mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+    }
+
+    const totalCount = mapped.length;
+    const totalPages = Math.ceil(totalCount / pageSize) || 1;
+    const paginated = mapped.slice((page - 1) * pageSize, page * pageSize);
+
+    return {
+      products: paginated,
+      totalCount,
+      totalPages,
+    };
   }
 
   let mappedProducts = rawProducts.map(mapProductToCard);

@@ -406,7 +406,22 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Bridal",
+          "Festive",
+          "Reception"
+        ],
+        "tags": [
+          "Lehengas",
+          "Bridal",
+          "Party Wear",
+          "Festive",
+          "Wedding",
+          "Raw Silk & Velvet"
+        ]
       },
       {
         "id": "lehenga-2",
@@ -430,7 +445,22 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Bridal",
+          "Festive",
+          "Reception"
+        ],
+        "tags": [
+          "Lehengas",
+          "Bridal",
+          "Party Wear",
+          "Festive",
+          "Wedding",
+          "Micro Velvet"
+        ]
       },
       {
         "id": "lehenga-3",
@@ -454,7 +484,22 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Bridal",
+          "Festive",
+          "Reception"
+        ],
+        "tags": [
+          "Lehengas",
+          "Bridal",
+          "Party Wear",
+          "Festive",
+          "Wedding",
+          "Pure Organza"
+        ]
       },
       {
         "id": "lehenga-4",
@@ -479,7 +524,22 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Bridal",
+          "Festive",
+          "Reception"
+        ],
+        "tags": [
+          "Lehengas",
+          "Bridal",
+          "Party Wear",
+          "Festive",
+          "Wedding",
+          "Chanderi Silk"
+        ]
       },
       {
         "id": "lehenga-5",
@@ -504,7 +564,22 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Bridal",
+          "Festive",
+          "Reception"
+        ],
+        "tags": [
+          "Lehengas",
+          "Bridal",
+          "Party Wear",
+          "Festive",
+          "Wedding",
+          "Raw Silk"
+        ]
       }
     ]
   },
@@ -613,7 +688,21 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 18
+        "reviewCount": 18,
+        "occasion": [
+          "Office",
+          "Workwear",
+          "Festive",
+          "Casual"
+        ],
+        "tags": [
+          "Salwars",
+          "Office Wear 3-Piece",
+          "3-Piece",
+          "Angrakha",
+          "Chanderi",
+          "Suit Set"
+        ]
       },
       {
         "id": "salwar-2",
@@ -637,7 +726,19 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 22
+        "reviewCount": 22,
+        "occasion": [
+          "Party",
+          "Wedding Guest",
+          "Festive"
+        ],
+        "tags": [
+          "Salwars",
+          "Party Wear",
+          "Palazzo",
+          "Banarasi",
+          "Festive"
+        ]
       },
       {
         "id": "salwar-3",
@@ -660,7 +761,20 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 26
+        "reviewCount": 26,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Festive"
+        ],
+        "tags": [
+          "Salwars",
+          "Women's Frocks",
+          "Anarkali",
+          "Frock",
+          "Flared",
+          "Party Wear"
+        ]
       },
       {
         "id": "salwar-4",
@@ -684,7 +798,19 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 30
+        "reviewCount": 30,
+        "occasion": [
+          "Party",
+          "Festive",
+          "Sangeet"
+        ],
+        "tags": [
+          "Salwars",
+          "Party Wear",
+          "Sharara",
+          "Chikankari",
+          "Festive"
+        ]
       },
       {
         "id": "salwar-5",
@@ -709,7 +835,21 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 34
+        "reviewCount": 34,
+        "occasion": [
+          "Office",
+          "Workwear",
+          "Formal",
+          "Festive"
+        ],
+        "tags": [
+          "Salwars",
+          "Office Wear 3-Piece",
+          "3-Piece",
+          "Straight Suit",
+          "Workwear",
+          "Suit Set"
+        ]
       },
       {
         "id": "salwar-6",
@@ -733,7 +873,21 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Office",
+          "Workwear",
+          "Formal",
+          "Festive"
+        ],
+        "tags": [
+          "Salwars",
+          "Office Wear 3-Piece",
+          "3-Piece",
+          "Straight Suit",
+          "Workwear",
+          "Suit Set"
+        ]
       },
       {
         "id": "salwar-7",
@@ -758,7 +912,21 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Office",
+          "Workwear",
+          "Festive",
+          "Casual"
+        ],
+        "tags": [
+          "Salwars",
+          "Office Wear 3-Piece",
+          "3-Piece",
+          "Angrakha",
+          "Chanderi",
+          "Suit Set"
+        ]
       },
       {
         "id": "salwar-8",
@@ -783,7 +951,19 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 38
+        "reviewCount": 38,
+        "occasion": [
+          "Party",
+          "Office",
+          "Day Event"
+        ],
+        "tags": [
+          "Salwars",
+          "Office Wear 3-Piece",
+          "3-Piece",
+          "Palazzo Set",
+          "Party Wear"
+        ]
       },
       {
         "id": "salwar-9",
@@ -808,7 +988,20 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Festive"
+        ],
+        "tags": [
+          "Salwars",
+          "Women's Frocks",
+          "Anarkali",
+          "Frock",
+          "Flared",
+          "Party Wear"
+        ]
       },
       {
         "id": "salwar-10",
@@ -832,7 +1025,20 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Office",
+          "Workwear",
+          "Casual",
+          "Festive"
+        ],
+        "tags": [
+          "Salwars",
+          "Office Wear 3-Piece",
+          "3-Piece",
+          "Palazzo Set",
+          "Workwear"
+        ]
       },
       {
         "id": "salwar-11",
@@ -857,7 +1063,19 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Festive",
+          "Sangeet"
+        ],
+        "tags": [
+          "Salwars",
+          "Party Wear",
+          "Sharara",
+          "Chikankari",
+          "Festive"
+        ]
       }
     ]
   },
@@ -962,7 +1180,22 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Festive",
+          "Wedding",
+          "Reception"
+        ],
+        "tags": [
+          "Sarees",
+          "Kanjivaram",
+          "Silk",
+          "Gold Zari",
+          "Party Wear Sarees",
+          "Wedding",
+          "Festive"
+        ]
       },
       {
         "id": "saree-2",
@@ -983,7 +1216,22 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Festive",
+          "Celebration",
+          "Office"
+        ],
+        "tags": [
+          "Sarees",
+          "Chanderi",
+          "Gold Zari",
+          "Handwoven",
+          "Party Wear Sarees",
+          "Office Wear Sarees",
+          "Festive"
+        ]
       },
       {
         "id": "saree-3",
@@ -1004,7 +1252,21 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Festive",
+          "Cocktail",
+          "Evening"
+        ],
+        "tags": [
+          "Sarees",
+          "Chikankari",
+          "Mukaish",
+          "Georgette",
+          "Party Wear Sarees",
+          "Pastel"
+        ]
       },
       {
         "id": "saree-4",
@@ -1025,7 +1287,21 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Daily Wear",
+          "Casual",
+          "Office",
+          "Workwear"
+        ],
+        "tags": [
+          "Sarees",
+          "Mulberry Silk",
+          "Classic",
+          "Daily Wear Sarees",
+          "Office Wear Sarees",
+          "Casual"
+        ]
       },
       {
         "id": "saree-5",
@@ -1046,7 +1322,22 @@
         "inStock": true,
         "isVidhyasPick": true,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Wedding",
+          "Festive",
+          "Cocktail"
+        ],
+        "tags": [
+          "Sarees",
+          "Banarasi",
+          "Brocade",
+          "Silk",
+          "Party Wear Sarees",
+          "Wedding",
+          "Festive"
+        ]
       },
       {
         "id": "saree-6",
@@ -1067,7 +1358,23 @@
         "inStock": true,
         "isVidhyasPick": false,
         "rating": 4.8,
-        "reviewCount": 12
+        "reviewCount": 12,
+        "occasion": [
+          "Party",
+          "Casual",
+          "Daily Wear",
+          "Office",
+          "Day Event"
+        ],
+        "tags": [
+          "Sarees",
+          "Organza",
+          "Hand-Painted",
+          "Floral",
+          "Party Wear Sarees",
+          "Daily Wear Sarees",
+          "Office Wear Sarees"
+        ]
       }
     ]
   },
@@ -4326,7 +4633,7 @@
       {
         "id": "kp-1",
         "name": "Kutch Ajrakh Modal Silk Kurti",
-        "category": "KURTIS",
+        "category": "Kurtis",
         "price": 4999,
         "originalPrice": 5999,
         "discount": 17,
@@ -4337,12 +4644,25 @@
         "fabric": "Silk",
         "rating": 4.8,
         "reviewCount": 12,
-        "inStock": true
+        "inStock": true,
+        "occasion": [
+          "Office",
+          "Casual",
+          "Daily Wear"
+        ],
+        "tags": [
+          "Kurtis",
+          "Co-ord Sets",
+          "Ajrakh",
+          "Modal Silk",
+          "Daily Wear",
+          "Office Wear"
+        ]
       },
       {
         "id": "kp-2",
         "name": "Pristine White Shadow Work Lucknowi Kurti",
-        "category": "KURTIS",
+        "category": "Kurtis",
         "price": 3999,
         "originalPrice": 4799,
         "discount": 17,
@@ -4353,12 +4673,24 @@
         "fabric": "Cotton",
         "rating": 4.8,
         "reviewCount": 12,
-        "inStock": true
+        "inStock": true,
+        "occasion": [
+          "Office",
+          "Casual",
+          "Daily Wear"
+        ],
+        "tags": [
+          "Kurtis",
+          "Lucknowi",
+          "Mulmul Cotton",
+          "Daily Wear",
+          "Office Wear"
+        ]
       },
       {
         "id": "kp-3",
         "name": "Hand Block Printed Kurti",
-        "category": "KURTIS",
+        "category": "Kurtis",
         "price": 2499,
         "originalPrice": 3299,
         "discount": 24,
@@ -4369,12 +4701,22 @@
         "fabric": "Cotton",
         "rating": 4.8,
         "reviewCount": 12,
-        "inStock": true
+        "inStock": true,
+        "occasion": [
+          "Casual",
+          "Daily Wear"
+        ],
+        "tags": [
+          "Kurtis",
+          "Block Print",
+          "Cotton",
+          "Daily Wear"
+        ]
       },
       {
         "id": "kp-4",
         "name": "Velvet Kurti Set",
-        "category": "KURTIS",
+        "category": "Kurtis",
         "price": 6999,
         "originalPrice": 8499,
         "discount": 18,
@@ -4385,12 +4727,24 @@
         "fabric": "Velvet",
         "rating": 4.8,
         "reviewCount": 12,
-        "inStock": true
+        "inStock": true,
+        "occasion": [
+          "Party",
+          "Festive",
+          "Winter Wedding"
+        ],
+        "tags": [
+          "Kurtis",
+          "Co-ord Sets",
+          "Velvet",
+          "Party Wear",
+          "Cigarette Pants"
+        ]
       },
       {
         "id": "kp-5",
         "name": "Chanderi Cotton Kurti",
-        "category": "KURTIS",
+        "category": "Kurtis",
         "price": 3199,
         "originalPrice": 3999,
         "discount": 20,
@@ -4401,12 +4755,23 @@
         "fabric": "Chanderi",
         "rating": 4.8,
         "reviewCount": 12,
-        "inStock": true
+        "inStock": true,
+        "occasion": [
+          "Office",
+          "Casual",
+          "Festive"
+        ],
+        "tags": [
+          "Kurtis",
+          "Chanderi",
+          "Office Wear",
+          "Casual"
+        ]
       },
       {
         "id": "kp-6",
         "name": "Gota Patti Kurta",
-        "category": "KURTIS",
+        "category": "Kurtis",
         "price": 4299,
         "originalPrice": 5299,
         "discount": 19,
@@ -4417,7 +4782,18 @@
         "fabric": "Cotton",
         "rating": 4.8,
         "reviewCount": 12,
-        "inStock": true
+        "inStock": true,
+        "occasion": [
+          "Party",
+          "Festive",
+          "Haldi"
+        ],
+        "tags": [
+          "Kurtis",
+          "Gota Patti",
+          "Party Wear",
+          "Festive"
+        ]
       }
     ],
     "metaTitle": "Designer Kurtis and Tunics Online | Angelika Fashions",

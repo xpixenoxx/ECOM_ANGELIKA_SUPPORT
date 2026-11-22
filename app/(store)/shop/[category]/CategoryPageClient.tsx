@@ -133,32 +133,40 @@ export function CategoryPageClient({
 
   // Convert custom Kurtis products from admin panel into ShopProductCard format
   const resolvedInitialProducts: ShopProductCard[] = useMemo(() => {
+    if (initialProducts && initialProducts.length > 0) {
+      return initialProducts;
+    }
+
     if (isKurtis && Array.isArray(kurtisContent?.products) && kurtisContent.products.length > 0 && kurtisContent?.productsMode !== 'database') {
-      return kurtisContent.products.map((p) => ({
-        id: p.id,
-        slug: p.href ? p.href.replace('/product/', '') : p.id,
-        name: p.name,
-        price: p.price,
-        compare_at_price: p.originalPrice ?? null,
-        image: p.image || '/images/collection-kurtis.jpg',
-        images: [{ id: `img-${p.id}`, product_id: p.id, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.name, sort_order: 0, is_primary: true, created_at: '' }] as any,
-        category: { id: 'cat-kurtis', name: p.category || 'Kurtis', slug: 'kurtis', description: null, image_url: null, parent_id: null, sort_order: 1, is_active: true, created_at: '', updated_at: '' },
-        discount: p.discount || (p.originalPrice && p.originalPrice > p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0),
-        is_featured: Boolean(p.isNew),
-        is_vidyas_pick: Boolean(p.isVidhyasPick),
-        created_at: p.isNew ? new Date().toISOString() : '2026-01-01T00:00:00Z',
-        rating: p.rating ?? 0,
-        review_count: p.reviewCount ?? 0,
-        variants: [
-          { id: `var-${p.id}-s`, size: 'S', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 5 : 0 },
-          { id: `var-${p.id}-m`, size: 'M', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 8 : 0 },
-          { id: `var-${p.id}-l`, size: 'L', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 4 : 0 },
-        ],
-        defaultVariantId: `var-${p.id}-m`,
-        fabric: p.fabric || 'Cotton',
-        tags: [p.fabric || 'Cotton', p.isVidhyasPick ? "Vidhya's Pick" : '', p.isNew ? 'New' : ''].filter(Boolean),
-        occasion: ['Festive', 'Casual'],
-      } as ShopProductCard));
+      return kurtisContent.products.map((p) => {
+        const pTags = (p as any).tags || [];
+        const pOccasions = (p as any).occasion || ['Festive', 'Casual'];
+        return {
+          id: p.id,
+          slug: p.href ? p.href.replace('/product/', '') : p.id,
+          name: p.name,
+          price: p.price,
+          compare_at_price: p.originalPrice ?? null,
+          image: p.image || '/images/collection-kurtis.jpg',
+          images: [{ id: `img-${p.id}`, product_id: p.id, url: p.image || '/images/collection-kurtis.jpg', alt_text: p.name, sort_order: 0, is_primary: true, created_at: '' }] as any,
+          category: { id: 'cat-kurtis', name: p.category || 'Kurtis', slug: 'kurtis', description: null, image_url: null, parent_id: null, sort_order: 1, is_active: true, created_at: '', updated_at: '' },
+          discount: p.discount || (p.originalPrice && p.originalPrice > p.price ? Math.round(((p.originalPrice - p.price) / p.originalPrice) * 100) : 0),
+          is_featured: Boolean(p.isNew),
+          is_vidyas_pick: Boolean(p.isVidhyasPick),
+          created_at: p.isNew ? new Date().toISOString() : '2026-01-01T00:00:00Z',
+          rating: p.rating ?? 0,
+          review_count: p.reviewCount ?? 0,
+          variants: [
+            { id: `var-${p.id}-s`, size: 'S', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 5 : 0 },
+            { id: `var-${p.id}-m`, size: 'M', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 8 : 0 },
+            { id: `var-${p.id}-l`, size: 'L', price: p.price, compare_at_price: p.originalPrice ?? null, inventory_quantity: p.inStock !== false ? 4 : 0 },
+          ],
+          defaultVariantId: `var-${p.id}-m`,
+          fabric: p.fabric || 'Cotton',
+          tags: Array.from(new Set([...pTags, p.fabric || 'Cotton', p.isVidhyasPick ? "Vidhya's Pick" : '', p.isNew ? 'New' : '', 'Kurtis', ...pOccasions])).filter(Boolean),
+          occasion: pOccasions,
+        } as ShopProductCard;
+      });
     }
 
     if (shopContent?.productsMode === 'custom' && Array.isArray(shopContent.products) && shopContent.products.length > 0) {
@@ -315,17 +323,28 @@ export function CategoryPageClient({
         const occStr = (product.occasion || []).join(' ').toLowerCase();
         const tagsStr = (product.tags || []).join(' ').toLowerCase();
         const nameStr = (product.name || '').toLowerCase();
-        const matchesOcc = selectedOccasions.some(
-          (o: string) => occStr.includes(o) || tagsStr.includes(o) || nameStr.includes(o)
-        );
+        const styleStr = ((product as any).style || '').toLowerCase();
+        const hay = `${occStr} ${tagsStr} ${nameStr} ${styleStr}`;
+        const matchesOcc = selectedOccasions.some((o: string) => {
+          if (o === 'casual' && (hay.includes('casual') || hay.includes('daily'))) return true;
+          if (o === 'office' && (hay.includes('office') || hay.includes('work') || hay.includes('formal'))) return true;
+          if (o === 'party' && (hay.includes('party') || hay.includes('festive') || hay.includes('wedding') || hay.includes('reception') || hay.includes('evening') || hay.includes('sangeet') || hay.includes('cocktail'))) return true;
+          return hay.includes(o);
+        });
         if (!matchesOcc) return false;
       }
 
       // 9. Type / Length subcategory filters from URL
       const subFilters = [...(filters.type || []), ...(filters.length || [])].map((s: string) => s.toLowerCase());
       if (subFilters.length > 0) {
-        const text = `${product.name} ${product.slug} ${(product.tags || []).join(' ')}`.toLowerCase();
-        if (!subFilters.some((s: string) => text.includes(s))) return false;
+        const text = `${product.name} ${product.slug} ${(product.tags || []).join(' ')} ${((product as any).style || '')}`.toLowerCase();
+        const matchesType = subFilters.some((s: string) => {
+          if (s === 'coord-sets' && (text.includes('coord') || text.includes('co-ord') || text.includes('set') || text.includes('pants'))) return true;
+          if (s === 'anarkali' && (text.includes('anarkali') || text.includes('frock') || text.includes('flared'))) return true;
+          if (s === 'frock' && (text.includes('frock') || text.includes('anarkali') || text.includes('flared'))) return true;
+          return text.includes(s);
+        });
+        if (!matchesType) return false;
       }
 
       return true;
