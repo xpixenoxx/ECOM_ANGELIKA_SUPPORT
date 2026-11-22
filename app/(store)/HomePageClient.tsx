@@ -150,7 +150,7 @@ export default function HomePageClient({
       .then((data) => {
         if (data && data.length > 0) setLatestCircleUpdates(data);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleCircleSubscribe = async (e: React.FormEvent) => {
@@ -493,10 +493,10 @@ export default function HomePageClient({
               </Link>
             </Button>
           </motion.div>
-          <StaggerContainer variant="default" className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 justify-items-center max-w-[960px] mx-auto">
+          <StaggerContainer variant="default" className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-0 w-full">
             {activeVidhyasPicks.length > 0 ? (
               activeVidhyasPicks.map((product, index) => (
-                <StaggerItem key={product.id} delay={index * 0.08} variant="scale">
+                <StaggerItem key={product.id} delay={index * 0.08} variant="scale" className="w-full">
                   <ProductCard
                     image={product.images[0]?.url || '/images/placeholder.jpg'}
                     name={product.name}
@@ -576,7 +576,7 @@ export default function HomePageClient({
                   {ctaText}
                 </Link>
               </div>
-              <StaggerContainer variant="fast" className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 justify-items-center max-w-[960px] mx-auto">
+              <StaggerContainer variant="fast" className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-0 w-full">
                 {productsToDisplay.length > 0 ? (
                   productsToDisplay.map((product: any, index: number) => {
                     const imgUrl = product.image || product.images?.[0]?.url || '/images/placeholder.jpg';
@@ -592,7 +592,7 @@ export default function HomePageClient({
                       '/shop';
 
                     return (
-                      <StaggerItem key={product.id || index} delay={index * 0.08} variant="scale">
+                      <StaggerItem key={product.id || index} delay={index * 0.08} variant="scale" className="w-full">
                         <ProductCard
                           image={imgUrl}
                           name={product.name}
@@ -914,14 +914,14 @@ export default function HomePageClient({
   );
 }
 
-// Skeleton component for placeholder products (matches 206x302.81 luxury card spec)
+// Skeleton component for placeholder products (matches 377.2x554.7 luxury card spec)
 function SkeletonProductCard() {
   return (
-    <div className="group relative flex flex-col w-full max-w-[206px] mx-auto bg-white text-left">
-      <div className="relative w-full aspect-[206/302.81] overflow-hidden bg-[#F7F5F0] shrink-0">
+    <div className="group relative flex flex-col w-full bg-white text-left">
+      <div className="relative w-full aspect-[377.2/554.7] overflow-hidden bg-[#F7F5F0] shrink-0">
         <div className="absolute inset-0 skeleton" />
         <div className="absolute bottom-0 inset-x-0 h-[2px] bg-[#EAE5DF]">
-          <div className="h-full w-10 bg-[#424242]/30 skeleton" />
+          <div className="h-full w-12 bg-[#424242]/30 skeleton" />
         </div>
       </div>
       <div className="pt-[16px] px-[12px] pb-0 flex flex-col space-y-2">

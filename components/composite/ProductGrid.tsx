@@ -47,15 +47,15 @@ export interface ProductGridProps {
 }
 
 const gapStyles = {
-  sm: 'gap-3 sm:gap-4',
-  md: 'gap-3.5 sm:gap-5 md:gap-6',
-  lg: 'gap-4 sm:gap-6 md:gap-8',
+  sm: 'gap-2 sm:gap-3 lg:gap-0',
+  md: 'gap-3 sm:gap-4 lg:gap-0',
+  lg: 'gap-4 sm:gap-6 lg:gap-0',
 };
 
 const columnStyles = {
-  base: 'grid-cols-2 sm:grid-cols-2',
+  base: 'grid-cols-2',
   sm: 'sm:grid-cols-2',
-  md: 'md:grid-cols-3',
+  md: 'md:grid-cols-2',
   lg: 'lg:grid-cols-4',
   xl: 'xl:grid-cols-4',
 };
@@ -79,7 +79,7 @@ export function ProductGrid({
   if (loading) {
     return (
       <motion.div
-        className={cn('grid justify-items-center max-w-[960px] mx-auto', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl, className)}
+        className={cn('grid w-full', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl, className)}
         role="list"
         aria-label="Products loading"
         initial={{ opacity: 0 }}
@@ -126,14 +126,14 @@ export function ProductGrid({
   return (
     <div className={cn('space-y-8', className)}>
       <motion.div
-        className={cn('grid justify-items-center max-w-[960px] mx-auto', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl)}
+        className={cn('grid w-full', gapStyles[gap], columnStyles.base, columnStyles.sm, columnStyles.md, columnStyles.lg, columnStyles.xl)}
         role="list"
         aria-label="Product grid"
       >
         {products.map((product, index) => (
           <motion.article
             key={product.id}
-            className="group"
+            className="group w-full"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: Math.min(index * 0.05, 0.3), type: 'spring', damping: 20, stiffness: 100 }}

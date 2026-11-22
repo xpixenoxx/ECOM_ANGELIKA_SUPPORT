@@ -1330,7 +1330,7 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
             items={products}
             renderItem={(product, index) => (
               <StaggerItem variant="scale" style={{ transitionDelay: `${index * 0.05}s` }}>
-                <div className="group">
+                <div className="group w-full">
                   <ProductCard
                     {...product}
                     image={product.image || product.images?.[0]?.url || '/images/collection-kurtis.jpg'}
@@ -1353,8 +1353,8 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
               </StaggerItem>
             )}
             columns={4}
-            gap={6}
-            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 justify-items-center max-w-[960px] mx-auto"
+            gap={0}
+            className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-0 w-full"
           />
         ) : (
           <StaggerContainer key="list" variant="default" className="space-y-4">

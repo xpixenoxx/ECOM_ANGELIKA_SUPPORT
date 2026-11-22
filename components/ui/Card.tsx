@@ -277,36 +277,36 @@ export function ProductCard({
   const cardContent = (
     <div
       className={cn(
-        "group relative flex flex-col w-full max-w-[206px] bg-white content-visibility-auto text-left mx-auto",
+        "group relative flex flex-col w-full bg-white content-visibility-auto text-left",
         className
       )}
       style={{ boxSizing: 'border-box' }}
     >
-      {/* ── 1. Image Viewport (Aspect Ratio: 206 / 302.81 ≈ 1 : 1.47) ── */}
-      <div className="relative w-full aspect-[206/302.81] overflow-hidden bg-[#F7F5F0]">
+      {/* ── 1. Image Viewport (Aspect Ratio: 377.2 / 554.7 ≈ 1 : 1.4705) ── */}
+      <div className="relative w-full aspect-[377.2/554.7] overflow-hidden bg-[#F7F5F0]">
         {isValidHref ? (
           <Link href={finalHref} className="block w-full h-full cursor-pointer" aria-label={`View ${name}`}>
             <img
               src={image}
               alt={name}
-              width={206}
-              height={303}
+              width={378}
+              height={555}
               loading="lazy"
               decoding="async"
               className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
             />
           </Link>
         ) : (
           <img
             src={image}
             alt={name}
-            width={206}
-            height={303}
+            width={378}
+            height={555}
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 25vw"
           />
         )}
 
