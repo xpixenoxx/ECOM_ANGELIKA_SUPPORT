@@ -180,7 +180,7 @@ export default function CartPage() {
                   </MagneticLinkButton>
                 </ScrollReveal>
 
-                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-0 w-full">
+                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-x-4 lg:gap-y-8 w-full">
                   {recommendations.map((rec) => (
                     <ProductCard
                       key={rec.id}
@@ -502,7 +502,7 @@ export default function CartPage() {
                 </MagneticLinkButton>
               </ScrollReveal>
 
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-0 w-full">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-x-4 lg:gap-y-8 w-full">
                 {recommendations.map((rec) => (
                   <ProductCard
                     key={rec.id}
