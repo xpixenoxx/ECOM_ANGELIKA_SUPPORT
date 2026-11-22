@@ -280,49 +280,32 @@ export function WhatsAppFloatButton({
         </AnimatePresence>
 
         <div className="flex items-center">
-          {/* Unified Luxury Floating Concierge Button */}
+          {/* Floating WhatsApp Action Button */}
           <motion.button
             ref={buttonRef}
             onClick={handleMainClick}
             className={cn(
-              'group relative flex items-center shadow-[0_10px_35px_rgba(0,0,0,0.22)] border transition-all duration-300',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)] focus-visible:ring-offset-2',
+              'group relative flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2',
+              'drop-shadow-[0_4px_16px_rgba(0,0,0,0.18)] hover:drop-shadow-[0_8px_24px_rgba(37,211,102,0.45)]',
               isExpanded
-                ? 'w-12 h-12 rounded-full bg-[var(--color-ink)] border-[var(--color-gold)] text-white justify-center'
-                : 'rounded-full bg-[var(--color-ink)] hover:bg-[#25221E] border-[var(--color-gold)]/60 hover:border-[var(--color-gold)] p-1 md:pr-4 md:pl-1.5'
+                ? 'w-12 h-12 md:w-14 md:h-14 bg-[var(--color-ink)] border border-[var(--color-gold)] text-white'
+                : 'w-12 h-12 md:w-14 md:h-14 bg-transparent p-0'
             )}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
             aria-label={`Chat with ${businessName} Concierge on WhatsApp`}
             aria-expanded={isExpanded}
             aria-haspopup="true"
           >
             {isExpanded ? (
-              <svg className="h-5 w-5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <svg className="h-6 w-6 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
                 <path d="M18 6L6 18M6 6l12 12" />
               </svg>
             ) : (
-              <div className="flex items-center gap-2.5">
-                {/* Official WhatsApp Vector Icon */}
-                <div className="relative w-10 h-10 flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-105">
-                  <WhatsAppIcon className="w-10 h-10" />
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#16A34A] border-2 border-[var(--color-ink)]" />
-                </div>
-
-                {/* Desktop Text Details */}
-                <div className="hidden md:flex flex-col items-start text-left pr-1">
-                  <span className="text-[10px] font-semibold tracking-[0.16em] uppercase text-[var(--color-gold)] leading-tight">
-                    {conciergeTitle}
-                  </span>
-                  <span className="text-[11px] text-[var(--color-whisper)] font-light leading-tight">
-                    {conciergeSubtitle}
-                  </span>
-                </div>
-
-                {/* Right Arrow on Desktop */}
-                <svg className="hidden md:block h-3.5 w-3.5 text-[var(--color-gold)] transition-transform group-hover:translate-x-0.5 ml-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
+              <div className="relative w-full h-full flex items-center justify-center flex-shrink-0 transition-transform">
+                <WhatsAppIcon className="w-12 h-12 md:w-14 md:h-14" />
+                <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-[#16A34A] border-2 border-white shadow-xs" />
               </div>
             )}
           </motion.button>

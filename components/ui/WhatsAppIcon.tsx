@@ -3,13 +3,15 @@ import React from 'react';
 export interface WhatsAppIconProps {
   className?: string;
   size?: number | string;
+  withStroke?: boolean;
 }
 
 /**
  * Official WhatsApp Logotype SVG extracted from official Wikimedia Commons / WhatsApp brand asset.
  * Rendered inline as a vector graphic with zero external network dependencies.
+ * By default renders without outer white stroke/background for a clean modern look.
  */
-export function WhatsAppIcon({ className = 'w-10 h-10', size }: WhatsAppIconProps) {
+export function WhatsAppIcon({ className = 'w-10 h-10', size, withStroke = false }: WhatsAppIconProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -33,11 +35,13 @@ export function WhatsAppIcon({ className = 'w-10 h-10', size }: WhatsAppIconProp
           <stop offset="1" stopColor="#23b33a" />
         </linearGradient>
       </defs>
-      {/* Outer subtle shadow/border shape */}
-      <path
-        fill="#fff"
-        d="m12.966 161.238 10.439-38.114a73.42 73.42 0 0 1-9.821-36.772c.017-40.556 33.021-73.55 73.578-73.55 19.681.01 38.154 7.669 52.047 21.572s21.537 32.383 21.53 52.037c-.018 40.553-33.027 73.553-73.578 73.553h-.032c-12.313-.005-24.412-3.094-35.159-8.954z"
-      />
+      {/* Outer subtle border shape - rendered only if withStroke is explicitly enabled */}
+      {withStroke && (
+        <path
+          fill="#fff"
+          d="m12.966 161.238 10.439-38.114a73.42 73.42 0 0 1-9.821-36.772c.017-40.556 33.021-73.55 73.578-73.55 19.681.01 38.154 7.669 52.047 21.572s21.537 32.383 21.53 52.037c-.018 40.553-33.027 73.553-73.578 73.553h-.032c-12.313-.005-24.412-3.094-35.159-8.954z"
+        />
+      )}
       {/* Green circular speech bubble background */}
       <path
         fill="url(#wa-official-grad)"

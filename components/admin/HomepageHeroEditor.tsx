@@ -962,22 +962,11 @@ export function HomepageHeroEditor({ onCancel, onSaved }: HomepageHeroEditorProp
             hint="Used when clients tap the concierge button for styling advice"
           />
 
-          {/* Concierge Badge Preview */}
+          {/* WhatsApp Floating Button Preview */}
           <div className="p-6 rounded-lg bg-zinc-900 flex justify-end">
-            <div className="inline-flex items-center gap-3 px-3 py-1.5 rounded-full bg-black/80 border border-white/10 shadow-xl">
-              <div className="relative w-8 h-8 flex items-center justify-center flex-shrink-0">
-                <WhatsAppIcon className="w-8 h-8" />
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#16A34A] border border-black" />
-              </div>
-              <div className="flex flex-col items-start pr-2">
-                <span className="text-[10px] font-semibold tracking-wider uppercase text-[var(--color-gold)]">
-                  {formData.conciergeTitle || "Vidhya's Concierge"}
-                </span>
-                <span className="text-[11px] text-zinc-300 font-light">
-                  {formData.conciergeSubtitle || 'Bespoke Styling Chat'}
-                </span>
-              </div>
-              <span className="text-[var(--color-gold)] text-xs">→</span>
+            <div className="relative w-12 h-12 flex items-center justify-center flex-shrink-0 cursor-pointer drop-shadow-[0_4px_16px_rgba(37,211,102,0.4)]">
+              <WhatsAppIcon className="w-12 h-12" />
+              <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-[#16A34A] border-2 border-white shadow-xs" />
             </div>
           </div>
         </div>
