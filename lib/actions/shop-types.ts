@@ -10,6 +10,8 @@ export interface ShopProductCard {
   name: string;
   price: number;
   compare_at_price: number | null;
+  originalPrice?: number | null;
+  compareAtPrice?: number | null;
   images: ProductImageRow[];
   image?: string;
   defaultVariantId?: string;

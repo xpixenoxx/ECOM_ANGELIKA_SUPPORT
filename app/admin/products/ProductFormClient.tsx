@@ -816,6 +816,30 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
                     className="w-full bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
                   />
                 </div>
+
+                {/* Auto-computed percentage off & customer savings */}
+                {(() => {
+                  const baseP = Number(price) || 0;
+                  const baseMrp = Number(compareAtPrice) || 0;
+                  const baseDiscount = baseMrp > baseP && baseMrp > 0 ? Math.round(((baseMrp - baseP) / baseMrp) * 100) : 0;
+                  const baseSavings = baseMrp > baseP ? baseMrp - baseP : 0;
+                  if (baseDiscount <= 0) return null;
+                  return (
+                    <div className="col-span-full mt-1 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full text-xs">
+                          {baseDiscount}% OFF
+                        </span>
+                        <span className="text-emerald-800 font-medium">
+                          Customer saves ₹{baseSavings.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <span className="text-emerald-700/80 font-medium text-[11px]">
+                        Selling Price: ₹{baseP.toLocaleString('en-IN')} • MRP: ₹{baseMrp.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

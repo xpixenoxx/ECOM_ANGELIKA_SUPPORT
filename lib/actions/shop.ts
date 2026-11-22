@@ -87,6 +87,8 @@ function mapProductToCard(p: any): ShopProductCard {
     name: p.name,
     price,
     compare_at_price: compareAtPrice,
+    originalPrice: compareAtPrice,
+    compareAtPrice: compareAtPrice,
     images: p.product_images || [],
     image: imageUrl,
     category: p.category || null,
@@ -139,6 +141,8 @@ function mapCatalogueProductToCard(p: CatalogueProduct): ShopProductCard {
     name: p.title,
     price,
     compare_at_price: compareAt,
+    originalPrice: compareAt,
+    compareAtPrice: compareAt,
     image: img,
     images: [{
       id: `img-${p.id}`,

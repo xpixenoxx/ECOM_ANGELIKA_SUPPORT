@@ -309,7 +309,12 @@ export default function AdminProductsClient({
                   <div className="text-right">
                     <span className="font-medium text-[var(--color-ink)]">₹{product.price.toLocaleString()}</span>
                     {product.compare_at_price && product.compare_at_price > product.price && (
-                      <span className="block text-xs text-[var(--color-mist)] line-through">₹{product.compare_at_price.toLocaleString()}</span>
+                      <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                        <span className="text-xs text-[var(--color-mist)] line-through">₹{product.compare_at_price.toLocaleString()}</span>
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded border border-emerald-200">
+                          {Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100)}% OFF
+                        </span>
+                      </div>
                     )}
                   </div>
                 </TableCell>

@@ -211,7 +211,11 @@ export function ProductCard({
   const [isAdded, setIsAdded] = useState(false);
   const cart = useCart();
 
-  const calculatedDiscount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : discount;
+  const effectiveOriginalPrice = Number(originalPrice || rest['compare_at_price'] || rest['compareAtPrice']) || undefined;
+  const calculatedDiscount = (effectiveOriginalPrice && effectiveOriginalPrice > price)
+    ? Math.round(((effectiveOriginalPrice - price) / effectiveOriginalPrice) * 100)
+    : (discount && Number(discount) > 0 ? Number(discount) : 0);
+  const effectiveDiscount = calculatedDiscount;
 
   // Resolve product URL cleanly so clicking ANY product card redirects directly to that product's PDP
   const slugFromProp = (rest['slug'] as string) || (href && href.startsWith('/product/') ? href.replace('/product/', '').split('?')[0] : undefined);
@@ -285,8 +289,8 @@ export function ProductCard({
     ? badge
     : isNew || isVidhyasPick
       ? 'New'
-      : isSale && calculatedDiscount
-        ? `Sale ${calculatedDiscount}%`
+      : effectiveDiscount > 0
+        ? `${effectiveDiscount}% OFF`
         : 'New';
 
   // Derive 3 circular swatches matching the exact inspect-element specs
@@ -376,25 +380,30 @@ export function ProductCard({
       {/* ── 2. Title & Price Wrapper (div.title-price-wrapper: 276.71 x 37.95, font: 13px) ── */}
       <div className="title-price-wrapper w-full pt-[10px] px-0 pb-0">
         <div className="w-full">
-          {/* Product Title (a.product-title-text.product-href: 235.2 x 19.8, font: 12px, color: #1C1B1B) */}
+          {/* Product Title (span.ProductHitName__product-hit__name-text: 181.5 x 44, font: 13px sm:14px, color: #424242) */}
           {isValidHref ? (
-            <Link href={finalHref} className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate hover:underline" title={name}>
+            <Link href={finalHref} className="product-title-text product-href block text-[13px] sm:text-[14px] font-medium text-[#424242] leading-[1.3] line-clamp-2 hover:underline hover:text-black transition-colors" title={name}>
               {name}
             </Link>
           ) : (
-            <span className="product-title-text product-href block text-[12px] font-normal text-[#1C1B1B] leading-[1.3] truncate" title={name}>
+            <span className="product-title-text product-href block text-[13px] sm:text-[14px] font-medium text-[#424242] leading-[1.3] line-clamp-2" title={name}>
               {name}
             </span>
           )}
 
-          {/* Product Price (span.money: 47.13 x 14.4, font: 11px, color: #2D333D, text: ₹ 17,000) */}
-          <div className="flex items-baseline gap-2 mt-[2px]">
-            <span className="money text-[11px] font-normal text-[#2D333D] tabular-nums">
+          {/* Product Price (span.money: font: 12px, tabular-nums) */}
+          <div className="flex items-baseline gap-1.5 mt-[3px] flex-wrap">
+            <span className="money text-[12px] font-normal text-[#2D333D] tabular-nums">
               ₹ {price.toLocaleString('en-IN')}
             </span>
-            {originalPrice && originalPrice > price && (
-              <span className="text-[10px] text-[#8C877F] line-through tabular-nums">
-                ₹ {originalPrice.toLocaleString('en-IN')}
+            {effectiveOriginalPrice && effectiveOriginalPrice > price && (
+              <span className="text-[11px] text-[#8C877F] line-through tabular-nums">
+                ₹ {effectiveOriginalPrice.toLocaleString('en-IN')}
+              </span>
+            )}
+            {effectiveDiscount > 0 && (
+              <span className="text-[11px] font-medium text-[#B85D3B] tabular-nums tracking-tight">
+                ({effectiveDiscount}% OFF)
               </span>
             )}
           </div>

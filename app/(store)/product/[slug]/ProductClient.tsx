@@ -125,7 +125,7 @@ export function ProductClient({
     product.variants?.[0];
 
   const currentPrice = activeVariant?.price ?? product.price;
-  const currentOriginalPrice = activeVariant?.compare_at_price ?? product.originalPrice;
+  const currentOriginalPrice = activeVariant?.compare_at_price ?? product.originalPrice ?? (product as any).compare_at_price ?? (product as any).compareAtPrice;
   const discount =
     currentOriginalPrice && currentOriginalPrice > currentPrice
       ? Math.round(((currentOriginalPrice - currentPrice) / currentOriginalPrice) * 100)

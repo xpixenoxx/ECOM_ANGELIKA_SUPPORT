@@ -904,17 +904,22 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
                     </div>
 
                     <div className="flex items-baseline justify-between mt-2.5">
-                      <div>
+                      <div className="flex items-baseline flex-wrap gap-1.5">
                         <span className="font-bold text-sm text-[var(--color-ink,#111111)]">
                           ₹{Number(product.price).toLocaleString('en-IN')}
                         </span>
-                        {product.compare_at_price && (
-                          <span className="text-xs text-[var(--color-mist,#999999)] line-through ml-2">
-                            ₹{Number(product.compare_at_price).toLocaleString('en-IN')}
-                          </span>
+                        {product.compare_at_price && Number(product.compare_at_price) > Number(product.price) && (
+                          <>
+                            <span className="text-xs text-[var(--color-mist,#999999)] line-through">
+                              ₹{Number(product.compare_at_price).toLocaleString('en-IN')}
+                            </span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 bg-emerald-50 rounded border border-emerald-200">
+                              {Math.round(((Number(product.compare_at_price) - Number(product.price)) / Number(product.compare_at_price)) * 100)}% OFF
+                            </span>
+                          </>
                         )}
                       </div>
-                      <span className="text-[11px] text-[var(--color-slate,#666666)] bg-[var(--color-snow,#F9F9F9)] px-2 py-0.5 rounded-md border border-[var(--color-whisper,#E5E5E5)]">
+                      <span className="text-[11px] text-[var(--color-slate,#666666)] bg-[var(--color-snow,#F9F9F9)] px-2 py-0.5 rounded-md border border-[var(--color-whisper,#E5E5E5)] shrink-0">
                         {product.total_inventory} in stock
                       </span>
                     </div>
