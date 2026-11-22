@@ -511,10 +511,10 @@ export function CategoryPageClient({
             }
           `}</style>
           <div
-            className="img-scroll-div max-w-[1560px] mx-auto px-[10px] overflow-x-auto no-scrollbar scrollbar-none scroll-smooth"
+            className="img-scroll-div w-fit max-w-full mx-auto px-[10px] overflow-x-auto no-scrollbar scrollbar-none scroll-smooth"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            <div className="flex items-start gap-1 min-w-max py-2">
+            <div className="flex items-start justify-center gap-1 min-w-max py-2">
               {(activeCategoryContent?.navigation?.items && activeCategoryContent.navigation.items.length > 0 ? activeCategoryContent.navigation.items : CATEGORIES_NAVIGATION).map((cat) => {
                 const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
                 return (
