@@ -755,7 +755,13 @@ export function ProductClient({
                   {product.fabric && (
                     <p>
                       <span className="text-[#1A1A1A] font-medium">Composition:</span>{' '}
-                      {product.fabric}
+                      {typeof product.fabric === 'string'
+                        ? product.fabric
+                        : typeof product.fabric === 'object' && product.fabric !== null
+                          ? Object.entries(product.fabric as Record<string, string>)
+                              .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v}`)
+                              .join(', ')
+                          : String(product.fabric)}
                     </p>
                   )}
                   {product.details && product.details.length > 0 && (

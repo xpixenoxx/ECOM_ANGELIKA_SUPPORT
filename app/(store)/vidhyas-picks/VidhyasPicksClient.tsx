@@ -67,7 +67,7 @@ function matchesSearchQuery(product: PickProduct, query: string): boolean {
   const name = product.name.toLowerCase();
   const cat = product.category.toLowerCase();
   const color = product.color.toLowerCase();
-  const fabric = product.fabric.toLowerCase();
+  const fabric = typeof product.fabric === 'string' ? product.fabric.toLowerCase() : JSON.stringify(product.fabric || '').toLowerCase();
   const origin = (product.origin || '').toLowerCase();
   const note = (product.vidhyaNote || '').toLowerCase();
   const tags = (product.tags || []).join(' ').toLowerCase();
@@ -183,7 +183,7 @@ function ProductCardGrid({
             </h3>
 
             <p className="text-xs text-[var(--color-slate)] mt-1 font-medium">
-              Fabric: {product.fabric} · {product.origin}
+              Fabric: {typeof product.fabric === 'string' ? product.fabric : String(product.fabric || 'Artisanal Weave')} · {product.origin}
             </p>
 
             <div className="mt-2.5 flex items-baseline gap-2">
@@ -309,7 +309,7 @@ function ProductCardList({
             </h3>
 
             <p className="text-sm text-[var(--color-slate)] font-medium">
-              Fabric Composition: {product.fabric}
+              Fabric Composition: {typeof product.fabric === 'string' ? product.fabric : String(product.fabric || 'Artisanal Weave')}
             </p>
 
             <div className="flex items-baseline gap-3">

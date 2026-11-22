@@ -36,6 +36,24 @@ function matchesSize(pRaw: any, size: string): boolean {
   });
 }
 
+function formatFabricString(fabric: unknown): string | null {
+  if (!fabric) return null;
+  if (typeof fabric === 'string') return fabric;
+  if (typeof fabric === 'object' && fabric !== null) {
+    const f = fabric as Record<string, any>;
+    if (f['name'] && typeof f['name'] === 'string') return f['name'];
+    const parts = [
+      f['main'] ? `Top: ${f['main']}` : null,
+      f['bottom'] ? `Bottom: ${f['bottom']}` : null,
+      f['dupatta'] ? `Dupatta: ${f['dupatta']}` : null,
+    ].filter(Boolean);
+    if (parts.length > 0) return parts.join(', ');
+    const values = Object.values(f).filter((v) => typeof v === 'string' && v.trim().length > 0);
+    if (values.length > 0) return values.join(', ');
+  }
+  return String(fabric);
+}
+
 function mapProductToCard(p: any): ShopProductCard {
   const primaryImage = p.product_images?.find((img: any) => img.is_primary) || p.product_images?.[0];
   const imageUrl = primaryImage?.url || '/images/collection-kurtis.jpg';
@@ -80,7 +98,7 @@ function mapProductToCard(p: any): ShopProductCard {
     review_count: reviewCount,
     variants,
     defaultVariantId: defaultVariant?.id,
-    fabric: p.fabric || null,
+    fabric: formatFabricString(p.fabric),
     tags: p.tags || [],
     occasion: p.occasion || [],
   };

@@ -167,9 +167,19 @@ export function transformProductForClient(
     sizes: allSizes,
     sizeChart,
     fabric:
-      typeof product.fabric === 'object' && product.fabric !== null && 'name' in product.fabric
-        ? String((product.fabric as Record<string, unknown>)['name'])
-        : 'Premium Fabric',
+      typeof product.fabric === 'string'
+        ? product.fabric
+        : typeof product.fabric === 'object' && product.fabric !== null
+          ? ('name' in product.fabric && typeof (product.fabric as any).name === 'string'
+              ? String((product.fabric as any).name)
+              : [
+                  (product.fabric as any).main ? `Top: ${(product.fabric as any).main}` : null,
+                  (product.fabric as any).bottom ? `Bottom: ${(product.fabric as any).bottom}` : null,
+                  (product.fabric as any).dupatta ? `Dupatta: ${(product.fabric as any).dupatta}` : null,
+                ].filter(Boolean).join(', ') ||
+                Object.values(product.fabric as Record<string, unknown>).filter((v) => typeof v === 'string').join(', ') ||
+                'Premium Fabric')
+          : 'Premium Fabric',
     care:
       typeof product.fabric === 'object' &&
       product.fabric !== null &&

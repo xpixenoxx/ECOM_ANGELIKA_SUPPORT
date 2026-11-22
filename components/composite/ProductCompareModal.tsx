@@ -169,7 +169,7 @@ export function ProductCompareModal({
                 <div className="pt-2 flex justify-between gap-2">
                   <span className="text-[var(--color-slate)] font-medium">Fabric & Weave</span>
                   <span className="text-[var(--color-ink)] text-right font-medium max-w-[65%]">
-                    {currentProduct.fabric || 'Pure Artisanal Handloom'}
+                    {typeof currentProduct.fabric === 'string' ? currentProduct.fabric : 'Pure Artisanal Handloom'}
                   </span>
                 </div>
 

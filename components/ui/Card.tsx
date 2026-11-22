@@ -403,11 +403,6 @@ export function ProductCard({
 
           {/* Minimal Shopping Bag Icon / Quick Add on right side */}
           <div className="shrink-0 flex items-center gap-1.5 pt-0.5">
-            {rest['fabric'] && (
-              <span className="hidden sm:inline-block border border-[#D1D5DB] px-1 py-0.5 text-[9px] font-normal uppercase tracking-wider text-[#4B5563]">
-                {rest['fabric']}
-              </span>
-            )}
             <button
               type="button"
               onClick={handleAddToBag}
