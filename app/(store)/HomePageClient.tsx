@@ -351,26 +351,6 @@ export default function HomePageClient({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
-            {/* Top Brand Stamp & Tagline Badge */}
-            {showBadge && (badgeText || badgeTagline) && (
-              <motion.div
-                className="flex flex-col items-start gap-1 mb-6"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              >
-                <div className="flex items-center gap-2 text-xs sm:text-sm font-semibold tracking-[0.32em] uppercase text-[#D4AF37]">
-                  <span className="text-[#D4AF37]">★</span>
-                  <span>{badgeText}</span>
-                </div>
-                {badgeTagline && (
-                  <span className="text-[10px] sm:text-xs text-[#E6DFD5]/90 tracking-[0.22em] uppercase font-medium">
-                    {badgeTagline}
-                  </span>
-                )}
-              </motion.div>
-            )}
-
             {/* Brand Signature Headline - Exact Luxury Editorial Style */}
             <div className="flex flex-col items-start gap-1 mb-6">
               <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl text-white font-medium tracking-tight leading-[1.12]">
