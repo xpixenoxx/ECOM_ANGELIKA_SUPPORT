@@ -505,7 +505,11 @@ export default function HomePageClient({
                     category={product.category?.name || ''}
                     isVidhyasPick={product.is_vidyas_pick}
                     discount={product.discount}
-                    href={product.slug ? `/product/${product.slug}` : `/vidhyas-picks?search=${encodeURIComponent(product.name)}`}
+                    href={
+                      product.slug
+                        ? `/product/${product.slug}`
+                        : `/product/${(product.name || '').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')}`
+                    }
                     onAddToBag={() => handleAddToBag(product)}
                     onAddToWishlist={() => handleToggleWishlist(product)}
                     isWishlisted={isInWishlist(product.slug || product.id)}
@@ -581,9 +585,11 @@ export default function HomePageClient({
                       : product.category?.name || '';
                     const origPrice = product.originalPrice ?? product.compare_at_price ?? undefined;
                     const isVPick = product.isVidhyasPick ?? product.is_vidyas_pick ?? false;
-                    const productHref = product.href && !product.href.includes('/undefined')
-                      ? product.href
-                      : (product.slug ? `/product/${product.slug}` : `/new-arrivals?search=${encodeURIComponent(product.name)}`);
+                    const productHref =
+                      (product.href && product.href.startsWith('/product/') && product.href) ||
+                      (product.slug && `/product/${product.slug}`) ||
+                      (product.name && `/product/${product.name.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-')}`) ||
+                      '/shop';
 
                     return (
                       <StaggerItem key={product.id || index} delay={index * 0.08} variant="scale">

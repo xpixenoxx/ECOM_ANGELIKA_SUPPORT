@@ -197,7 +197,18 @@ export function ProductCard({
   const cart = useCart();
 
   const calculatedDiscount = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : discount;
-  const isValidHref = Boolean(href && !href.includes('/undefined') && href !== '#');
+
+  // Resolve product URL cleanly so clicking ANY product card redirects directly to that product's PDP
+  const slugFromProp = (rest['slug'] as string) || (href && href.startsWith('/product/') ? href.replace('/product/', '').split('?')[0] : undefined);
+  const slugFromName = name ? name.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') : undefined;
+  const targetProductSlug = slugFromProp || slugFromName;
+
+  const finalHref = (href && href.startsWith('/product/'))
+    ? href
+    : targetProductSlug
+      ? `/product/${targetProductSlug}`
+      : (href && !href.startsWith('/shop') && !href.startsWith('/vidhyas-picks') ? href : (targetProductSlug ? `/product/${targetProductSlug}` : '#'));
+  const isValidHref = Boolean(finalHref && !finalHref.includes('/undefined') && finalHref !== '#');
 
   const handleAddToBag = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -269,8 +280,8 @@ export function ProductCard({
       <div
         className="relative w-full aspect-[4/5] max-w-[320px] overflow-hidden bg-[#F7F5F0] mx-auto shrink-0"
       >
-        {isValidHref && href ? (
-          <Link href={href} className="block w-full h-full cursor-pointer" aria-label={`View ${name}`}>
+        {isValidHref ? (
+          <Link href={finalHref} className="block w-full h-full cursor-pointer" aria-label={`View ${name}`}>
             <img
               src={image}
               alt={name}
@@ -376,29 +387,43 @@ export function ProductCard({
       </button>
 
       {/* ── 3. Centered Title & Price Section ────────────────────────────── */}
-      <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center">
-        {isValidHref && href ? (
-          <Link href={href} className="block hover:underline" aria-label={`View ${name}`}>
-            <h3 className="text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#111111] line-clamp-1">
-              {name}
-            </h3>
-          </Link>
-        ) : (
+      {isValidHref ? (
+        <Link
+          href={finalHref}
+          className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center group/title cursor-pointer block hover:no-underline"
+          aria-label={`View ${name}`}
+        >
+          <h3 className="text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#111111] line-clamp-1 group-hover/title:underline">
+            {name}
+          </h3>
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <span className="text-[11px] sm:text-[12px] font-bold text-[#111111] tabular-nums">
+              ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            {originalPrice && originalPrice > price && (
+              <span className="text-[10px] sm:text-[11px] text-[#595959] line-through tabular-nums">
+                ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
+          </div>
+        </Link>
+      ) : (
+        <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center">
           <h3 className="text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#111111] line-clamp-1">
             {name}
           </h3>
-        )}
-        <div className="flex items-center justify-center gap-2 mt-1">
-          <span className="text-[11px] sm:text-[12px] font-bold text-[#111111] tabular-nums">
-            ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          {originalPrice && originalPrice > price && (
-            <span className="text-[10px] sm:text-[11px] text-[#595959] line-through tabular-nums">
-              ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <span className="text-[11px] sm:text-[12px] font-bold text-[#111111] tabular-nums">
+              ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
-          )}
+            {originalPrice && originalPrice > price && (
+              <span className="text-[10px] sm:text-[11px] text-[#595959] line-through tabular-nums">
+                ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 

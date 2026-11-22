@@ -36,6 +36,7 @@ export interface CategoriesContent {
 
 export interface NewArrivalProductItem {
   id?: string;
+  slug?: string;
   name: string;
   category: string;
   price: number;
