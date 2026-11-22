@@ -638,7 +638,17 @@ export function CategoryPageClient({
       {/* Visual Category Quick-Browse Strip (Inspect: div.img-scroll-div 1397.38px × 199.4px, margin: 0 21.71px, padding: 0 10px) */}
       {(showCategoryNav && (activeCategoryContent?.navigation?.enabled ?? true)) && (
         <section className="bg-white border-b border-[#F0EBE1] py-2">
-          <div className="img-scroll-div max-w-[1560px] mx-auto px-[10px] overflow-x-auto no-scrollbar scroll-smooth">
+          <style>{`
+            .img-scroll-div::-webkit-scrollbar {
+              display: none !important;
+              width: 0 !important;
+              height: 0 !important;
+            }
+          `}</style>
+          <div
+            className="img-scroll-div max-w-[1560px] mx-auto px-[10px] overflow-x-auto no-scrollbar scrollbar-none scroll-smooth"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
             <div className="flex items-start gap-1 min-w-max py-2">
               {(activeCategoryContent?.navigation?.items && activeCategoryContent.navigation.items.length > 0 ? activeCategoryContent.navigation.items : CATEGORIES_NAVIGATION).map((cat) => {
                 const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
