@@ -1354,7 +1354,7 @@ function ProductGridView({ products, viewMode, onViewModeChange, filters, onFilt
             )}
             columns={4}
             gap={6}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center"
+            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 justify-items-center max-w-[960px] mx-auto"
           />
         ) : (
           <StaggerContainer key="list" variant="default" className="space-y-4">

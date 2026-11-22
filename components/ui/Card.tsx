@@ -275,57 +275,55 @@ export function ProductCard({
         : 'NEW ARRIVAL';
 
   const cardContent = (
-    <div className={cn("group relative flex flex-col w-full max-w-[320px] mx-auto bg-white content-visibility-auto", className)}>
-      {/* ── 1. Image Viewport with Inset Badges (Responsive Aspect Ratio 4:5, Max 320px) ── */}
-      <div
-        className="relative w-full aspect-[4/5] max-w-[320px] overflow-hidden bg-[#F7F5F0] mx-auto shrink-0"
-      >
+    <div
+      className={cn(
+        "group relative flex flex-col w-full max-w-[206px] bg-white content-visibility-auto text-left mx-auto",
+        className
+      )}
+      style={{ boxSizing: 'border-box' }}
+    >
+      {/* ── 1. Image Viewport (Aspect Ratio: 206 / 302.81 ≈ 1 : 1.47) ── */}
+      <div className="relative w-full aspect-[206/302.81] overflow-hidden bg-[#F7F5F0]">
         {isValidHref ? (
           <Link href={finalHref} className="block w-full h-full cursor-pointer" aria-label={`View ${name}`}>
             <img
               src={image}
               alt={name}
-              width={320}
-              height={400}
+              width={206}
+              height={303}
               loading="lazy"
               decoding="async"
-              className="w-full h-full max-w-full object-cover object-top"
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
+              className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
           </Link>
         ) : (
           <img
             src={image}
             alt={name}
-            width={320}
-            height={400}
+            width={206}
+            height={303}
             loading="lazy"
             decoding="async"
-            className="w-full h-full max-w-full object-cover object-top"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 320px"
+            className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         )}
 
-        {/* Floating Wishlist Button */}
+        {/* Minimal Outline Heart (20x20 matching svg.icon-wishlist-add-dims) */}
         {(onAddToWishlist || isWishlisted) && (
           <button
             type="button"
             onClick={handleWishlist}
-            className={cn(
-              "absolute top-2.5 right-2.5 p-2 rounded-full shadow-sm z-10 cursor-pointer transition-all duration-200",
-              isWishlisted
-                ? "bg-white text-[#A84557] hover:scale-110"
-                : "bg-white/90 text-[#6B5E55] hover:text-[#A84557] hover:bg-white hover:scale-110"
-            )}
+            className="absolute top-3 right-3 p-1 z-10 cursor-pointer text-[#1A1A1A] hover:scale-110 transition-transform"
             aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
             title={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
           >
             <svg
-              className={cn("h-4 w-4 transition-transform active:scale-125", isWishlisted && "fill-current text-[#A84557]")}
+              className={cn("w-5 h-5 icon-wishlist-add-dims transition-colors", isWishlisted ? "fill-[#1A1A1A] text-[#1A1A1A]" : "stroke-[1.3] text-[#1A1A1A]/80 hover:text-[#1A1A1A]")}
               viewBox="0 0 24 24"
               fill={isWishlisted ? "currentColor" : "none"}
               stroke="currentColor"
-              strokeWidth={isWishlisted ? "1.8" : "2"}
               aria-hidden="true"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -333,97 +331,75 @@ export function ProductCard({
           </button>
         )}
 
-        {/* Bottom-Left Badge: NEW ARRIVAL (Wine-Red #A84557) */}
-        <div className="absolute bottom-0 left-0 bg-[#A84557] text-white px-2.5 py-1 text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider z-10 pointer-events-none">
-          {badgeText}
+        {/* Minimal Slide / Active Indicator Line below image */}
+        <div className="absolute bottom-0 inset-x-0 h-[2px] bg-[#EAE5DF]">
+          <div className="h-full w-10 bg-[#424242]" />
         </div>
       </div>
 
-      {/* ── 2. Attached Action Bar: ADD TO CART + (Responsive fluid width, max 320px, font: 12-13px) ── */}
-      <button
-        type="button"
-        onClick={handleAddToBag}
-        disabled={isAdding}
-        style={{
-          width: '100%',
-          maxWidth: '320px',
-          height: '36px',
-          padding: '10px 0px',
-          fontSize: '12px',
-          lineHeight: '14px',
-          boxSizing: 'border-box',
-        }}
-        className={cn(
-          "btn-add-to-cart group/btn relative w-full max-w-[320px] h-[36px] py-[10px] px-0 text-[11px] sm:text-[13px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.18em] flex items-center justify-center gap-1.5 focus:outline-hidden shrink-0 mx-auto leading-[14px] overflow-hidden cursor-pointer transition-colors duration-200",
-          isAdded
-            ? "bg-emerald-700 text-white"
-            : isAdding
-              ? "bg-[#111111] text-[#FBF4EC] opacity-85"
-              : "bg-[#FBF4EC] text-[#111111]"
-        )}
-      >
-        {isAdded ? (
-          <span className="relative z-10 leading-none text-[12px] flex items-center gap-1 text-white">
-            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            ADDED TO BAG
-          </span>
-        ) : isAdding ? (
-          <span className="relative z-10 leading-none text-[12px] flex items-center gap-1.5 text-[var(--color-gold)]">
-            <span className="w-3 h-3 border-2 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin" />
-            ADDING...
-          </span>
-        ) : (
-          <>
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 bg-white transform translate-y-full group-hover/btn:translate-y-0 transition-transform duration-350 ease-[cubic-bezier(0.25,1,0.5,1)] pointer-events-none z-[1]"
-            />
-            <span className="relative z-10 leading-none text-[13px]">ADD TO CART</span>
-            <span className="relative z-10 leading-none text-[13px] font-normal">+</span>
-          </>
-        )}
-      </button>
-
-      {/* ── 3. Centered Title & Price Section ────────────────────────────── */}
-      {isValidHref ? (
-        <Link
-          href={finalHref}
-          className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center group/title cursor-pointer block hover:no-underline"
-          aria-label={`View ${name}`}
-        >
-          <h3 className="text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#111111] line-clamp-1 group-hover/title:underline">
-            {name}
-          </h3>
-          <div className="flex items-center justify-center gap-2 mt-1">
-            <span className="text-[11px] sm:text-[12px] font-bold text-[#111111] tabular-nums">
-              ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            {originalPrice && originalPrice > price && (
-              <span className="text-[10px] sm:text-[11px] text-[#595959] line-through tabular-nums">
-                ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {/* ── 2. Text Container (div.SearchHitsItem__search-hit__text-container) ── */}
+      <div className="SearchHitsItem__search-hit__text-container flex flex-col w-full text-left">
+        {/* Product Name (div.ProductHitName__product-hit__name, padding: 16px 12px 0px) */}
+        <div className="ProductHitName__product-hit__name pt-[16px] px-[12px] pb-0">
+          {isValidHref ? (
+            <Link href={finalHref} className="block group/title hover:no-underline" aria-label={`View ${name}`}>
+              <span className="ProductHitName__product-hit__name-text block text-[14px] font-semibold text-[#424242] leading-[1.3] line-clamp-2 hover:underline">
+                {name}
               </span>
-            )}
-          </div>
-        </Link>
-      ) : (
-        <div className="pt-2.5 pb-2 px-1 text-center flex flex-col items-center">
-          <h3 className="text-[11px] sm:text-[12px] font-semibold uppercase tracking-[0.08em] text-[#111111] line-clamp-1">
-            {name}
-          </h3>
-          <div className="flex items-center justify-center gap-2 mt-1">
-            <span className="text-[11px] sm:text-[12px] font-bold text-[#111111] tabular-nums">
-              ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Link>
+          ) : (
+            <span className="ProductHitName__product-hit__name-text block text-[14px] font-semibold text-[#424242] leading-[1.3] line-clamp-2">
+              {name}
             </span>
-            {originalPrice && originalPrice > price && (
-              <span className="text-[10px] sm:text-[11px] text-[#595959] line-through tabular-nums">
-                ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            )}
-          </div>
+          )}
         </div>
-      )}
+
+        {/* Product Price (div.ProductPrice__product-price, padding: 8px 12px 0px, font: 12px) */}
+        <div className="ProductPrice__product-price pt-[8px] px-[12px] pb-0 flex items-baseline gap-2">
+          {isValidHref ? (
+            <Link href={finalHref} className="inline-flex items-baseline gap-2 hover:no-underline" aria-label={`Price for ${name}`}>
+              <span className="text-[12px] font-normal text-[#424242] tabular-nums tracking-normal">
+                ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              {originalPrice && originalPrice > price && (
+                <span className="text-[11px] text-[#8C877F] line-through tabular-nums">
+                  ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </Link>
+          ) : (
+            <>
+              <span className="text-[12px] font-normal text-[#424242] tabular-nums tracking-normal">
+                ₹ {price.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              {originalPrice && originalPrice > price && (
+                <span className="text-[11px] text-[#8C877F] line-through tabular-nums">
+                  ₹ {originalPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Available Colors / Bottom Space (div.ProductHitAvailableColors, margin: 8px 0 0, padding: 0 12px 16px) */}
+        <div className="ProductHitAvailableColors__product-hit__available-colors mt-[8px] px-[12px] pb-[16px] text-[11px] text-[#7A756E] min-h-[24px] flex items-center justify-between">
+          <span>{category || 'Atelier Collection'}</span>
+
+          {/* Discreet Quick Add Pill on hover for luxury convenience */}
+          <button
+            type="button"
+            onClick={handleAddToBag}
+            disabled={isAdding}
+            className={cn(
+              "text-[10px] uppercase tracking-[0.14em] font-medium transition-all opacity-0 group-hover:opacity-100 hover:text-[#1A1A1A] cursor-pointer",
+              isAdded ? "text-emerald-700 opacity-100 font-semibold" : "text-[#5C5852]"
+            )}
+            aria-label={`Add ${name} to bag`}
+          >
+            {isAdded ? "Added ✓" : isAdding ? "Adding..." : "+ Add to Bag"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 
