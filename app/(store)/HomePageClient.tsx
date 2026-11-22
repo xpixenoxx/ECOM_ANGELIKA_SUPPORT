@@ -205,7 +205,7 @@ export default function HomePageClient({
     ctaLink: '/shop',
     secondaryCtaText: "Vidhya's Picks",
     secondaryCtaLink: '/vidhyas-picks',
-    backgroundImage: '/images/hero-new-couture.jpg',
+    backgroundImage: '/images/hero-mauve-saree.jpg',
   };
 
   const vidhyasPicksSection = siteContent?.['vidhyas-picks'];
@@ -309,7 +309,7 @@ export default function HomePageClient({
   };
 
   // Hero dynamic configuration from Admin Panel (HomepageHeroEditor & siteContent.hero)
-  const heroBg = heroData?.backgroundImage || heroContent.backgroundImage || '/images/hero-new-couture.jpg';
+  const heroBg = heroData?.backgroundImage || heroContent.backgroundImage || '/images/hero-mauve-saree.jpg';
   const heroBgAlt = heroData?.backgroundImageAlt || (heroContent.title ? `Angelika Fashions - ${heroContent.title}` : 'Angelika Fashions - Grace in Every Drape | Luxury Indian Ethnic Wear by Vidhya');
   const showBadge = heroData?.showBadge ?? true;
   const badgeText = heroData?.badgeText || 'A N G E L I K A';

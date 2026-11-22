@@ -8,7 +8,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     ctaLink: '/shop',
     secondaryCtaText: "Vidhya's Picks",
     secondaryCtaLink: '/vidhyas-picks',
-    backgroundImage: '/images/hero-new-couture.jpg',
+    backgroundImage: '/images/hero-mauve-saree.jpg',
   },
   features: {
     items: [

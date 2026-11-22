@@ -24,6 +24,7 @@ interface HomepageHeroEditorProps {
 }
 
 const PRESET_BACKGROUND_IMAGES = [
+  { label: 'Artisanal Mauve Saree Drape (Hero)', url: '/images/hero-mauve-saree.jpg' },
   { label: 'Royal Throne Saree (Image 1)', url: '/images/hero-new-couture.jpg' },
   { label: 'Luxury Banner', url: '/images/hero-banner-luxury.jpg' },
   { label: 'Artisanal Drape', url: '/images/hero-bg.jpg' },
