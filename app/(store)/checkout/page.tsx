@@ -2,28 +2,24 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Input } from '@/components/ui/Input';
-import { Select, SelectTrigger, SelectContent, SelectItem } from '@/components/ui/Select';
-import { Radio, RadioGroup } from '@/components/ui/Radio';
 import { Checkbox } from '@/components/ui/Checkbox';
-import { Stepper } from '@/components/ui/Stepper';
-import { LinkButton } from '@/components/ui/LinkButton';
 import { cn } from '@/lib/utils/cn';
-import { ScrollReveal } from '@/components/animations/ScrollReveal';
-import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
-import { MagneticButton } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AuthModal } from '@/components/ui/AuthModal';
 import { createOrder, getUserAddresses, saveAddress } from '@/lib/actions/checkout';
+import {
+  getCheckoutOtpStatus,
+  sendCheckoutOtp,
+  verifyCheckoutOtpAndSignIn,
+  type CheckoutOtpStatus,
+} from '@/lib/actions/checkout-otp';
 import { createClient } from '@/lib/supabase/client';
 import { lookupPincode, type PincodeDetails } from '@/lib/utils/pincode';
+import { PRICING_CONSTANTS } from '@/lib/pricing';
 import type { Address } from '@/types/commerce';
 
-// Local form interface extending Address with UI-specific fields
 interface AddressFormData {
   id?: string;
   firstName: string;
@@ -49,7 +45,7 @@ const toAddressForm = (addr: Address & { id?: string; is_default?: boolean; isDe
   city: addr.city,
   state: addr.state,
   postalCode: addr.postalCode,
-  country: addr.country,
+  country: addr.country || 'India',
   phone: addr.phone,
   email: addr.email,
   isDefault: addr.is_default || addr.isDefault,
@@ -68,13 +64,7 @@ const toAddress = (form: AddressFormData): Address => ({
   email: form.email,
 });
 
-const steps = [
-  { id: 'delivery', label: 'Delivery', description: 'Shipping address' },
-  { id: 'payment', label: 'Payment', description: 'Choose payment method' },
-  { id: 'review', label: 'Review', description: 'Confirm your order' },
-];
-
-const indianStates = [
+const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana',
   'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur',
   'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
@@ -83,39 +73,7 @@ const indianStates = [
   'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
 ];
 
-const paymentMethods = [
-  {
-    id: 'razorpay',
-    name: 'Online Payment (Razorpay)',
-    description: 'UPI, Credit/Debit Cards, Net Banking, Wallets, EMI',
-    icon: (
-      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-        <rect x="2" y="4" width="20" height="16" rx="2" />
-        <path d="M2 8h20M10 12h4M10 16h4" />
-      </svg>
-    ),
-  },
-  {
-    id: 'cod',
-    name: 'Cash on Delivery',
-    description: 'Pay when your order arrives (₹49 handling fee, max ₹10,000)',
-    icon: (
-      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-        <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z" />
-        <path d="M12 6v6l4 2" />
-      </svg>
-    ),
-  },
-];
-
-const formatPrice = (val: number): string => {
-  return `₹${Math.round(val).toLocaleString('en-IN')}`;
-};
-
-const formatPricePlain = (val: number): string => {
-  return Math.round(val).toLocaleString('en-IN');
-};
-
+const formatPrice = (val: number): string => `₹${Math.round(val).toLocaleString('en-IN')}`;
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const PHONE_REGEX = /^[6-9]\d{9}$/;
@@ -124,9 +82,7 @@ const PINCODE_REGEX = /^[1-9]\d{5}$/;
 const validateEmailValue = (val: string): string => {
   const clean = (val || '').trim();
   if (!clean) return 'Email address is required.';
-  if (!EMAIL_REGEX.test(clean)) {
-    return 'Please enter a valid email address.';
-  }
+  if (!EMAIL_REGEX.test(clean)) return 'Please enter a valid email address.';
   return '';
 };
 
@@ -134,27 +90,31 @@ const validatePhoneValue = (val: string): string => {
   const clean = (val || '').replace(/\D/g, '');
   if (!clean) return 'Mobile number is required.';
   if (clean.length !== 10 || !PHONE_REGEX.test(clean)) {
-    return 'Please enter a valid 10-digit mobile number.';
+    return 'Enter a valid 10-digit Indian mobile number.';
   }
   return '';
 };
 
 const validatePincodeValue = (val: string): string => {
   const clean = (val || '').trim().replace(/\D/g, '');
-  if (!clean) return 'Pincode is required.';
+  if (!clean) return '6-digit pincode is required.';
   if (clean.length !== 6 || !PINCODE_REGEX.test(clean)) {
-    return 'Please enter a valid ZIP or postal code.';
+    return 'Enter a valid 6-digit Indian pincode.';
   }
   return '';
 };
 
+const INPUT_CLASS =
+  'w-full px-3.5 py-2.5 rounded-xl border border-[#C9BFB0] bg-[#FDFCFA] text-sm text-[#1A1A1A] placeholder:text-[#8E8477] focus:bg-white focus:outline-none focus:border-[#9A7718] focus:ring-2 focus:ring-[#C9A84C]/25 transition-all';
+const INPUT_ERR_CLASS =
+  'w-full px-3.5 py-2.5 rounded-xl border border-rose-400 bg-rose-50/40 text-sm text-[#1A1A1A] placeholder:text-[#8E8477] focus:bg-white focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-200 transition-all';
+
 export default function CheckoutPage() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, signOut, refreshProfile, refreshSession } = useAuth();
   const {
     items,
     subtotal,
     shippingCost: cartShippingCost,
-    taxAmount,
     discountAmount,
     total: cartTotal,
     itemCount,
@@ -166,9 +126,11 @@ export default function CheckoutPage() {
     removeCoupon,
   } = useCart();
 
-  const [currentStep, setCurrentStep] = useState(0);
+  // Contact & Address State
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [savedAddresses, setSavedAddresses] = useState<AddressFormData[]>([]);
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
+  const [saveNewAddress, setSaveNewAddress] = useState(true);
   const [newAddress, setNewAddress] = useState<AddressFormData>({
     firstName: '',
     lastName: '',
@@ -180,186 +142,101 @@ export default function CheckoutPage() {
     postalCode: '',
     country: 'India',
     type: 'Home',
-    isDefault: false,
+    isDefault: true,
   });
-  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<'razorpay' | 'cod'>('razorpay');
-  const submittingRef = useRef(false);
-  const [email, setEmail] = useState(profile?.email || '');
-  const [phone, setPhone] = useState(profile?.phone || '');
-  const [notes, setNotes] = useState('');
-  const [saveInfo, setSaveInfo] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // World-class luxury additions
-  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+  const [email, setEmail] = useState(profile?.email || user?.email || '');
+  const [phone, setPhone] = useState(profile?.phone || '');
+  const [selectedPayment, setSelectedPayment] = useState<'razorpay' | 'cod'>('razorpay');
+  const [notes, setNotes] = useState('');
   const [giftWrap, setGiftWrap] = useState(false);
   const [giftRecipient, setGiftRecipient] = useState('');
   const [giftMessage, setGiftMessage] = useState('');
+  const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(true);
+
+  // Inline Checkout OTP Auto-Account State
+  const [otpStatus, setOtpStatus] = useState<CheckoutOtpStatus>({
+    emailOtpReady: false,
+    mobileOtpReady: false,
+    mobileProvider: null,
+    anyOtpReady: false,
+  });
+  const [otpChannel, setOtpChannel] = useState<'mobile' | 'email'>('mobile');
+  const [otpSentTo, setOtpSentTo] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [otpFeedback, setOtpFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Pincode & Coupon State
   const [pincodeInfo, setPincodeInfo] = useState<PincodeDetails | null>(null);
   const [isResolvingPin, setIsResolvingPin] = useState(false);
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [couponApplying, setCouponApplying] = useState(false);
   const [couponNotice, setCouponNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [availableOffers, setAvailableOffers] = useState([
+    { code: 'FIRST10', title: '10% OFF', desc: 'Min ₹1,999' },
+    { code: 'ROYAL500', title: '₹500 OFF', desc: 'Min ₹4,999' },
+    { code: 'COUTURE15', title: '15% OFF', desc: 'Min ₹5,999' },
+  ]);
+
+  // Submission & Validation State
+  const submittingRef = useRef(false);
+  const contactSectionRef = useRef<HTMLDivElement>(null);
+  const addressSectionRef = useRef<HTMLDivElement>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [checkoutIdempotencyKey] = useState<string>(() =>
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? `chk_${crypto.randomUUID()}`
       : `chk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   );
 
-  const DEFAULT_OFFERS = [
-    { code: 'FIRST10', title: '10% OFF', desc: 'Welcome privilege on your couture order (min ₹1,999)', badge: 'VIP Welcome' },
-    { code: 'ROYAL500', title: '₹500 OFF', desc: 'Flat ₹500 off on heritage sets above ₹4,999', badge: 'Royal Edition' },
-    { code: 'COUTURE15', title: '15% OFF', desc: '15% festive luxury discount on orders above ₹5,999', badge: 'Festive Luxe' },
-  ];
-
-  const [availableOffers, setAvailableOffers] = useState(DEFAULT_OFFERS);
-
+  // Load OTP availability & active coupons on mount
   useEffect(() => {
+    getCheckoutOtpStatus()
+      .then((st) => {
+        setOtpStatus(st);
+        setOtpChannel(st.mobileOtpReady ? 'mobile' : 'email');
+      })
+      .catch(() => {});
+
     async function loadOffers() {
       try {
         const supabase = createClient();
-        const { data, error } = await supabase
+        const { data, error: cErr } = await supabase
           .from('coupons')
           .select('code, name, type, value, min_order_amount, is_active')
           .eq('is_active', true)
-          .order('value', { ascending: false });
+          .order('value', { ascending: false })
+          .limit(4);
 
-        if (!error && data && data.length > 0) {
-          const mapped = data.map((c: any) => ({
-            code: c.code,
-            title: c.type === 'percentage' ? `${c.value}% OFF` : `₹${Number(c.value).toLocaleString('en-IN')} OFF`,
-            desc: c.name + (c.min_order_amount ? ` (min ₹${Number(c.min_order_amount).toLocaleString('en-IN')})` : ''),
-            badge: c.type === 'percentage' ? `${c.value}% Privilege` : 'Voucher',
-          }));
-          setAvailableOffers(mapped);
+        if (!cErr && data && data.length > 0) {
+          setAvailableOffers(
+            data.map((c: any) => ({
+              code: c.code,
+              title: c.type === 'percentage' ? `${c.value}% OFF` : `₹${Number(c.value).toLocaleString('en-IN')} OFF`,
+              desc: c.min_order_amount ? `Min ₹${Number(c.min_order_amount).toLocaleString('en-IN')}` : c.name,
+            }))
+          );
         }
-      } catch (err) {
-        console.warn('Active coupons fetch notice:', err);
+      } catch {
+        // Fallback offers remain active
       }
     }
     loadOffers();
   }, []);
 
-  const handleEmailChange = (val: string) => {
-    setEmail(val);
-    setNewAddress(prev => ({ ...prev, email: val }));
-    if (fieldErrors['email']) {
-      setFieldErrors(prev => ({ ...prev, email: validateEmailValue(val) }));
-    }
-  };
-
-  const handleEmailBlur = () => {
-    const err = validateEmailValue(email || newAddress.email || '');
-    setFieldErrors(prev => ({ ...prev, email: err }));
-  };
-
-  const handlePhoneChange = (val: string) => {
-    const digits = val.replace(/\D/g, '').slice(0, 10);
-    setPhone(digits);
-    setNewAddress(prev => ({ ...prev, phone: digits }));
-    if (fieldErrors['phone']) {
-      setFieldErrors(prev => ({ ...prev, phone: validatePhoneValue(digits) }));
-    }
-  };
-
-  const handlePhoneBlur = () => {
-    const err = validatePhoneValue(phone || newAddress.phone || '');
-    setFieldErrors(prev => ({ ...prev, phone: err }));
-  };
-
-  const handlePincodeChange = async (val: string) => {
-    const clean = val.replace(/\D/g, '').slice(0, 6);
-    setNewAddress(prev => ({ ...prev, postalCode: clean }));
-
-    if (fieldErrors['postalCode']) {
-      setFieldErrors(prev => ({ ...prev, postalCode: validatePincodeValue(clean) }));
-    }
-
-    if (clean.length === 6) {
-      if (PINCODE_REGEX.test(clean)) {
-        setFieldErrors(prev => ({ ...prev, postalCode: '' }));
-      }
-      setIsResolvingPin(true);
-      try {
-        const info = await lookupPincode(clean);
-        if (info && (info.city || info.state)) {
-          setPincodeInfo(info);
-          setNewAddress(prev => ({
-            ...prev,
-            city: info.city || prev.city,
-            state: info.state || prev.state,
-          }));
-          setFieldErrors(prev => ({
-            ...prev,
-            city: info.city ? '' : (prev['city'] || ''),
-            state: info.state ? '' : (prev['state'] || ''),
-          }));
-        } else {
-          setPincodeInfo(null);
-        }
-      } catch (err) {
-        console.warn('Pincode auto-lookup error:', err);
-      } finally {
-        setIsResolvingPin(false);
-      }
-    } else {
-      setPincodeInfo(null);
-    }
-  };
-
-  const handleFirstNameBlur = () => {
-    if (!newAddress.firstName?.trim()) {
-      setFieldErrors(prev => ({ ...prev, firstName: 'First name is required' }));
-    }
-  };
-
-  const handleLastNameBlur = () => {
-    if (!newAddress.lastName?.trim()) {
-      setFieldErrors(prev => ({ ...prev, lastName: 'Last name is required' }));
-    }
-  };
-
-  const handleAddress1Blur = () => {
-    if (!newAddress.address1?.trim()) {
-      setFieldErrors(prev => ({ ...prev, address1: 'Flat / Street address is required' }));
-    }
-  };
-
-  const handleCityBlur = () => {
-    if (!newAddress.city?.trim()) {
-      setFieldErrors(prev => ({ ...prev, city: 'City is required' }));
-    }
-  };
-
-  const handlePincodeBlur = () => {
-    const err = validatePincodeValue(newAddress.postalCode || '');
-    setFieldErrors(prev => ({ ...prev, postalCode: err }));
-  };
-
-  const handleApplyCoupon = async (codeToApply?: string) => {
-    const code = (codeToApply || couponCodeInput).trim().toUpperCase();
-    if (!code) return;
-    setCouponApplying(true);
-    setCouponNotice(null);
-    try {
-      const res = await applyCoupon(code);
-      if (res.valid) {
-        setCouponNotice({ type: 'success', text: `Privilege voucher ${code} applied!` });
-        setCouponCodeInput('');
-      } else {
-        setCouponNotice({ type: 'error', text: res.error || 'Invalid coupon code' });
-      }
-    } catch {
-      setCouponNotice({ type: 'error', text: 'Failed to apply coupon' });
-    } finally {
-      setCouponApplying(false);
-    }
-  };
+  // OTP resend countdown
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const t = setInterval(() => setOtpCooldown((c) => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [otpCooldown]);
 
   const loadAddresses = useCallback(async () => {
     if (!user) {
@@ -373,139 +250,255 @@ export default function CheckoutPage() {
       if (mapped.length > 0 && mapped[0]) {
         setSelectedAddressId(mapped[0].id || '');
         setShowNewAddressForm(false);
+        if (mapped[0].phone && !phone) setPhone(mapped[0].phone);
       } else {
         setShowNewAddressForm(true);
       }
-    } catch (err) {
-      console.error('Failed to load addresses:', err);
+    } catch {
       setShowNewAddressForm(true);
     }
-  }, [user]);
+  }, [user, phone]);
 
-  // Load saved addresses on mount
   useEffect(() => {
     if (user) {
       loadAddresses();
+      if (user.email) setEmail(user.email);
     } else {
+      setSavedAddresses([]);
+      setSelectedAddressId('');
       setShowNewAddressForm(true);
     }
   }, [user, loadAddresses]);
 
-  // Sync email/phone with profile
   useEffect(() => {
     if (profile) {
-      setEmail(profile.email || '');
-      setPhone(profile.phone || '');
-    }
-  }, [profile]);
-
-  const handleSaveAddress = async (addressData: AddressFormData) => {
-    if (!user) {
-      setShowNewAddressForm(false);
-      return;
-    }
-    try {
-      const result = await saveAddress(user.id, toAddress(addressData));
-      if (result.success && result.address) {
-        const newAddr = toAddressForm(result.address);
-        setSavedAddresses(prev => [newAddr, ...prev.filter(a => a.id !== newAddr.id)]);
-        setSelectedAddressId(newAddr.id || '');
-        setShowNewAddressForm(false);
-        if (result.address.is_default) {
-          await refreshProfile();
-        }
+      if (profile.email) setEmail(profile.email);
+      if (profile.phone) setPhone(profile.phone.replace(/\D/g, '').slice(-10));
+      if (profile.full_name && !newAddress.firstName) {
+        const parts = profile.full_name.trim().split(/\s+/);
+        setNewAddress((prev) => ({
+          ...prev,
+          firstName: prev.firstName || parts[0] || '',
+          lastName: prev.lastName || parts.slice(1).join(' ') || '',
+        }));
       }
-    } catch (err) {
-      console.warn('Address save notice:', err);
     }
-  };
+  }, [profile, newAddress.firstName]);
 
-  const activeAddress: AddressFormData = (showNewAddressForm || !selectedAddressId)
-    ? newAddress
-    : (savedAddresses.find(a => a.id === selectedAddressId) || newAddress);
+  const codEligible = cartTotal <= PRICING_CONSTANTS.COD_MAX_AMOUNT;
+  useEffect(() => {
+    if (!codEligible && selectedPayment === 'cod') {
+      setSelectedPayment('razorpay');
+    }
+  }, [codEligible, selectedPayment]);
 
-  const subtotalValue = subtotal;
-  const shippingCost = cartShippingCost;
-  const codFee = selectedPayment === 'cod' ? 49 : 0;
+  const codFee = selectedPayment === 'cod' ? PRICING_CONSTANTS.COD_FEE : 0;
   const total = cartTotal + codFee;
+  const hasOutOfStockItems = items.some((item) => item.inventory_quantity === 0);
 
-  const hasOutOfStockItems = items.some(item => item.inventory_quantity === 0);
-  const hasLowStockItems = items.some(item => item.inventory_quantity > 0 && item.inventory_quantity < item.quantity);
+  const handleEmailChange = (val: string) => {
+    setEmail(val);
+    setNewAddress((prev) => ({ ...prev, email: val }));
+    if (fieldErrors['email']) setFieldErrors((prev) => ({ ...prev, email: validateEmailValue(val) }));
+  };
 
-  const nextStep = () => {
-    setError('');
-    const newFieldErrors: Record<string, string> = {};
+  const handlePhoneChange = (val: string) => {
+    const digits = val.replace(/\D/g, '').slice(0, 10);
+    setPhone(digits);
+    setNewAddress((prev) => ({ ...prev, phone: digits }));
+    if (fieldErrors['phone']) setFieldErrors((prev) => ({ ...prev, phone: validatePhoneValue(digits) }));
+  };
 
-    if (currentStep === 0) {
-      if (showNewAddressForm || !selectedAddressId) {
-        const emailErr = validateEmailValue(email || newAddress.email || user?.email || '');
-        if (emailErr) newFieldErrors['email'] = emailErr;
-
-        const phoneErr = validatePhoneValue(newAddress.phone || phone || '');
-        if (phoneErr) newFieldErrors['phone'] = phoneErr;
-
-        if (!newAddress.firstName?.trim()) {
-          newFieldErrors['firstName'] = 'First name is required';
+  const handlePincodeChange = async (val: string) => {
+    const clean = val.replace(/\D/g, '').slice(0, 6);
+    setNewAddress((prev) => ({ ...prev, postalCode: clean }));
+    if (fieldErrors['postalCode']) {
+      setFieldErrors((prev) => ({ ...prev, postalCode: validatePincodeValue(clean) }));
+    }
+    if (clean.length === 6 && PINCODE_REGEX.test(clean)) {
+      setFieldErrors((prev) => ({ ...prev, postalCode: '' }));
+      setIsResolvingPin(true);
+      try {
+        const info = await lookupPincode(clean);
+        if (info && (info.city || info.state)) {
+          setPincodeInfo(info);
+          setNewAddress((prev) => ({
+            ...prev,
+            city: info.city || prev.city,
+            state: info.state || prev.state,
+          }));
+          setFieldErrors((prev) => ({
+            ...prev,
+            city: info.city ? '' : prev['city'] || '',
+            state: info.state ? '' : prev['state'] || '',
+          }));
+        } else {
+          setPincodeInfo(null);
         }
-        if (!newAddress.lastName?.trim()) {
-          newFieldErrors['lastName'] = 'Last name is required';
-        }
-        if (!newAddress.address1?.trim()) {
-          newFieldErrors['address1'] = 'Flat / Street address is required';
-        }
-        const pinErr = validatePincodeValue(newAddress.postalCode || '');
-        if (pinErr) newFieldErrors['postalCode'] = pinErr;
-
-        if (!newAddress.city?.trim()) {
-          newFieldErrors['city'] = 'City is required';
-        }
-        if (!newAddress.state?.trim()) {
-          newFieldErrors['state'] = 'Please select a state';
-        }
-
-        if (Object.keys(newFieldErrors).length > 0) {
-          setFieldErrors(newFieldErrors);
-          setError('Please fill in all required fields marked with *');
-          return;
-        }
-
-        setFieldErrors({});
-        if (user) {
-          handleSaveAddress(newAddress);
-        }
-      } else {
-        const addr = savedAddresses.find(a => a.id === selectedAddressId);
-        if (!addr) {
-          setError('Please select or add a delivery address');
-          return;
-        }
+      } catch {
+        setPincodeInfo(null);
+      } finally {
+        setIsResolvingPin(false);
       }
-    }
-    if (currentStep === 1 && !selectedPayment) {
-      setError('Please select a payment method');
-      return;
-    }
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(prev => prev + 1);
+    } else {
+      setPincodeInfo(null);
     }
   };
 
-  const prevStep = () => {
-    setError('');
-    if (currentStep > 0) setCurrentStep(prev => prev - 1);
+  const handleSendCheckoutOtp = async () => {
+    const emailErr = validateEmailValue(email);
+    const phoneErr = validatePhoneValue(phone);
+    if (emailErr || phoneErr) {
+      setFieldErrors((prev) => ({ ...prev, email: emailErr, phone: phoneErr }));
+      setOtpFeedback({
+        type: 'error',
+        text: emailErr || phoneErr,
+      });
+      return;
+    }
+
+    setOtpSending(true);
+    setOtpFeedback(null);
+    try {
+      const fullName = `${newAddress.firstName} ${newAddress.lastName}`.trim();
+      const res = await sendCheckoutOtp({
+        email,
+        phone,
+        fullName,
+        preferredChannel: otpChannel,
+      });
+      if (res.success) {
+        setOtpSentTo(res.maskedTarget || email);
+        setOtpCooldown(45);
+        setOtpFeedback({ type: 'info', text: res.message });
+      } else {
+        setOtpFeedback({ type: 'error', text: res.message });
+      }
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyCheckoutOtp = async () => {
+    if (!/^\d{6}$/.test(otpCode.trim())) {
+      setOtpFeedback({ type: 'error', text: 'Please enter the 6-digit verification code.' });
+      return;
+    }
+    setOtpVerifying(true);
+    setOtpFeedback(null);
+    try {
+      const fullName = `${newAddress.firstName} ${newAddress.lastName}`.trim();
+      const res = await verifyCheckoutOtpAndSignIn({
+        email,
+        phone,
+        otp: otpCode.trim(),
+        fullName,
+      });
+      if (res.success) {
+        await refreshSession();
+        setOtpCode('');
+        setOtpSentTo(null);
+        setOtpFeedback({ type: 'success', text: res.message });
+        setError('');
+      } else {
+        setOtpFeedback({ type: 'error', text: res.message });
+      }
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+  const handleApplyCoupon = async (codeToApply?: string) => {
+    const code = (codeToApply || couponCodeInput).trim().toUpperCase();
+    if (!code) return;
+    setCouponApplying(true);
+    setCouponNotice(null);
+    try {
+      const res = await applyCoupon(code);
+      if (res.valid) {
+        setCouponNotice({ type: 'success', text: `Voucher ${code} applied!` });
+        setCouponCodeInput('');
+      } else {
+        setCouponNotice({ type: 'error', text: res.error || 'Coupon could not be applied' });
+      }
+    } catch {
+      setCouponNotice({ type: 'error', text: 'Could not apply coupon right now.' });
+    } finally {
+      setCouponApplying(false);
+    }
   };
 
   const handlePlaceOrder = async () => {
     if (submittingRef.current || isProcessing) return;
-    if (!termsAccepted) {
-      setError('Please accept the terms and conditions');
-      return;
-    }
     if (items.length === 0) return;
 
+    setError('');
+    const nextFieldErrors: Record<string, string> = {};
+
+    const finalEmail = (email || user?.email || newAddress.email || '').trim();
+    const finalPhone = (phone || newAddress.phone || savedAddresses.find((a) => a.id === selectedAddressId)?.phone || '')
+      .replace(/\D/g, '')
+      .slice(-10);
+
+    const emailErr = validateEmailValue(finalEmail);
+    if (emailErr) nextFieldErrors['email'] = emailErr;
+
+    const phoneErr = validatePhoneValue(finalPhone);
+    if (phoneErr) nextFieldErrors['phone'] = phoneErr;
+
+    // When live OTP delivery is active and user hasn't verified/signed in yet, prompt OTP verification in Section 1
+    if (!user && otpStatus.anyOtpReady) {
+      setFieldErrors((prev) => ({ ...prev, ...nextFieldErrors }));
+      setError('Please verify your 6-digit OTP in Step 1 so your account & order history are saved automatically.');
+      contactSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    let shippingAddress: Address;
+    if (showNewAddressForm || !selectedAddressId) {
+      if (!newAddress.firstName?.trim()) nextFieldErrors['firstName'] = 'First name is required';
+      if (!newAddress.lastName?.trim()) nextFieldErrors['lastName'] = 'Last name is required';
+      if (!newAddress.address1?.trim()) nextFieldErrors['address1'] = 'Flat / house / street address is required';
+      const pinErr = validatePincodeValue(newAddress.postalCode || '');
+      if (pinErr) nextFieldErrors['postalCode'] = pinErr;
+      if (!newAddress.city?.trim()) nextFieldErrors['city'] = 'City is required';
+      if (!newAddress.state?.trim()) nextFieldErrors['state'] = 'Please select your state';
+
+      if (Object.keys(nextFieldErrors).length > 0) {
+        setFieldErrors(nextFieldErrors);
+        setError('Please complete the highlighted fields to place your order.');
+        (nextFieldErrors['email'] || nextFieldErrors['phone'] ? contactSectionRef : addressSectionRef).current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+        return;
+      }
+
+      shippingAddress = toAddress({ ...newAddress, phone: finalPhone, email: finalEmail });
+    } else {
+      const addr = savedAddresses.find((a) => a.id === selectedAddressId);
+      if (!addr) {
+        setError('Please select or enter a delivery address.');
+        addressSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      if (Object.keys(nextFieldErrors).length > 0) {
+        setFieldErrors(nextFieldErrors);
+        setError('Please enter a valid contact email and 10-digit mobile number.');
+        contactSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      shippingAddress = toAddress({ ...addr, phone: finalPhone || addr.phone, email: finalEmail });
+    }
+
+    if (!termsAccepted) {
+      setError('Please accept the Terms & Conditions to proceed.');
+      return;
+    }
+
+    setFieldErrors({});
     submittingRef.current = true;
     setIsProcessing(true);
-    setError('');
 
     const resetSubmitting = () => {
       submittingRef.current = false;
@@ -513,7 +506,15 @@ export default function CheckoutPage() {
     };
 
     try {
-      // Validate cart
+      // Save new address to signed-in account silently for future 1-click checkouts
+      if (user && (showNewAddressForm || savedAddresses.length === 0) && saveNewAddress) {
+        saveAddress(user.id, { ...shippingAddress, is_default: savedAddresses.length === 0 })
+          .then((saved) => {
+            if (saved.success) refreshProfile().catch(() => {});
+          })
+          .catch(() => {});
+      }
+
       const validation = await validateCart();
       if (!validation.valid) {
         setError(validation.errors.join(', '));
@@ -521,72 +522,33 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Determine selected address
-      let shippingAddress: Address;
-      if (showNewAddressForm || !selectedAddressId) {
-        if (!newAddress.firstName?.trim() || !newAddress.address1?.trim()) {
-          setError('Please complete your delivery address before placing order');
-          resetSubmitting();
-          setCurrentStep(0);
-          return;
-        }
-        shippingAddress = toAddress(newAddress);
-      } else {
-        const addr = savedAddresses.find(a => a.id === selectedAddressId);
-        if (!addr) {
-          setError('Please select a delivery address');
-          resetSubmitting();
-          setCurrentStep(0);
-          return;
-        }
-        shippingAddress = toAddress(addr);
-      }
-
-      const finalEmail = email?.trim() || newAddress.email?.trim() || user?.email || '';
-      const finalPhone = phone?.trim() || newAddress.phone?.trim() || '';
-
-      const finalEmailErr = validateEmailValue(finalEmail);
-      if (finalEmailErr) {
-        setError(finalEmailErr);
-        setFieldErrors(prev => ({ ...prev, email: finalEmailErr }));
-        resetSubmitting();
-        setCurrentStep(0);
-        return;
-      }
-
-      const finalPhoneErr = validatePhoneValue(finalPhone);
-      if (finalPhoneErr) {
-        setError(finalPhoneErr);
-        setFieldErrors(prev => ({ ...prev, phone: finalPhoneErr }));
-        resetSubmitting();
-        setCurrentStep(0);
-        return;
-      }
-
-      // Prepare order data (server authoritatively computes all prices/discounts/taxes)
-      const orderData = {
+      const result = await createOrder({
         items,
         shippingAddress,
         billingAddress: shippingAddress,
         paymentMethod: selectedPayment,
         email: finalEmail,
         phone: finalPhone,
-        notes,
+        notes: notes.trim() || undefined,
         coupon: appliedCoupon || undefined,
         userId: user?.id,
         giftWrap,
-        giftMessage: giftWrap ? `${giftRecipient ? 'To: ' + giftRecipient + ' — ' : ''}${giftMessage}` : undefined,
+        giftMessage: giftWrap
+          ? `${giftRecipient ? 'To: ' + giftRecipient + ' — ' : ''}${giftMessage}`.trim()
+          : undefined,
         whatsappOptIn,
         idempotencyKey: checkoutIdempotencyKey,
-      };
-
-      const result = await createOrder(orderData);
+      });
 
       if (!result.success) {
-        setError(result.error || 'Failed to place order');
+        setError(result.error || 'Failed to place order. Please try again.');
         resetSubmitting();
         return;
       }
+
+      const tokenParam = result.receiptToken
+        ? `&token=${encodeURIComponent(result.receiptToken)}`
+        : '';
 
       if (selectedPayment === 'razorpay' && result.razorpayOrderId) {
         const razorpayKey = result.razorpayKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
@@ -596,20 +558,16 @@ export default function CheckoutPage() {
           return;
         }
 
-        const tokenParam = result.receiptToken
-          ? `&token=${encodeURIComponent(result.receiptToken)}`
-          : '';
-
         const openRazorpayModal = () => {
           const RazorpayCtor = (window as any).Razorpay;
           if (typeof RazorpayCtor !== 'function') {
-            setError('Razorpay Checkout SDK could not be initialized. Please refresh and try again.');
+            setError('Razorpay Checkout could not initialize. Please refresh and try again.');
             resetSubmitting();
             return;
           }
 
           let handlerTriggered = false;
-          const razorpayOptions = {
+          const razorpay = new RazorpayCtor({
             key: razorpayKey,
             amount: result.amountPaise || Math.round(total * 100),
             currency: result.currency || 'INR',
@@ -645,15 +603,13 @@ export default function CheckoutPage() {
                   await clearCart();
                   window.location.href = `/order-success?order_id=${verifyResult.orderId || result.orderId}${verifiedToken}`;
                 } else {
-                  // Do not force customer to pay again blindly; route to pending verification or show error clearly
                   setError(
                     verifyResult?.error ||
-                      'We received your payment callback, but verification could not be completed immediately. Please check your order status before retrying.'
+                      'We received your payment callback, but verification could not complete immediately. Please check your order status before retrying.'
                   );
                   resetSubmitting();
                 }
               } catch {
-                // Network dropped after Razorpay payment completed -> send to pending verification page (auto-reconciles via Razorpay)
                 window.location.href = `/order-success?order_id=${result.orderId}${tokenParam}&verifying=1`;
               }
             },
@@ -666,9 +622,7 @@ export default function CheckoutPage() {
               order_id: result.orderId || '',
               order_number: result.orderNumber || '',
             },
-            theme: {
-              color: '#C9A84C',
-            },
+            theme: { color: '#C9A84C' },
             modal: {
               confirm_close: true,
               ondismiss: () => {
@@ -678,15 +632,14 @@ export default function CheckoutPage() {
                 }
               },
             },
-          };
+          });
 
-          const razorpay = new RazorpayCtor(razorpayOptions);
           razorpay.on('payment.failed', (failure: any) => {
-            const desc =
+            setError(
               failure?.error?.description ||
-              failure?.error?.reason ||
-              'Payment could not be completed. Please try again or choose another method.';
-            setError(desc);
+                failure?.error?.reason ||
+                'Payment could not be completed. Please try again or choose another payment method.'
+            );
             resetSubmitting();
           });
           razorpay.open();
@@ -701,20 +654,15 @@ export default function CheckoutPage() {
           script.id = 'razorpay-checkout-script';
           script.src = 'https://checkout.razorpay.com/v1/checkout.js';
           script.async = true;
-          script.onload = () => {
-            openRazorpayModal();
-          };
+          script.onload = () => openRazorpayModal();
           script.onerror = () => {
-            setError('Could not load Razorpay payment gateway. Please check your connection and try again.');
+            setError('Could not load Razorpay Checkout. Please check your connection and try again.');
             resetSubmitting();
           };
           document.body.appendChild(script);
         }
       } else if (selectedPayment === 'cod') {
         await clearCart();
-        const tokenParam = result.receiptToken
-          ? `&token=${encodeURIComponent(result.receiptToken)}`
-          : '';
         window.location.href = `/order-success?order_id=${result.orderId}${tokenParam}`;
       } else {
         setError('Payment session could not be created. Please try again.');
@@ -722,19 +670,17 @@ export default function CheckoutPage() {
       }
     } catch (err) {
       console.error('Order placement failed:', err);
-      setError('An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred while placing your order. Please try again.');
       resetSubmitting();
     }
   };
 
-  const selectedAddr = savedAddresses.find(a => a.id === selectedAddressId);
-
   if (cartLoading && items.length === 0) {
     return (
-      <div className="min-h-screen bg-[var(--color-white)] flex items-center justify-center">
+      <div className="min-h-screen bg-[#EFEAE2] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 mx-auto mb-4 border-4 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[var(--color-slate)]">Loading your order...</p>
+          <div className="w-10 h-10 mx-auto mb-3 border-3 border-[#B89334] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[#5C5347]">Preparing secure checkout...</p>
         </div>
       </div>
     );
@@ -742,1095 +688,963 @@ export default function CheckoutPage() {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center bg-[var(--color-white)]">
-        <ScrollReveal variant="fadeUp" className="text-center max-w-md px-6">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center">
-            <svg className="h-12 w-12 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-              <path d="M3 6h18" />
-              <path d="M16 10a4 4 0 0 1 0 8" />
-            </svg>
-          </div>
-          <h1 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)] mb-3">
-            Your Bag is Empty
-          </h1>
-          <p className="text-[var(--color-slate)] mb-8">
-            Add items to your bag before proceeding to checkout.
-          </p>
-          <Button variant="primary" asChild>
-            <a href="/shop">Continue Shopping</a>
+      <div className="min-h-screen bg-[#EFEAE2] flex items-center justify-center px-4">
+        <div className="bg-white border border-[#D8CFC2] rounded-2xl shadow-sm p-10 text-center max-w-md w-full space-y-4">
+          <h1 className="font-display text-3xl text-[#1A1A1A]">Your Bag is Empty</h1>
+          <p className="text-sm text-[#665E52]">Add pieces to your bag before checking out.</p>
+          <Button variant="primary" asChild className="w-full">
+            <Link href="/shop">Explore Collection</Link>
           </Button>
-        </ScrollReveal>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--color-white)]">
-      {/* Progress Header with Brand Logo */}
-      <header className="bg-[var(--color-white)] border-b border-[var(--color-whisper)] sticky top-0 z-40 shadow-sm">
-        <div className="container-custom px-6 py-3">
-          <div className="flex items-center justify-between max-w-4xl mx-auto mb-3">
-            <Link href="/" className="flex items-center gap-2" aria-label="Angelika Fashions - Home">
-              <img
-                src="/images/logo.png"
-                alt="Angelika Fashions"
-                className="h-8 md:h-10 w-auto object-contain rounded-sm"
-              />
-              <div className="flex flex-col">
-                <span className="font-display text-lg font-bold tracking-tight text-[var(--color-ink)] leading-none">
-                  Angelika
-                </span>
-                <span className="text-[8px] tracking-[0.2em] text-[var(--color-gold)] uppercase font-semibold">
-                  Secure Checkout
-                </span>
-              </div>
-            </Link>
-            <div className="flex items-center gap-1.5 text-xs text-[var(--color-slate)]">
-              <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-              <span className="font-medium">100% Secure Checkout</span>
-            </div>
+    <div className="min-h-screen bg-[#EFEAE2] text-[#1A1A1A]">
+      {/* Minimal Distraction-Free Top Bar — NO Logo Image, NO Storefront Navbar */}
+      <header className="sticky top-0 z-40 bg-white border-b border-[#DDD4C7] shadow-[0_1px_6px_rgba(26,26,26,0.04)]">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <Link
+            href="/cart"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#574F44] hover:text-[#1A1A1A] transition-colors"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            <span>Back to Bag</span>
+          </Link>
+
+          <span className="font-display text-base sm:text-lg tracking-[0.22em] uppercase text-[#1A1A1A] font-medium select-none">
+            Angelika Fashions
+          </span>
+
+          <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#574F44]">
+            <svg className="w-3.5 h-3.5 text-[#9A7718]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
+              <rect x="3" y="11" width="18" height="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0110 0v4" />
+            </svg>
+            <span className="hidden sm:inline">100% Secure Checkout</span>
+            <span className="sm:hidden">Secure</span>
           </div>
-          <Stepper
-            steps={steps}
-            currentStep={currentStep}
-            onStepClick={(stepId, index) => {
-              if (index < currentStep) {
-                setError('');
-                setCurrentStep(index);
-              }
-            }}
-            className="max-w-4xl mx-auto"
-          />
         </div>
       </header>
 
-      {/* Checkout Content */}
-      <main className="py-10">
-        <div className="container-custom px-6">
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Form Steps */}
-            <ScrollReveal variant="fadeUp" className="lg:col-span-2 space-y-6">
-              <>
-                <AnimatePresence mode="wait">
-                  {/* Step 1: Delivery */}
-                  {currentStep === 0 && (
-                    <motion.div key="delivery" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-                      <StaggerContainer variant="default">
-                        <Card variant="elevated" padding="lg">
-                          <CardHeader className="pb-4">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                              <div>
-                                <CardTitle className="text-[var(--font-display)] text-xl">Delivery &amp; Contact Information</CardTitle>
-                                <p className="text-[var(--color-slate)] text-sm mt-0.5">Enter where you&apos;d like your handcrafted couture delivered</p>
-                              </div>
-                              {!user && (
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[var(--color-gold-light)]/40 text-[var(--color-gold)] border border-[var(--color-gold)]/20 text-xs font-semibold rounded-full self-start sm:self-auto">
-                                  ✦ Express Guest Checkout
-                                </span>
-                              )}
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-6">
-
-                          {/* Guest Welcome Banner */}
-                          {!user && (
-                            <div className="p-3.5 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-full bg-[var(--color-gold)]/10 text-[var(--color-gold)] flex items-center justify-center font-bold">
-                                  ✓
-                                </span>
-                                <span className="text-[var(--color-ink)] font-medium">
-                                  Express Guest Checkout • Returning buyer? Sign in for saved addresses &amp; unified My Orders
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => setShowAuthModal(true)}
-                                className="text-[var(--color-gold)] font-medium hover:underline flex items-center gap-1 cursor-pointer"
-                              >
-                                Already have an account? Sign in
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Saved Addresses (for logged-in users) */}
-                          {user && savedAddresses.length > 0 && (
-                            <StaggerItem variant="default">
-                              <div className="space-y-3">
-                                <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-gold)]">Saved Addresses</h4>
-                                <div className="space-y-3">
-                                  {savedAddresses.map((addr, index) => (
-                                    <StaggerItem key={addr.id || index} variant="slide" style={{ transitionDelay: `${index * 0.08}s` }}>
-                                      <Radio
-                                        checked={selectedAddressId === addr.id}
-                                        onChange={() => setSelectedAddressId(addr.id || '')}
-                                        label={`${addr.firstName} ${addr.lastName}`}
-                                        description={`${addr.address1}${addr.address2 ? ', ' + addr.address2 : ''}, ${addr.city}, ${addr.state} - ${addr.postalCode} | Phone: ${addr.phone}`}
-                                        className={cn(
-                                          'relative p-4 border rounded-[var(--radius-lg)] transition-all duration-200 block',
-                                          selectedAddressId === addr.id
-                                            ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-[var(--shadow-gold)]'
-                                            : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]'
-                                        )}
-                                      >
-                                        {addr.isDefault && (
-                                          <span className="absolute top-2 right-2 px-2 py-0.5 text-xs font-medium bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-sm)]">
-                                            Default
-                                          </span>
-                                        )}
-                                        <span className="absolute top-2 right-2 text-sm text-[var(--color-gold)] font-medium capitalize" style={{ right: addr.isDefault ? '70px' : '10px' }}>
-                                          {addr.type}
-                                        </span>
-                                      </Radio>
-                                    </StaggerItem>
-                                  ))}
-                                </div>
-                              </div>
-                            </StaggerItem>
-                          )}
-
-                          {/* Toggle Add New Address button for logged-in users */}
-                          {user && savedAddresses.length > 0 && (
-                            <div className="border-t border-[var(--color-whisper)] pt-4">
-                              <Button
-                                variant={showNewAddressForm ? 'secondary' : 'outline'}
-                                className="w-full"
-                                onClick={() => setShowNewAddressForm(!showNewAddressForm)}
-                              >
-                                {showNewAddressForm ? 'Cancel New Address' : '+ Add Different Address'}
-                              </Button>
-                            </div>
-                          )}
-
-                          {/* Address & Contact Form */}
-                          <AnimatePresence>
-                            {(showNewAddressForm || !user || savedAddresses.length === 0) && (
-                              <motion.div
-                                key="new-address"
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: 'auto' }}
-                                exit={{ opacity: 0, height: 0 }}
-                                transition={{ duration: 0.3 }}
-                                className="space-y-5"
-                              >
-                                {/* 1. Contact Info */}
-                                <div className="space-y-3 pb-2">
-                                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                                    1. Contact Details (For order confirmation &amp; tracking)
-                                  </h4>
-                                  <div className="grid sm:grid-cols-2 gap-4">
-                                    <div>
-                                      <label htmlFor="email" className="input-label">Email Address *</label>
-                                      <Input
-                                        id="email"
-                                        type="email"
-                                        inputMode="email"
-                                        autoComplete="email"
-                                        spellCheck={false}
-                                        enterKeyHint="next"
-                                        value={email || newAddress.email || ''}
-                                        onChange={(e) => handleEmailChange(e.target.value)}
-                                        onBlur={handleEmailBlur}
-                                        placeholder="you@example.com"
-                                        error={fieldErrors['email']}
-                                        required
-                                      />
-                                    </div>
-                                    <div>
-                                      <label htmlFor="phone" className="input-label">Mobile Number *</label>
-                                      <div className="relative">
-                                        <span className="absolute left-3 top-3.5 text-sm font-medium text-[var(--color-slate)] select-none z-10 pointer-events-none">
-                                          🇮🇳 +91
-                                        </span>
-                                        <Input
-                                          id="phone"
-                                          type="tel"
-                                          inputMode="tel"
-                                          autoComplete="tel"
-                                          enterKeyHint="next"
-                                          className="pl-16"
-                                          value={phone || newAddress.phone || ''}
-                                          onChange={(e) => handlePhoneChange(e.target.value)}
-                                          onBlur={handlePhoneBlur}
-                                          placeholder="10-digit number"
-                                          error={fieldErrors['phone']}
-                                          required
-                                          maxLength={10}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* WhatsApp updates toggle */}
-                                  <div className="p-3 bg-[#25D366]/5 border border-[#25D366]/20 rounded-[var(--radius-md)] flex items-center gap-3">
-                                    <Checkbox
-                                      id="whatsapp-updates"
-                                      checked={whatsappOptIn}
-                                      onChange={(e) => setWhatsappOptIn(e.target.checked)}
-                                      label={
-                                        <span className="text-xs text-[var(--color-ink)] flex items-center gap-1.5 font-medium">
-                                          <svg className="w-4 h-4 text-[#25D366] flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
-                                          </svg>
-                                          Send dispatch updates &amp; live tracking photos via WhatsApp
-                                        </span>
-                                      }
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* 2. Shipping Address */}
-                                <div className="space-y-4 pt-2 border-t border-[var(--color-whisper)]">
-                                  <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                                    2. Shipping Destination
-                                  </h4>
-                                  <div className="grid sm:grid-cols-2 gap-4">
-                                    <div>
-                                      <label htmlFor="firstName" className="input-label">First Name *</label>
-                                      <Input
-                                        id="firstName"
-                                        autoComplete="given-name"
-                                        enterKeyHint="next"
-                                        value={newAddress.firstName || ''}
-                                        onChange={(e) => {
-                                          setNewAddress({ ...newAddress, firstName: e.target.value });
-                                          if (fieldErrors['firstName']) setFieldErrors(prev => ({ ...prev, firstName: '' }));
-                                        }}
-                                        onBlur={handleFirstNameBlur}
-                                        placeholder="e.g. Priya"
-                                        error={fieldErrors['firstName']}
-                                        required
-                                      />
-                                    </div>
-                                    <div>
-                                      <label htmlFor="lastName" className="input-label">Last Name *</label>
-                                      <Input
-                                        id="lastName"
-                                        autoComplete="family-name"
-                                        enterKeyHint="next"
-                                        value={newAddress.lastName || ''}
-                                        onChange={(e) => {
-                                          setNewAddress({ ...newAddress, lastName: e.target.value });
-                                          if (fieldErrors['lastName']) setFieldErrors(prev => ({ ...prev, lastName: '' }));
-                                        }}
-                                        onBlur={handleLastNameBlur}
-                                        placeholder="e.g. Sharma"
-                                        error={fieldErrors['lastName']}
-                                        required
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    <label htmlFor="address1" className="input-label">Flat / House No., Apartment &amp; Street Address *</label>
-                                    <Input
-                                      id="address1"
-                                      autoComplete="address-line1"
-                                      enterKeyHint="next"
-                                      value={newAddress.address1 || ''}
-                                      onChange={(e) => {
-                                        setNewAddress({ ...newAddress, address1: e.target.value });
-                                        if (fieldErrors['address1']) setFieldErrors(prev => ({ ...prev, address1: '' }));
-                                      }}
-                                      onBlur={handleAddress1Blur}
-                                      placeholder="e.g. Flat 402, Lotus Residency, MG Road"
-                                      error={fieldErrors['address1']}
-                                      required
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label htmlFor="address2" className="input-label">Landmark / Floor (Optional)</label>
-                                    <Input
-                                      id="address2"
-                                      autoComplete="address-line2"
-                                      enterKeyHint="next"
-                                      value={newAddress.address2 || ''}
-                                      onChange={(e) => setNewAddress({ ...newAddress, address2: e.target.value })}
-                                      placeholder="e.g. Near Indiranagar Metro Station"
-                                    />
-                                  </div>
-
-                                  {/* Pincode with Instant Auto-Fill */}
-                                  <div className="grid sm:grid-cols-3 gap-4">
-                                    <div>
-                                      <div className="flex items-center justify-between">
-                                        <label htmlFor="postalCode" className="input-label">Pincode *</label>
-                                        {isResolvingPin && (
-                                          <span className="text-[10px] text-[var(--color-gold)] animate-pulse">
-                                            Resolving...
-                                          </span>
-                                        )}
-                                      </div>
-                                      <Input
-                                        id="postalCode"
-                                        type="text"
-                                        inputMode="numeric"
-                                        pattern="[0-9]*"
-                                        autoComplete="postal-code"
-                                        enterKeyHint="next"
-                                        value={newAddress.postalCode || ''}
-                                        onChange={(e) => handlePincodeChange(e.target.value)}
-                                        onBlur={handlePincodeBlur}
-                                        placeholder="6-digit pincode"
-                                        error={fieldErrors['postalCode']}
-                                        required
-                                        maxLength={6}
-                                      />
-                                    </div>
-                                    <div>
-                                      <label htmlFor="city" className="input-label">City / District *</label>
-                                      <Input
-                                        id="city"
-                                        autoComplete="address-level2"
-                                        enterKeyHint="next"
-                                        value={newAddress.city || ''}
-                                        onChange={(e) => {
-                                          setNewAddress({ ...newAddress, city: e.target.value });
-                                          if (fieldErrors['city']) setFieldErrors(prev => ({ ...prev, city: '' }));
-                                        }}
-                                        onBlur={handleCityBlur}
-                                        placeholder="City"
-                                        error={fieldErrors['city']}
-                                        required
-                                      />
-                                    </div>
-                                    <div>
-                                      <label htmlFor="state" className="input-label">State *</label>
-                                      <Select value={newAddress.state || ''} onValueChange={(value) => setNewAddress({ ...newAddress, state: value })} required>
-                                        <SelectTrigger placeholder="Select state" />
-                                        <SelectContent>
-                                          {indianStates.map(s => (
-                                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                      {fieldErrors['state'] && (
-                                        <p className="mt-1.5 text-xs text-[var(--color-error,#DC2626)] font-normal flex items-start gap-1.5 leading-tight">
-                                          <svg className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--color-error,#DC2626)]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                          </svg>
-                                          <span>{fieldErrors['state']}</span>
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-
-                                  {/* Pincode Resolution & Delivery Promise Badge */}
-                                  {pincodeInfo && (
-                                    <motion.div
-                                      initial={{ opacity: 0, y: -4 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      className="p-3 bg-[var(--color-gold-light)]/25 border border-[var(--color-gold)]/30 rounded-[var(--radius-md)] flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <span className="w-4 h-4 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] flex items-center justify-center font-bold text-[10px]">
-                                          ✓
-                                        </span>
-                                        <span className="font-medium text-[var(--color-ink)]">
-                                          Delivering to {newAddress.city || pincodeInfo.city}, {newAddress.state || pincodeInfo.state}
-                                        </span>
-                                      </div>
-                                      <span className="text-[var(--color-gold)] font-semibold flex items-center gap-1">
-                                        ⚡ Expected delivery by {pincodeInfo.estimatedDateFormatted}
-                                      </span>
-                                    </motion.div>
-                                  )}
-
-                                  <div>
-                                    <label htmlFor="type" className="input-label">Address Type</label>
-                                    <div className="flex items-center gap-3">
-                                      {(['Home', 'Office', 'Other'] as const).map((t) => (
-                                        <button
-                                          key={t}
-                                          type="button"
-                                          onClick={() => setNewAddress({ ...newAddress, type: t })}
-                                          className={cn(
-                                            'px-4 py-2 text-xs font-medium rounded-[var(--radius-md)] border transition-all',
-                                            newAddress.type === t
-                                              ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)] text-[var(--color-gold)] font-semibold shadow-sm'
-                                              : 'border-[var(--color-whisper)] text-[var(--color-slate)] hover:border-[var(--color-gold)]/50'
-                                          )}
-                                        >
-                                          {t === 'Home' ? '🏠 Home' : t === 'Office' ? '🏢 Office' : '✨ Other'}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* 3. Complimentary Luxury Gifting Option */}
-                                <div className="p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)] space-y-3">
-                                  <div
-                                    id="gift-packaging-header"
-                                    role="button"
-                                    tabIndex={0}
-                                    className="flex items-center justify-between cursor-pointer select-none"
-                                    onClick={() => setGiftWrap(prev => !prev)}
-                                  >
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-xl">🎁</span>
-                                      <div>
-                                        <p className="text-sm font-semibold text-[var(--color-ink)]">
-                                          Complimentary Luxury Gift Packaging
-                                        </p>
-                                        <p className="text-xs text-[var(--color-slate)]">
-                                          Signature gilded keepsake box, gold wax seal &amp; handwritten calligraphy note
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div onClick={(e) => e.stopPropagation()}>
-                                      <Checkbox
-                                        checked={giftWrap}
-                                        onChange={(e) => setGiftWrap(e.target.checked)}
-                                        id="gift-wrap-toggle"
-                                        label=""
-                                      />
-                                    </div>
-                                  </div>
-
-                                  {giftWrap && (
-                                    <motion.div
-                                      initial={{ opacity: 0, height: 0 }}
-                                      animate={{ opacity: 1, height: 'auto' }}
-                                      className="pt-3 border-t border-[var(--color-whisper)] space-y-3"
-                                    >
-                                      <div>
-                                        <label htmlFor="giftRecipient" className="input-label">Recipient&apos;s Name (Optional)</label>
-                                        <Input
-                                          id="giftRecipient"
-                                          value={giftRecipient}
-                                          onChange={(e) => setGiftRecipient(e.target.value)}
-                                          placeholder="e.g. For Dearest Aadhya"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label htmlFor="giftMessage" className="input-label">Personal Handwritten Note (Calligraphy)</label>
-                                        <textarea
-                                          id="giftMessage"
-                                          value={giftMessage}
-                                          onChange={(e) => setGiftMessage(e.target.value)}
-                                          placeholder="Write your wishes... (e.g. Wishing you a season filled with beauty and joy!)"
-                                          className="input min-h-[70px] resize-none text-sm"
-                                          rows={2}
-                                          maxLength={150}
-                                        />
-                                      </div>
-                                    </motion.div>
-                                  )}
-                                </div>
-
-                                {user && (
-                                  <div className="flex items-center gap-3 pt-2">
-                                    <Checkbox
-                                      checked={newAddress.isDefault || false}
-                                      onChange={(e) => setNewAddress({ ...newAddress, isDefault: e.target.checked })}
-                                      id="save-info"
-                                      label="Save as default address in my account"
-                                    />
-                                  </div>
-                                )}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </CardContent>
-                      </Card>
-                    </StaggerContainer>
-                  </motion.div>
-                )}
-
-                {/* Step 2: Payment */}
-                {currentStep === 1 && (
-                  <motion.div key="payment" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-                    <StaggerContainer variant="default">
-                      <Card variant="elevated" padding="lg">
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <CardTitle className="text-[var(--font-display)] text-xl">Payment Method</CardTitle>
-                              <p className="text-[var(--color-slate)] text-sm mt-0.5">Select your preferred payment method</p>
-                            </div>
-                            <span className="text-xs text-[var(--color-gold)] font-medium flex items-center gap-1">
-                              🔒 256-Bit Encrypted
-                            </span>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          <StaggerContainer variant="default">
-                            <div className="space-y-4">
-                              {/* 1. Online Payment Card */}
-                              <div
-                                onClick={() => setSelectedPayment('razorpay')}
-                                role="radio"
-                                aria-checked={selectedPayment === 'razorpay'}
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    setSelectedPayment('razorpay');
-                                  }
-                                }}
-                                className={cn(
-                                  'p-4 border rounded-[var(--radius-lg)] cursor-pointer transition-all duration-200',
-                                  selectedPayment === 'razorpay'
-                                    ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-[var(--shadow-gold)]'
-                                    : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]/60'
-                                )}
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className={cn(
-                                      'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                                      selectedPayment === 'razorpay' ? 'border-[var(--color-gold)] bg-[var(--color-gold)]' : 'border-[var(--color-whisper)]'
-                                    )}>
-                                      {selectedPayment === 'razorpay' && <div className="w-2 h-2 rounded-full bg-[var(--color-ink)]" />}
-                                    </div>
-                                    <div>
-                                      <p className="font-semibold text-sm text-[var(--color-ink)] flex items-center gap-2">
-                                        Online Payment (UPI, Cards, NetBanking, Wallets)
-                                        <span className="px-2 py-0.5 text-[10px] bg-[var(--color-gold)] text-[var(--color-ink)] rounded-full font-bold uppercase">
-                                          Recommended
-                                        </span>
-                                      </p>
-                                      <p className="text-xs text-[var(--color-slate)] mt-0.5">
-                                        Instant confirmation • Zero convenience fee • Secured by Razorpay Payments
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Supported payment method badges */}
-                                <div className="mt-3 pt-3 border-t border-[var(--color-whisper)]/80 flex flex-wrap items-center gap-2">
-                                  <span className="px-2 py-1 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded text-[11px] font-semibold text-[var(--color-ink)]">
-                                    Google Pay
-                                  </span>
-                                  <span className="px-2 py-1 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded text-[11px] font-semibold text-[var(--color-ink)]">
-                                    PhonePe
-                                  </span>
-                                  <span className="px-2 py-1 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded text-[11px] font-semibold text-[var(--color-ink)]">
-                                    Paytm / UPI
-                                  </span>
-                                  <span className="px-2 py-1 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded text-[11px] font-semibold text-[var(--color-ink)]">
-                                    Visa / Mastercard
-                                  </span>
-                                  <span className="px-2 py-1 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded text-[11px] font-semibold text-[var(--color-ink)]">
-                                    RuPay
-                                  </span>
-                                  <span className="px-2 py-1 bg-[var(--color-white)] border border-[var(--color-whisper)] rounded text-[11px] font-semibold text-[var(--color-ink)]">
-                                    50+ NetBanking
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* 2. Cash on Delivery Card */}
-                              <div
-                                onClick={() => setSelectedPayment('cod')}
-                                className={cn(
-                                  'p-4 border rounded-[var(--radius-lg)] cursor-pointer transition-all duration-200',
-                                  selectedPayment === 'cod'
-                                    ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-[var(--shadow-gold)]'
-                                    : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]/60'
-                                )}
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className={cn(
-                                      'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                                      selectedPayment === 'cod' ? 'border-[var(--color-gold)] bg-[var(--color-gold)]' : 'border-[var(--color-whisper)]'
-                                    )}>
-                                      {selectedPayment === 'cod' && <div className="w-2 h-2 rounded-full bg-[var(--color-ink)]" />}
-                                    </div>
-                                    <div>
-                                      <p className="font-semibold text-sm text-[var(--color-ink)] flex items-center gap-2">
-                                        Cash on Delivery (COD)
-                                        <span className="text-xs text-[var(--color-slate)] font-normal">
-                                          (+₹49 handling fee)
-                                        </span>
-                                      </p>
-                                      <p className="text-xs text-[var(--color-slate)] mt-0.5">
-                                        Pay with Cash or UPI directly to delivery agent at your doorstep
-                                      </p>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {selectedPayment === 'cod' && (
-                                  <div className="mt-3 pt-3 border-t border-[var(--color-whisper)]/80 text-xs text-[var(--color-slate)]">
-                                    Maximum order limit for COD is ₹10,000. Please keep exact change or UPI ready during delivery.
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </StaggerContainer>
-
-                          {/* Payment Security */}
-                          <div className="p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)]">
-                            <div className="flex items-start gap-3">
-                              <svg className="h-5 w-5 flex-shrink-0 mt-0.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                              </svg>
-                              <div>
-                                <p className="font-medium text-[var(--color-ink)] text-sm">Angelika Buyer Protection</p>
-                                <p className="text-xs text-[var(--color-slate)] mt-0.5">
-                                  Every payment is protected by bank-level 256-bit SSL encryption. We offer instant refunds for any order cancellations or approved returns.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </StaggerContainer>
-                  </motion.div>
-                )}
-
-                {/* Step 3: Review */}
-                {currentStep === 2 && (
-                  <motion.div key="review" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-                    <StaggerContainer variant="default">
-                      <Card variant="elevated" padding="lg">
-                        <CardHeader>
-                          <CardTitle className="text-[var(--font-display)] text-xl">Review &amp; Confirm Order</CardTitle>
-                          <p className="text-[var(--color-slate)] text-sm mt-0.5">Please verify your details before final placement</p>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                          {/* Delivery Address Summary */}
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                                Delivery Address &amp; Contact
-                              </h4>
-                              <button
-                                type="button"
-                                onClick={() => setCurrentStep(0)}
-                                className="text-xs text-[var(--color-gold)] hover:underline font-semibold"
-                              >
-                                Edit Address
-                              </button>
-                            </div>
-                            {activeAddress && activeAddress.firstName ? (
-                              <div className="p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)] space-y-1 text-sm">
-                                <p className="font-semibold text-[var(--color-ink)]">
-                                  {activeAddress.firstName} {activeAddress.lastName}
-                                </p>
-                                <p className="text-xs text-[var(--color-slate)]">
-                                  {activeAddress.address1}{activeAddress.address2 ? `, ${activeAddress.address2}` : ''}
-                                </p>
-                                <p className="text-xs text-[var(--color-slate)]">
-                                  {activeAddress.city}, {activeAddress.state} - {activeAddress.postalCode}
-                                </p>
-                                <p className="text-xs text-[var(--color-slate)] pt-1">
-                                  Contact: +91 {activeAddress.phone || phone} • Email: {email || activeAddress.email}
-                                </p>
-                                {whatsappOptIn && (
-                                  <p className="text-[11px] text-[#25D366] font-medium flex items-center gap-1 pt-1">
-                                    <span>📲</span> WhatsApp tracking updates enabled
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)] flex items-center justify-between text-sm">
-                                <span className="text-[var(--color-slate)]">No address specified</span>
-                                <Button variant="ghost" size="sm" onClick={() => setCurrentStep(0)}>
-                                  Add Address
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Payment Method Summary */}
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                                Payment Method
-                              </h4>
-                              <button
-                                type="button"
-                                onClick={() => setCurrentStep(1)}
-                                className="text-xs text-[var(--color-gold)] hover:underline font-semibold"
-                              >
-                                Edit Payment
-                              </button>
-                            </div>
-                            <div className="p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)] flex items-center justify-between text-sm">
-                              <div className="flex items-center gap-3">
-                                <span className="text-xl">
-                                  {selectedPayment === 'cod' ? '💵' : '💳'}
-                                </span>
-                                <div>
-                                  <p className="font-semibold text-[var(--color-ink)]">
-                                    {selectedPayment === 'cod' ? 'Cash on Delivery' : 'Online Payment (UPI, Cards, NetBanking)'}
-                                  </p>
-                                  <p className="text-xs text-[var(--color-slate)]">
-                                    {selectedPayment === 'cod' ? 'Handling fee of ₹49 applies' : '100% Encrypted via Razorpay'}
-                                  </p>
-                                </div>
-                              </div>
-                              <span className="font-semibold text-sm text-[var(--color-ink)]">
-                                {formatPrice(total)}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Gifting Packaging Summary if selected */}
-                          {giftWrap && (
-                            <div className="p-3.5 bg-[var(--color-gold-light)]/20 border border-[var(--color-gold)]/30 rounded-[var(--radius-lg)] text-xs">
-                              <div className="flex items-center gap-2 font-semibold text-[var(--color-gold)] mb-1">
-                                <span>🎁</span>
-                                <span>Luxury Complimentary Gift Packaging Included</span>
-                              </div>
-                              {giftRecipient && (
-                                <p className="text-[var(--color-ink)] font-medium">For: {giftRecipient}</p>
-                              )}
-                              {giftMessage && (
-                                <p className="text-[var(--color-slate)] italic mt-0.5">&ldquo;{giftMessage}&rdquo;</p>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Order Items */}
-                          <div>
-                            <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)] mb-2">
-                              Order Items ({itemCount})
-                            </h4>
-                            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                              {items.map((item) => (
-                                <div key={item.id} className="flex gap-3 p-3 bg-[var(--color-snow)] rounded-[var(--radius-lg)]">
-                                  <div className="w-14 h-16 rounded-[var(--radius-md)] overflow-hidden bg-[var(--color-whisper)] flex-shrink-0">
-                                    <img src={item.image} alt={item.product_name} className="w-full h-full object-cover" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-[var(--color-ink)] truncate">{item.product_name}</p>
-                                    <p className="text-xs text-[var(--color-slate)]">{item.color} • Size: {item.size} • Qty: {item.quantity}</p>
-                                    <p className="text-xs font-semibold text-[var(--color-ink)] mt-1">{formatPrice(item.price * item.quantity)}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Atelier Instructions / Notes */}
-                          <div className="space-y-1.5">
-                            <label htmlFor="notes" className="block text-xs font-semibold text-[var(--color-ink)]">
-                              Special Atelier / Delivery Instructions (Optional)
-                            </label>
-                            <textarea
-                              id="notes"
-                              value={notes}
-                              onChange={(e) => setNotes(e.target.value)}
-                              placeholder="Any custom tailoring preference or delivery note..."
-                              className="w-full block min-h-[72px] p-3 border border-[var(--color-whisper)] rounded-[var(--radius-md)] bg-white resize-y text-xs text-[var(--color-ink)] placeholder:text-[var(--color-mist)] focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/20 focus:border-[var(--color-gold)]"
-                              rows={2}
-                            />
-                          </div>
-
-                          {/* Terms & Conditions */}
-                          <div className="flex items-start gap-3 p-3.5 border border-[var(--color-whisper)] rounded-[var(--radius-lg)]">
-                            <Checkbox
-                              checked={termsAccepted}
-                              onChange={(e) => setTermsAccepted(e.target.checked)}
-                              id="terms"
-                              label={
-                                <span className="text-xs text-[var(--color-slate)]">
-                                  I agree to the{' '}
-                                  <a
-                                    href="/terms"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-[var(--color-gold)] underline hover:text-[var(--color-gold-hover)]"
-                                  >
-                                    Terms &amp; Conditions
-                                  </a>{' '}
-                                  and{' '}
-                                  <a
-                                    href="/privacy"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-[var(--color-gold)] underline hover:text-[var(--color-gold-hover)]"
-                                  >
-                                    Privacy Policy
-                                  </a>
-                                  . I verify that the shipping address and order details are accurate.
-                                </span>
-                              }
-                            />
-                          </div>
-
-                          {/* Error Message */}
-                          {error && (
-                            <div className="p-3 bg-[var(--color-error-bg)] border border-[var(--color-error)]/30 rounded-[var(--radius-lg)] text-[var(--color-error)] text-xs">
-                              {error}
-                            </div>
-                          )}
-
-                          {/* Place Order Button */}
-                          <Button
-                            variant="primary"
-                            className="w-full py-4 text-base font-semibold shadow-md"
-                            onClick={handlePlaceOrder}
-                            disabled={!termsAccepted || isProcessing || hasOutOfStockItems}
-                          >
-                            {isProcessing ? (
-                              <>
-                                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24" aria-hidden="true">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                                </svg>
-                                Securing Your Couture Order...
-                              </>
-                            ) : hasOutOfStockItems ? (
-                              'Resolve Out of Stock Items'
-                            ) : (
-                              `Place Order • ${formatPrice(total)}`
-                            )}
-                          </Button>
-
-                          <p className="text-[11px] text-center text-[var(--color-mist)]">
-                            ✦ 100% Handcrafted Certified Ethnic Couture • Dispatched within 24–48 hours
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </StaggerContainer>
-                  </motion.div>
-                )}
-                </AnimatePresence>
-
-                {error && currentStep < 2 && (
-                  <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-[var(--radius-lg)] text-red-700 text-xs flex items-center gap-2" role="alert">
-                    <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 8v4M12 16h.01" />
-                    </svg>
-                    <span>{error}</span>
+      {/* Main Single-Page Two-Column Checkout */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-7 sm:py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+          {/* LEFT COLUMN: 3 Crisp, High-Contrast All-Visible Sections */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* SECTION 1: CONTACT & INSTANT OTP VERIFICATION */}
+            <section
+              ref={contactSectionRef}
+              className="bg-white border border-[#D8CFC2] rounded-2xl shadow-[0_4px_18px_rgba(26,26,26,0.06)] overflow-hidden"
+            >
+              <div className="bg-[#FAF7F2] border-b border-[#E7E0D5] px-5 sm:px-6 py-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full bg-[#1A1A1A] text-[#E6C975] text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    1
+                  </span>
+                  <div>
+                    <h2 className="text-base font-semibold text-[#1A1A1A]">
+                      Contact &amp; Account Verification
+                    </h2>
+                    <p className="text-xs text-[#6B6256]">
+                      {user
+                        ? 'Your account stays logged in for 1-click tracking & future orders'
+                        : 'Verify once to auto-save your account & live order tracking'}
+                    </p>
                   </div>
-                )}
-                {/* Navigation Buttons */}
-                <div className="flex justify-between">
-                  <MagneticButton variant="secondary" strength={0.3} onClick={prevStep} disabled={currentStep === 0}>
-                    Back
-                  </MagneticButton>
-                  {currentStep < steps.length - 1 ? (
-                    <MagneticButton variant="primary" strength={0.3} onClick={nextStep}>
-                      Continue
-                      <svg className="h-4 w-4 ml-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
-                    </MagneticButton>
-                  ) : null}
                 </div>
-              </>
-            </ScrollReveal>
+                {user && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-bold whitespace-nowrap">
+                    ✓ Signed In
+                  </span>
+                )}
+              </div>
 
-            {/* Order Summary Sidebar */}
-            <ScrollReveal variant="fadeUp" delay={0.2} className="lg:col-span-1">
-              <div className="sticky top-24 space-y-4">
-                <Card variant="elevated" padding="lg">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-[var(--font-display)] text-xl">Order Summary</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      {items.map((item) => (
-                        <div key={item.id} className="flex gap-3">
-                          <div className="w-12 h-14 rounded-[var(--radius-md)] overflow-hidden bg-[var(--color-whisper)] flex-shrink-0">
-                            <img src={item.image} alt={item.product_name} className="w-full h-full object-cover" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-[var(--color-ink)] truncate">{item.product_name}</p>
-                            <p className="text-xs text-[var(--color-slate)]">{item.color} • {item.size} × {item.quantity}</p>
-                          </div>
-                          <span className="text-sm font-medium text-[var(--color-ink)]">{formatPrice(item.price * item.quantity)}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Interactive Coupons & Available Offers */}
-                    <div className="border-t border-[var(--color-whisper)] pt-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)] flex items-center gap-1.5">
-                          <svg className="w-4 h-4 text-[var(--color-gold)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                          </svg>
-                          Privilege Vouchers
-                        </span>
-                      </div>
-
-                      {appliedCoupon ? (
-                        <div className="flex items-center justify-between p-2.5 bg-[var(--color-success-bg)] border border-[var(--color-success)]/30 rounded-[var(--radius-md)]">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-[var(--color-success)]">✓ {appliedCoupon.code}</span>
-                            <span className="text-xs text-[var(--color-slate)]">(-{formatPrice(discountAmount)})</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeCoupon()}
-                            className="text-xs text-[var(--color-error)] hover:underline font-semibold"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <Input
-                              value={couponCodeInput}
-                              autoCapitalize="characters"
-                              spellCheck={false}
-                              enterKeyHint="go"
-                              onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleApplyCoupon();
-                                }
-                              }}
-                              placeholder="Enter coupon code"
-                              className="text-xs uppercase tracking-wider h-9"
-                            />
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              className="h-9 px-3 text-xs"
-                              onClick={() => handleApplyCoupon()}
-                              disabled={couponApplying || !couponCodeInput.trim()}
-                            >
-                              {couponApplying ? 'Applying...' : 'Apply'}
-                            </Button>
-                          </div>
-
-                          {/* Quick 1-Click Available Offer Chips */}
-                          <div className="space-y-1.5 pt-1">
-                            {availableOffers.map((offer) => (
-                              <div
-                                key={offer.code}
-                                className="p-2 border border-dashed border-[var(--color-gold)]/30 rounded-[var(--radius-md)] bg-[var(--color-white)] flex items-center justify-between hover:border-[var(--color-gold)] transition-colors"
-                              >
-                                <div className="min-w-0 pr-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-xs font-bold text-[var(--color-gold)]">{offer.code}</span>
-                                    <span className="text-[9px] px-1.5 py-0.2 bg-[var(--color-gold)]/10 text-[var(--color-gold)] font-medium rounded-full">
-                                      {offer.badge}
-                                    </span>
-                                  </div>
-                                  <p className="text-[10px] text-[var(--color-slate)] truncate">{offer.desc}</p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleApplyCoupon(offer.code)}
-                                  className="text-xs font-semibold text-[var(--color-gold)] hover:underline flex-shrink-0"
-                                >
-                                  Apply
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {couponNotice && (
-                        <p className={cn('text-xs', couponNotice.type === 'success' ? 'text-[var(--color-success)] font-medium' : 'text-[var(--color-error)]')}>
-                          {couponNotice.text}
+              <div className="p-5 sm:p-6 space-y-4">
+                {user ? (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="text-xs space-y-0.5">
+                        <p className="font-semibold text-emerald-950 text-sm">
+                          {profile?.full_name || user.user_metadata?.['full_name'] || 'Signed-in Patron'}
                         </p>
-                      )}
+                        <p className="text-emerald-800">{user.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => signOut()}
+                        className="text-xs font-semibold text-emerald-900 underline hover:text-[#1A1A1A] self-start sm:self-auto cursor-pointer"
+                      >
+                        Switch Account
+                      </button>
                     </div>
 
-                    {/* Price Breakdown */}
-                    <div className="border-t border-[var(--color-whisper)] pt-4 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[var(--color-slate)]">Subtotal ({itemCount} items)</span>
-                        <span className="font-medium text-[var(--color-ink)]">{formatPrice(subtotalValue)}</span>
-                      </div>
-                      {discountAmount > 0 && appliedCoupon && (
-                        <div className="flex justify-between text-sm text-[var(--color-success)] font-medium">
-                          <span>Privilege Savings ({appliedCoupon.code})</span>
-                          <span>- {formatPrice(discountAmount)}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[var(--color-slate)]">Express Courier</span>
-                        <span className="font-medium text-[var(--color-success)]">
-                          {shippingCost === 0 ? 'FREE' : formatPrice(shippingCost)}
+                    <div>
+                      <label htmlFor="checkout-phone-auth" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                        Delivery Mobile Number (10 digits) *
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-2.5 rounded-xl border border-[#C9BFB0] bg-[#F5F1EB] text-xs font-bold text-[#4A433A]">
+                          +91
                         </span>
+                        <input
+                          id="checkout-phone-auth"
+                          type="tel"
+                          inputMode="numeric"
+                          autoComplete="tel-national"
+                          maxLength={10}
+                          value={phone}
+                          onChange={(e) => handlePhoneChange(e.target.value)}
+                          placeholder="9876543210"
+                          className={fieldErrors['phone'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                        />
                       </div>
-                      <div className="flex justify-between text-sm text-[var(--color-slate)]">
-                        <span>GST / Taxes</span>
-                        <span className="font-medium">₹0 (Included)</span>
-                      </div>
-                      {selectedPayment === 'cod' && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[var(--color-slate)]">COD Convenience Fee</span>
-                          <span className="font-medium">{formatPrice(codFee)}</span>
-                        </div>
+                      {fieldErrors['phone'] && (
+                        <p className="text-xs text-rose-600 mt-1">{fieldErrors['phone']}</p>
                       )}
-                      {giftWrap && (
-                        <div className="flex justify-between text-sm text-[var(--color-gold)]">
-                          <span>Luxury Keepsake Packaging</span>
-                          <span className="font-medium">FREE (Complimentary)</span>
-                        </div>
-                      )}
-
-                      <div className="border-t border-[var(--color-whisper)] pt-3">
-                        <div className="flex justify-between text-lg font-bold">
-                          <span className="text-[var(--color-ink)]">Total Payable</span>
-                          <span className="text-[var(--color-ink)]">{formatPrice(total)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Atelier Trust & Security Seals */}
-                <div className="p-4 bg-[var(--color-snow)] rounded-[var(--radius-lg)] border border-[var(--color-whisper)] space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-gold)]">
-                    <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                    <span>The Angelika Guarantee</span>
-                  </div>
-                  <div className="space-y-2 text-xs text-[var(--color-slate)]">
-                    <div className="flex items-start gap-2">
-                      <span className="text-[var(--color-gold)]">✦</span>
-                      <span><strong>100% Authentic Handloom</strong> &amp; certified pure silk &amp; velvet couture</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[var(--color-gold)]">✦</span>
-                      <span><strong>7-Day Returns &amp; Exchanges</strong> with doorstep pickup</span>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span className="text-[var(--color-gold)]">✦</span>
-                      <span><strong>Hand-Inspected</strong> and dispatched from our Varanasi &amp; Jaipur ateliers</span>
                     </div>
                   </div>
-                  <div className="pt-2 border-t border-[var(--color-whisper)] flex items-center justify-between text-[11px] text-[var(--color-slate)]">
-                    <span>Questions? Visit Support</span>
-                    <Link
-                      href="/contact"
-                      className="text-[var(--color-gold)] font-semibold hover:underline flex items-center gap-1"
-                    >
-                      Contact Vidhya&apos;s Team
-                    </Link>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="checkout-email" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                          Email Address *
+                        </label>
+                        <input
+                          id="checkout-email"
+                          type="email"
+                          autoComplete="email"
+                          value={email}
+                          onChange={(e) => handleEmailChange(e.target.value)}
+                          placeholder="you@example.com"
+                          className={fieldErrors['email'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                        />
+                        {fieldErrors['email'] && (
+                          <p className="text-xs text-rose-600 mt-1">{fieldErrors['email']}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="checkout-phone" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                          Mobile Number *
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-2.5 rounded-xl border border-[#C9BFB0] bg-[#F5F1EB] text-xs font-bold text-[#4A433A]">
+                            +91
+                          </span>
+                          <input
+                            id="checkout-phone"
+                            type="tel"
+                            inputMode="numeric"
+                            autoComplete="tel-national"
+                            maxLength={10}
+                            value={phone}
+                            onChange={(e) => handlePhoneChange(e.target.value)}
+                            placeholder="9876543210"
+                            className={fieldErrors['phone'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                          />
+                        </div>
+                        {fieldErrors['phone'] && (
+                          <p className="text-xs text-rose-600 mt-1">{fieldErrors['phone']}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Seamless Inline Checkout OTP Verification + Auto-Account Creation */}
+                    {otpStatus.anyOtpReady ? (
+                      <div className="p-4 rounded-xl bg-[#FAF6EE] border border-[#DFD1B5] space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-bold text-[#1A1A1A] uppercase tracking-wider">
+                              Instant 6-Digit OTP Verification
+                            </p>
+                            <p className="text-xs text-[#61584D] mt-0.5">
+                              Confirms your number &amp; automatically creates/signs into your account — no password setup needed.
+                            </p>
+                          </div>
+
+                          {otpStatus.mobileOtpReady && otpStatus.emailOtpReady && (
+                            <div className="inline-flex rounded-lg border border-[#D8CFC2] bg-white p-0.5 text-[11px] font-semibold flex-shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setOtpChannel('mobile')}
+                                className={cn(
+                                  'px-2.5 py-1 rounded-md cursor-pointer transition-colors',
+                                  otpChannel === 'mobile' ? 'bg-[#1A1A1A] text-white' : 'text-[#5C5347]'
+                                )}
+                              >
+                                Mobile OTP
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setOtpChannel('email')}
+                                className={cn(
+                                  'px-2.5 py-1 rounded-md cursor-pointer transition-colors',
+                                  otpChannel === 'email' ? 'bg-[#1A1A1A] text-white' : 'text-[#5C5347]'
+                                )}
+                              >
+                                Email OTP
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {!otpSentTo ? (
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={handleSendCheckoutOtp}
+                              disabled={otpSending}
+                              className="px-4 py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#332E28] text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                            >
+                              {otpSending
+                                ? 'Sending OTP...'
+                                : otpChannel === 'mobile' && otpStatus.mobileOtpReady
+                                  ? 'Send Mobile OTP'
+                                  : 'Send 6-Digit Email OTP'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowAuthModal(true)}
+                              className="text-xs font-semibold text-[#8A6914] hover:underline cursor-pointer"
+                            >
+                              Or Sign In with Password / Google
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2.5">
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                maxLength={6}
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                placeholder="Enter 6-digit OTP"
+                                className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#B89334] bg-white font-mono text-sm tracking-[0.25em] text-center text-[#1A1A1A] focus:outline-none focus:ring-2 focus:ring-[#C9A84C]/30"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleVerifyCheckoutOtp}
+                                disabled={otpVerifying || otpCode.length < 6}
+                                className="px-5 py-2.5 rounded-xl bg-[#B89334] hover:bg-[#9E7B22] text-white text-xs font-bold uppercase tracking-wider disabled:opacity-50 cursor-pointer transition-colors"
+                              >
+                                {otpVerifying ? 'Verifying...' : 'Verify & Continue'}
+                              </button>
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-[#6B6256]">
+                              <span>Code sent to <strong>{otpSentTo}</strong></span>
+                              <button
+                                type="button"
+                                onClick={handleSendCheckoutOtp}
+                                disabled={otpCooldown > 0 || otpSending}
+                                className="font-semibold text-[#8A6914] hover:underline disabled:opacity-50 cursor-pointer"
+                              >
+                                {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Resend OTP'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {otpFeedback && (
+                          <p
+                            className={cn(
+                              'text-xs font-medium',
+                              otpFeedback.type === 'error'
+                                ? 'text-rose-700'
+                                : otpFeedback.type === 'success'
+                                  ? 'text-emerald-700'
+                                  : 'text-[#6E5412]'
+                            )}
+                          >
+                            {otpFeedback.text}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="p-3.5 rounded-xl bg-[#FAF7F2] border border-[#E5DDD0] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                        <span className="text-[#5C5347]">
+                          Returning customer? Sign in once — Chrome keeps you logged in with saved addresses &amp; My Orders.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setShowAuthModal(true)}
+                          className="font-bold text-[#8A6914] hover:underline whitespace-nowrap self-start sm:self-auto cursor-pointer"
+                        >
+                          Sign In / Create Account →
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* SECTION 2: DELIVERY ADDRESS */}
+            <section
+              ref={addressSectionRef}
+              className="bg-white border border-[#D8CFC2] rounded-2xl shadow-[0_4px_18px_rgba(26,26,26,0.06)] overflow-hidden"
+            >
+              <div className="bg-[#FAF7F2] border-b border-[#E7E0D5] px-5 sm:px-6 py-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full bg-[#1A1A1A] text-[#E6C975] text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    2
+                  </span>
+                  <div>
+                    <h2 className="text-base font-semibold text-[#1A1A1A]">Delivery Address</h2>
+                    <p className="text-xs text-[#6B6256]">Where should we ship your Angelika piece?</p>
+                  </div>
+                </div>
+                {user && savedAddresses.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowNewAddressForm((v) => !v)}
+                    className="text-xs font-semibold text-[#8A6914] hover:underline cursor-pointer"
+                  >
+                    {showNewAddressForm ? 'Use Saved Address' : '+ New Address'}
+                  </button>
+                )}
+              </div>
+
+              <div className="p-5 sm:p-6 space-y-4">
+                {/* Saved Addresses for Logged-In Returning Customers */}
+                {user && savedAddresses.length > 0 && !showNewAddressForm && (
+                  <div className="space-y-3">
+                    {savedAddresses.map((addr, idx) => {
+                      const isSelected = selectedAddressId === addr.id;
+                      return (
+                        <button
+                          key={addr.id || idx}
+                          type="button"
+                          onClick={() => setSelectedAddressId(addr.id || '')}
+                          className={cn(
+                            'w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer flex items-start gap-3',
+                            isSelected
+                              ? 'border-[#B89334] bg-[#FCF9F2]'
+                              : 'border-[#E2DAD0] bg-white hover:border-[#C9BFB0]'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0',
+                              isSelected ? 'border-[#B89334] bg-[#B89334]' : 'border-[#BFB5A6]'
+                            )}
+                          >
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </span>
+                          <div className="text-xs space-y-0.5">
+                            <p className="text-sm font-semibold text-[#1A1A1A]">
+                              {addr.firstName} {addr.lastName}
+                              {addr.isDefault && (
+                                <span className="ml-2 px-2 py-0.5 rounded bg-[#1A1A1A] text-[#E6C975] text-[10px] uppercase tracking-wider">
+                                  Default
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-[#5C5347]">
+                              {addr.address1}{addr.address2 ? `, ${addr.address2}` : ''}
+                            </p>
+                            <p className="text-[#5C5347]">
+                              {addr.city}, {addr.state} — {addr.postalCode}
+                            </p>
+                            {addr.phone && <p className="text-[#7A7165]">Phone: +91 {addr.phone}</p>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Compact Clean Address Form */}
+                {(showNewAddressForm || !user || savedAddresses.length === 0) && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="addr-first" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                          First Name *
+                        </label>
+                        <input
+                          id="addr-first"
+                          type="text"
+                          autoComplete="given-name"
+                          value={newAddress.firstName}
+                          onChange={(e) => {
+                            setNewAddress((prev) => ({ ...prev, firstName: e.target.value }));
+                            if (fieldErrors['firstName']) setFieldErrors((p) => ({ ...p, firstName: '' }));
+                          }}
+                          placeholder="e.g. Ananya"
+                          className={fieldErrors['firstName'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                        />
+                        {fieldErrors['firstName'] && (
+                          <p className="text-xs text-rose-600 mt-1">{fieldErrors['firstName']}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="addr-last" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                          Last Name *
+                        </label>
+                        <input
+                          id="addr-last"
+                          type="text"
+                          autoComplete="family-name"
+                          value={newAddress.lastName}
+                          onChange={(e) => {
+                            setNewAddress((prev) => ({ ...prev, lastName: e.target.value }));
+                            if (fieldErrors['lastName']) setFieldErrors((p) => ({ ...p, lastName: '' }));
+                          }}
+                          placeholder="e.g. Sharma"
+                          className={fieldErrors['lastName'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                        />
+                        {fieldErrors['lastName'] && (
+                          <p className="text-xs text-rose-600 mt-1">{fieldErrors['lastName']}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label htmlFor="addr-pin" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                          Pincode *
+                        </label>
+                        <div className="relative">
+                          <input
+                            id="addr-pin"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="postal-code"
+                            maxLength={6}
+                            value={newAddress.postalCode}
+                            onChange={(e) => handlePincodeChange(e.target.value)}
+                            placeholder="e.g. 500081"
+                            className={fieldErrors['postalCode'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                          />
+                          {isResolvingPin && (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-[#B89334] border-t-transparent rounded-full animate-spin" />
+                          )}
+                        </div>
+                        {fieldErrors['postalCode'] ? (
+                          <p className="text-xs text-rose-600 mt-1">{fieldErrors['postalCode']}</p>
+                        ) : pincodeInfo ? (
+                          <p className="text-[11px] text-emerald-700 font-medium mt-1">
+                            ✓ Deliverable to {pincodeInfo.city}
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div>
+                        <label htmlFor="addr-city" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                          City *
+                        </label>
+                        <input
+                          id="addr-city"
+                          type="text"
+                          autoComplete="address-level2"
+                          value={newAddress.city}
+                          onChange={(e) => {
+                            setNewAddress((prev) => ({ ...prev, city: e.target.value }));
+                            if (fieldErrors['city']) setFieldErrors((p) => ({ ...p, city: '' }));
+                          }}
+                          placeholder="City"
+                          className={fieldErrors['city'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                        />
+                        {fieldErrors['city'] && (
+                          <p className="text-xs text-rose-600 mt-1">{fieldErrors['city']}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label htmlFor="addr-state" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                          State *
+                        </label>
+                        <select
+                          id="addr-state"
+                          autoComplete="address-level1"
+                          value={newAddress.state}
+                          onChange={(e) => {
+                            setNewAddress((prev) => ({ ...prev, state: e.target.value }));
+                            if (fieldErrors['state']) setFieldErrors((p) => ({ ...p, state: '' }));
+                          }}
+                          className={fieldErrors['state'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                        >
+                          <option value="">Select state</option>
+                          {INDIAN_STATES.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                        {fieldErrors['state'] && (
+                          <p className="text-xs text-rose-600 mt-1">{fieldErrors['state']}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="addr-line1" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                        Flat / House No., Building, Street *
+                      </label>
+                      <input
+                        id="addr-line1"
+                        type="text"
+                        autoComplete="address-line1"
+                        value={newAddress.address1}
+                        onChange={(e) => {
+                          setNewAddress((prev) => ({ ...prev, address1: e.target.value }));
+                          if (fieldErrors['address1']) setFieldErrors((p) => ({ ...p, address1: '' }));
+                        }}
+                        placeholder="House / Flat No., Street, Colony"
+                        className={fieldErrors['address1'] ? INPUT_ERR_CLASS : INPUT_CLASS}
+                      />
+                      {fieldErrors['address1'] && (
+                        <p className="text-xs text-rose-600 mt-1">{fieldErrors['address1']}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="addr-line2" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                        Landmark / Area (Optional)
+                      </label>
+                      <input
+                        id="addr-line2"
+                        type="text"
+                        autoComplete="address-line2"
+                        value={newAddress.address2 || ''}
+                        onChange={(e) => setNewAddress((prev) => ({ ...prev, address2: e.target.value }))}
+                        placeholder="Near park, temple, or apartment gate"
+                        className={INPUT_CLASS}
+                      />
+                    </div>
+
+                    {user && (
+                      <div className="pt-1">
+                        <Checkbox
+                          id="save-addr-opt"
+                          checked={saveNewAddress}
+                          onChange={(e) => setSaveNewAddress(e.target.checked)}
+                          label={
+                            <span className="text-xs text-[#574F44]">
+                              Save this address to my account for faster future checkouts
+                            </span>
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Collapsible Optional Gift Wrap & Delivery Note (keeps checkout super clean!) */}
+                <details className="pt-2 border-t border-[#ECE6DC] group">
+                  <summary className="text-xs font-semibold text-[#7A5E12] cursor-pointer list-none flex items-center justify-between py-1 select-none">
+                    <span>+ Add Complimentary Gift Wrap or Atelier Delivery Note (Optional)</span>
+                    <span className="text-[#8E8477] group-open:rotate-180 transition-transform">▾</span>
+                  </summary>
+                  <div className="pt-3 space-y-3">
+                    <Checkbox
+                      id="gift-wrap-opt"
+                      checked={giftWrap}
+                      onChange={(e) => setGiftWrap(e.target.checked)}
+                      label={
+                        <span className="text-xs font-medium text-[#1A1A1A]">
+                          Add complimentary heirloom gift box &amp; handwritten card
+                        </span>
+                      }
+                    />
+                    {giftWrap && (
+                      <div className="grid sm:grid-cols-2 gap-3 pl-6">
+                        <input
+                          type="text"
+                          value={giftRecipient}
+                          onChange={(e) => setGiftRecipient(e.target.value)}
+                          placeholder="Recipient name"
+                          className={INPUT_CLASS}
+                        />
+                        <input
+                          type="text"
+                          value={giftMessage}
+                          onChange={(e) => setGiftMessage(e.target.value)}
+                          placeholder="Short personal note..."
+                          className={INPUT_CLASS}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <label htmlFor="atelier-notes" className="block text-xs font-semibold text-[#332E28] mb-1.5">
+                        Tailoring / Delivery Note
+                      </label>
+                      <textarea
+                        id="atelier-notes"
+                        rows={2}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Any custom fitting preference or delivery timing instruction..."
+                        className={`${INPUT_CLASS} min-h-[68px] resize-y`}
+                      />
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </section>
+
+            {/* SECTION 3: PAYMENT METHOD & COMPLETE ORDER */}
+            <section className="bg-white border border-[#D8CFC2] rounded-2xl shadow-[0_4px_18px_rgba(26,26,26,0.06)] overflow-hidden">
+              <div className="bg-[#FAF7F2] border-b border-[#E7E0D5] px-5 sm:px-6 py-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full bg-[#1A1A1A] text-[#E6C975] text-xs font-bold flex items-center justify-center flex-shrink-0">
+                    3
+                  </span>
+                  <div>
+                    <h2 className="text-base font-semibold text-[#1A1A1A]">Payment Method</h2>
+                    <p className="text-xs text-[#6B6256]">256-bit SSL encrypted • Instant order confirmation</p>
                   </div>
                 </div>
               </div>
-            </ScrollReveal>
+
+              <div className="p-5 sm:p-6 space-y-4">
+                {/* Online Razorpay Card */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayment('razorpay')}
+                  className={cn(
+                    'w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer',
+                    selectedPayment === 'razorpay'
+                      ? 'border-[#B89334] bg-[#FCF9F2] shadow-[0_2px_10px_rgba(184,147,52,0.12)]'
+                      : 'border-[#E2DAD0] bg-white hover:border-[#C9BFB0]'
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={cn(
+                        'mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0',
+                        selectedPayment === 'razorpay' ? 'border-[#B89334] bg-[#B89334]' : 'border-[#BFB5A6]'
+                      )}
+                    >
+                      {selectedPayment === 'razorpay' && <span className="w-2 h-2 rounded-full bg-white" />}
+                    </span>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-sm text-[#1A1A1A]">
+                          Pay Online (UPI, GPay, PhonePe, Cards, NetBanking)
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#1A1A1A] text-[#E6C975] text-[10px] font-bold uppercase tracking-wider">
+                          Recommended · Zero Fee
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#61584D] mt-1">
+                        Instant confirmation &amp; priority dispatch • Secured by Razorpay
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2.5">
+                        {['UPI / QR', 'Google Pay', 'PhonePe', 'Visa / Mastercard', 'RuPay', 'NetBanking'].map((m) => (
+                          <span
+                            key={m}
+                            className="px-2 py-0.5 rounded bg-white border border-[#DDD5C9] text-[11px] font-medium text-[#4A433A]"
+                          >
+                            {m}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+
+                {/* COD Card */}
+                <button
+                  type="button"
+                  disabled={!codEligible}
+                  onClick={() => codEligible && setSelectedPayment('cod')}
+                  className={cn(
+                    'w-full text-left p-4 rounded-xl border-2 transition-all',
+                    !codEligible
+                      ? 'border-[#ECE6DC] bg-[#F7F5F2] opacity-60 cursor-not-allowed'
+                      : selectedPayment === 'cod'
+                        ? 'border-[#B89334] bg-[#FCF9F2] shadow-[0_2px_10px_rgba(184,147,52,0.12)] cursor-pointer'
+                        : 'border-[#E2DAD0] bg-white hover:border-[#C9BFB0] cursor-pointer'
+                  )}
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={cn(
+                        'mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0',
+                        selectedPayment === 'cod' ? 'border-[#B89334] bg-[#B89334]' : 'border-[#BFB5A6]'
+                      )}
+                    >
+                      {selectedPayment === 'cod' && <span className="w-2 h-2 rounded-full bg-white" />}
+                    </span>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-sm text-[#1A1A1A]">Cash on Delivery (COD)</span>
+                        <span className="text-xs text-[#6B6256]">
+                          (+₹{PRICING_CONSTANTS.COD_FEE} handling fee)
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#61584D] mt-0.5">
+                        {codEligible
+                          ? `Pay Cash or UPI at your doorstep (available on orders up to ₹${PRICING_CONSTANTS.COD_MAX_AMOUNT.toLocaleString('en-IN')}).`
+                          : `COD is available only on orders up to ₹${PRICING_CONSTANTS.COD_MAX_AMOUNT.toLocaleString('en-IN')}. Please use Pay Online.`}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                {/* WhatsApp updates + Terms */}
+                <div className="pt-2 space-y-2.5 border-t border-[#ECE6DC]">
+                  <Checkbox
+                    id="wa-updates"
+                    checked={whatsappOptIn}
+                    onChange={(e) => setWhatsappOptIn(e.target.checked)}
+                    label={
+                      <span className="text-xs text-[#574F44]">
+                        Send live order &amp; courier dispatch updates on WhatsApp
+                      </span>
+                    }
+                  />
+                  <Checkbox
+                    id="terms-accept"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    label={
+                      <span className="text-xs text-[#574F44]">
+                        I agree to the{' '}
+                        <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#8A6914] font-semibold underline">
+                          Terms &amp; Conditions
+                        </a>{' '}
+                        and{' '}
+                        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#8A6914] font-semibold underline">
+                          Privacy Policy
+                        </a>
+                        .
+                      </span>
+                    }
+                  />
+                </div>
+
+                {/* Single Crisp Error Banner */}
+                {error && (
+                  <div
+                    role="alert"
+                    className="p-3.5 rounded-xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-medium flex items-start gap-2"
+                  >
+                    <span className="font-bold">!</span>
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {/* Primary Place Order / Pay CTA */}
+                <button
+                  type="button"
+                  onClick={handlePlaceOrder}
+                  disabled={!termsAccepted || isProcessing || hasOutOfStockItems}
+                  className="w-full py-4 px-6 rounded-xl bg-[#1A1A1A] hover:bg-[#2E2923] text-white font-semibold text-sm tracking-[0.12em] uppercase border border-[#C9A84C]/60 shadow-[0_6px_20px_rgba(26,26,26,0.18)] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isProcessing ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-[#E6C975] border-t-transparent rounded-full animate-spin" />
+                      <span>Securing Your Order...</span>
+                    </>
+                  ) : hasOutOfStockItems ? (
+                    'Remove Out-of-Stock Items in Bag'
+                  ) : selectedPayment === 'razorpay' ? (
+                    `Pay ${formatPrice(total)} Securely`
+                  ) : (
+                    `Confirm COD Order • ${formatPrice(total)}`
+                  )}
+                </button>
+
+                <p className="text-[11px] text-center text-[#7A7165]">
+                  ✦ Handcrafted Indian Couture • Dispatched within 24–48 hrs • Easy Returns
+                </p>
+              </div>
+            </section>
           </div>
+
+          {/* RIGHT STICKY COLUMN: ALWAYS-VISIBLE ORDER SUMMARY & COUPONS */}
+          <aside className="lg:col-span-5 lg:sticky lg:top-20 space-y-5">
+            <div className="bg-white border border-[#D8CFC2] rounded-2xl shadow-[0_4px_18px_rgba(26,26,26,0.06)] overflow-hidden">
+              <div className="bg-[#FAF7F2] border-b border-[#E7E0D5] px-5 sm:px-6 py-4 flex items-center justify-between">
+                <h2 className="font-display text-lg font-medium text-[#1A1A1A]">
+                  Order Summary ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+                </h2>
+                <Link href="/cart" className="text-xs font-semibold text-[#8A6914] hover:underline">
+                  Edit Bag
+                </Link>
+              </div>
+
+              <div className="p-5 sm:p-6 space-y-5">
+                {/* Items List */}
+                <div className="space-y-3.5 max-h-[300px] overflow-y-auto pr-1">
+                  {items.map((item) => (
+                    <div key={item.id} className="flex gap-3.5 items-center">
+                      <div className="w-14 h-16 rounded-lg overflow-hidden bg-[#F2ECE3] border border-[#E5DDD0] flex-shrink-0">
+                        <img
+                          src={item.image}
+                          alt={item.product_name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[#1A1A1A] truncate">{item.product_name}</p>
+                        <p className="text-xs text-[#6B6256] mt-0.5">
+                          {item.color} • Size {item.size} • Qty {item.quantity}
+                        </p>
+                        {item.inventory_quantity === 0 && (
+                          <p className="text-[11px] font-semibold text-rose-600 mt-0.5">Out of stock</p>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold text-[#1A1A1A] whitespace-nowrap">
+                        {formatPrice(item.price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Privilege Coupon / Promo Code (Always Accessible!) */}
+                <div className="pt-4 border-t border-[#E7E0D5] space-y-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#7A5E12]">
+                    Privilege Voucher / Coupon
+                  </p>
+
+                  {appliedCoupon ? (
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                      <div className="text-xs">
+                        <span className="font-bold text-emerald-800">✓ {appliedCoupon.code}</span>
+                        <span className="text-emerald-700 ml-2">(-{formatPrice(discountAmount)} saved)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeCoupon()}
+                        className="text-xs font-semibold text-rose-700 hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={couponCodeInput}
+                          onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleApplyCoupon();
+                            }
+                          }}
+                          placeholder="Enter voucher code"
+                          className="flex-1 px-3 py-2 rounded-xl border border-[#C9BFB0] bg-[#FDFCFA] text-xs uppercase tracking-wider text-[#1A1A1A] focus:bg-white focus:outline-none focus:border-[#9A7718]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleApplyCoupon()}
+                          disabled={couponApplying || !couponCodeInput.trim()}
+                          className="px-4 py-2 rounded-xl bg-[#1A1A1A] hover:bg-[#332E28] text-white text-xs font-semibold disabled:opacity-40 cursor-pointer transition-colors"
+                        >
+                          {couponApplying ? '...' : 'Apply'}
+                        </button>
+                      </div>
+
+                      {availableOffers.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {availableOffers.map((offer) => (
+                            <button
+                              key={offer.code}
+                              type="button"
+                              onClick={() => handleApplyCoupon(offer.code)}
+                              disabled={couponApplying}
+                              className="px-2.5 py-1.5 rounded-lg border border-dashed border-[#C9A84C] bg-[#FCF9F2] hover:bg-[#F5EBD4] text-left transition-colors cursor-pointer"
+                            >
+                              <span className="text-[11px] font-bold text-[#7A5E12]">{offer.code}</span>
+                              <span className="text-[10px] text-[#6B6256] ml-1.5">
+                                {offer.title} ({offer.desc})
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {couponNotice && (
+                    <p
+                      className={cn(
+                        'text-xs font-medium',
+                        couponNotice.type === 'success' ? 'text-emerald-700' : 'text-rose-700'
+                      )}
+                    >
+                      {couponNotice.text}
+                    </p>
+                  )}
+                </div>
+
+                {/* Price Breakdown */}
+                <div className="pt-4 border-t border-[#E7E0D5] space-y-2 text-sm">
+                  <div className="flex justify-between text-[#5C5347]">
+                    <span>Subtotal</span>
+                    <span className="font-medium text-[#1A1A1A]">{formatPrice(subtotal)}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-700">
+                      <span>Voucher Savings</span>
+                      <span className="font-semibold">-{formatPrice(discountAmount)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-[#5C5347]">
+                    <span>Insured Shipping</span>
+                    <span className={cartShippingCost === 0 ? 'font-semibold text-emerald-700' : 'font-medium text-[#1A1A1A]'}>
+                      {cartShippingCost === 0 ? 'FREE' : formatPrice(cartShippingCost)}
+                    </span>
+                  </div>
+                  {codFee > 0 && (
+                    <div className="flex justify-between text-[#5C5347]">
+                      <span>COD Handling Fee</span>
+                      <span className="font-medium text-[#1A1A1A]">{formatPrice(codFee)}</span>
+                    </div>
+                  )}
+                  <div className="pt-3 mt-2 border-t border-[#DDD4C7] flex items-baseline justify-between">
+                    <div>
+                      <span className="text-base font-bold text-[#1A1A1A]">Total Payable</span>
+                      <span className="block text-[11px] text-[#7A7165]">Inclusive of all Indian GST</span>
+                    </div>
+                    <span className="text-2xl font-bold text-[#1A1A1A]">{formatPrice(total)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Trust Card */}
+            <div className="bg-white border border-[#D8CFC2] rounded-2xl p-4 grid grid-cols-3 gap-2 text-center text-[11px] text-[#574F44]">
+              <div>
+                <p className="font-bold text-[#1A1A1A]">Razorpay SSL</p>
+                <p className="text-[10px] text-[#7A7165]">256-Bit Encrypted</p>
+              </div>
+              <div className="border-x border-[#E7E0D5]">
+                <p className="font-bold text-[#1A1A1A]">Insured Delivery</p>
+                <p className="text-[10px] text-[#7A7165]">Pan-India Tracking</p>
+              </div>
+              <div>
+                <p className="font-bold text-[#1A1A1A]">Easy Returns</p>
+                <p className="text-[10px] text-[#7A7165]">Atelier Support</p>
+              </div>
+            </div>
+          </aside>
         </div>
-            {showAuthModal && (
+      </div>
+
+      {/* Password / Google Sign-In Modal for Returning Customers */}
+      {showAuthModal && (
         <AuthModal
           onClose={() => setShowAuthModal(false)}
           onSuccess={() => {
             setShowAuthModal(false);
-            refreshProfile();
-            loadAddresses();
+            refreshSession().catch(() => {});
           }}
-          defaultTab="signin"
         />
       )}
-    </main>
-  </div>
+    </div>
   );
 }

@@ -70,15 +70,23 @@ export async function createMiddlewareClient(request: NextRequest) {
         return request.cookies.getAll();
       },
       setAll(cookiesToSet) {
+        const isHttps = request.nextUrl.protocol === 'https:';
         cookiesToSet.forEach(({ name, value }) =>
           request.cookies.set(name, value)
         );
         response = NextResponse.next({
           request,
         });
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
-        );
+        cookiesToSet.forEach(({ name, value, options }) => {
+          const isDelete = options?.maxAge === 0 || value === '';
+          response.cookies.set(name, value, {
+            ...options,
+            path: options?.path || '/',
+            sameSite: (options?.sameSite as 'lax' | 'strict' | 'none' | undefined) || 'lax',
+            secure: options?.secure ?? isHttps,
+            maxAge: isDelete ? 0 : Math.max(options?.maxAge || 0, 60 * 60 * 24 * 400),
+          });
+        });
       },
     },
   });

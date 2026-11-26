@@ -23,6 +23,7 @@ interface AuthContextType {
   updatePassword: (password: string) => Promise<{ error: Error | null }>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
   refreshProfile: () => Promise<void>;
+  refreshSession: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -228,6 +229,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchProfile(user.id);
   }, [user, fetchProfile]);
 
+  const refreshSession = useCallback(async (): Promise<User | null> => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.user) {
+        setSession(data.session);
+        setUser(data.session.user);
+        await fetchProfile(data.session.user.id).catch(() => {});
+        return data.session.user;
+      }
+      // Fallback: check server-validated user (e.g. immediately after Server Action cookie sign-in)
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        setUser(userData.user);
+        await fetchProfile(userData.user.id).catch(() => {});
+        return userData.user;
+      }
+    } catch {
+      // Ignore refresh error
+    }
+    return null;
+  }, [supabase, fetchProfile]);
+
+  // Keep Chrome session silently refreshed whenever user returns to the tab
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session?.user) {
+            setSession(data.session);
+            setUser(data.session.user);
+          }
+        }).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [supabase]);
+
   return (
     <AuthContext.Provider
       value={{
@@ -245,6 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatePassword,
         updateProfile,
         refreshProfile,
+        refreshSession,
       }}
     >
       {children}

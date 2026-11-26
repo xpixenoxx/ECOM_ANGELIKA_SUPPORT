@@ -54,9 +54,17 @@ export function createClient() {
       },
       setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
+          const isProd = process.env.NODE_ENV === 'production';
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const isDelete = options?.maxAge === 0 || value === '';
+            cookieStore.set(name, value, {
+              ...options,
+              path: options?.path || '/',
+              sameSite: (options?.sameSite as 'lax' | 'strict' | 'none' | undefined) || 'lax',
+              secure: options?.secure ?? isProd,
+              maxAge: isDelete ? 0 : Math.max(options?.maxAge || 0, 60 * 60 * 24 * 400),
+            });
+          });
         } catch {
           // The `setAll` method was called from a Server Component.
           // This can be ignored if you have middleware refreshing

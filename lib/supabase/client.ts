@@ -9,6 +9,9 @@ export const PROD_SUPABASE_URL = 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
 export const PROD_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NDI1NTQsImV4cCI6MjEwODUxODU1NH0.rKWX5kFwxom9mxCR7NQlP2M6MJRtQveEb8UQMmZ86L0';
 
+/** Chrome's maximum persistent cookie lifetime (400 days) so logged-in shoppers stay signed in. */
+const PERSISTENT_COOKIE_MAX_AGE = 60 * 60 * 24 * 400;
+
 function resolveClientUrl(): string {
   const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (envUrl && !envUrl.includes('placeholder') && !envUrl.includes('your-project-id')) {
@@ -26,7 +29,20 @@ function resolveClientAnonKey(): string {
 }
 
 export function createClient() {
-  return createBrowserClient<Database>(resolveClientUrl(), resolveClientAnonKey());
+  const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  return createBrowserClient<Database>(resolveClientUrl(), resolveClientAnonKey(), {
+    cookieOptions: {
+      path: '/',
+      sameSite: 'lax',
+      secure: isHttps,
+      maxAge: PERSISTENT_COOKIE_MAX_AGE,
+    },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
 }
 
 // Singleton instance for client-side usage
