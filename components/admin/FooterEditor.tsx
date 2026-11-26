@@ -146,6 +146,7 @@ const DEFAULT_FOOTER_V2: FooterContent = {
 
 function isLegacyV1Footer(raw?: Partial<FooterContent>): boolean {
   if (!raw) return false;
+  if (raw.layoutVersion === 1) return true;
   if (raw.layoutVersion && raw.layoutVersion >= 2) return false;
   if (raw.aboutText && raw.aboutText.trim().length > 0) return false;
   const colIds = (raw.columns || []).map((c) => c.id);

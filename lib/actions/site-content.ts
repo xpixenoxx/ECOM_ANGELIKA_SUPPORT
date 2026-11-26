@@ -787,29 +787,49 @@ async function loadMergedSiteContent(): Promise<SiteContent> {
           ? parsed['kurtis-page'].products
           : (DEFAULT_SITE_CONTENT['kurtis-page']?.products || []),
       },
-      footer: {
-        ...DEFAULT_SITE_CONTENT.footer,
-        ...(parsed.footer || {}),
-        paymentOptions: {
-          ...DEFAULT_SITE_CONTENT.footer?.paymentOptions,
-          ...(parsed.footer?.paymentOptions || {}),
-        },
-        regionOptions: Array.isArray(parsed.footer?.regionOptions) && parsed.footer.regionOptions.length > 0
-          ? parsed.footer.regionOptions
-          : (DEFAULT_SITE_CONTENT.footer?.regionOptions || []),
-        socialLinks: Array.isArray(parsed.footer?.socialLinks)
-          ? parsed.footer.socialLinks
-          : (DEFAULT_SITE_CONTENT.footer?.socialLinks || []),
-        columns: (parsed.footer?.columns && parsed.footer.columns.length > 0)
-          ? parsed.footer.columns
-          : (DEFAULT_SITE_CONTENT.footer?.columns || []),
-        trustBadges: (parsed.footer?.trustBadges && parsed.footer.trustBadges.length > 0)
-          ? parsed.footer.trustBadges
-          : (DEFAULT_SITE_CONTENT.footer?.trustBadges || []),
-        bottomLinks: (parsed.footer?.bottomLinks && parsed.footer.bottomLinks.length > 0)
-          ? parsed.footer.bottomLinks
-          : (DEFAULT_SITE_CONTENT.footer?.bottomLinks || []),
-      },
+      footer: (() => {
+        const parsedFooter = parsed.footer || {};
+        const isLegacyV1FooterRow =
+          !(Number(parsedFooter.layoutVersion) >= 2) &&
+          Array.isArray(parsedFooter.columns) &&
+          parsedFooter.columns.length === 4 &&
+          parsedFooter.columns.some((c: any) => c?.id === 'col-shop' || c?.title === 'Shop Collections') &&
+          parsedFooter.columns.some((c: any) => c?.id === 'col-concierge' || c?.title === 'Client Concierge');
+
+        return {
+          ...DEFAULT_SITE_CONTENT.footer,
+          ...parsedFooter,
+          layoutVersion: isLegacyV1FooterRow ? 1 : (parsedFooter.layoutVersion ?? DEFAULT_SITE_CONTENT.footer?.layoutVersion ?? 2),
+          aboutText: parsedFooter.aboutText?.trim() || DEFAULT_SITE_CONTENT.footer?.aboutText,
+          readMoreLabel: parsedFooter.readMoreLabel?.trim() || DEFAULT_SITE_CONTENT.footer?.readMoreLabel,
+          readMoreHref: parsedFooter.readMoreHref?.trim() || DEFAULT_SITE_CONTENT.footer?.readMoreHref,
+          copyright: isLegacyV1FooterRow
+            ? DEFAULT_SITE_CONTENT.footer?.copyright
+            : (parsedFooter.copyright || DEFAULT_SITE_CONTENT.footer?.copyright),
+          showScrollTop: isLegacyV1FooterRow
+            ? false
+            : (parsedFooter.showScrollTop ?? DEFAULT_SITE_CONTENT.footer?.showScrollTop ?? false),
+          paymentOptions: {
+            ...DEFAULT_SITE_CONTENT.footer?.paymentOptions,
+            ...(parsedFooter.paymentOptions || {}),
+          },
+          regionOptions: Array.isArray(parsedFooter.regionOptions) && parsedFooter.regionOptions.length > 0
+            ? parsedFooter.regionOptions
+            : (DEFAULT_SITE_CONTENT.footer?.regionOptions || []),
+          socialLinks: Array.isArray(parsedFooter.socialLinks)
+            ? parsedFooter.socialLinks
+            : (DEFAULT_SITE_CONTENT.footer?.socialLinks || []),
+          columns: (!isLegacyV1FooterRow && parsedFooter.columns && parsedFooter.columns.length > 0)
+            ? parsedFooter.columns
+            : (DEFAULT_SITE_CONTENT.footer?.columns || []),
+          trustBadges: (parsedFooter.trustBadges && parsedFooter.trustBadges.length > 0)
+            ? parsedFooter.trustBadges
+            : (DEFAULT_SITE_CONTENT.footer?.trustBadges || []),
+          bottomLinks: (!isLegacyV1FooterRow && parsedFooter.bottomLinks && parsedFooter.bottomLinks.length > 0)
+            ? parsedFooter.bottomLinks
+            : (DEFAULT_SITE_CONTENT.footer?.bottomLinks || []),
+        };
+      })(),
       newsletter: {
         ...DEFAULT_SITE_CONTENT.newsletter,
         ...(parsed.newsletter || {}),
