@@ -106,9 +106,26 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     const rzpCfg = orderData.paymentMethod === 'razorpay' ? getRazorpayConfig() : null;
     if (orderData.paymentMethod === 'razorpay') {
       if (rzpCfg?.mismatchError) {
+        console.error(
+          JSON.stringify({
+            service: 'checkout',
+            event: 'razorpay_config_mismatch',
+            mode: rzpCfg.mode,
+            reason: rzpCfg.mismatchError,
+          })
+        );
         return { success: false, error: 'Online payment configuration mismatch. Please contact support.' };
       }
       if (!rzpCfg?.configured || !rzpCfg.keyId) {
+        console.error(
+          JSON.stringify({
+            service: 'checkout',
+            event: 'razorpay_unconfigured',
+            hasKeyId: Boolean(rzpCfg?.keyId),
+            hasKeySecret: Boolean(rzpCfg?.keySecret),
+            mode: rzpCfg?.mode ?? null,
+          })
+        );
         return { success: false, error: 'Razorpay online payment is currently unavailable. Please try again later or choose Cash on Delivery.' };
       }
     }

@@ -589,7 +589,7 @@ export default function CheckoutPage() {
       }
 
       if (selectedPayment === 'razorpay' && result.razorpayOrderId) {
-        const razorpayKey = result.razorpayKeyId || process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'];
+        const razorpayKey = result.razorpayKeyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
         if (!razorpayKey) {
           setError('Razorpay checkout key is not configured. Please try again later or choose COD.');
           resetSubmitting();
@@ -1512,14 +1512,16 @@ export default function CheckoutPage() {
                           </div>
 
                           {/* Atelier Instructions / Notes */}
-                          <div>
-                            <label htmlFor="notes" className="input-label">Special Atelier / Delivery Instructions (Optional)</label>
+                          <div className="space-y-1.5">
+                            <label htmlFor="notes" className="block text-xs font-semibold text-[var(--color-ink)]">
+                              Special Atelier / Delivery Instructions (Optional)
+                            </label>
                             <textarea
                               id="notes"
                               value={notes}
                               onChange={(e) => setNotes(e.target.value)}
                               placeholder="Any custom tailoring preference or delivery note..."
-                              className="input min-h-[60px] resize-y text-xs"
+                              className="w-full block min-h-[72px] p-3 border border-[var(--color-whisper)] rounded-[var(--radius-md)] bg-white resize-y text-xs text-[var(--color-ink)] placeholder:text-[var(--color-mist)] focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/20 focus:border-[var(--color-gold)]"
                               rows={2}
                             />
                           </div>
@@ -1597,7 +1599,7 @@ export default function CheckoutPage() {
                 )}
                 </AnimatePresence>
 
-                {error && (
+                {error && currentStep < 2 && (
                   <div className="p-3 mb-4 bg-red-50 border border-red-200 rounded-[var(--radius-lg)] text-red-700 text-xs flex items-center gap-2" role="alert">
                     <svg className="h-4 w-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                       <circle cx="12" cy="12" r="10" />

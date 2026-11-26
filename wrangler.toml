@@ -3,8 +3,23 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
 pages_build_output_dir = ".vercel/output/static"
 
+# Non-secret public/runtime configuration (source of truth for Cloudflare Pages).
+# IMPORTANT: NEVER place secrets (RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET,
+# SUPABASE_SERVICE_ROLE_KEY, SHIPROCKET_PASSWORD, SHIPROCKET_WEBHOOK_TOKEN,
+# RESEND_API_KEY, REVALIDATE_SECRET) in this file — keep all secrets encrypted
+# in Cloudflare Pages Dashboard -> Settings -> Variables and Secrets.
 [vars]
+NODE_VERSION = "20"
 NEXT_PUBLIC_SITE_URL = "https://angelikafashions.com"
+NEXT_PUBLIC_SUPABASE_URL = "https://ulxlpwipdvejzdzhmhwb.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NDI1NTQsImV4cCI6MjEwODUxODU1NH0.rKWX5kFwxom9mxCR7NQlP2M6MJRtQveEb8UQMmZ86L0"
+EMAIL_FROM = "Angelika Fashions <vidhya@angelikafashions.com>"
+SHIPROCKET_EMAIL = "jaaagtest@gmail.com"
+SHIPROCKET_PICKUP_LOCATION = "Primary"
+RAZORPAY_ENV = "test"
+NEXT_PUBLIC_RAZORPAY_ENV = "test"
+RAZORPAY_KEY_ID = "rzp_test_U4qxFWAZWcDZGg"
+NEXT_PUBLIC_RAZORPAY_KEY_ID = "rzp_test_U4qxFWAZWcDZGg"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"

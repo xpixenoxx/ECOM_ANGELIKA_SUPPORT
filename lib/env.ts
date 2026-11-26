@@ -76,8 +76,16 @@ export function getRawEnv(name: string): string | undefined {
 }
 
 export function getOptionalEnv(name: string): string | undefined {
-  const val = getRawEnv(name);
-  return isPlaceholderEnvValue(val) ? undefined : val;
+  const procVal = process.env[name];
+  if (typeof procVal === 'string' && !isPlaceholderEnvValue(procVal)) {
+    return procVal.trim();
+  }
+  const cfEnv = getCloudflareRequestEnv();
+  const cfVal = cfEnv?.[name];
+  if (typeof cfVal === 'string' && !isPlaceholderEnvValue(cfVal)) {
+    return cfVal.trim();
+  }
+  return undefined;
 }
 
 export function requireServerEnv(name: string): string {
