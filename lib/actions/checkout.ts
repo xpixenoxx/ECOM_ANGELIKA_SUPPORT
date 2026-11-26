@@ -457,6 +457,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     });
 
     if (invErr) {
+      console.error('[createOrder] reserve_order_inventory RPC failed:', invErr.message);
       await cleanupOrder(false);
       return { success: false, error: formatInventoryRpcError(invErr.message) };
     }
