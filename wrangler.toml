@@ -16,6 +16,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOi
 EMAIL_FROM = "Angelika Fashions <vidhya@angelikafashions.com>"
 SHIPROCKET_EMAIL = "jaaagtest@gmail.com"
 SHIPROCKET_PICKUP_LOCATION = "Primary"
+SHIPROCKET_PICKUP_PINCODE = "500069"
 RAZORPAY_ENV = "test"
 NEXT_PUBLIC_RAZORPAY_ENV = "test"
 RAZORPAY_KEY_ID = "rzp_test_U4qxFWAZWcDZGg"
