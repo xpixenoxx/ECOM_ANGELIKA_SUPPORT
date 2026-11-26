@@ -1,8 +1,11 @@
 /**
- * Zero-dependency Resend REST API Client
+ * Zero-dependency Resend REST API Client (Cloudflare Edge + Node compatible)
  * Dispatches emails via standard HTTPS requests using RESEND_API_KEY.
- * Works seamlessly across Next.js Server Actions, Route Handlers, and Node.js.
+ * Reads credentials safely via getOptionalEnv so both process.env and Cloudflare
+ * request context bindings work consistently and placeholders are rejected.
  */
+
+import { getOptionalEnv } from '@/lib/env';
 
 export interface ResendSendEmailParams {
   to: string | string[];
@@ -22,18 +25,20 @@ export interface ResendResponse {
 }
 
 /**
- * Check if RESEND_API_KEY is configured in the environment
+ * Check if a valid (non-placeholder) RESEND_API_KEY is configured.
  */
 export function isResendConfigured(): boolean {
-  return Boolean(process.env['RESEND_API_KEY']?.trim());
+  return Boolean(getOptionalEnv('RESEND_API_KEY'));
 }
 
 /**
- * Send an email via Resend REST API
+ * Send an email via Resend REST API.
+ * Never reports success when RESEND_API_KEY is missing or Resend returns an error.
  */
 export async function sendEmailViaResend(params: ResendSendEmailParams): Promise<ResendResponse> {
-  const apiKey = process.env['RESEND_API_KEY']?.trim();
-  const configuredFrom = process.env['EMAIL_FROM']?.trim() || 'Angelika Fashions <onboarding@resend.dev>';
+  const apiKey = getOptionalEnv('RESEND_API_KEY');
+  const configuredFrom =
+    getOptionalEnv('EMAIL_FROM') || 'Angelika Fashions <vidhya@angelikafashions.com>';
   const from = params.from?.trim() || configuredFrom;
   const toList = Array.isArray(params.to) ? params.to : [params.to];
   const cleanTo = toList.map((e) => e.trim().toLowerCase()).filter((e) => e && e.includes('@'));
@@ -42,22 +47,19 @@ export async function sendEmailViaResend(params: ResendSendEmailParams): Promise
     return { success: false, error: 'No valid recipient email address provided.' };
   }
 
-  // If no API key is configured
   if (!apiKey) {
     console.warn(
-      `[Resend API] RESEND_API_KEY is missing in .env.local. Email to ${cleanTo.join(
-        ', '
-      )} was simulated. Add RESEND_API_KEY to send real emails.`
+      `[Resend] RESEND_API_KEY is not configured; email dispatch skipped for ${cleanTo.length} recipient(s).`
     );
     return {
       success: false,
-      error: 'RESEND_API_KEY is not configured in .env.local.',
+      error: 'RESEND_API_KEY is not configured.',
       simulated: true,
     };
   }
 
   try {
-    const payload: Record<string, any> = {
+    const payload: Record<string, unknown> = {
       from,
       to: cleanTo,
       subject: params.subject,
@@ -78,13 +80,14 @@ export async function sendEmailViaResend(params: ResendSendEmailParams): Promise
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15_000),
     });
 
-    const data = await res.json().catch(() => ({}));
+    const data: any = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       const errorMsg = data?.message || data?.error || `Resend API error status: ${res.status}`;
-      console.error('[Resend Error]', errorMsg);
+      console.error('[Resend Error]', res.status, errorMsg);
       return {
         success: false,
         error: errorMsg,
@@ -98,11 +101,10 @@ export async function sendEmailViaResend(params: ResendSendEmailParams): Promise
       statusCode: res.status,
     };
   } catch (err: any) {
-    console.error('[Resend Exception]', err);
+    console.error('[Resend Exception]', err?.message || err);
     return {
       success: false,
       error: err?.message || 'Network error reaching Resend API.',
     };
   }
 }
-

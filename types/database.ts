@@ -1537,11 +1537,15 @@ export type Database = {
           channel: string
           content: string | null
           created_at: string
+          dedup_key: string | null
+          error_message: string | null
           id: string
           is_read: boolean
           link: string | null
           message: string | null
+          metadata: Json
           role_target: string
+          sent_at: string | null
           status: string
           subject: string | null
           title: string | null
@@ -1552,11 +1556,15 @@ export type Database = {
           channel?: string
           content?: string | null
           created_at?: string
+          dedup_key?: string | null
+          error_message?: string | null
           id?: string
           is_read?: boolean
           link?: string | null
           message?: string | null
+          metadata?: Json
           role_target?: string
+          sent_at?: string | null
           status?: string
           subject?: string | null
           title?: string | null
@@ -1567,11 +1575,15 @@ export type Database = {
           channel?: string
           content?: string | null
           created_at?: string
+          dedup_key?: string | null
+          error_message?: string | null
           id?: string
           is_read?: boolean
           link?: string | null
           message?: string | null
+          metadata?: Json
           role_target?: string
+          sent_at?: string | null
           status?: string
           subject?: string | null
           title?: string | null
@@ -1579,6 +1591,184 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      order_refunds: {
+        Row: {
+          amount: number
+          amount_paise: number
+          created_at: string
+          currency: string
+          error_message: string | null
+          gateway: string
+          gateway_payment_id: string | null
+          gateway_refund_id: string | null
+          id: string
+          idempotency_key: string | null
+          initiated_by: string | null
+          inventory_restored: boolean
+          metadata: Json
+          order_id: string
+          processed_at: string | null
+          reason: string | null
+          restore_inventory: boolean
+          speed: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          amount_paise: number
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          gateway?: string
+          gateway_payment_id?: string | null
+          gateway_refund_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          initiated_by?: string | null
+          inventory_restored?: boolean
+          metadata?: Json
+          order_id: string
+          processed_at?: string | null
+          reason?: string | null
+          restore_inventory?: boolean
+          speed?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          amount_paise?: number
+          created_at?: string
+          currency?: string
+          error_message?: string | null
+          gateway?: string
+          gateway_payment_id?: string | null
+          gateway_refund_id?: string | null
+          id?: string
+          idempotency_key?: string | null
+          initiated_by?: string | null
+          inventory_restored?: boolean
+          metadata?: Json
+          order_id?: string
+          processed_at?: string | null
+          reason?: string | null
+          restore_inventory?: boolean
+          speed?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_refunds_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      shipments: {
+        Row: {
+          awb_code: string | null
+          breadth_cm: number | null
+          cancelled_at: string | null
+          courier_company_id: number | null
+          courier_name: string | null
+          created_at: string
+          etd: string | null
+          height_cm: number | null
+          id: string
+          label_url: string | null
+          last_event_at: string | null
+          length_cm: number | null
+          manifest_url: string | null
+          metadata: Json
+          order_id: string
+          pickup_scheduled_date: string | null
+          pickup_status: string
+          pickup_token_number: string | null
+          provider: string
+          raw_status_code: number | null
+          raw_status_label: string | null
+          scans: Json
+          shipment_status: string
+          shiprocket_order_id: string | null
+          shiprocket_shipment_id: string | null
+          tracking_url: string | null
+          updated_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          awb_code?: string | null
+          breadth_cm?: number | null
+          cancelled_at?: string | null
+          courier_company_id?: number | null
+          courier_name?: string | null
+          created_at?: string
+          etd?: string | null
+          height_cm?: number | null
+          id?: string
+          label_url?: string | null
+          last_event_at?: string | null
+          length_cm?: number | null
+          manifest_url?: string | null
+          metadata?: Json
+          order_id: string
+          pickup_scheduled_date?: string | null
+          pickup_status?: string
+          pickup_token_number?: string | null
+          provider?: string
+          raw_status_code?: number | null
+          raw_status_label?: string | null
+          scans?: Json
+          shipment_status?: string
+          shiprocket_order_id?: string | null
+          shiprocket_shipment_id?: string | null
+          tracking_url?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          awb_code?: string | null
+          breadth_cm?: number | null
+          cancelled_at?: string | null
+          courier_company_id?: number | null
+          courier_name?: string | null
+          created_at?: string
+          etd?: string | null
+          height_cm?: number | null
+          id?: string
+          label_url?: string | null
+          last_event_at?: string | null
+          length_cm?: number | null
+          manifest_url?: string | null
+          metadata?: Json
+          order_id?: string
+          pickup_scheduled_date?: string | null
+          pickup_status?: string
+          pickup_token_number?: string | null
+          provider?: string
+          raw_status_code?: number | null
+          raw_status_label?: string | null
+          scans?: Json
+          shipment_status?: string
+          shiprocket_order_id?: string | null
+          shiprocket_shipment_id?: string | null
+          tracking_url?: string | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       review_helpful_votes: {
         Row: {
@@ -1690,28 +1880,40 @@ export type Database = {
       }
       webhook_events: {
         Row: {
+          attempts: number
+          error_message: string | null
           event_id: string
           event_type: string
           order_id: string | null
           payload: Json
           processed_at: string
           provider: string
+          status: string
+          updated_at: string
         }
         Insert: {
+          attempts?: number
+          error_message?: string | null
           event_id: string
           event_type: string
           order_id?: string | null
           payload?: Json
           processed_at?: string
           provider: string
+          status?: string
+          updated_at?: string
         }
         Update: {
+          attempts?: number
+          error_message?: string | null
           event_id?: string
           event_type?: string
           order_id?: string | null
           payload?: Json
           processed_at?: string
           provider?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }

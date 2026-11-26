@@ -20,25 +20,20 @@ export default function WebhooksSettingsPage() {
 
   const webhooks = [
     {
-      name: 'Cashfree Payment & Refund Webhook (Primary)',
-      endpoint: '/api/webhooks/cashfree',
-      configured: health?.cashfreeWebhookConfigured ?? false,
-      envKey: 'CASHFREE_WEBHOOK_SECRET (or CASHFREE_SECRET_KEY)',
-      events: 'PAYMENT_SUCCESS_WEBHOOK, PAYMENT_FAILED_WEBHOOK, REFUND_STATUS_WEBHOOK',
+      name: 'Razorpay Payment & Refund Webhook (Primary)',
+      endpoint: '/api/webhooks/razorpay',
+      configured: health?.razorpayWebhookConfigured ?? false,
+      envKey: 'RAZORPAY_WEBHOOK_SECRET',
+      events: 'payment.authorized, payment.captured, payment.failed, order.paid, refund.created, refund.processed, refund.failed',
+      note: 'Verifies raw body HMAC-SHA256 via x-razorpay-signature header.',
     },
     {
-      name: 'Stripe Payment Intent Webhook',
-      endpoint: '/api/webhooks/stripe',
-      configured: health?.stripeWebhookConfigured ?? false,
-      envKey: 'STRIPE_WEBHOOK_SECRET',
-      events: 'payment_intent.succeeded, payment_intent.payment_failed, charge.refunded',
-    },
-    {
-      name: 'Delhivery AWB Tracking Webhook',
-      endpoint: '/api/webhooks/delhivery',
-      configured: health?.delhiveryWebhookConfigured ?? false,
-      envKey: 'DELHIVERY_WEBHOOK_SECRET',
-      events: 'shipment.dispatched, shipment.in_transit, shipment.delivered, shipment.rto',
+      name: 'Shiprocket Logistics & Tracking Webhook (Primary)',
+      endpoint: '/api/webhooks/logistics',
+      configured: health?.shiprocketWebhookConfigured ?? false,
+      envKey: 'SHIPROCKET_WEBHOOK_TOKEN',
+      events: 'AWB Assigned, Pickup Scheduled, Picked Up, In Transit, Out for Delivery, Delivered, NDR/Failed, RTO, Cancelled',
+      note: 'URL avoids restricted keywords (shiprocket/sr/kr) per Shiprocket rules. Authenticates via x-api-key header.',
     },
     {
       name: 'Meta WhatsApp Inbound Webhook',
@@ -46,6 +41,7 @@ export default function WebhooksSettingsPage() {
       configured: health?.whatsappWebhookConfigured ?? false,
       envKey: 'WHATSAPP_WEBHOOK_VERIFY_TOKEN + WHATSAPP_APP_SECRET',
       events: 'messages, message_deliveries',
+      note: 'Verifies x-hub-signature-256 HMAC-SHA256.',
     },
   ];
 
@@ -67,16 +63,16 @@ export default function WebhooksSettingsPage() {
             </h1>
             <AdminSectionInfo
               title="Webhook Endpoints & Real-time Sync"
-              purpose="Inspect fail-closed signature-verified inbound webhook listeners for Razorpay, Stripe, Delhivery, and Meta WhatsApp."
+              purpose="Inspect fail-closed signature-verified inbound webhook listeners for Razorpay, Shiprocket, and Meta WhatsApp."
               storefrontImpact="Updates order, payment, refund, shipment, and conversation state in Supabase only when valid provider secrets verify."
               targets={[
-                { name: 'Orders Listing', path: '/admin/orders', description: 'Real-time order status updates' },
-                { name: 'WhatsApp Concierge', path: '/admin/whatsapp', description: 'Real-time inbound message listener' },
+                { name: 'Orders Listing', path: '/admin/orders', description: 'Real-time order & payment status updates' },
+                { name: 'Shipments', path: '/admin/orders/shipments', description: 'Real-time Shiprocket tracking sync' },
               ]}
             />
           </div>
           <p className="text-sm text-[var(--color-slate,#666666)] mt-1">
-            Signature-verified, idempotent webhook receivers persisted via webhook_events
+            Signature-verified, idempotent webhook receivers persisted durably via webhook_events
           </p>
         </div>
       </div>
@@ -105,6 +101,7 @@ export default function WebhooksSettingsPage() {
                 </div>
                 <p className="text-xs font-mono text-[var(--color-slate,#666666)] mt-1">{w.endpoint}</p>
                 <p className="text-[11px] text-[var(--color-mist,#999999)] mt-0.5">Events: {w.events}</p>
+                {w.note && <p className="text-[11px] text-[var(--color-slate,#666666)] mt-0.5">{w.note}</p>}
               </div>
 
               <button

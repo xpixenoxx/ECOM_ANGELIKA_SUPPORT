@@ -6,7 +6,8 @@ import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { canCustomerCancelOrder } from '@/lib/orders/state-machine';
 import { normalizeAddress } from '@/lib/utils/address';
 import { normalizeIndianPhone, sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
-import { checkRateLimit } from '@/lib/utils/rate-limit';
+import { checkRateLimitAsync } from '@/lib/utils/rate-limit';
+import { sendOrderCancelledNotification } from '@/lib/actions/notifications';
 import { revalidatePath } from 'next/cache';
 import type { Json } from '@/types/database';
 
@@ -858,11 +859,14 @@ export async function cancelCustomerOrder(
 
     await supabaseAdmin.rpc('release_order_inventory', { p_order_id: order.id });
 
-    // If order was paid online, trigger automatic gateway refund or flag manual refund required
+    // If order was paid online, trigger automatic gateway refund WITHOUT double-restoring inventory
     if (order.payment_status === 'paid' && order.payment_method !== 'cod') {
       try {
         const { executeGatewayRefund } = await import('@/lib/actions/payments');
-        const refundRes = await executeGatewayRefund(order.id, undefined, cleanReason);
+        const refundRes = await executeGatewayRefund(order.id, undefined, cleanReason, {
+          restoreInventory: false,
+          idempotencyKey: `cust_cancel_${order.id.replace(/-/g, '')}`,
+        });
         if (!refundRes.success) {
           console.warn('[cancelCustomerOrder] Gateway refund failed, flagged for admin review:', refundRes.error);
           await supabaseAdmin
@@ -892,6 +896,8 @@ export async function cancelCustomerOrder(
           .eq('id', order.id);
       }
     }
+
+    await sendOrderCancelledNotification(order.id, cleanReason);
 
     try {
       revalidatePath('/account/orders');
@@ -947,7 +953,7 @@ export async function trackOrderPublic(params: {
       return { success: false, error: 'Order number and email or phone number are required.' };
     }
 
-    const rl = checkRateLimit(`track_order:${cleanOrderNum}`, 15, 15 * 60 * 1000);
+    const rl = await checkRateLimitAsync(`track_order:${cleanOrderNum}`, 15, 15 * 60 * 1000);
     if (!rl.allowed) {
       return {
         success: false,

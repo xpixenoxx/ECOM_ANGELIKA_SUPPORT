@@ -17,6 +17,7 @@ const PLACEHOLDER_EXACT_VALUES = new Set([
   'your-supabase-service-role-key',
   'placeholder-service-key',
   'rzp_test_...',
+  'rzp_live_...',
   'rzp_live_9281a8c9b',
   'pk_test_...',
   'sk_test_...',
@@ -125,65 +126,159 @@ export function isLocalDevBypassAllowed(): boolean {
   );
 }
 
+export type RazorpayMode = 'test' | 'live';
+
+export interface RazorpayConfigValidation {
+  configured: boolean;
+  webhookConfigured: boolean;
+  mode: RazorpayMode | null;
+  keyId: string | null;
+  keySecret: string | null;
+  webhookSecret: string | null;
+  mismatchError: string | null;
+}
+
+/**
+ * Centralized Razorpay environment validation.
+ * Enforces strict separation between Test Mode (`rzp_test_*`) and Live Mode (`rzp_live_*`)
+ * so production and test credentials can never be mixed silently.
+ */
+export function getRazorpayConfig(): RazorpayConfigValidation {
+  const serverKeyId = getOptionalEnv('RAZORPAY_KEY_ID');
+  const publicKeyId = getOptionalEnv('NEXT_PUBLIC_RAZORPAY_KEY_ID');
+  const keyId = serverKeyId || publicKeyId || null;
+  const keySecret = getOptionalEnv('RAZORPAY_KEY_SECRET') || null;
+  const webhookSecret = getOptionalEnv('RAZORPAY_WEBHOOK_SECRET') || null;
+
+  const explicitServerEnv = (getOptionalEnv('RAZORPAY_ENV') || '').toLowerCase();
+  const explicitPublicEnv = (getOptionalEnv('NEXT_PUBLIC_RAZORPAY_ENV') || '').toLowerCase();
+
+  const normalizeEnv = (val: string): RazorpayMode | null => {
+    if (!val) return null;
+    if (val === 'test' || val === 'sandbox' || val === 'development') return 'test';
+    if (val === 'live' || val === 'production' || val === 'prod') return 'live';
+    return null;
+  };
+
+  const expectedServerMode = normalizeEnv(explicitServerEnv);
+  const expectedPublicMode = normalizeEnv(explicitPublicEnv);
+
+  const keyMode: RazorpayMode | null = keyId
+    ? keyId.startsWith('rzp_test_')
+      ? 'test'
+      : keyId.startsWith('rzp_live_')
+        ? 'live'
+        : null
+    : null;
+
+  let mismatchError: string | null = null;
+
+  if (serverKeyId && publicKeyId && serverKeyId !== publicKeyId) {
+    mismatchError = 'RAZORPAY_KEY_ID and NEXT_PUBLIC_RAZORPAY_KEY_ID do not match.';
+  } else if (expectedServerMode && expectedPublicMode && expectedServerMode !== expectedPublicMode) {
+    mismatchError = 'RAZORPAY_ENV and NEXT_PUBLIC_RAZORPAY_ENV disagree on test vs live mode.';
+  } else if (keyId && !keyMode) {
+    mismatchError = 'RAZORPAY_KEY_ID must start with "rzp_test_" or "rzp_live_".';
+  } else if (keyMode && expectedServerMode && keyMode !== expectedServerMode) {
+    mismatchError = `RAZORPAY_ENV is "${expectedServerMode}" but RAZORPAY_KEY_ID is a "${keyMode}" key.`;
+  } else if (keyMode && expectedPublicMode && keyMode !== expectedPublicMode) {
+    mismatchError = `NEXT_PUBLIC_RAZORPAY_ENV is "${expectedPublicMode}" but Razorpay Key ID is a "${keyMode}" key.`;
+  }
+
+  const configured = Boolean(keyId && keySecret && keyMode && !mismatchError);
+
+  return {
+    configured,
+    webhookConfigured: Boolean(webhookSecret),
+    mode: keyMode || expectedServerMode || expectedPublicMode,
+    keyId,
+    keySecret,
+    webhookSecret,
+    mismatchError,
+  };
+}
+
+export interface ShiprocketConfigValidation {
+  configured: boolean;
+  webhookConfigured: boolean;
+  email: string | null;
+  password: string | null;
+  pickupLocation: string;
+  pickupPincode: string | null;
+  webhookToken: string | null;
+  env: string;
+  defaultWeightKg: number;
+  defaultLengthCm: number;
+  defaultBreadthCm: number;
+  defaultHeightCm: number;
+}
+
+export function getShiprocketConfig(): ShiprocketConfigValidation {
+  const email = getOptionalEnv('SHIPROCKET_EMAIL') || null;
+  const password = getOptionalEnv('SHIPROCKET_PASSWORD') || null;
+  const pickupLocation = getOptionalEnv('SHIPROCKET_PICKUP_LOCATION') || 'Primary';
+  const pickupPincode = getOptionalEnv('SHIPROCKET_PICKUP_PINCODE') || null;
+  const webhookToken = getOptionalEnv('SHIPROCKET_WEBHOOK_TOKEN') || null;
+  const env = (getOptionalEnv('SHIPROCKET_ENV') || 'production').toLowerCase();
+
+  const parsePositive = (raw: string | undefined, fallback: number): number => {
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  };
+
+  return {
+    configured: Boolean(email && password),
+    webhookConfigured: Boolean(webhookToken),
+    email,
+    password,
+    pickupLocation,
+    pickupPincode,
+    webhookToken,
+    env,
+    defaultWeightKg: parsePositive(getOptionalEnv('SHIPROCKET_DEFAULT_WEIGHT_KG'), 0.5),
+    defaultLengthCm: parsePositive(getOptionalEnv('SHIPROCKET_DEFAULT_LENGTH_CM'), 30),
+    defaultBreadthCm: parsePositive(getOptionalEnv('SHIPROCKET_DEFAULT_BREADTH_CM'), 25),
+    defaultHeightCm: parsePositive(getOptionalEnv('SHIPROCKET_DEFAULT_HEIGHT_CM'), 5),
+  };
+}
+
 export interface ServiceHealthFlags {
   supabaseConfigured: boolean;
   serviceRoleConfigured: boolean;
-  cashfreeConfigured: boolean;
-  cashfreeWebhookConfigured: boolean;
   razorpayConfigured: boolean;
   razorpayWebhookConfigured: boolean;
+  razorpayTestMode: boolean;
+  razorpayLiveMode: boolean;
+  razorpayModeMismatch: boolean;
   stripeConfigured: boolean;
   stripeWebhookConfigured: boolean;
   resendConfigured: boolean;
   delhiveryWebhookConfigured: boolean;
   shiprocketConfigured: boolean;
+  shiprocketWebhookConfigured: boolean;
   whatsappCloudConfigured: boolean;
   whatsappWebhookConfigured: boolean;
   revalidationConfigured: boolean;
 }
 
-export function getCashfreeMode(): 'sandbox' | 'production' {
-  const explicitEnv = (
-    getOptionalEnv('CASHFREE_ENV') ||
-    getOptionalEnv('NEXT_PUBLIC_CASHFREE_ENV') ||
-    ''
-  ).toLowerCase();
-  if (explicitEnv === 'sandbox' || explicitEnv === 'test') return 'sandbox';
-  if (explicitEnv === 'production' || explicitEnv === 'prod') return 'production';
-  const appId = getOptionalEnv('CASHFREE_APP_ID') || '';
-  if (appId.toUpperCase().startsWith('TEST')) return 'sandbox';
-  return 'production';
-}
-
-export function getCashfreeApiBaseUrl(): string {
-  return getCashfreeMode() === 'sandbox'
-    ? 'https://sandbox.cashfree.com/pg'
-    : 'https://api.cashfree.com/pg';
-}
-
 export function getServiceHealthFlags(): ServiceHealthFlags {
+  const rzp = getRazorpayConfig();
+  const sr = getShiprocketConfig();
+
   return {
     supabaseConfigured: hasValidSupabaseConfig(),
     serviceRoleConfigured: hasValidServiceRoleKey(),
-    cashfreeConfigured: Boolean(
-      getOptionalEnv('CASHFREE_APP_ID') && getOptionalEnv('CASHFREE_SECRET_KEY')
-    ),
-    cashfreeWebhookConfigured: Boolean(
-      getOptionalEnv('CASHFREE_WEBHOOK_SECRET') || getOptionalEnv('CASHFREE_SECRET_KEY')
-    ),
-    razorpayConfigured: Boolean(
-      getOptionalEnv('RAZORPAY_KEY_ID') &&
-      getOptionalEnv('NEXT_PUBLIC_RAZORPAY_KEY_ID') &&
-      getOptionalEnv('RAZORPAY_KEY_SECRET')
-    ),
-    razorpayWebhookConfigured: Boolean(getOptionalEnv('RAZORPAY_WEBHOOK_SECRET')),
+    razorpayConfigured: rzp.configured,
+    razorpayWebhookConfigured: rzp.webhookConfigured,
+    razorpayTestMode: rzp.mode === 'test',
+    razorpayLiveMode: rzp.mode === 'live',
+    razorpayModeMismatch: Boolean(rzp.mismatchError),
     stripeConfigured: Boolean(getOptionalEnv('STRIPE_SECRET_KEY')),
     stripeWebhookConfigured: Boolean(getOptionalEnv('STRIPE_WEBHOOK_SECRET')),
     resendConfigured: Boolean(getOptionalEnv('RESEND_API_KEY')),
     delhiveryWebhookConfigured: Boolean(getOptionalEnv('DELHIVERY_WEBHOOK_SECRET')),
-    shiprocketConfigured: Boolean(
-      getOptionalEnv('SHIPROCKET_EMAIL') && getOptionalEnv('SHIPROCKET_PASSWORD')
-    ),
+    shiprocketConfigured: sr.configured,
+    shiprocketWebhookConfigured: sr.webhookConfigured,
     whatsappCloudConfigured: Boolean(
       getOptionalEnv('WHATSAPP_ACCESS_TOKEN') && getOptionalEnv('WHATSAPP_PHONE_NUMBER_ID')
     ),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/Button';
@@ -18,7 +18,7 @@ import { MagneticButton } from '@/components/animations/MagneticButton';
 import { useCart } from '@/lib/hooks/useCart';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { AuthModal } from '@/components/ui/AuthModal';
-import { createOrder, getUserAddresses, saveAddress, verifyCashfreePayment, verifyRazorpayPayment } from '@/lib/actions/checkout';
+import { createOrder, getUserAddresses, saveAddress } from '@/lib/actions/checkout';
 import { createClient } from '@/lib/supabase/client';
 import { lookupPincode, type PincodeDetails } from '@/lib/utils/pincode';
 import type { Address } from '@/types/commerce';
@@ -85,8 +85,8 @@ const indianStates = [
 
 const paymentMethods = [
   {
-    id: 'cashfree',
-    name: 'Online Payment (Cashfree)',
+    id: 'razorpay',
+    name: 'Online Payment (Razorpay)',
     description: 'UPI, Credit/Debit Cards, Net Banking, Wallets, EMI',
     icon: (
       <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -183,7 +183,8 @@ export default function CheckoutPage() {
     isDefault: false,
   });
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<'cashfree' | 'razorpay' | 'cod'>('cashfree');
+  const [selectedPayment, setSelectedPayment] = useState<'razorpay' | 'cod'>('razorpay');
+  const submittingRef = useRef(false);
   const [email, setEmail] = useState(profile?.email || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [notes, setNotes] = useState('');
@@ -495,21 +496,28 @@ export default function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
+    if (submittingRef.current || isProcessing) return;
     if (!termsAccepted) {
       setError('Please accept the terms and conditions');
       return;
     }
     if (items.length === 0) return;
 
+    submittingRef.current = true;
     setIsProcessing(true);
     setError('');
+
+    const resetSubmitting = () => {
+      submittingRef.current = false;
+      setIsProcessing(false);
+    };
 
     try {
       // Validate cart
       const validation = await validateCart();
       if (!validation.valid) {
         setError(validation.errors.join(', '));
-        setIsProcessing(false);
+        resetSubmitting();
         return;
       }
 
@@ -518,7 +526,7 @@ export default function CheckoutPage() {
       if (showNewAddressForm || !selectedAddressId) {
         if (!newAddress.firstName?.trim() || !newAddress.address1?.trim()) {
           setError('Please complete your delivery address before placing order');
-          setIsProcessing(false);
+          resetSubmitting();
           setCurrentStep(0);
           return;
         }
@@ -527,7 +535,7 @@ export default function CheckoutPage() {
         const addr = savedAddresses.find(a => a.id === selectedAddressId);
         if (!addr) {
           setError('Please select a delivery address');
-          setIsProcessing(false);
+          resetSubmitting();
           setCurrentStep(0);
           return;
         }
@@ -541,7 +549,7 @@ export default function CheckoutPage() {
       if (finalEmailErr) {
         setError(finalEmailErr);
         setFieldErrors(prev => ({ ...prev, email: finalEmailErr }));
-        setIsProcessing(false);
+        resetSubmitting();
         setCurrentStep(0);
         return;
       }
@@ -550,12 +558,12 @@ export default function CheckoutPage() {
       if (finalPhoneErr) {
         setError(finalPhoneErr);
         setFieldErrors(prev => ({ ...prev, phone: finalPhoneErr }));
-        setIsProcessing(false);
+        resetSubmitting();
         setCurrentStep(0);
         return;
       }
 
-      // Prepare order data
+      // Prepare order data (server authoritatively computes all prices/discounts/taxes)
       const orderData = {
         items,
         shippingAddress,
@@ -576,156 +584,146 @@ export default function CheckoutPage() {
 
       if (!result.success) {
         setError(result.error || 'Failed to place order');
-        setIsProcessing(false);
+        resetSubmitting();
         return;
       }
 
-      if (selectedPayment === 'cashfree' && result.cashfreePaymentSessionId && result.cashfreeOrderId) {
-        const launchCashfreeCheckout = async () => {
-          try {
-            const cashfreeFactory = (window as any).Cashfree;
-            if (typeof cashfreeFactory !== 'function') {
-              setError('Cashfree payment SDK could not be initialized. Please try again.');
-              setIsProcessing(false);
-              return;
-            }
-            const cashfree = cashfreeFactory({
-              mode: result.cashfreeEnv || (process.env['NEXT_PUBLIC_CASHFREE_ENV'] === 'sandbox' ? 'sandbox' : 'production'),
-            });
-            const checkoutRes = await cashfree.checkout({
-              paymentSessionId: result.cashfreePaymentSessionId,
-              redirectTarget: '_modal',
-            });
-
-            if (checkoutRes?.error) {
-              setError(checkoutRes.error.message || 'Payment was cancelled or failed. Please try again.');
-              setIsProcessing(false);
-              return;
-            }
-
-            const verifyResult = await verifyCashfreePayment(result.cashfreeOrderId!);
-            if (verifyResult.success) {
-              await clearCart();
-              const tokenParam = verifyResult.receiptToken
-                ? `&token=${encodeURIComponent(verifyResult.receiptToken)}`
-                : '';
-              window.location.href = `/order-success?order_id=${verifyResult.orderId}${tokenParam}`;
-            } else {
-              setError(verifyResult.error || 'Payment verification failed');
-              setIsProcessing(false);
-            }
-          } catch (cfErr: any) {
-            setError(cfErr?.message || 'Payment checkout failed. Please try again.');
-            setIsProcessing(false);
-          }
-        };
-
-        const existingCfScript = document.getElementById('cashfree-checkout-script');
-        if (existingCfScript && typeof (window as any).Cashfree === 'function') {
-          await launchCashfreeCheckout();
-        } else {
-          const script = document.createElement('script');
-          script.id = 'cashfree-checkout-script';
-          script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-          script.onload = () => {
-            launchCashfreeCheckout();
-          };
-          script.onerror = () => {
-            setError('Could not load Cashfree payment gateway. Please check your connection and try again.');
-            setIsProcessing(false);
-          };
-          document.body.appendChild(script);
+      if (selectedPayment === 'razorpay' && result.razorpayOrderId) {
+        const razorpayKey = result.razorpayKeyId || process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'];
+        if (!razorpayKey) {
+          setError('Razorpay checkout key is not configured. Please try again later or choose COD.');
+          resetSubmitting();
+          return;
         }
-      } else if (selectedPayment === 'razorpay' && result.razorpayOrderId) {
-        // Redirect to Razorpay checkout
-        const razorpayOptions = {
-          key: process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'],
-          amount: Math.round(total * 100), // Razorpay requires paise
-          currency: 'INR',
-          name: 'Angelika Fashions',
-          description: `Order ${result.orderId}`,
-          order_id: result.razorpayOrderId,
-          handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
-            const verifyResult = await verifyRazorpayPayment(
-              response.razorpay_order_id,
-              response.razorpay_payment_id,
-              response.razorpay_signature
-            );
-            if (verifyResult.success) {
-              await clearCart();
-              const tokenParam = verifyResult.receiptToken
-                ? `&token=${encodeURIComponent(verifyResult.receiptToken)}`
-                : '';
-              window.location.href = `/order-success?order_id=${verifyResult.orderId}${tokenParam}`;
-            } else {
-              setError(verifyResult.error || 'Payment verification failed');
-              setIsProcessing(false);
-            }
-          },
-          prefill: {
-            name: `${shippingAddress.firstName} ${shippingAddress.lastName}`,
-            email: finalEmail,
-            contact: finalPhone,
-          },
-          notes: {
-            order_id: result.orderId,
-          },
-          theme: {
-            color: '#C9A84C',
-          },
-          modal: {
-            ondismiss: () => {
-              setIsProcessing(false);
-            },
-          },
-        };
 
-        // Load Razorpay script dynamically — guard against duplicate injection on retry
-        const existingScript = document.getElementById('razorpay-checkout-script');
-        if (existingScript) {
-          // Script already loaded; open modal directly
-          const razorpay = new (window as any).Razorpay(razorpayOptions);
-          razorpay.on('payment.failed', (response: any) => {
-            setError(response.error.description || 'Payment failed. Please try again.');
-            setIsProcessing(false);
+        const tokenParam = result.receiptToken
+          ? `&token=${encodeURIComponent(result.receiptToken)}`
+          : '';
+
+        const openRazorpayModal = () => {
+          const RazorpayCtor = (window as any).Razorpay;
+          if (typeof RazorpayCtor !== 'function') {
+            setError('Razorpay Checkout SDK could not be initialized. Please refresh and try again.');
+            resetSubmitting();
+            return;
+          }
+
+          let handlerTriggered = false;
+          const razorpayOptions = {
+            key: razorpayKey,
+            amount: result.amountPaise || Math.round(total * 100),
+            currency: result.currency || 'INR',
+            name: 'Angelika Fashions',
+            description: `Order ${result.orderNumber || result.orderId}`,
+            order_id: result.razorpayOrderId,
+            handler: async (response: {
+              razorpay_payment_id: string;
+              razorpay_order_id: string;
+              razorpay_signature: string;
+            }) => {
+              handlerTriggered = true;
+              try {
+                const verifyResp = await fetch('/api/payments/verify-razorpay', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    razorpayOrderId: response.razorpay_order_id,
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpaySignature: response.razorpay_signature,
+                  }),
+                });
+                const verifyResult = await verifyResp.json().catch(() => ({}));
+
+                if (verifyResp.ok && verifyResult.success) {
+                  const verifiedToken = verifyResult.receiptToken
+                    ? `&token=${encodeURIComponent(verifyResult.receiptToken)}`
+                    : tokenParam;
+                  if (verifyResult.status === 'pending_capture') {
+                    window.location.href = `/order-success?order_id=${verifyResult.orderId || result.orderId}${verifiedToken}&verifying=1`;
+                    return;
+                  }
+                  await clearCart();
+                  window.location.href = `/order-success?order_id=${verifyResult.orderId || result.orderId}${verifiedToken}`;
+                } else {
+                  // Do not force customer to pay again blindly; route to pending verification or show error clearly
+                  setError(
+                    verifyResult?.error ||
+                      'We received your payment callback, but verification could not be completed immediately. Please check your order status before retrying.'
+                  );
+                  resetSubmitting();
+                }
+              } catch {
+                // Network dropped after Razorpay payment completed -> send to pending verification page (auto-reconciles via Razorpay)
+                window.location.href = `/order-success?order_id=${result.orderId}${tokenParam}&verifying=1`;
+              }
+            },
+            prefill: {
+              name: `${shippingAddress.firstName} ${shippingAddress.lastName || ''}`.trim(),
+              email: finalEmail,
+              contact: finalPhone,
+            },
+            notes: {
+              order_id: result.orderId || '',
+              order_number: result.orderNumber || '',
+            },
+            theme: {
+              color: '#C9A84C',
+            },
+            modal: {
+              confirm_close: true,
+              ondismiss: () => {
+                if (!handlerTriggered) {
+                  setError('Payment window was closed before completion. You can safely retry payment below.');
+                  resetSubmitting();
+                }
+              },
+            },
+          };
+
+          const razorpay = new RazorpayCtor(razorpayOptions);
+          razorpay.on('payment.failed', (failure: any) => {
+            const desc =
+              failure?.error?.description ||
+              failure?.error?.reason ||
+              'Payment could not be completed. Please try again or choose another method.';
+            setError(desc);
+            resetSubmitting();
           });
           razorpay.open();
+        };
+
+        const existingScript = document.getElementById('razorpay-checkout-script');
+        if (existingScript && typeof (window as any).Razorpay === 'function') {
+          openRazorpayModal();
         } else {
+          if (existingScript) existingScript.remove();
           const script = document.createElement('script');
           script.id = 'razorpay-checkout-script';
           script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          script.async = true;
           script.onload = () => {
-            const razorpay = new (window as any).Razorpay(razorpayOptions);
-            razorpay.on('payment.failed', (response: any) => {
-              setError(response.error.description || 'Payment failed. Please try again.');
-              setIsProcessing(false);
-            });
-            razorpay.open();
+            openRazorpayModal();
           };
-          // Edge case #4: Handle script load failure (CDN down / network error)
           script.onerror = () => {
-            setError('Could not load payment gateway. Please check your connection and try again.');
-            setIsProcessing(false);
+            setError('Could not load Razorpay payment gateway. Please check your connection and try again.');
+            resetSubmitting();
           };
           document.body.appendChild(script);
         }
       } else if (selectedPayment === 'cod') {
-        // COD order placed successfully
         await clearCart();
         const tokenParam = result.receiptToken
           ? `&token=${encodeURIComponent(result.receiptToken)}`
           : '';
         window.location.href = `/order-success?order_id=${result.orderId}${tokenParam}`;
       } else {
-        // Edge case #6: Payment method selected but no razorpayOrderId returned —
-        // createOrder returned success:true with no payment window (should not happen after Fix #1)
         setError('Payment session could not be created. Please try again.');
-        setIsProcessing(false);
+        resetSubmitting();
       }
     } catch (err) {
       console.error('Order placement failed:', err);
       setError('An unexpected error occurred. Please try again.');
-      setIsProcessing(false);
+      resetSubmitting();
     }
   };
 
@@ -1265,10 +1263,19 @@ export default function CheckoutPage() {
                             <div className="space-y-4">
                               {/* 1. Online Payment Card */}
                               <div
-                                onClick={() => setSelectedPayment('cashfree')}
+                                onClick={() => setSelectedPayment('razorpay')}
+                                role="radio"
+                                aria-checked={selectedPayment === 'razorpay'}
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    setSelectedPayment('razorpay');
+                                  }
+                                }}
                                 className={cn(
                                   'p-4 border rounded-[var(--radius-lg)] cursor-pointer transition-all duration-200',
-                                  selectedPayment === 'cashfree'
+                                  selectedPayment === 'razorpay'
                                     ? 'border-[var(--color-gold)] bg-[var(--color-gold-light)]/20 shadow-[var(--shadow-gold)]'
                                     : 'border-[var(--color-whisper)] hover:border-[var(--color-gold)]/60'
                                 )}
@@ -1277,9 +1284,9 @@ export default function CheckoutPage() {
                                   <div className="flex items-center gap-3">
                                     <div className={cn(
                                       'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                                      selectedPayment === 'cashfree' ? 'border-[var(--color-gold)] bg-[var(--color-gold)]' : 'border-[var(--color-whisper)]'
+                                      selectedPayment === 'razorpay' ? 'border-[var(--color-gold)] bg-[var(--color-gold)]' : 'border-[var(--color-whisper)]'
                                     )}>
-                                      {selectedPayment === 'cashfree' && <div className="w-2 h-2 rounded-full bg-[var(--color-ink)]" />}
+                                      {selectedPayment === 'razorpay' && <div className="w-2 h-2 rounded-full bg-[var(--color-ink)]" />}
                                     </div>
                                     <div>
                                       <p className="font-semibold text-sm text-[var(--color-ink)] flex items-center gap-2">
@@ -1289,7 +1296,7 @@ export default function CheckoutPage() {
                                         </span>
                                       </p>
                                       <p className="text-xs text-[var(--color-slate)] mt-0.5">
-                                        Instant confirmation • Zero convenience fee • Secured by Cashfree Payments
+                                        Instant confirmation • Zero convenience fee • Secured by Razorpay Payments
                                       </p>
                                     </div>
                                   </div>

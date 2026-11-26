@@ -7,6 +7,38 @@ const PROD_SUPABASE_URL = 'https://ulxlpwipdvejzdzhmhwb.supabase.co';
 const PROD_SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVseGxwd2lwZHZlanpkemhtaHdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI5NDI1NTQsImV4cCI6MjEwODUxODU1NH0.rKWX5kFwxom9mxCR7NQlP2M6MJRtQveEb8UQMmZ86L0';
 
+const EDGE_SECURITY_HEADERS: Record<string, string> = {
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://js.stripe.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://graph.facebook.com https://*.cloudinary.com https://*.razorpay.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com https://api.stripe.com https://fonts.googleapis.com https://fonts.gstatic.com",
+    "frame-src https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self' https://api.razorpay.com",
+    "frame-ancestors 'none'",
+  ].join('; '),
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+  'X-Permitted-Cross-Domain-Policies': 'none',
+};
+
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  for (const [key, value] of Object.entries(EDGE_SECURITY_HEADERS)) {
+    if (!response.headers.has(key)) {
+      response.headers.set(key, value);
+    }
+  }
+  return response;
+}
+
 export async function createMiddlewareClient(request: NextRequest) {
   let response = NextResponse.next({
     request: { headers: request.headers },
@@ -175,19 +207,19 @@ export async function updateSession(request: NextRequest) {
       response.headers.set('x-guest-checkout', 'true');
     }
 
-    return response;
+    return applySecurityHeaders(response);
   } catch {
     if (pathname.startsWith('/admin') && !isAdminLoginRoute) {
       const redirectUrl = new URL('/admin/login', request.url);
       redirectUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(redirectUrl);
+      return applySecurityHeaders(NextResponse.redirect(redirectUrl));
     }
     if (pathname.startsWith('/account')) {
       const redirectUrl = new URL('/login', request.url);
       redirectUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(redirectUrl);
+      return applySecurityHeaders(NextResponse.redirect(redirectUrl));
     }
-    return NextResponse.next();
+    return applySecurityHeaders(NextResponse.next());
   }
 }
 

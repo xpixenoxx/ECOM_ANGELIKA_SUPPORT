@@ -43,7 +43,7 @@ export default async function PrivacyPolicyPage() {
         {
           id: 'sec-3',
           title: '3. Payment Security',
-          content: 'All payment transactions are encrypted using 256-bit SSL encryption and processed through trusted PCI-DSS certified payment gateways (Razorpay, Stripe). We do not store complete credit card or debit card numbers on our servers.',
+          content: 'All payment transactions are encrypted using 256-bit SSL encryption and processed through PCI-DSS certified Razorpay Payments. We do not store complete credit card or debit card numbers on our servers.',
         },
         {
           id: 'sec-4',

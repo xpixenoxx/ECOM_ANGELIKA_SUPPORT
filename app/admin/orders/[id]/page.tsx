@@ -4,7 +4,7 @@ import OrderDetailClient from './OrderDetailClient';
 export const dynamic = 'force-dynamic';
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
-  const { order, items } = await getOrderById(params.id);
+  const { order, items, shipments, refunds } = await getOrderById(params.id);
   if (!order) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -17,5 +17,12 @@ export default async function OrderDetailPage({ params }: { params: { id: string
       </div>
     );
   }
-  return <OrderDetailClient order={order} items={items ?? []} />;
+  return (
+    <OrderDetailClient
+      order={order}
+      items={items ?? []}
+      initialShipments={shipments ?? []}
+      initialRefunds={refunds ?? []}
+    />
+  );
 }

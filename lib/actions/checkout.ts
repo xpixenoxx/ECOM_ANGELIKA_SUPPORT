@@ -1,12 +1,12 @@
 'use server';
 
-import { hmacSha256Hex, randomInt, timingSafeEqualStrings } from '@/lib/utils/edge-crypto';
+import { randomInt } from '@/lib/utils/edge-crypto';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { createOrderReceiptToken, verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
-import { checkRateLimit } from '@/lib/utils/rate-limit';
-import { getCashfreeApiBaseUrl, getCashfreeMode, getOptionalEnv } from '@/lib/env';
+import { checkRateLimitAsync } from '@/lib/utils/rate-limit';
+import { getRazorpayConfig, type RazorpayMode } from '@/lib/env';
 import { calculateOrderTotals, PRICING_CONSTANTS, toPaise, type CouponSpec } from '@/lib/pricing';
 import { normalizeAddress } from '@/lib/utils/address';
 import {
@@ -16,6 +16,15 @@ import {
   normalizeIndianPhone,
   stripHtmlTags,
 } from '@/lib/validators/commerce';
+import {
+  RAZORPAY_MIN_INR_PAISE,
+  captureRazorpayPayment,
+  createRazorpayGatewayOrder,
+  fetchRazorpayPayment,
+  verifyRazorpayCheckoutSignature,
+} from '@/lib/services/razorpay';
+import { confirmAndMarkOrderPaid } from '@/lib/actions/payments';
+import { sendOrderConfirmedNotification } from '@/lib/actions/notifications';
 import type { CartItem, Address, AppliedCoupon } from '@/types/commerce';
 import type { Json } from '@/types/database';
 
@@ -27,7 +36,7 @@ export interface OrderData {
   items: CartItem[];
   shippingAddress: Address;
   billingAddress?: Address;
-  paymentMethod: 'cashfree' | 'razorpay' | 'cod' | 'stripe';
+  paymentMethod: 'razorpay' | 'cod';
   email: string;
   phone: string;
   notes?: string;
@@ -43,10 +52,11 @@ export interface CreateOrderResult {
   success: boolean;
   orderId?: string;
   orderNumber?: string;
-  cashfreeOrderId?: string;
-  cashfreePaymentSessionId?: string;
-  cashfreeEnv?: 'sandbox' | 'production';
   razorpayOrderId?: string;
+  razorpayKeyId?: string;
+  razorpayMode?: RazorpayMode | null;
+  amountPaise?: number;
+  currency?: string;
   receiptToken?: string;
   error?: string;
 }
@@ -56,9 +66,12 @@ function formatCouponRpcError(message: string): string {
   if (message.includes('COUPON_NOT_STARTED')) return 'Coupon is not active yet';
   if (message.includes('COUPON_EXPIRED')) return 'Coupon has expired';
   if (message.includes('COUPON_EXHAUSTED')) return 'Coupon usage limit reached';
-  if (message.includes('COUPON_MIN_ORDER')) return message.split('COUPON_MIN_ORDER:')[1] || 'Minimum order value not met for coupon';
-  if (message.includes('COUPON_USER_LIMIT')) return 'You have already used this coupon the maximum number of times';
-  if (message.includes('COUPON_FIRST_ORDER_ONLY')) return 'This coupon is valid only on your first order';
+  if (message.includes('COUPON_MIN_ORDER'))
+    return message.split('COUPON_MIN_ORDER:')[1] || 'Minimum order value not met for coupon';
+  if (message.includes('COUPON_USER_LIMIT'))
+    return 'You have already used this coupon the maximum number of times';
+  if (message.includes('COUPON_FIRST_ORDER_ONLY'))
+    return 'This coupon is valid only on your first order';
   return 'Coupon could not be applied';
 }
 
@@ -78,10 +91,28 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
 
   try {
     // 1. Resolve session identity server-side (never trust client userId spoofing)
-    const { data: { user } } = await userClient.auth.getUser();
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
     const userId = user?.id ?? null;
 
-    // 2. Validate contact details, addresses & quantities
+    // 2. Validate payment method explicitly (Razorpay is sole online gateway + COD)
+    if (orderData.paymentMethod !== 'razorpay' && orderData.paymentMethod !== 'cod') {
+      return { success: false, error: 'Unsupported payment method. Please select Online Payment (Razorpay) or COD.' };
+    }
+
+    // Fail fast before touching DB if Razorpay is selected but misconfigured
+    const rzpCfg = orderData.paymentMethod === 'razorpay' ? getRazorpayConfig() : null;
+    if (orderData.paymentMethod === 'razorpay') {
+      if (rzpCfg?.mismatchError) {
+        return { success: false, error: 'Online payment configuration mismatch. Please contact support.' };
+      }
+      if (!rzpCfg?.configured || !rzpCfg.keyId) {
+        return { success: false, error: 'Razorpay online payment is currently unavailable. Please try again later or choose Cash on Delivery.' };
+      }
+    }
+
+    // 3. Validate contact details, addresses & quantities
     const cleanEmail = (orderData.email || '').trim().toLowerCase();
     if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
       return { success: false, error: 'Please enter a valid email address.' };
@@ -92,7 +123,11 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       return { success: false, error: 'Please enter a valid 10-digit Indian mobile number.' };
     }
 
-    const cleanShipping = normalizeAddress({ ...orderData.shippingAddress, phone: cleanPhone, email: cleanEmail });
+    const cleanShipping = normalizeAddress({
+      ...orderData.shippingAddress,
+      phone: cleanPhone,
+      email: cleanEmail,
+    });
     if (!cleanShipping.firstName || !cleanShipping.address1 || !cleanShipping.city || !cleanShipping.state) {
       return { success: false, error: 'Complete delivery address is required.' };
     }
@@ -117,40 +152,60 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       }
     }
 
-    // 3. Idempotency check if key provided
-    const cleanIdemKey = orderData.idempotencyKey?.trim() || null;
+    // 4. Scoped idempotency check (binds ownership to email or authenticated userId to prevent cross-user token leaks)
+    const cleanIdemKey = orderData.idempotencyKey?.trim().slice(0, 100) || null;
     if (cleanIdemKey) {
       const { data: existingOrder } = await supabase
         .from('orders')
-        .select('id, order_number, email, payment_id, payment_method, status, payment_status, metadata')
+        .select('id, order_number, user_id, email, payment_id, payment_method, status, payment_status, total_amount, currency, metadata')
         .eq('idempotency_key', cleanIdemKey)
         .maybeSingle();
 
       if (existingOrder && existingOrder.status !== 'cancelled') {
-        const existingMeta =
-          existingOrder.metadata && typeof existingOrder.metadata === 'object' && !Array.isArray(existingOrder.metadata)
-            ? (existingOrder.metadata as Record<string, any>)
-            : {};
-        return {
-          success: true,
-          orderId: existingOrder.id,
-          orderNumber: existingOrder.order_number,
-          cashfreeOrderId:
-            existingOrder.payment_method === 'cashfree'
-              ? (existingMeta['cashfree_order_id'] || existingOrder.payment_id || undefined)
-              : undefined,
-          cashfreePaymentSessionId:
-            existingOrder.payment_method === 'cashfree'
-              ? (existingMeta['cashfree_payment_session_id'] || undefined)
-              : undefined,
-          cashfreeEnv: existingOrder.payment_method === 'cashfree' ? getCashfreeMode() : undefined,
-          razorpayOrderId: existingOrder.payment_id || undefined,
-          receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
-        };
+        const ownsExisting =
+          existingOrder.email.toLowerCase() === cleanEmail ||
+          Boolean(userId && existingOrder.user_id && existingOrder.user_id === userId);
+
+        if (!ownsExisting) {
+          return {
+            success: false,
+            error: 'Checkout session expired. Please refresh the page and try again.',
+          };
+        }
+
+        // If online payment is already paid, return safely without creating a duplicate Razorpay order
+        if (existingOrder.payment_status === 'paid' || existingOrder.payment_method === 'cod') {
+          return {
+            success: true,
+            orderId: existingOrder.id,
+            orderNumber: existingOrder.order_number,
+            razorpayOrderId: existingOrder.payment_id || undefined,
+            razorpayKeyId: rzpCfg?.keyId || undefined,
+            razorpayMode: rzpCfg?.mode ?? null,
+            amountPaise: toPaise(Number(existingOrder.total_amount)),
+            currency: existingOrder.currency || 'INR',
+            receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
+          };
+        }
+
+        // Reuse existing pending Razorpay order on retry / double-click
+        if (existingOrder.payment_method === 'razorpay' && existingOrder.payment_id) {
+          return {
+            success: true,
+            orderId: existingOrder.id,
+            orderNumber: existingOrder.order_number,
+            razorpayOrderId: existingOrder.payment_id,
+            razorpayKeyId: rzpCfg?.keyId || undefined,
+            razorpayMode: rzpCfg?.mode ?? null,
+            amountPaise: toPaise(Number(existingOrder.total_amount)),
+            currency: existingOrder.currency || 'INR',
+            receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
+          };
+        }
       }
     }
 
-    // 4. Authoritative Server Price & Active Variant Lookup (NEVER trust client item.price)
+    // 5. Authoritative Server Price & Active Variant Lookup (NEVER trust client item.price)
     const variantIds = Array.from(new Set(orderData.items.map((i) => i.variant_id)));
     const { data: dbVariants, error: variantsError } = await supabase
       .from('product_variants')
@@ -161,10 +216,13 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         price,
         inventory_quantity,
         is_active,
+        weight_grams,
         color:colors(id, name, hex),
         product:products!product_variants_product_id_fkey(
           id,
           name,
+          sku,
+          hsn_code,
           gst_slab,
           is_active,
           images:product_images!product_images_product_id_fkey(url, is_primary)
@@ -181,6 +239,9 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       product_id: string;
       variant_id: string;
       product_name: string;
+      sku: string;
+      hsn_code: string | null;
+      weight_grams: number | null;
       size: string;
       color: string;
       color_hex: string;
@@ -194,7 +255,10 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       const v: any = variantMap.get(item.variant_id);
       const prod = v?.product;
       if (!v || !v.is_active || !prod || !prod.is_active) {
-        return { success: false, error: `${item.product_name || 'Selected item'} is no longer available.` };
+        return {
+          success: false,
+          error: `${item.product_name || 'Selected item'} is no longer available.`,
+        };
       }
       const imagesArr = Array.isArray(prod.images) ? prod.images : [];
       const primaryImg =
@@ -207,6 +271,9 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         product_id: prod.id,
         variant_id: v.id,
         product_name: prod.name || item.product_name,
+        sku: prod.sku || `AF-${String(v.id).slice(0, 8).toUpperCase()}`,
+        hsn_code: prod.hsn_code || null,
+        weight_grams: v.weight_grams ? Number(v.weight_grams) : null,
         size: v.size || item.size || 'Free Size',
         color: v.color?.name || item.color || 'Classic',
         color_hex: v.color?.hex || item.color_hex || '#C9A84C',
@@ -217,7 +284,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       });
     }
 
-    // 5. Initial pricing without coupon (coupon discount evaluated atomically via RPC)
+    // 6. Initial pricing without coupon (coupon discount evaluated atomically via RPC)
     const initialTotals = calculateOrderTotals({
       items: verifiedItems.map((i) => ({
         unitPrice: i.unitPrice,
@@ -231,7 +298,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     const initialOrderStatus = orderData.paymentMethod === 'cod' ? 'confirmed' : 'pending';
     const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${randomInt(1000, 9999)}`;
 
-    // 6. Create pending order row first so atomic reservation RPCs bind to order_id
+    // 7. Create local order row first so atomic reservation RPCs bind to order_id
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -281,7 +348,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       await supabase.from('orders').delete().eq('id', order.id);
     };
 
-    // 7. Insert order items with authoritative DB unit prices
+    // 8. Insert order items with authoritative DB unit prices, SKUs, and GST rates
     const orderItemsPayload = verifiedItems.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
@@ -290,24 +357,25 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       quantity: item.quantity,
       unit_price: item.unitPrice,
       total_price: item.unitPrice * item.quantity,
+      gst_rate: item.gstSlab ?? (item.unitPrice <= PRICING_CONSTANTS.APPAREL_GST_LOW_THRESHOLD ? 5 : 12),
       variant_details: {
         size: item.size,
         color: item.color,
         color_hex: item.color_hex,
         image: item.image,
+        sku: item.sku,
+        hsn_code: item.hsn_code,
+        weight_grams: item.weight_grams,
       } as unknown as Json,
     }));
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItemsPayload);
-
+    const { error: itemsError } = await supabase.from('order_items').insert(orderItemsPayload);
     if (itemsError) {
       await cleanupOrder(false);
       return { success: false, error: itemsError.message || 'Failed to create order items' };
     }
 
-    // 8. Atomic dead-lock free Inventory Reservation RPC (sorted FOR UPDATE)
+    // 9. Atomic deadlock-free Inventory Reservation RPC (sorted FOR UPDATE)
     const { error: invErr } = await supabase.rpc('reserve_order_inventory', {
       p_order_id: order.id,
       p_items: verifiedItems.map((i) => ({
@@ -323,7 +391,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       return { success: false, error: formatInventoryRpcError(invErr.message) };
     }
 
-    // 9. Atomic Coupon Validation & Reservation RPC (NEVER trust client discountAmount)
+    // 10. Atomic Coupon Validation & Reservation RPC (NEVER trust client discountAmount)
     let appliedCouponSpec: CouponSpec | null = null;
     if (orderData.coupon?.code?.trim()) {
       const couponRes = await supabase.rpc('reserve_coupon_for_order', {
@@ -352,7 +420,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       };
     }
 
-    // 10. Compute Final Authoritative Totals (shared pricing engine)
+    // 11. Compute Final Authoritative Totals in rupees & integer paise
     const finalTotals = calculateOrderTotals({
       items: verifiedItems.map((i) => ({
         unitPrice: i.unitPrice,
@@ -364,10 +432,24 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       giftWrap: orderData.giftWrap,
     });
 
+    const amountPaise = toPaise(finalTotals.total);
+
     // Enforce COD limit AFTER discount
     if (orderData.paymentMethod === 'cod' && finalTotals.total > PRICING_CONSTANTS.COD_MAX_AMOUNT) {
       await cleanupOrder(true);
-      return { success: false, error: `COD orders cannot exceed ₹${PRICING_CONSTANTS.COD_MAX_AMOUNT.toLocaleString('en-IN')}` };
+      return {
+        success: false,
+        error: `COD orders cannot exceed ₹${PRICING_CONSTANTS.COD_MAX_AMOUNT.toLocaleString('en-IN')}`,
+      };
+    }
+
+    // Enforce Razorpay minimum INR amount
+    if (orderData.paymentMethod === 'razorpay' && amountPaise < RAZORPAY_MIN_INR_PAISE) {
+      await cleanupOrder(true);
+      return {
+        success: false,
+        error: 'Payable order total must be at least ₹1 for online payment.',
+      };
     }
 
     await supabase
@@ -381,473 +463,259 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
           included_gst_amount: finalTotals.includedGstAmount,
           coupon_code: appliedCouponSpec?.code || null,
           gift_wrap: Boolean(orderData.giftWrap),
+          amount_paise: amountPaise,
         } as unknown as Json,
       })
       .eq('id', order.id);
 
-    // Clear user's cart if logged in (for COD orders that are immediately confirmed)
-    if (userId && orderData.paymentMethod === 'cod') {
-      await supabase.from('carts').delete().eq('user_id', userId);
-    }
-
-    // 11. Finalize COD or Initialize Cashfree / Razorpay Order
     const receiptToken = createOrderReceiptToken(order.id, cleanEmail);
-    let razorpayOrderId: string | undefined;
-    let cashfreeOrderId: string | undefined;
-    let cashfreePaymentSessionId: string | undefined;
-    let cashfreeEnv: 'sandbox' | 'production' | undefined;
 
+    // 12. Finalize COD or Initialize Razorpay Order
     if (orderData.paymentMethod === 'cod') {
       await supabase.rpc('confirm_order_inventory', { p_order_id: order.id });
-    } else if (orderData.paymentMethod === 'cashfree') {
-      const cfResult = await createCashfreeOrder({
-        internalOrderId: order.id,
+      if (userId) {
+        await supabase.from('carts').delete().eq('user_id', userId);
+      }
+      await sendOrderConfirmedNotification(order.id);
+
+      return {
+        success: true,
+        orderId: order.id,
         orderNumber: order.order_number,
-        amountInr: finalTotals.total,
+        amountPaise,
         currency: 'INR',
-        customerId: userId || `guest_${cleanPhone}`,
-        customerName: `${cleanShipping.firstName} ${cleanShipping.lastName || ''}`.trim() || 'Angelika Customer',
-        customerEmail: cleanEmail,
-        customerPhone: cleanPhone,
         receiptToken,
-      });
+      };
+    }
 
-      if (!cfResult.success || !cfResult.cfOrderId || !cfResult.paymentSessionId) {
-        console.error('Cashfree order creation failed — releasing reservations & rolling back:', cfResult.error);
-        await cleanupOrder(true);
-        return {
-          success: false,
-          error: cfResult.error || 'Could not connect to Cashfree payment gateway. Please try again.',
-        };
-      }
+    // Razorpay Standard Checkout order creation
+    const rzpResult = await createRazorpayGatewayOrder({
+      amountPaise,
+      currency: 'INR',
+      receipt: order.order_number,
+      notes: {
+        order_id: order.id,
+        order_number: order.order_number,
+        user_id: userId || 'guest',
+      },
+    });
 
-      cashfreeOrderId = cfResult.cfOrderId;
-      cashfreePaymentSessionId = cfResult.paymentSessionId;
-      cashfreeEnv = getCashfreeMode();
+    if (!rzpResult.success || !rzpResult.data?.id) {
+      console.error('Razorpay order creation failed — releasing reservations & rolling back:', rzpResult.error);
+      await cleanupOrder(true);
+      return {
+        success: false,
+        error: rzpResult.error || 'Could not connect to Razorpay payment gateway. Please try again.',
+      };
+    }
 
-      await supabase
-        .from('orders')
-        .update({
-          payment_id: cashfreeOrderId,
-          metadata: {
-            cod_fee: finalTotals.codFee,
-            included_gst_amount: finalTotals.includedGstAmount,
-            coupon_code: appliedCouponSpec?.code || null,
-            gift_wrap: Boolean(orderData.giftWrap),
-            cashfree_order_id: cashfreeOrderId,
-            cashfree_payment_session_id: cashfreePaymentSessionId,
-          } as unknown as Json,
+    const razorpayOrderId = rzpResult.data.id;
+
+    const { error: linkErr } = await supabase
+      .from('orders')
+      .update({
+        payment_id: razorpayOrderId,
+        metadata: {
+          cod_fee: finalTotals.codFee,
+          included_gst_amount: finalTotals.includedGstAmount,
+          coupon_code: appliedCouponSpec?.code || null,
+          gift_wrap: Boolean(orderData.giftWrap),
+          amount_paise: amountPaise,
+          razorpay_order_id: razorpayOrderId,
+          razorpay_mode: rzpResult.mode || rzpCfg?.mode || null,
+        } as unknown as Json,
+      })
+      .eq('id', order.id);
+
+    if (linkErr) {
+      // Log linkage failure explicitly for reconciliation rather than silently losing the gateway order ID
+      console.error(
+        JSON.stringify({
+          service: 'checkout',
+          event: 'razorpay_order_link_failed',
+          orderId: order.id,
+          orderNumber: order.order_number,
+          razorpayOrderId,
+          error: linkErr.message,
         })
-        .eq('id', order.id);
-    } else if (orderData.paymentMethod === 'razorpay') {
-      const razorpayResult = await createRazorpayOrder({
-        amount: toPaise(finalTotals.total),
-        currency: 'INR',
-        receipt: `order_${order.id}`,
-        notes: {
-          order_id: order.id,
-          user_id: userId || 'guest',
-        },
-      });
-
-      if (!razorpayResult.success || !razorpayResult.orderId) {
-        console.error('Razorpay order creation failed — releasing reservations & rolling back:', razorpayResult.error);
-        await cleanupOrder(true);
-        return {
-          success: false,
-          error: razorpayResult.error || 'Could not connect to payment gateway. Please try again.',
-        };
-      }
-
-      razorpayOrderId = razorpayResult.orderId;
-
-      await supabase
-        .from('orders')
-        .update({
-          payment_id: razorpayOrderId,
-          metadata: {
-            cod_fee: finalTotals.codFee,
-            included_gst_amount: finalTotals.includedGstAmount,
-            coupon_code: appliedCouponSpec?.code || null,
-            gift_wrap: Boolean(orderData.giftWrap),
-            razorpay_order_id: razorpayOrderId,
-          } as unknown as Json,
-        })
-        .eq('id', order.id);
+      );
+      await cleanupOrder(true);
+      return {
+        success: false,
+        error: 'Could not finalize payment session. Please try again.',
+      };
     }
 
     return {
       success: true,
       orderId: order.id,
       orderNumber: order.order_number,
-      cashfreeOrderId,
-      cashfreePaymentSessionId,
-      cashfreeEnv,
       razorpayOrderId,
+      razorpayKeyId: rzpCfg?.keyId || undefined,
+      razorpayMode: rzpResult.mode || rzpCfg?.mode || null,
+      amountPaise,
+      currency: 'INR',
       receiptToken,
     };
   } catch (error) {
     console.error('Create order error:', error);
-    return { success: false, error: 'An unexpected error occurred' };
+    return { success: false, error: 'An unexpected error occurred while creating your order.' };
   }
 }
 
-interface CashfreeOrderParams {
-  internalOrderId: string;
-  orderNumber: string;
-  amountInr: number;
-  currency: string;
-  customerId: string;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  receiptToken: string;
-}
-
-interface CashfreeOrderResult {
-  success: boolean;
-  cfOrderId?: string;
-  paymentSessionId?: string;
-  error?: string;
-}
-
-async function createCashfreeOrder(params: CashfreeOrderParams): Promise<CashfreeOrderResult> {
-  try {
-    const appId = getOptionalEnv('CASHFREE_APP_ID');
-    const secretKey = getOptionalEnv('CASHFREE_SECRET_KEY');
-
-    if (!appId || !secretKey) {
-      return { success: false, error: 'Cashfree payment gateway is not configured' };
-    }
-
-    const siteUrl = (process.env['NEXT_PUBLIC_SITE_URL'] || 'https://angelikafashions.com').replace(/\/+$/, '');
-    const cfOrderId = `cf_${params.internalOrderId.replace(/-/g, '')}`;
-    const baseUrl = getCashfreeApiBaseUrl();
-
-    const response = await fetch(`${baseUrl}/orders`, {
-      method: 'POST',
-      headers: {
-        'x-client-id': appId,
-        'x-client-secret': secretKey,
-        'x-api-version': '2023-08-01',
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({
-        order_id: cfOrderId,
-        order_amount: Number(params.amountInr.toFixed(2)),
-        order_currency: params.currency,
-        customer_details: {
-          customer_id: params.customerId.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 45),
-          customer_name: params.customerName.slice(0, 100),
-          customer_email: params.customerEmail,
-          customer_phone: params.customerPhone,
-        },
-        order_meta: {
-          return_url: `${siteUrl}/order-success?order_id=${params.internalOrderId}&cf_order_id={order_id}&token=${encodeURIComponent(params.receiptToken)}`,
-          notify_url: `${siteUrl}/api/webhooks/cashfree`,
-        },
-        order_tags: {
-          internal_order_id: params.internalOrderId,
-          order_number: params.orderNumber,
-        },
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data?.payment_session_id) {
-      console.error('Cashfree order creation failed:', data);
-      return {
-        success: false,
-        error: data?.message || 'Failed to initialize Cashfree payment session',
-      };
-    }
-
-    return {
-      success: true,
-      cfOrderId: data.order_id || cfOrderId,
-      paymentSessionId: data.payment_session_id,
-    };
-  } catch (error) {
-    console.error('Cashfree order error:', error);
-    return { success: false, error: 'Failed to create Cashfree payment order' };
-  }
-}
-
-export async function verifyCashfreePayment(
-  cashfreeOrderId: string
-): Promise<{ success: boolean; orderId?: string; receiptToken?: string; error?: string }> {
-  try {
-    const appId = getOptionalEnv('CASHFREE_APP_ID');
-    const secretKey = getOptionalEnv('CASHFREE_SECRET_KEY');
-    if (!appId || !secretKey) {
-      return { success: false, error: 'Cashfree not configured' };
-    }
-
-    const cleanCfOrderId = (cashfreeOrderId || '').trim();
-    if (!cleanCfOrderId) {
-      return { success: false, error: 'Missing Cashfree order ID' };
-    }
-
-    const baseUrl = getCashfreeApiBaseUrl();
-    const response = await fetch(`${baseUrl}/orders/${encodeURIComponent(cleanCfOrderId)}`, {
-      method: 'GET',
-      headers: {
-        'x-client-id': appId,
-        'x-client-secret': secretKey,
-        'x-api-version': '2023-08-01',
-        Accept: 'application/json',
-      },
-    });
-
-    const cfOrder = await response.json();
-    if (!response.ok) {
-      return {
-        success: false,
-        error: cfOrder?.message || 'Could not verify payment status with Cashfree',
-      };
-    }
-
-    if (cfOrder?.order_status !== 'PAID') {
-      return {
-        success: false,
-        error: `Payment status is ${cfOrder?.order_status || 'PENDING'}. If your account was debited, it will update automatically.`,
-      };
-    }
-
-    const supabase = supabaseAdmin;
-    const internalOrderIdFromTags = cfOrder?.order_tags?.internal_order_id;
-
-    let query = supabase
-      .from('orders')
-      .select('id, user_id, email, total_amount, metadata, payment_status, status');
-
-    if (internalOrderIdFromTags && UUID_REGEX.test(internalOrderIdFromTags)) {
-      query = query.eq('id', internalOrderIdFromTags);
-    } else {
-      query = query.eq('payment_id', cleanCfOrderId);
-    }
-
-    const { data: order, error: findError } = await query.maybeSingle();
-
-    if (findError || !order) {
-      return { success: false, error: 'Order not found' };
-    }
-
-    if (Number(cfOrder.order_amount || 0) < Number(order.total_amount || 0)) {
-      return { success: false, error: 'Payment amount mismatch' };
-    }
-
-    if (order.payment_status === 'paid') {
-      return {
-        success: true,
-        orderId: order.id,
-        receiptToken: createOrderReceiptToken(order.id, order.email),
-      };
-    }
-
-    // Confirm atomic inventory & coupon reservation
-    const confirmRes = await supabase.rpc('confirm_order_inventory', { p_order_id: order.id });
-    const confirmData = confirmRes.data as { confirmed?: boolean; stock_conflict?: boolean } | null;
-
-    const existingMeta =
-      typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata)
-        ? (order.metadata as Record<string, unknown>)
-        : {};
-
-    if (confirmRes.error || confirmData?.stock_conflict) {
-      await supabase
-        .from('orders')
-        .update({
-          metadata: {
-            ...existingMeta,
-            stock_conflict: true,
-            cashfree_order_id: cleanCfOrderId,
-            cf_order_id: cfOrder.cf_order_id,
-          } as unknown as Json,
-        })
-        .eq('id', order.id);
-
-      return {
-        success: false,
-        error: 'Item sold out during payment window. Our team will initiate an immediate automatic refund.',
-      };
-    }
-
-    await supabase
-      .from('orders')
-      .update({
-        payment_status: 'paid',
-        status: 'confirmed',
-        metadata: {
-          ...existingMeta,
-          cashfree_order_id: cleanCfOrderId,
-          cf_order_id: cfOrder.cf_order_id,
-          paid_at: new Date().toISOString(),
-        } as unknown as Json,
-      })
-      .eq('id', order.id);
-
-    if (order.user_id) {
-      await supabase.from('carts').delete().eq('user_id', order.user_id);
-    }
-
-    return {
-      success: true,
-      orderId: order.id,
-      receiptToken: createOrderReceiptToken(order.id, order.email),
-    };
-  } catch (error) {
-    console.error('Verify Cashfree payment error:', error);
-    return { success: false, error: 'Cashfree payment verification failed' };
-  }
-}
-
-interface RazorpayOrderParams {
-  amount: number;
-  currency: string;
-  receipt: string;
-  notes?: Record<string, string>;
-}
-
-interface RazorpayOrderResult {
-  success: boolean;
-  orderId?: string;
-  error?: string;
-}
-
-async function createRazorpayOrder(params: RazorpayOrderParams): Promise<RazorpayOrderResult> {
-  try {
-    const keyId = process.env['RAZORPAY_KEY_ID'];
-    const keySecret = process.env['RAZORPAY_KEY_SECRET'];
-
-    if (!keyId || !keySecret) {
-      return { success: false, error: 'Razorpay not configured' };
-    }
-
-    const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-
-    const response = await fetch('https://api.razorpay.com/v1/orders', {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${auth}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        amount: params.amount,
-        currency: params.currency,
-        receipt: params.receipt,
-        notes: params.notes,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Razorpay order creation failed:', data);
-      return { success: false, error: data.error?.description || 'Failed to create Razorpay order' };
-    }
-
-    return { success: true, orderId: data.id };
-  } catch (error) {
-    console.error('Razorpay order error:', error);
-    return { success: false, error: 'Failed to create payment order' };
-  }
-}
-
+/**
+ * Authoritative Server-Side Razorpay Payment Verification
+ *
+ * 1. Validates field formats and timing-safe HMAC-SHA256 signature (`order_id|payment_id`)
+ * 2. Resolves internal order strictly via server-stored `orders.payment_id = razorpayOrderId`
+ * 3. Queries Razorpay `GET /v1/payments/{paymentId}` to independently confirm:
+ *    - `payment.order_id === razorpayOrderId`
+ *    - `payment.currency === 'INR'`
+ *    - `payment.amount === toPaise(order.total_amount)`
+ *    - `payment.status === 'captured'` (attempts server capture if `'authorized'`)
+ * 4. Confirms inventory atomically & dispatches idempotent confirmation email
+ */
 export async function verifyRazorpayPayment(
   razorpayOrderId: string,
   razorpayPaymentId: string,
   razorpaySignature: string
-): Promise<{ success: boolean; orderId?: string; receiptToken?: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  status?: 'paid' | 'pending_capture';
+  orderId?: string;
+  orderNumber?: string;
+  receiptToken?: string;
+  error?: string;
+}> {
   try {
-    const keySecret = process.env['RAZORPAY_KEY_SECRET'];
-    if (!keySecret) {
-      return { success: false, error: 'Razorpay not configured' };
+    const sigCheck = verifyRazorpayCheckoutSignature({
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    });
+
+    if (!sigCheck.valid) {
+      return { success: false, error: sigCheck.error || 'Invalid payment signature' };
     }
 
-    const expectedSignature = hmacSha256Hex(keySecret, `${razorpayOrderId}|${razorpayPaymentId}`);
+    const cleanOrderId = razorpayOrderId.trim();
+    const cleanPaymentId = razorpayPaymentId.trim();
 
-    if (!timingSafeEqualStrings(expectedSignature, razorpaySignature.toLowerCase())) {
-      return { success: false, error: 'Invalid payment signature' };
-    }
-
-    const supabase = supabaseAdmin;
-
-    const { data: order, error: findError } = await supabase
+    const { data: order, error: findError } = await supabaseAdmin
       .from('orders')
-      .select('id, user_id, email, metadata, payment_status, status')
-      .eq('payment_id', razorpayOrderId)
-      .single();
+      .select('id, order_number, user_id, email, total_amount, currency, metadata, payment_status, status')
+      .eq('payment_id', cleanOrderId)
+      .maybeSingle();
 
     if (findError || !order) {
-      return { success: false, error: 'Order not found' };
+      return { success: false, error: 'Order not found for this payment session.' };
     }
 
     if (order.payment_status === 'paid') {
       return {
         success: true,
+        status: 'paid',
         orderId: order.id,
+        orderNumber: order.order_number,
         receiptToken: createOrderReceiptToken(order.id, order.email),
       };
     }
 
-    // Confirm atomic inventory & coupon reservation
-    const confirmRes = await supabase.rpc('confirm_order_inventory', { p_order_id: order.id });
-    const confirmData = confirmRes.data as { confirmed?: boolean; stock_conflict?: boolean } | null;
-
-    if (confirmRes.error || confirmData?.stock_conflict) {
-      const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
-        ? (order.metadata as Record<string, unknown>)
-        : {};
-      await supabase
-        .from('orders')
-        .update({
-          metadata: {
-            ...existingMeta,
-            stock_conflict: true,
-            razorpay_payment_id: razorpayPaymentId,
-          } as unknown as Json,
-        })
-        .eq('id', order.id);
-
+    // Authoritative server-to-server check against Razorpay Payments API
+    const expectedPaise = toPaise(Number(order.total_amount));
+    const gwPaymentRes = await fetchRazorpayPayment(cleanPaymentId);
+    if (!gwPaymentRes.success || !gwPaymentRes.data) {
       return {
         success: false,
-        error: 'Item sold out during payment window. Our team will initiate an immediate automatic refund.',
+        error: gwPaymentRes.error || 'Could not confirm payment status with Razorpay. Please wait a moment.',
       };
     }
 
-    const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
-      ? (order.metadata as Record<string, unknown>)
-      : {};
+    let gwPayment = gwPaymentRes.data;
 
-    await supabase
-      .from('orders')
-      .update({
-        payment_status: 'paid',
-        status: 'confirmed',
-        metadata: {
-          ...existingMeta,
-          razorpay_payment_id: razorpayPaymentId,
-          razorpay_signature: razorpaySignature,
-          paid_at: new Date().toISOString(),
-        } as unknown as Json,
-      })
-      .eq('id', order.id);
+    if (gwPayment.order_id !== cleanOrderId) {
+      return { success: false, error: 'Payment does not belong to this Razorpay order.' };
+    }
 
-    // Clear server cart now that payment is confirmed
-    if (order.user_id) {
-      await supabase.from('carts').delete().eq('user_id', order.user_id);
+    if ((gwPayment.currency || '').toUpperCase() !== (order.currency || 'INR').toUpperCase()) {
+      return { success: false, error: 'Payment currency mismatch.' };
+    }
+
+    if (Number(gwPayment.amount) !== expectedPaise) {
+      return { success: false, error: 'Payment amount does not match authoritative order total.' };
+    }
+
+    // Handle authorized-but-not-yet-captured payments explicitly
+    if (gwPayment.status === 'authorized') {
+      const capRes = await captureRazorpayPayment({
+        paymentId: cleanPaymentId,
+        amountPaise: expectedPaise,
+        currency: order.currency || 'INR',
+      });
+      if (capRes.success && capRes.data?.status === 'captured') {
+        gwPayment = capRes.data;
+      } else {
+        const existingMeta =
+          typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata)
+            ? (order.metadata as Record<string, unknown>)
+            : {};
+        await supabaseAdmin
+          .from('orders')
+          .update({
+            payment_status: 'authorized',
+            metadata: {
+              ...existingMeta,
+              razorpay_payment_id: cleanPaymentId,
+              razorpay_payment_method: gwPayment.method || null,
+            } as unknown as Json,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', order.id);
+
+        return {
+          success: true,
+          status: 'pending_capture',
+          orderId: order.id,
+          orderNumber: order.order_number,
+          receiptToken: createOrderReceiptToken(order.id, order.email),
+        };
+      }
+    }
+
+    if (gwPayment.status !== 'captured') {
+      return {
+        success: false,
+        error: `Payment status is "${gwPayment.status}". Order cannot be confirmed until payment is captured.`,
+      };
+    }
+
+    const confirmRes = await confirmAndMarkOrderPaid({
+      order,
+      provider: 'razorpay',
+      paymentId: cleanPaymentId,
+      extraMeta: {
+        razorpay_payment_method: gwPayment.method || null,
+        razorpay_amount_paise: gwPayment.amount,
+      },
+    });
+
+    if (confirmRes.stockConflict) {
+      return {
+        success: false,
+        error:
+          'An item sold out while your payment was settling. An automatic Razorpay refund has been initiated.',
+      };
     }
 
     return {
       success: true,
+      status: 'paid',
       orderId: order.id,
+      orderNumber: order.order_number,
       receiptToken: createOrderReceiptToken(order.id, order.email),
     };
   } catch (error) {
-    console.error('Verify payment error:', error);
+    console.error('Verify Razorpay payment error:', error);
     return { success: false, error: 'Payment verification failed' };
   }
 }
@@ -855,7 +723,9 @@ export async function verifyRazorpayPayment(
 export async function getOrderById(orderId: string, receiptToken?: string | null) {
   try {
     const userClient = await getSupabaseClient();
-    const { data: { user } } = await userClient.auth.getUser();
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
     const adminAuth = user ? await requireAdminRole(OPS_ADMIN_ROLES) : null;
 
     const { data: order, error } = await supabaseAdmin
@@ -871,8 +741,8 @@ export async function getOrderById(orderId: string, receiptToken?: string | null
 
     const isOwner = Boolean(
       user &&
-      ((order.user_id && order.user_id === user.id) ||
-        (user.email && order.email.toLowerCase() === user.email.toLowerCase()))
+        ((order.user_id && order.user_id === user.id) ||
+          (user.email && order.email.toLowerCase() === user.email.toLowerCase()))
     );
     const hasValidReceiptToken = Boolean(
       receiptToken && verifyOrderReceiptToken(order.id, order.email, receiptToken)
@@ -889,10 +759,14 @@ export async function getOrderById(orderId: string, receiptToken?: string | null
   }
 }
 
-export async function getUserAddresses(userId?: string): Promise<(Address & { id: string; is_default?: boolean })[]> {
+export async function getUserAddresses(
+  userId?: string
+): Promise<(Address & { id: string; is_default?: boolean })[]> {
   try {
     const userClient = await getSupabaseClient();
-    const { data: { user } } = await userClient.auth.getUser();
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
     if (!user || (userId && user.id !== userId)) {
       return [];
     }
@@ -904,15 +778,16 @@ export async function getUserAddresses(userId?: string): Promise<(Address & { id
       .eq('id', user.id)
       .maybeSingle();
 
-    const prefs = (profile?.preferences && typeof profile.preferences === 'object')
-      ? (profile.preferences as Record<string, any>)
-      : {};
+    const prefs =
+      profile?.preferences && typeof profile.preferences === 'object'
+        ? (profile.preferences as Record<string, any>)
+        : {};
 
     const addresses = Array.isArray(prefs['addresses']) ? prefs['addresses'] : [];
-    const { normalizeAddress, toCheckoutAddress } = await import('@/lib/utils/address');
+    const { normalizeAddress: norm, toCheckoutAddress } = await import('@/lib/utils/address');
     return addresses.map((raw: any) => ({
       ...toCheckoutAddress(raw),
-      id: normalizeAddress(raw).id || String(raw?.id || ''),
+      id: norm(raw).id || String(raw?.id || ''),
       is_default: Boolean(raw?.is_default ?? raw?.isDefault),
     }));
   } catch (err) {
@@ -921,10 +796,15 @@ export async function getUserAddresses(userId?: string): Promise<(Address & { id
   }
 }
 
-export async function saveAddress(userId: string, address: Omit<Address, 'id'> & { id?: string; is_default?: boolean }) {
+export async function saveAddress(
+  userId: string,
+  address: Omit<Address, 'id'> & { id?: string; is_default?: boolean }
+) {
   try {
     const userClient = await getSupabaseClient();
-    const { data: { user } } = await userClient.auth.getUser();
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
     if (!user || (userId && user.id !== userId)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -936,12 +816,14 @@ export async function saveAddress(userId: string, address: Omit<Address, 'id'> &
       .eq('id', user.id)
       .maybeSingle();
 
-    const prefs = (profile?.preferences && typeof profile.preferences === 'object')
-      ? (profile.preferences as Record<string, any>)
-      : {};
+    const prefs =
+      profile?.preferences && typeof profile.preferences === 'object'
+        ? (profile.preferences as Record<string, any>)
+        : {};
 
     const existing: any[] = Array.isArray(prefs['addresses']) ? prefs['addresses'] : [];
-    const newAddressId = address.id || `addr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const newAddressId =
+      address.id || `addr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const { toSavedAddress, toCheckoutAddress } = await import('@/lib/utils/address');
     const unified = toSavedAddress(
       { ...address, id: newAddressId, is_default: address.is_default ?? existing.length === 0 },
@@ -955,7 +837,12 @@ export async function saveAddress(userId: string, address: Omit<Address, 'id'> &
       is_default: unified.is_default,
     };
 
-    const updated = [newAddr, ...existing.filter(a => a.id !== newAddressId).map(a => address.is_default ? { ...a, is_default: false } : a)];
+    const updated = [
+      newAddr,
+      ...existing
+        .filter((a) => a.id !== newAddressId)
+        .map((a) => (address.is_default ? { ...a, is_default: false } : a)),
+    ];
 
     await supabase
       .from('profiles')
@@ -992,7 +879,7 @@ export async function convertGuestToAccount({
       return { success: false, error: 'Password must be at least 8 characters long' };
     }
 
-    const rl = checkRateLimit(`guest_convert:${orderId}:${cleanEmail}`, 5, 15 * 60 * 1000);
+    const rl = await checkRateLimitAsync(`guest_convert:${orderId}:${cleanEmail}`, 5, 15 * 60 * 1000);
     if (!rl.allowed) {
       return { success: false, error: 'Too many activation attempts. Please try again later.' };
     }
@@ -1016,7 +903,10 @@ export async function convertGuestToAccount({
     }
 
     if (!receiptToken || !verifyOrderReceiptToken(order.id, order.email, receiptToken)) {
-      return { success: false, error: 'Order verification token is missing or expired. Please sign up on /register.' };
+      return {
+        success: false,
+        error: 'Order verification token is missing or expired. Please sign up on /register.',
+      };
     }
 
     const { data: existingProfile } = await supabase
@@ -1058,7 +948,7 @@ export async function convertGuestToAccount({
         role: 'customer',
       });
 
-      return { success: true, message: 'VIP Account activated successfully! Your order is linked.' };
+      return { success: true, message: 'Account activated successfully! Your order is now linked.' };
     }
 
     return { success: false, error: 'Could not complete registration' };

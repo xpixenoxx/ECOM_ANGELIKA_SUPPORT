@@ -22,6 +22,10 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
+vi.mock('@/lib/actions/notifications', () => ({
+  sendOrderConfirmedNotification: vi.fn(async () => {}),
+}));
+
 vi.mock('@/lib/supabase/admin', () => ({
   supabaseAdmin: {
     rpc: vi.fn(async (fnName: string, args: any) => {

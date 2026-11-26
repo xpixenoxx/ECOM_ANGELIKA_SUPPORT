@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });
     }
 
+    // Read raw request body strictly before JSON parsing for HMAC verification
     const payload = await request.text();
     const signature = request.headers.get('x-razorpay-signature');
     const deliveryEventId = request.headers.get('x-razorpay-event-id');
@@ -27,6 +28,9 @@ export async function POST(request: NextRequest) {
     if (!result.success) {
       if (result.error === 'Invalid signature') {
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
+      }
+      if (result.error === 'Razorpay webhook secret not configured') {
+        return NextResponse.json({ error: result.error }, { status: 503 });
       }
       return NextResponse.json({ error: result.error }, { status: 500 });
     }

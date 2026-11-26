@@ -18,11 +18,11 @@ export default function ShippingSettingsPage() {
   const [freeShippingThreshold, setFreeShippingThreshold] = useState('2999');
   const [standardRate, setStandardRate] = useState('99');
   const [expressRate, setExpressRate] = useState('249');
-  const [defaultPartner, setDefaultPartner] = useState('Delhivery Express');
+  const [defaultPartner, setDefaultPartner] = useState('Shiprocket');
   const [estimatedDays, setEstimatedDays] = useState('5-7 business days');
 
   const [shiprocketConfigured, setShiprocketConfigured] = useState(false);
-  const [delhiveryWebhookConfigured, setDelhiveryWebhookConfigured] = useState(false);
+  const [shiprocketWebhookConfigured, setShiprocketWebhookConfigured] = useState(false);
 
   useEffect(() => {
     getExtendedStoreSettings()
@@ -30,10 +30,10 @@ export default function ShippingSettingsPage() {
         setFreeShippingThreshold(String(res.freeShippingThreshold));
         setStandardRate(String(res.extended.shipping.standardRate));
         setExpressRate(String(res.extended.shipping.expressRate));
-        setDefaultPartner(res.extended.shipping.defaultPartner);
+        setDefaultPartner(res.extended.shipping.defaultPartner || 'Shiprocket');
         setEstimatedDays(res.extended.shipping.estimatedDays);
         setShiprocketConfigured(res.serviceHealth.shiprocketConfigured);
-        setDelhiveryWebhookConfigured(res.serviceHealth.delhiveryWebhookConfigured);
+        setShiprocketWebhookConfigured(res.serviceHealth.shiprocketWebhookConfigured);
         if (!res.success && res.error) setErrorMsg(res.error);
       })
       .finally(() => setLoading(false));
@@ -108,7 +108,7 @@ export default function ShippingSettingsPage() {
             Pan-India Shipping Rules
           </h2>
           <span className="text-xs text-[var(--color-slate)]">
-            Shiprocket API: <strong>{shiprocketConfigured ? 'Configured' : 'Not Configured'}</strong> · Delhivery Webhook: <strong>{delhiveryWebhookConfigured ? 'Configured' : 'Not Configured'}</strong>
+            Shiprocket API: <strong>{shiprocketConfigured ? 'Configured' : 'Not Configured'}</strong> · Tracking Webhook: <strong>{shiprocketWebhookConfigured ? 'Configured' : 'Not Configured'}</strong>
           </span>
         </div>
 

@@ -33,6 +33,7 @@ import {
   autoDispatchShipmentAwb,
   AdminOrder,
 } from '@/lib/actions/admin-orders';
+import { evaluateShipmentEligibility } from '@/lib/orders/state-machine';
 
 const COURIER_OPTIONS = [
   'Blue Dart',
@@ -55,9 +56,16 @@ function getAddressFields(addr: Record<string, any> | undefined | null) {
   };
 }
 
-function getCourierTrackingUrl(courier: string | null, awb: string | null): string | null {
-  if (!courier || !awb) return null;
-  const c = courier.toLowerCase();
+function getCourierTrackingUrl(
+  courier: string | null,
+  awb: string | null,
+  directTrackingUrl?: string | null
+): string | null {
+  if (directTrackingUrl && /^https?:\/\//i.test(directTrackingUrl)) {
+    return directTrackingUrl;
+  }
+  if (!awb) return null;
+  const c = (courier || '').toLowerCase();
   const cleanAwb = encodeURIComponent(awb.trim());
   if (c.includes('blue dart') || c.includes('bluedart')) return `https://www.bluedart.com/tracking?trackNumber=${cleanAwb}`;
   if (c.includes('delhivery')) return `https://www.delhivery.com/track/package/${cleanAwb}`;
@@ -65,7 +73,7 @@ function getCourierTrackingUrl(courier: string | null, awb: string | null): stri
   if (c.includes('fedex')) return `https://www.fedex.com/fedextrack/?trknbr=${cleanAwb}`;
   if (c.includes('dhl')) return `https://www.dhl.com/en/express/tracking.html?AWB=${cleanAwb}`;
   if (c.includes('post') || c.includes('speed')) return 'https://www.indiapost.gov.in/_layouts/15/dpt.cept.tracking/trackconsignment.aspx';
-  return null;
+  return `https://shiprocket.co/tracking/${cleanAwb}`;
 }
 
 type TabType = 'all' | 'needs_dispatch' | 'in_transit' | 'delivered';
@@ -150,8 +158,10 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                   return {
                     ...o,
                     status: updated.status || o.status,
+                    payment_status: updated.payment_status ?? o.payment_status,
                     courier_partner: updated.courier_partner ?? o.courier_partner,
                     tracking_number: updated.tracking_number ?? o.tracking_number,
+                    tracking_url: updated.tracking_url ?? o.tracking_url,
                     shipped_at: updated.shipped_at ?? o.shipped_at,
                     delivered_at: updated.delivered_at ?? o.delivered_at,
                     updated_at: updated.updated_at || new Date().toISOString(),
@@ -284,16 +294,18 @@ export default function ShipmentsClient({ initialOrders }: Props) {
   // Metrics Calculations
   const needsDispatchCount = useMemo(
     () =>
-      orders.filter(
-        (o) =>
-          o.status === 'confirmed' ||
-          o.status === 'pending' ||
-          (!o.tracking_number && o.status !== 'cancelled' && o.status !== 'delivered')
-      ).length,
+      orders.filter((o) => {
+        if (o.tracking_number) return false;
+        return evaluateShipmentEligibility({
+          status: o.status,
+          payment_method: o.payment_method,
+          payment_status: o.payment_status,
+        }).eligible;
+      }).length,
     [orders]
   );
   const inTransitCount = useMemo(
-    () => orders.filter((o) => o.status === 'shipped').length,
+    () => orders.filter((o) => o.status === 'shipped' || o.status === 'out_for_delivery').length,
     [orders]
   );
   const deliveredCount = useMemo(
@@ -317,13 +329,16 @@ export default function ShipmentsClient({ initialOrders }: Props) {
       .filter((o) => {
         // Tab Filter
         if (activeTab === 'needs_dispatch') {
-          const isPending =
-            o.status === 'confirmed' ||
-            o.status === 'pending' ||
-            (!o.tracking_number && o.status !== 'cancelled' && o.status !== 'delivered');
-          if (!isPending) return false;
+          const isReady =
+            !o.tracking_number &&
+            evaluateShipmentEligibility({
+              status: o.status,
+              payment_method: o.payment_method,
+              payment_status: o.payment_status,
+            }).eligible;
+          if (!isReady) return false;
         } else if (activeTab === 'in_transit') {
-          if (o.status !== 'shipped') return false;
+          if (o.status !== 'shipped' && o.status !== 'out_for_delivery') return false;
         } else if (activeTab === 'delivered') {
           if (o.status !== 'delivered') return false;
         }
@@ -775,8 +790,17 @@ export default function ShipmentsClient({ initialOrders }: Props) {
               {filtered.map((order) => {
                 const isFlashing = flashingOrderId === order.id;
                 const addr = getAddressFields(order.shipping_address);
-                const trackingUrl = getCourierTrackingUrl(order.courier_partner, order.tracking_number);
+                const trackingUrl = getCourierTrackingUrl(
+                  order.courier_partner,
+                  order.tracking_number,
+                  order.tracking_url
+                );
                 const hasAwb = Boolean(order.tracking_number);
+                const eligibility = evaluateShipmentEligibility({
+                  status: order.status,
+                  payment_method: order.payment_method,
+                  payment_status: order.payment_status,
+                });
 
                 let statusBadge = (
                   <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full text-xs font-semibold uppercase">
@@ -784,16 +808,10 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                   </span>
                 );
 
-                if (order.status === 'confirmed' || order.status === 'pending') {
+                if (order.status === 'cancelled') {
                   statusBadge = (
-                    <span className="bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> Ready to Ship
-                    </span>
-                  );
-                } else if (order.status === 'shipped') {
-                  statusBadge = (
-                    <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1">
-                      <Truck className="w-3 h-3" /> In Transit
+                    <span className="bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-1 rounded-full text-xs font-semibold">
+                      Cancelled
                     </span>
                   );
                 } else if (order.status === 'delivered') {
@@ -802,10 +820,37 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                       <CheckCircle2 className="w-3 h-3" /> Delivered
                     </span>
                   );
-                } else if (order.status === 'cancelled') {
+                } else if (order.status === 'shipped' || order.status === 'out_for_delivery') {
                   statusBadge = (
-                    <span className="bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-1 rounded-full text-xs font-semibold">
-                      Cancelled
+                    <span className="bg-blue-50 text-blue-800 border border-blue-200 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                      <Truck className="w-3 h-3" /> {order.status === 'out_for_delivery' ? 'Out for Delivery' : 'In Transit'}
+                    </span>
+                  );
+                } else if (order.status === 'rto' || order.status === 'returned') {
+                  statusBadge = (
+                    <span className="bg-purple-50 text-purple-800 border border-purple-200 px-2.5 py-1 rounded-full text-xs font-semibold">
+                      {order.status === 'rto' ? 'RTO' : 'Returned'}
+                    </span>
+                  );
+                } else if (!eligibility.eligible && !hasAwb) {
+                  statusBadge = (
+                    <span
+                      title={eligibility.reason}
+                      className="bg-rose-50 text-rose-800 border border-rose-200 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1"
+                    >
+                      <AlertTriangle className="w-3 h-3" /> Awaiting Payment
+                    </span>
+                  );
+                } else if (order.status === 'processing' && hasAwb) {
+                  statusBadge = (
+                    <span className="bg-indigo-50 text-indigo-800 border border-indigo-200 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                      <Package className="w-3 h-3" /> AWB Assigned
+                    </span>
+                  );
+                } else if (order.status === 'confirmed' || order.status === 'pending' || order.status === 'processing') {
+                  statusBadge = (
+                    <span className="bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Ready to Ship
                     </span>
                   );
                 }
@@ -915,14 +960,26 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                     <td className="py-3.5 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         {order.status !== 'delivered' && order.status !== 'cancelled' && (
-                          <button
-                            type="button"
-                            onClick={() => openFulfillmentModal(order)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-gold)] text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-all shadow-xs"
-                          >
-                            <Send className="w-3 h-3" />
-                            <span>{hasAwb ? 'Update AWB' : 'Dispatch'}</span>
-                          </button>
+                          eligibility.eligible || hasAwb ? (
+                            <button
+                              type="button"
+                              onClick={() => openFulfillmentModal(order)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-gold)] text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-all shadow-xs"
+                            >
+                              <Send className="w-3 h-3" />
+                              <span>{hasAwb ? 'Update AWB' : 'Dispatch'}</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled
+                              title={eligibility.reason || 'Order is not eligible for shipment yet'}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded-lg text-xs font-semibold cursor-not-allowed"
+                            >
+                              <AlertTriangle className="w-3 h-3" />
+                              <span>Payment Pending</span>
+                            </button>
+                          )
                         )}
 
                         {order.status === 'shipped' && (
@@ -1079,7 +1136,10 @@ export default function ShipmentsClient({ initialOrders }: Props) {
                           setModalTracking(res.awbNumber);
                           if (res.courierPartner) setModalCourier(res.courierPartner);
                           setActiveModalOrder(null);
-                          showToast(`Carrier AWB generated & dispatched: ${res.awbNumber}`, 'success');
+                          showToast(
+                            `Shiprocket shipment created · AWB ${res.awbNumber} (${res.courierPartner || 'Assigned Courier'}) — ready for pickup`,
+                            'success'
+                          );
                           handleManualRefresh(false);
                         } finally {
                           setIsGeneratingAwb(false);

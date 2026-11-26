@@ -12,7 +12,8 @@
 ### Core Architecture Pillars
 - **Framework**: Next.js 14 (App Router) targeting **Cloudflare Workers** (Edge runtime) with `nodejs_compat`.
 - **Database & Auth**: Supabase (PostgreSQL with Row Level Security, Supabase Auth, Storage buckets for media).
-- **Payment Infrastructure**: Dual payment gateways (Razorpay + Cashfree) with tamper-proof HMAC-SHA256 webhook verification, paise/INR idempotency, and automated inventory reconciliation.
+- **Payment Infrastructure**: **Razorpay Standard Checkout** (sole online payment gateway) + Cash on Delivery (COD), with timing-safe HMAC-SHA256 payment & webhook verification, authoritative gateway capture validation, integer paise arithmetic, durable refund ledger (`X-Refund-Idempotency`), and atomic inventory reconciliation.
+- **Logistics Infrastructure**: **Shiprocket API v2** (real order items/SKUs/customer email, AWB & courier assignment, pickup scheduling, shipping labels, manifests, live tracking sync, and `x-api-key` authenticated webhook at `/api/webhooks/logistics`).
 - **Styling**: Tailwind CSS with custom editorial luxury tokens (`#1A1A1A`, `#FAF8F5`, `#F3EFEA`, `#74590E`, `#C9A84C`), Cormorant Garamond typography, and fluid responsive viewports.
 
 ---

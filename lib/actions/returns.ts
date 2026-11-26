@@ -496,7 +496,8 @@ export async function processRefund(input: ProcessRefundInput): Promise<ReturnMu
       const gw = await executeGatewayRefund(
         existingReturn.order_id,
         boundedAmount,
-        input.notes || 'Approved return refund'
+        input.notes || 'Approved return refund',
+        { restoreInventory: false, idempotencyKey: `ret_refund_${input.returnId.replace(/-/g, '')}` }
       );
       if (!gw.success) {
         return { success: false, error: gw.error || 'Gateway refund failed' };

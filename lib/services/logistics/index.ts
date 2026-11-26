@@ -1,8 +1,31 @@
-import { getOptionalEnv } from '@/lib/env';
+import { getOptionalEnv, getShiprocketConfig } from '@/lib/env';
+import {
+  assignShiprocketAwb,
+  buildShiprocketAdhocOrderPayload,
+  createShiprocketOrder,
+  type BuildShiprocketOrderInput,
+} from '@/lib/services/shiprocket';
+
+export {
+  assignShiprocketAwb,
+  buildShiprocketAdhocOrderPayload,
+  cancelShiprocketShipment,
+  checkShiprocketServiceability,
+  createShiprocketOrder,
+  generateShiprocketLabel,
+  generateShiprocketManifest,
+  getShiprocketAuthToken,
+  mapShiprocketStatus,
+  resetShiprocketTokenCache,
+  scheduleShiprocketPickup,
+  trackShiprocketAwb,
+  verifyShiprocketWebhookToken,
+} from '@/lib/services/shiprocket';
 
 export interface LogisticsProviderStatus {
-  delhiveryConfigured: boolean;
   shiprocketConfigured: boolean;
+  shiprocketWebhookConfigured: boolean;
+  delhiveryConfigured: boolean;
   activeProvider: 'shiprocket' | 'delhivery' | null;
 }
 
@@ -10,269 +33,100 @@ export interface ShipmentCreationResult {
   success: boolean;
   configured: boolean;
   provider?: 'shiprocket' | 'delhivery';
+  shiprocketOrderId?: string;
+  shiprocketShipmentId?: string;
   awbNumber?: string;
+  courierCompanyId?: number;
   courierPartner?: string;
   trackingUrl?: string;
   labelUrl?: string;
+  weightKg?: number;
+  dimensionsCm?: { length: number; breadth: number; height: number };
+  usedDefaultWeight?: boolean;
+  usedDefaultDimensions?: boolean;
   error?: string;
 }
 
 export function getLogisticsProviderStatus(): LogisticsProviderStatus {
-  const shiprocketEmail = getOptionalEnv('SHIPROCKET_EMAIL');
-  const shiprocketPass = getOptionalEnv('SHIPROCKET_PASSWORD');
-  const delhiveryToken = getOptionalEnv('DELHIVERY_API_TOKEN');
-
-  const shiprocketConfigured = Boolean(shiprocketEmail && shiprocketPass);
-  const delhiveryConfigured = Boolean(delhiveryToken);
+  const sr = getShiprocketConfig();
+  const delhiveryConfigured = Boolean(getOptionalEnv('DELHIVERY_API_TOKEN'));
 
   return {
+    shiprocketConfigured: sr.configured,
+    shiprocketWebhookConfigured: sr.webhookConfigured,
     delhiveryConfigured,
-    shiprocketConfigured,
-    activeProvider: shiprocketConfigured ? 'shiprocket' : delhiveryConfigured ? 'delhivery' : null,
+    activeProvider: sr.configured ? 'shiprocket' : delhiveryConfigured ? 'delhivery' : null,
   };
-}
-
-let cachedShiprocketToken: { token: string; expiresAt: number } | null = null;
-
-export async function getShiprocketAuthToken(): Promise<string> {
-  const now = Date.now();
-  if (cachedShiprocketToken && cachedShiprocketToken.expiresAt > now + 60000) {
-    return cachedShiprocketToken.token;
-  }
-
-  const email = getOptionalEnv('SHIPROCKET_EMAIL');
-  const password = getOptionalEnv('SHIPROCKET_PASSWORD');
-  if (!email || !password) {
-    throw new Error('SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD must be configured.');
-  }
-
-  const res = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-    signal: AbortSignal.timeout(15000),
-  });
-
-  const data = await res.json();
-  if (!res.ok || !data.token) {
-    throw new Error(data.message || 'Shiprocket authentication failed.');
-  }
-
-  // Shiprocket tokens last 10 days; cache for 7 days
-  cachedShiprocketToken = {
-    token: data.token,
-    expiresAt: now + 7 * 24 * 60 * 60 * 1000,
-  };
-  return data.token;
-}
-
-async function createShiprocketShipment(params: {
-  orderNumber: string;
-  customerName: string;
-  phone: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  totalAmountInr: number;
-  paymentMethod: 'cod' | 'prepaid';
-  weightKg?: number;
-}): Promise<ShipmentCreationResult> {
-  try {
-    const token = await getShiprocketAuthToken();
-    const pickupLocation = getOptionalEnv('SHIPROCKET_PICKUP_LOCATION') || 'Primary';
-
-    const orderDate = new Date().toISOString().replace('T', ' ').substring(0, 19);
-    const orderPayload = {
-      order_id: params.orderNumber,
-      order_date: orderDate,
-      pickup_location: pickupLocation,
-      billing_customer_name: params.customerName || 'Customer',
-      billing_last_name: '',
-      billing_address: params.address,
-      billing_city: params.city,
-      billing_pincode: params.pincode,
-      billing_state: params.state,
-      billing_country: 'India',
-      billing_email: getOptionalEnv('STORE_EMAIL') || 'vidhya@angelikafashions.com',
-      billing_phone: params.phone,
-      shipping_is_billing: true,
-      order_items: [
-        {
-          name: 'Angelika Designer Wear',
-          sku: `SKU-${params.orderNumber}`,
-          units: 1,
-          selling_price: params.totalAmountInr,
-          discount: 0,
-          tax: 0,
-        },
-      ],
-      payment_method: params.paymentMethod === 'cod' ? 'COD' : 'Prepaid',
-      sub_total: params.totalAmountInr,
-      length: 20,
-      breadth: 15,
-      height: 5,
-      weight: Number((params.weightKg || 0.7).toFixed(2)),
-    };
-
-    const orderRes = await fetch('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(orderPayload),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    const orderData = await orderRes.json();
-    const shipmentId = orderData?.shipment_id;
-
-    if (!orderRes.ok || !shipmentId) {
-      return {
-        success: false,
-        configured: true,
-        provider: 'shiprocket',
-        error: orderData?.message || 'Shiprocket order creation failed',
-      };
-    }
-
-    const awbRes = await fetch('https://apiv2.shiprocket.in/v1/external/courier/assign/awb', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ shipment_id: shipmentId }),
-      signal: AbortSignal.timeout(15000),
-    });
-
-    const awbData = await awbRes.json();
-    const awbCode = awbData?.response?.data?.awb_code || awbData?.awb_code;
-    const courierName = awbData?.response?.data?.courier_name || awbData?.courier_name || 'Shiprocket Partner';
-
-    if (!awbCode) {
-      return {
-        success: false,
-        configured: true,
-        provider: 'shiprocket',
-        error: awbData?.message || 'Shiprocket AWB assignment failed. Please assign courier manually.',
-      };
-    }
-
-    return {
-      success: true,
-      configured: true,
-      provider: 'shiprocket',
-      awbNumber: awbCode,
-      courierPartner: courierName,
-      trackingUrl: `https://shiprocket.co/tracking/${awbCode}`,
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      configured: true,
-      provider: 'shiprocket',
-      error: err?.message || 'Shiprocket API request error',
-    };
-  }
 }
 
 /**
- * Generates an AWB & shipment with configured logistics partner.
- * Never fabricates fake tracking numbers when carrier credentials are absent.
+ * End-to-end Shiprocket Order Creation + AWB Assignment using authoritative order data.
+ * Never uses dummy customer emails, dummy product items, or fake AWBs.
  */
-export async function createShipmentAwb(params: {
-  orderNumber: string;
-  customerName: string;
-  phone: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  totalAmountInr: number;
-  paymentMethod: 'cod' | 'prepaid';
-  weightKg?: number;
-}): Promise<ShipmentCreationResult> {
-  const status = getLogisticsProviderStatus();
-  if (!status.activeProvider) {
+export async function createShipmentWithRealOrderData(
+  input: BuildShiprocketOrderInput,
+  courierCompanyId?: number | null
+): Promise<ShipmentCreationResult> {
+  const sr = getShiprocketConfig();
+  if (!sr.configured) {
     return {
       success: false,
       configured: false,
       error:
-        'Shipping carrier API credentials (Shiprocket or Delhivery) are not configured. Enter the courier tracking number manually or configure carrier credentials in Settings > Shipping.',
+        'Shiprocket API credentials (SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD) are not configured. Configure them in Cloudflare Pages environment variables or enter tracking manually.',
     };
   }
 
-  if (status.activeProvider === 'shiprocket') {
-    return createShiprocketShipment(params);
+  const built = buildShiprocketAdhocOrderPayload(input);
+  if (!built.valid || !built.payload) {
+    return {
+      success: false,
+      configured: true,
+      provider: 'shiprocket',
+      error: built.errors?.join(' ') || 'Order is missing mandatory fields for Shiprocket.',
+    };
   }
 
-  if (status.activeProvider === 'delhivery') {
-    try {
-      const token = getOptionalEnv('DELHIVERY_API_TOKEN')!;
-      const pickupLocation = getOptionalEnv('DELHIVERY_PICKUP_LOCATION') || 'Angelika Fashions Atelier';
-      const payload = {
-        shipments: [
-          {
-            name: params.customerName,
-            add: params.address,
-            pin: params.pincode,
-            city: params.city,
-            state: params.state,
-            country: 'India',
-            phone: params.phone,
-            order: params.orderNumber,
-            payment_mode: params.paymentMethod === 'cod' ? 'COD' : 'Prepaid',
-            cod_amount: params.paymentMethod === 'cod' ? params.totalAmountInr : 0,
-            total_amount: params.totalAmountInr,
-            weight: String(Math.round((params.weightKg || 0.7) * 1000)),
-          },
-        ],
-        pickup_location: { name: pickupLocation },
-      };
+  const orderRes = await createShiprocketOrder(built.payload);
+  if (!orderRes.success || !orderRes.shiprocketShipmentId) {
+    return {
+      success: false,
+      configured: true,
+      provider: 'shiprocket',
+      error: orderRes.error || 'Shiprocket order creation failed.',
+    };
+  }
 
-      const res = await fetch('https://track.delhivery.com/api/cmu/create.json', {
-        method: 'POST',
-        headers: {
-          Authorization: `Token ${token}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `format=json&data=${encodeURIComponent(JSON.stringify(payload))}`,
-        signal: AbortSignal.timeout(15000),
-      });
-
-      const data = await res.json();
-      const pkg = data?.packages?.[0];
-      if (!res.ok || !pkg?.waybill) {
-        return {
-          success: false,
-          configured: true,
-          provider: 'delhivery',
-          error: pkg?.remarks?.[0] || data?.rmk || 'Delhivery AWB creation failed',
-        };
-      }
-
-      return {
-        success: true,
-        configured: true,
-        provider: 'delhivery',
-        awbNumber: pkg.waybill,
-        trackingUrl: `https://www.delhivery.com/track/package/${pkg.waybill}`,
-      };
-    } catch (err: any) {
-      return {
-        success: false,
-        configured: true,
-        provider: 'delhivery',
-        error: err?.message || 'Delhivery API request failed',
-      };
-    }
+  const awbRes = await assignShiprocketAwb(orderRes.shiprocketShipmentId, courierCompanyId);
+  if (!awbRes.success || !awbRes.awbCode) {
+    // Return partial IDs so caller can still persist the created Shiprocket order/shipment for reconciliation
+    return {
+      success: false,
+      configured: true,
+      provider: 'shiprocket',
+      shiprocketOrderId: orderRes.shiprocketOrderId,
+      shiprocketShipmentId: orderRes.shiprocketShipmentId,
+      weightKg: built.weightKg,
+      dimensionsCm: built.dimensionsCm,
+      usedDefaultWeight: built.usedDefaultWeight,
+      usedDefaultDimensions: built.usedDefaultDimensions,
+      error: awbRes.error || 'Shiprocket order created, but AWB assignment failed.',
+    };
   }
 
   return {
-    success: false,
-    configured: false,
-    error: 'No active shipping carrier found.',
+    success: true,
+    configured: true,
+    provider: 'shiprocket',
+    shiprocketOrderId: orderRes.shiprocketOrderId,
+    shiprocketShipmentId: orderRes.shiprocketShipmentId,
+    awbNumber: awbRes.awbCode,
+    courierCompanyId: awbRes.courierCompanyId,
+    courierPartner: awbRes.courierName,
+    trackingUrl: awbRes.trackingUrl,
+    weightKg: built.weightKg,
+    dimensionsCm: built.dimensionsCm,
+    usedDefaultWeight: built.usedDefaultWeight,
+    usedDefaultDimensions: built.usedDefaultDimensions,
   };
 }

@@ -1,15 +1,15 @@
 // Cloudflare Pages compatible — see wrangler.toml for Workers config
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://sdk.cashfree.com https://*.cashfree.com https://checkout.razorpay.com https://js.stripe.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.razorpay.com https://js.stripe.com",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
-  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://graph.facebook.com https://*.cloudinary.com https://*.cashfree.com https://*.razorpay.com",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.cashfree.com https://sandbox.cashfree.com https://*.cashfree.com https://api.razorpay.com https://lumberjack.razorpay.com https://api.stripe.com https://fonts.googleapis.com https://fonts.gstatic.com",
-  "frame-src https://sdk.cashfree.com https://api.cashfree.com https://sandbox.cashfree.com https://*.cashfree.com https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com",
+  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://lh3.googleusercontent.com https://*.googleusercontent.com https://graph.facebook.com https://*.cloudinary.com https://*.razorpay.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://lumberjack.razorpay.com https://checkout.razorpay.com https://api.stripe.com https://fonts.googleapis.com https://fonts.gstatic.com",
+  "frame-src https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com",
   "object-src 'none'",
   "base-uri 'self'",
-  "form-action 'self' https://api.cashfree.com https://sandbox.cashfree.com https://*.cashfree.com https://api.razorpay.com",
+  "form-action 'self' https://api.razorpay.com",
   "frame-ancestors 'none'",
 ].join('; ');
 
