@@ -171,7 +171,6 @@ export function ExploreCollections({
   const catBySlug = new Map(
     storeCategories.map((cat) => [cat.slug.toLowerCase(), cat])
   );
-  const activeStoreCategories = storeCategories.filter((cat) => cat.is_active !== false);
 
   // Check if a collection link points to a category that was hidden in Product Categories
   const isCardCategoryHidden = (href?: string) => {
@@ -339,59 +338,6 @@ export function ExploreCollections({
           </div>
         )}
       </div>
-
-      {/* ── Live Shop by Category Strip (Synced from Admin Product Categories) ── */}
-      {activeStoreCategories.length > 0 && (
-        <div className="w-full max-w-[1520.8px] mx-auto px-6 py-10 bg-[#FAF6F0] border-t border-[#E5E0D8]">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
-            <div>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#B8922E] block">
-                {categoriesContent?.badge || 'Curated Collections'}
-              </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-medium text-[#111111]">
-                {categoriesContent?.title || 'Shop by Category'}
-              </h2>
-            </div>
-            <Link
-              href="/shop"
-              className="text-xs font-semibold uppercase tracking-wider text-[#111111] hover:text-[#B8922E] transition-colors"
-            >
-              View All Collections →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {activeStoreCategories.map((cat) => (
-              <Link
-                key={cat.id}
-                href={`/shop/${cat.slug}`}
-                className="group rounded-2xl overflow-hidden bg-white border border-[#E5E0D8] hover:border-[#C9A84C] hover:shadow-md transition-all duration-300 flex flex-col"
-              >
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#EFECE6]">
-                  <Image
-                    src={cat.image_url || '/images/collection-kurtis.jpg'}
-                    alt={cat.name}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
-                  />
-                </div>
-                <div className="p-3.5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-display text-base font-medium text-[#111111] group-hover:text-[#B8922E] transition-colors">
-                      {cat.name}
-                    </h3>
-                    {cat.description && (
-                      <p className="text-xs text-[#666666] line-clamp-2 mt-0.5 leading-snug">
-                        {cat.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

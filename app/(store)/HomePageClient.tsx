@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -142,6 +142,7 @@ export default function HomePageClient({
   const [circleError, setCircleError] = useState<string | null>(null);
   const [latestCircleUpdates, setLatestCircleUpdates] = useState<CircleUpdate[]>([]);
   const [activeLookTitle, setActiveLookTitle] = useState<string | null>(null);
+  const circleEmailInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getLatestCircleUpdates(2)
@@ -154,8 +155,9 @@ export default function HomePageClient({
   const handleCircleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = circleEmail.trim().toLowerCase();
-    if (!clean || !clean.includes('@')) {
-      setCircleError('Please enter a valid email address.');
+    if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      setCircleError('Please enter a valid email address (for example, name@example.com).');
+      circleEmailInputRef.current?.focus();
       return;
     }
 
@@ -671,138 +673,254 @@ export default function HomePageClient({
         );
       })()}
 
-      {/* Newsletter Signup */}
-      <section className="section bg-[var(--color-ink)] relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-gold)]/5 via-transparent to-transparent" aria-hidden="true" />
-        <div className="absolute inset-0 noise-overlay" aria-hidden="true" />
-        <div className="relative z-10 container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+      {/* Angelika Circle — Compact Luxury Atelier Band */}
+      <section className="bg-[#F3EEE8] px-4 sm:px-6 py-8 md:py-12" aria-labelledby="angelika-circle-heading">
+        <div className="max-w-[1480px] mx-auto">
           <motion.div
-            className="max-w-2xl mx-auto text-center"
-            initial={{ opacity: 0, y: 30 }}
+            className="relative overflow-hidden rounded-2xl bg-[#161310] border border-[#C9A84C]/35 shadow-[0_22px_54px_rgba(13,13,13,0.16)]"
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.45 }}
           >
-            <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-white)] mb-4">
-              Join the <span className="text-gradient-gold">Angelika Circle</span>
-            </h2>
-            <p className="text-[var(--color-white)]/70 text-lg mb-8 max-w-lg mx-auto">
-              Get early access to new collections, exclusive styling tips from Vidhya, and special offers — delivered straight to your inbox.
-            </p>
-            {circleSubscribed ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="p-6 rounded-2xl bg-[var(--color-gold)]/10 border border-[var(--color-gold)]/30 text-center max-w-md mx-auto space-y-3"
-              >
-                <div className="w-12 h-12 rounded-full bg-[var(--color-gold)]/20 text-[var(--color-gold)] flex items-center justify-center mx-auto text-xl font-bold">
-                  ✓
+            {/* Subtle top gold hairline & warm ambient radiance */}
+            <div
+              className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#D8B454] to-transparent"
+              aria-hidden="true"
+            />
+            <div
+              className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full opacity-25 blur-3xl"
+              style={{ background: 'radial-gradient(circle, #D8B454 0%, transparent 70%)' }}
+              aria-hidden="true"
+            />
+
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center p-6 sm:p-8 lg:px-12 lg:py-10">
+              {/* Left Column: Editorial Invite & High-Contrast Email Form */}
+              <div className="lg:col-span-7 text-left">
+                <div className="inline-flex items-center gap-2.5 mb-3">
+                  <span className="h-[1px] w-6 bg-[#D8B454]" aria-hidden="true" />
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#E6C770]">
+                    Private Atelier Access
+                  </span>
                 </div>
-                <h3 className="text-lg font-medium text-[var(--color-white)]">
-                  Welcome to the Angelika Circle
-                </h3>
-                <p className="text-sm text-[var(--color-white)]/80 leading-relaxed">
-                  {circleMessage ||
-                    'You are now registered to receive our latest collections, private couture drops, and styling notes from Vidhya.'}
+
+                <h2
+                  id="angelika-circle-heading"
+                  className="font-display text-3xl sm:text-4xl lg:text-[42px] font-medium tracking-[-0.01em] leading-[1.12] text-[#FAF6F0]"
+                >
+                  Join the <span className="italic text-[#E5C56B]">Angelika Circle</span>
+                </h2>
+
+                <p className="mt-3 text-sm sm:text-[15px] text-[#D7CFC4] leading-relaxed max-w-xl">
+                  Early access to limited handloom silk drops, seasonal atelier price drops, and curated styling notes from Vidhya — straight to your inbox.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setCircleSubscribed(false)}
-                  className="text-xs text-[var(--color-gold)] hover:underline mt-2 inline-block cursor-pointer"
-                >
-                  Subscribe another email
-                </button>
-              </motion.div>
-            ) : (
-              <form
-                className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
-                onSubmit={handleCircleSubscribe}
-              >
-                <div className="flex-1">
-                  <label htmlFor="newsletter-email" className="sr-only">
-                    Email address
-                  </label>
-                  <input
-                    type="email"
-                    id="newsletter-email"
-                    name="email"
-                    inputMode="email"
-                    spellCheck={false}
-                    enterKeyHint="send"
-                    value={circleEmail}
-                    onChange={(e) => setCircleEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    className="input w-full"
-                    required
-                    autoComplete="email"
-                    disabled={circleSubmitting}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  size="lg"
-                  variant="gold"
-                  className="whitespace-nowrap min-w-[120px]"
-                  disabled={circleSubmitting || !circleEmail.trim()}
-                >
-                  {circleSubmitting ? 'Joining...' : 'Subscribe'}
-                </Button>
-              </form>
-            )}
 
-            {circleError && (
-              <p className="text-xs text-rose-400 mt-2 font-medium">
-                {circleError}
-              </p>
-            )}
-            <p className="text-xs text-[var(--color-white)]/50 mt-4">
-              By subscribing, you agree to our <a href="/privacy" className="underline hover:text-[var(--color-gold)]">Privacy Policy</a>. Unsubscribe anytime.
-            </p>
-
-            {latestCircleUpdates.length > 0 && (
-              <div className="mt-10 pt-8 border-t border-[var(--color-white)]/15 max-w-2xl mx-auto text-left">
-                <div className="flex items-center gap-2 mb-4 justify-center sm:justify-start">
-                  <span className="w-2 h-2 rounded-full bg-[var(--color-gold)] animate-pulse" />
-                  <p className="text-xs uppercase tracking-widest text-[var(--color-gold)] font-semibold">
-                    Latest Atelier Broadcast &amp; Exclusive Drops
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {latestCircleUpdates.map((upd) => (
-                    <div
-                      key={upd.id}
-                      className="p-4 rounded-xl bg-white/5 border border-white/10 hover:border-[var(--color-gold)]/40 transition-all flex flex-col justify-between"
+                {circleSubscribed ? (
+                  <motion.div
+                    role="status"
+                    aria-live="polite"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-6 rounded-xl bg-[#221E19] border border-[#D8B454]/45 p-4 sm:p-5 max-w-xl flex items-start gap-3.5"
+                  >
+                    <span
+                      className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#D8B454]/20 border border-[#D8B454]/50 text-[#E6C770] text-base font-bold"
+                      aria-hidden="true"
                     >
-                      <div>
-                        <div className="flex items-center justify-between text-[11px] text-[var(--color-gold)] mb-1">
-                          <span className="font-semibold uppercase tracking-wider">Broadcast Update</span>
-                          <span className="text-[var(--color-white)]/50">
-                            {new Date(upd.published_at).toLocaleDateString('en-IN', {
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </span>
-                        </div>
-                        <h4 className="text-sm font-semibold text-[var(--color-white)] mb-1">
-                          {upd.title}
-                        </h4>
-                        <p className="text-xs text-[var(--color-white)]/70 line-clamp-2 leading-relaxed">
-                          {upd.content}
-                        </p>
-                      </div>
-                      {upd.cta_link && (
-                        <a
-                          href={upd.cta_link}
-                          className="mt-3 inline-flex items-center gap-1 text-xs text-[var(--color-gold)] font-medium hover:underline"
-                        >
-                          <span>{upd.cta_text || 'Explore Drop'}</span>
-                          <span>&rarr;</span>
-                        </a>
-                      )}
+                      ✓
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-sm font-semibold text-[#FAF6F0]">
+                        Welcome to the Angelika Circle
+                      </h3>
+                      <p className="mt-1 text-xs sm:text-sm text-[#D7CFC4] leading-relaxed">
+                        {circleMessage ||
+                          'You are now registered for private couture drops, seasonal offers, and styling notes from Vidhya.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setCircleSubscribed(false)}
+                        className="mt-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#E6C770] hover:text-[#F5DD94] underline underline-offset-4 cursor-pointer"
+                      >
+                        Subscribe another email
+                      </button>
                     </div>
-                  ))}
+                  </motion.div>
+                ) : (
+                  <form
+                    method="POST"
+                    noValidate
+                    aria-labelledby="angelika-circle-heading"
+                    className="mt-6 max-w-xl"
+                    onSubmit={handleCircleSubscribe}
+                  >
+                    <label
+                      htmlFor="newsletter-email"
+                      className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#CEC5B9] mb-2"
+                    >
+                      Email Address
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2.5">
+                      <input
+                        ref={circleEmailInputRef}
+                        type="email"
+                        id="newsletter-email"
+                        name="email"
+                        inputMode="email"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        enterKeyHint="send"
+                        value={circleEmail}
+                        onChange={(e) => {
+                          setCircleEmail(e.target.value);
+                          if (circleError) setCircleError(null);
+                        }}
+                        placeholder="you@example.com"
+                        required
+                        autoComplete="email"
+                        aria-invalid={Boolean(circleError)}
+                        aria-describedby={
+                          circleError
+                            ? 'newsletter-email-error newsletter-privacy-note'
+                            : 'newsletter-privacy-note'
+                        }
+                        disabled={circleSubmitting}
+                        className={`flex-1 min-h-[48px] rounded-lg bg-[#24201B] px-4 py-3 text-base text-[#FAF6F0] placeholder:text-[#A99F92] border transition-colors focus:outline-none focus:border-[#E5C56B] focus-visible:ring-2 focus-visible:ring-[#E5C56B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161310] [&:user-invalid]:bg-[#321B1B] [&:user-invalid]:border-[#F28B82] ${
+                          circleError ? 'border-[#F28B82]' : 'border-[#7A6F62]'
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={circleSubmitting}
+                        className="min-h-[48px] px-7 py-3 rounded-lg bg-[#D8B454] hover:bg-[#E6C56B] active:bg-[#C6A243] text-[#14110E] text-xs font-bold uppercase tracking-[0.18em] whitespace-nowrap transition-colors border border-[#E8CC7D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FAF6F0] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161310] disabled:opacity-70 disabled:cursor-wait cursor-pointer"
+                      >
+                        {circleSubmitting ? 'Joining...' : 'Join Circle'}
+                      </button>
+                    </div>
+
+                    {circleError && (
+                      <p
+                        id="newsletter-email-error"
+                        role="alert"
+                        aria-live="assertive"
+                        className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-[#FCA5A5]"
+                      >
+                        <span aria-hidden="true">!</span>
+                        <span>{circleError}</span>
+                      </p>
+                    )}
+
+                    <p
+                      id="newsletter-privacy-note"
+                      className="mt-3 text-xs text-[#B8AFA3]"
+                    >
+                      No spam, ever. Unsubscribe anytime ·{' '}
+                      <Link
+                        href="/privacy"
+                        className="text-[#E6C770] underline underline-offset-4 hover:text-[#F5DD94]"
+                      >
+                        Privacy Policy
+                      </Link>
+                    </p>
+                  </form>
+                )}
+              </div>
+
+              {/* Right Column: Live Atelier Broadcasts or Member Privileges */}
+              <div className="lg:col-span-5">
+                <div className="rounded-xl bg-[#211D18] border border-[#C9A84C]/30 p-5 sm:p-6">
+                  {latestCircleUpdates.length > 0 ? (
+                    <>
+                      <div className="flex items-center justify-between gap-2 pb-3.5 mb-4 border-b border-[#C9A84C]/20">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-2 w-2 rounded-full bg-[#E5C56B] animate-pulse"
+                            aria-hidden="true"
+                          />
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E6C770]">
+                            Latest Atelier Broadcast
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#B8AFA3]">
+                          Live Drop
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {latestCircleUpdates.map((upd) => (
+                          <article
+                            key={upd.id}
+                            className="rounded-lg bg-[#161310] border border-[#C9A84C]/22 hover:border-[#D8B454]/60 p-4 transition-colors"
+                          >
+                            <div className="flex items-center justify-between gap-2 text-[11px] mb-1.5">
+                              <span className="font-semibold uppercase tracking-[0.16em] text-[#E6C770]">
+                                Broadcast Update
+                              </span>
+                              <time
+                                dateTime={upd.published_at}
+                                className="text-[#C4B9AB] tabular-nums"
+                              >
+                                {new Date(upd.published_at).toLocaleDateString('en-IN', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </time>
+                            </div>
+                            <h3 className="font-display text-xl font-medium text-[#FAF6F0] capitalize leading-snug">
+                              {upd.title}
+                            </h3>
+                            {upd.content && (
+                              <p className="mt-1 text-xs text-[#CFC6B8] line-clamp-2 leading-relaxed">
+                                {upd.content}
+                              </p>
+                            )}
+                            {upd.cta_link && (
+                              <Link
+                                href={upd.cta_link}
+                                className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#E6C770] hover:text-[#F5DD94] transition-colors"
+                              >
+                                <span>{upd.cta_text || 'Explore Collection'}</span>
+                                <span aria-hidden="true">&rarr;</span>
+                              </Link>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#E6C770] pb-3.5 mb-4 border-b border-[#C9A84C]/20">
+                        Member Privileges
+                      </p>
+                      <ul className="space-y-3.5 text-sm">
+                        <li className="flex items-start gap-3">
+                          <span className="font-display text-lg leading-none text-[#E6C770]" aria-hidden="true">01</span>
+                          <div>
+                            <p className="font-medium text-[#FAF6F0]">Early Access to Handloom Drops</p>
+                            <p className="text-xs text-[#C4B9AB] mt-0.5">Reserve limited festive weaves before public release.</p>
+                          </div>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <span className="font-display text-lg leading-none text-[#E6C770]" aria-hidden="true">02</span>
+                          <div>
+                            <p className="font-medium text-[#FAF6F0]">Private Price Drops &amp; Atelier Previews</p>
+                            <p className="text-xs text-[#C4B9AB] mt-0.5">Invitation-only seasonal savings and bridal previews.</p>
+                          </div>
+                        </li>
+                        <li className="flex items-start gap-3">
+                          <span className="font-display text-lg leading-none text-[#E6C770]" aria-hidden="true">03</span>
+                          <div>
+                            <p className="font-medium text-[#FAF6F0]">Styling Notes from Vidhya</p>
+                            <p className="text-xs text-[#C4B9AB] mt-0.5">Draping, jewelry pairing, and bespoke fit guidance.</p>
+                          </div>
+                        </li>
+                      </ul>
+                    </>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
           </motion.div>
         </div>
       </section>
