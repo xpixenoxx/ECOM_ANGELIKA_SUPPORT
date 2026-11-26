@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase/admin';
 import { CONTENT_ADMIN_ROLES, logAdminAction, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { hasValidSupabaseConfig } from '@/lib/env';
+import { syncLooksToSiteContent } from './product-cms-sync';
 
 export interface AdminLookInput {
   id?: string;
@@ -75,7 +76,10 @@ export async function createAdminLook(
     afterState: { name: input.name, hotspots: input.hotspots.length },
   });
 
+  await syncLooksToSiteContent();
   revalidatePath('/admin/looks');
+  revalidatePath('/admin/products/collections');
+  revalidatePath('/admin/content');
   revalidatePath('/');
   return { success: true, lookId: newLook.id };
 }
@@ -140,7 +144,10 @@ export async function updateAdminLook(
     afterState: { name: input.name, is_active: input.is_active, hotspots: input.hotspots.length },
   });
 
+  await syncLooksToSiteContent();
   revalidatePath('/admin/looks');
+  revalidatePath('/admin/products/collections');
+  revalidatePath('/admin/content');
   revalidatePath(`/admin/looks/${input.id}/edit`);
   revalidatePath('/');
   return { success: true };
@@ -176,7 +183,10 @@ export async function deleteAdminLook(
     entityId: lookId,
   });
 
+  await syncLooksToSiteContent();
   revalidatePath('/admin/looks');
+  revalidatePath('/admin/products/collections');
+  revalidatePath('/admin/content');
   revalidatePath('/');
   return { success: true };
 }

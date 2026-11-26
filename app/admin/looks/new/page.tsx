@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/Card';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Icon } from '@/components/ui/Icon';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { AdminImageInputWithUpload } from '@/components/admin/AdminImageUploadControl';
 
 interface Product {
   id: string;
@@ -373,13 +374,13 @@ export default function LookNewPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lifestyle_image_url">Lifestyle Image URL *</Label>
-                    <Input
-                      id="lifestyle_image_url"
+                    <AdminImageInputWithUpload
+                      label="Lifestyle Image *"
                       value={look.lifestyle_image_url}
-                      onChange={(e) => setLook({ ...look, lifestyle_image_url: e.target.value })}
-                      placeholder="https://..."
-                      required
+                      onChange={(url) => setLook((prev) => ({ ...prev, lifestyle_image_url: url }))}
+                      placeholder="/images/uploads/... or https://..."
+                      target="looks"
+                      helperText="Upload directly from your local device or paste an image URL"
                     />
                   </div>
                   <div>
@@ -425,6 +426,7 @@ export default function LookNewPage() {
                       src={look.lifestyle_image_url}
                       alt={look.lifestyle_image_alt || look.name || 'Look preview'}
                       fill
+                      unoptimized
                       className="object-cover"
                     />
                   </div>
@@ -447,6 +449,7 @@ export default function LookNewPage() {
                               src={look.lifestyle_image_url}
                               alt={look.lifestyle_image_alt || look.name || 'Look preview'}
                               fill
+                              unoptimized
                               className="object-cover"
                             />
 

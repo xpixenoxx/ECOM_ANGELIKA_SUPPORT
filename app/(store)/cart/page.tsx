@@ -98,11 +98,7 @@ export default function CartPage() {
 
   const proceedToCheckout = () => {
     if (items.length === 0) return;
-    if (!user) {
-      setShowAuthModal(true);
-    } else {
-      router.push('/checkout');
-    }
+    router.push('/checkout');
   };
 
   if (isLoading) {

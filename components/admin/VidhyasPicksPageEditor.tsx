@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
+import { AdminImageInputWithUpload } from '@/components/admin/AdminImageUploadControl';
 import type {
   VidhyasPicksPageContent,
   VidhyasPicksMonthlyEdit,
@@ -998,9 +999,11 @@ export function VidhyasPicksPageEditor({
                 }
                 placeholder="Curating pure handloom weaves since 2018"
               />
-              <AdminFormField
-                label="Avatar Image Path"
+              <AdminImageInputWithUpload
+                label="Avatar Image (Upload or Path)"
                 value={formData.header.founder.avatar}
+                previewShape="circle"
+                target="vidhyas-picks-avatar"
                 onChange={(val) =>
                   setFormData((prev) => ({
                     ...prev,
@@ -1241,9 +1244,10 @@ export function VidhyasPicksPageEditor({
                       onChange={(val) => updateCurrentEdit((e) => ({ ...e, subtitle: val }))}
                       placeholder="Lustrous Mulberry Silks & Airy Chiffons..."
                     />
-                    <AdminFormField
-                      label="Cover Artwork Image Path"
+                    <AdminImageInputWithUpload
+                      label="Cover Artwork Image (Upload or Path)"
                       value={currentEdit.coverImage}
+                      target="vidhyas-picks-cover"
                       onChange={(val) => updateCurrentEdit((e) => ({ ...e, coverImage: val }))}
                       placeholder="/images/vp-jan-1.jpg"
                     />
@@ -1504,9 +1508,10 @@ export function VidhyasPicksPageEditor({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <AdminFormField
-                    label="Product Image Path"
+                  <AdminImageInputWithUpload
+                    label="Product Image (Upload or Path)"
                     value={currentProduct.image}
+                    target="vidhyas-picks-product"
                     onChange={(val) => {
                       if (editingAdditionalPicks) {
                         updateAdditionalPick(selectedProductIndex, (p) => ({ ...p, image: val }));

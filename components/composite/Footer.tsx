@@ -182,13 +182,13 @@ function AmexEmblem() {
 }
 
 const defaultPaymentMethods = [
-  { name: 'UPI', icon: <UpiEmblem /> },
-  { name: 'Visa', icon: <VisaEmblem /> },
-  { name: 'Mastercard', icon: <MastercardEmblem /> },
-  { name: 'RuPay', icon: <RuPayEmblem /> },
-  { name: 'Net Banking', icon: <NetBankingEmblem /> },
-  { name: 'Cash on Delivery', icon: <CodEmblem /> },
-  { name: 'Amex', icon: <AmexEmblem /> },
+  { key: 'upi', name: 'UPI', icon: <UpiEmblem /> },
+  { key: 'visa', name: 'Visa', icon: <VisaEmblem /> },
+  { key: 'mastercard', name: 'Mastercard', icon: <MastercardEmblem /> },
+  { key: 'rupay', name: 'RuPay', icon: <RuPayEmblem /> },
+  { key: 'netbanking', name: 'Net Banking', icon: <NetBankingEmblem /> },
+  { key: 'cod', name: 'Cash on Delivery', icon: <CodEmblem /> },
+  { key: 'amex', name: 'Amex', icon: <AmexEmblem /> },
 ];
 
 /* =========================================================================
@@ -355,6 +355,17 @@ export function Footer({
     : resolvedSocialLinks;
   const effectiveColumns = content?.columns && content.columns.length > 0 ? content.columns : columns;
   const effectivePaymentLabel = content?.paymentLabel || 'Payment Options:';
+  const effectivePaymentMethods = content?.paymentOptions
+    ? defaultPaymentMethods.filter((m) => Boolean(content.paymentOptions?.[m.key as keyof typeof content.paymentOptions]))
+    : (paymentMethods || defaultPaymentMethods);
+  const effectiveTrustBadges = content?.trustBadges && content.trustBadges.length > 0
+    ? content.trustBadges.filter((b) => b.enabled !== false)
+    : [
+        { id: 'tb-ssl', text: '256-Bit SSL Encrypted Checkout', icon: 'ssl', enabled: true },
+        { id: 'tb-handloom', text: '100% Certified Authentic Handloom', icon: 'handloom', enabled: true },
+        { id: 'tb-shipping', text: 'Pan-India Express & Global Shipping', icon: 'shipping', enabled: true },
+        { id: 'tb-exchange', text: '7-Day Complimentary Size Exchange', icon: 'exchange', enabled: true },
+      ];
   const effectiveCopyright = content?.copyright || displayCopyright;
   const effectiveBottomLinks = content?.bottomLinks && content.bottomLinks.length > 0
     ? content.bottomLinks
@@ -391,22 +402,24 @@ export function Footer({
             <Link
               href="/"
               className="inline-flex items-center gap-3 group focus:outline-none"
-              aria-label={`${siteName} - Home`}
+              aria-label={`${effectiveBrand} - Home`}
             >
               {logo || (
                 <div className="flex items-center gap-3">
                   <img
-                    src="/images/logo.png"
-                    alt={siteName}
+                    src={effectiveLogoUrl}
+                    alt={effectiveBrand}
                     className="h-10 w-auto object-contain rounded"
                   />
                   <div className="flex flex-col">
                     <span className="font-display text-2xl font-bold tracking-tight text-[var(--color-ink)] leading-none group-hover:text-[var(--color-gold-text)] transition-colors">
-                      Angelika
+                      {effectiveBrand}
                     </span>
-                    <span className="text-[10px] tracking-[0.26em] text-[var(--color-gold-text)] uppercase font-semibold mt-0.5">
-                      Fashions
-                    </span>
+                    {effectiveBrandSub && (
+                      <span className="text-[10px] tracking-[0.26em] text-[var(--color-gold-text)] uppercase font-semibold mt-0.5">
+                        {effectiveBrandSub}
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -600,9 +613,9 @@ export function Footer({
         <div className="mt-14 pt-8 border-t border-[#EAE4D9] flex flex-col lg:flex-row items-center justify-between gap-6">
           <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-slate)] mr-1">
-              Payment Options:
+              {effectivePaymentLabel}
             </span>
-            {paymentMethods.map((method) => (
+            {effectivePaymentMethods.map((method) => (
               <div key={method.name} title={method.name}>
                 {method.icon}
               </div>
@@ -610,10 +623,18 @@ export function Footer({
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-5 xl:gap-7">
-            <SecureCheckoutBadge />
-            <SilkMarkBadge />
-            <ExpressDispatchBadge />
-            <ExchangeGuaranteeBadge />
+            {effectiveTrustBadges.map((badge) => {
+              if (badge.icon === 'ssl') return <SecureCheckoutBadge key={badge.id} text={badge.text} />;
+              if (badge.icon === 'handloom') return <SilkMarkBadge key={badge.id} text={badge.text} />;
+              if (badge.icon === 'shipping') return <ExpressDispatchBadge key={badge.id} text={badge.text} />;
+              if (badge.icon === 'exchange') return <ExchangeGuaranteeBadge key={badge.id} text={badge.text} />;
+              return (
+                <div key={badge.id} className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
+                  <span className="text-[var(--color-gold)]">✦</span>
+                  <span>{badge.text}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -624,32 +645,31 @@ export function Footer({
       <div className="border-t border-[#EAE4D9] bg-[#F5F2EC] py-4">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--color-mist)]">
           <p className="text-center sm:text-left text-[var(--color-slate)]">
-            {displayCopyright}
+            {effectiveCopyright}
           </p>
           <div className="flex items-center gap-5">
-            <Link href="/privacy" className="hover:text-[var(--color-gold)] transition-colors">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-[var(--color-gold)] transition-colors">
-              Terms
-            </Link>
-            <Link href="/cookies" className="hover:text-[var(--color-gold)] transition-colors">
-              Cookies
-            </Link>
-            <Link href="/accessibility" className="hover:text-[var(--color-gold)] transition-colors">
-              Accessibility
-            </Link>
-            <button
-              type="button"
-              onClick={scrollToTop}
-              className="inline-flex items-center gap-1 text-[var(--color-gold-text)] hover:underline font-medium transition-colors cursor-pointer ml-2"
-              aria-label="Scroll back to top"
-            >
-              <span>Top</span>
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                <path d="M18 15l-6-6-6 6" />
-              </svg>
-            </button>
+            {effectiveBottomLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="hover:text-[var(--color-gold)] transition-colors"
+              >
+                {link.label}
+              </Link>
+            ))}
+            {effectiveShowTop && (
+              <button
+                type="button"
+                onClick={scrollToTop}
+                className="inline-flex items-center gap-1 text-[var(--color-gold-text)] hover:underline font-medium transition-colors cursor-pointer ml-2"
+                aria-label="Scroll back to top"
+              >
+                <span>{effectiveTopText}</span>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                  <path d="M18 15l-6-6-6 6" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </div>

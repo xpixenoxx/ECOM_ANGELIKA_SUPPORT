@@ -228,14 +228,16 @@ export default function NewArrivalsClient({ initialContent }: { initialContent?:
         <div className="container-custom px-6">
           <ScrollReveal variant="fadeUp" className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
             <div>
-              <span className="inline-block px-4 py-1 bg-[var(--color-gold-light)] text-[var(--color-gold)] text-sm font-semibold rounded-[var(--radius-full)] mb-3">
-                JUST LANDED
-              </span>
+              {(content?.header?.badge || 'JUST LANDED') && (
+                <span className="inline-block px-4 py-1 bg-[var(--color-gold-light)] text-[var(--color-gold)] text-sm font-semibold rounded-[var(--radius-full)] mb-3">
+                  {content?.header?.badge || 'JUST LANDED'}
+                </span>
+              )}
               <h1 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] leading-tight">
-                New Arrivals
+                {content?.header?.title || 'New Arrivals'}
               </h1>
               <p className="text-[var(--color-slate)] mt-2">
-                Fresh drops every week. Handcrafted pieces from our artisan partners across India.
+                {content?.header?.description || 'Fresh drops every week. Handcrafted pieces from our artisan partners across India.'}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">

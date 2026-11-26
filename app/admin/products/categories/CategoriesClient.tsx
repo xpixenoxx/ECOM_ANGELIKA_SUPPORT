@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tag,
@@ -11,13 +12,11 @@ import {
   Eye,
   EyeOff,
   ExternalLink,
-  Check,
   X,
   Package,
-  Layers,
-  Sparkles,
 } from 'lucide-react';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
+import { AdminImageInputWithUpload } from '@/components/admin/AdminImageUploadControl';
 import {
   createCategory,
   updateCategory,
@@ -39,6 +38,7 @@ const EMPTY_CATEGORY = {
 };
 
 export default function CategoriesClient({ initialCategories }: Props) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const [categories, setCategories] = useState(initialCategories);
   const [search, setSearch] = useState('');
@@ -47,6 +47,20 @@ export default function CategoriesClient({ initialCategories }: Props) {
   const [form, setForm] = useState({ ...EMPTY_CATEGORY });
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCategories(initialCategories);
+  }, [initialCategories]);
+
+  function sanitizeSlug(raw: string) {
+    return raw
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-+/, '');
+  }
 
   const filtered = categories.filter(
     (c) =>
@@ -57,12 +71,14 @@ export default function CategoriesClient({ initialCategories }: Props) {
 
   function openCreate() {
     setEditingCategory(null);
+    setModalError(null);
     setForm({ ...EMPTY_CATEGORY });
     setShowModal(true);
   }
 
   function openEdit(c: AdminCategory) {
     setEditingCategory(c);
+    setModalError(null);
     setForm({
       name: c.name,
       slug: c.slug,
@@ -85,74 +101,116 @@ export default function CategoriesClient({ initialCategories }: Props) {
   }
 
   function handleSave() {
-    if (!form.name.trim() || !form.slug.trim()) return;
+    const cleanName = form.name.trim();
+    const cleanSlug = sanitizeSlug(form.slug.trim()).replace(/-+$/, '');
+    if (!cleanName || !cleanSlug) {
+      setModalError('Category Name and URL Slug are required.');
+      return;
+    }
+
     setSaving(true);
+    setModalError(null);
 
     startTransition(async () => {
       if (editingCategory) {
         const res = await updateCategory(editingCategory.id, {
-          name: form.name.trim(),
-          slug: form.slug.trim(),
+          name: cleanName,
+          slug: cleanSlug,
           description: form.description.trim(),
-          image_url: form.image_url.trim(),
+          image_url: form.image_url.trim() || '/images/collection-kurtis.jpg',
           is_active: form.is_active,
         });
-        if (res.success) {
-          setCategories((prev) =>
-            prev.map((c) =>
-              c.id === editingCategory.id
-                ? {
-                    ...c,
-                    name: form.name.trim(),
-                    slug: form.slug.trim(),
-                    description: form.description.trim(),
-                    image_url: form.image_url.trim(),
-                    is_active: form.is_active,
-                  }
-                : c
-            )
-          );
+        setSaving(false);
+        if (!res.success) {
+          setModalError(res.error || 'Failed to save category changes.');
+          return;
         }
+        setCategories((prev) =>
+          prev.map((c) =>
+            c.id === editingCategory.id
+              ? {
+                  ...c,
+                  ...(res.data || {}),
+                  name: cleanName,
+                  slug: cleanSlug,
+                  description: form.description.trim(),
+                  image_url: form.image_url.trim() || '/images/collection-kurtis.jpg',
+                  is_active: form.is_active,
+                }
+              : c
+          )
+        );
+        setShowModal(false);
+        setStatusMessage({ type: 'success', text: `Category "${cleanName}" updated and synced to storefront.` });
+        setTimeout(() => setStatusMessage(null), 4000);
+        router.refresh();
       } else {
         const res = await createCategory({
-          name: form.name.trim(),
-          slug: form.slug.trim(),
+          name: cleanName,
+          slug: cleanSlug,
           description: form.description.trim(),
-          image_url: form.image_url.trim(),
+          image_url: form.image_url.trim() || '/images/collection-kurtis.jpg',
           is_active: form.is_active,
         });
-        if (res.success && res.data) {
-          setCategories((prev) => [...prev, { ...res.data, product_count: 0 }]);
+        setSaving(false);
+        if (!res.success || !res.data) {
+          setModalError(res.error || 'Failed to create category.');
+          return;
         }
+        setCategories((prev) => [...prev, { ...res.data, product_count: 0 }]);
+        setShowModal(false);
+        setStatusMessage({ type: 'success', text: `Category "${cleanName}" created and published to storefront.` });
+        setTimeout(() => setStatusMessage(null), 4000);
+        router.refresh();
       }
-      setSaving(false);
-      setShowModal(false);
     });
   }
 
   function handleToggle(id: string, current: boolean) {
+    setStatusMessage(null);
     setCategories((prev) =>
       prev.map((c) => (c.id === id ? { ...c, is_active: !current } : c))
     );
     startTransition(async () => {
-      await toggleCategoryActive(id, !current);
+      const res = await toggleCategoryActive(id, !current);
+      if (res.error) {
+        // Revert optimistic update on failure
+        setCategories((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, is_active: current } : c))
+        );
+        setStatusMessage({ type: 'error', text: `Failed to update visibility: ${res.error}` });
+        return;
+      }
+      setStatusMessage({
+        type: 'success',
+        text: !current ? 'Category published to storefront.' : 'Category hidden from storefront.',
+      });
+      setTimeout(() => setStatusMessage(null), 3500);
+      router.refresh();
     });
   }
 
   function handleDelete(c: AdminCategory) {
     if (c.product_count && c.product_count > 0) {
-      alert(`Cannot delete category "${c.name}" because it contains ${c.product_count} active products. Please reassign those products first.`);
+      setStatusMessage({
+        type: 'error',
+        text: `Cannot delete "${c.name}" because it contains ${c.product_count} products. Reassign those products first.`,
+      });
       return;
     }
     if (!confirm(`Delete category "${c.name}"? This action cannot be undone.`)) return;
 
     setDeletingId(c.id);
+    setStatusMessage(null);
     startTransition(async () => {
       const res = await deleteCategory(c.id);
       if (res.error) {
-        alert(`Error deleting category: ${res.error}`);
+        setStatusMessage({ type: 'error', text: `Error deleting category: ${res.error}` });
       } else {
         setCategories((prev) => prev.filter((cat) => cat.id !== c.id));
+        setStatusMessage({ type: 'success', text: `Category "${c.name}" deleted.` });
+        setTimeout(() => setStatusMessage(null), 3500);
+        router.refresh();
       }
       setDeletingId(null);
     });
@@ -190,6 +248,26 @@ export default function CategoriesClient({ initialCategories }: Props) {
           <Plus className="w-4 h-4" /> Add Category
         </button>
       </div>
+
+      {statusMessage && (
+        <div
+          role="status"
+          className={`p-3.5 rounded-xl border text-xs font-medium flex items-center justify-between ${
+            statusMessage.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-700'
+          }`}
+        >
+          <span>{statusMessage.text}</span>
+          <button
+            type="button"
+            onClick={() => setStatusMessage(null)}
+            className="text-xs underline ml-4 opacity-75 hover:opacity-100"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -406,6 +484,15 @@ export default function CategoriesClient({ initialCategories }: Props) {
                 </div>
 
                 <div className="p-6 space-y-4">
+                  {modalError && (
+                    <div
+                      role="alert"
+                      className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium"
+                    >
+                      {modalError}
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
                       Category Name *
@@ -428,7 +515,7 @@ export default function CategoriesClient({ initialCategories }: Props) {
                       <input
                         type="text"
                         value={form.slug}
-                        onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
+                        onChange={(e) => setForm((f) => ({ ...f, slug: sanitizeSlug(e.target.value) }))}
                         placeholder="kurtis"
                         className="w-full bg-transparent py-2 pr-3 text-sm font-mono focus:outline-none text-[var(--color-ink,#111111)]"
                       />
@@ -448,18 +535,13 @@ export default function CategoriesClient({ initialCategories }: Props) {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--color-slate,#666666)] mb-1">
-                      Category Card Image URL
-                    </label>
-                    <input
-                      type="text"
-                      value={form.image_url}
-                      onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
-                      placeholder="/images/collection-kurtis.jpg"
-                      className="w-full border border-[var(--color-whisper,#E5E5E5)] rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
-                    />
-                  </div>
+                  <AdminImageInputWithUpload
+                    label="Category Card Image (Upload from Device or URL)"
+                    value={form.image_url}
+                    target="category"
+                    placeholder="/images/collection-kurtis.jpg"
+                    onChange={(url) => setForm((f) => ({ ...f, image_url: url }))}
+                  />
 
                   <div className="flex items-center justify-between pt-2">
                     <div>

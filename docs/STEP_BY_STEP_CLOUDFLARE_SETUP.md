@@ -25,6 +25,7 @@ This guide covers deploying and configuring **Angelika Fashions** on **Cloudflar
    - `20261116_production_hardening.sql`
    - `20261119_update_real_contact_details.sql`
    - `20261119_cloudflare_edge_perf_indexes.sql`
+   - `20261121_content_blocks_type_check.sql` (relaxes `content_blocks_type_check` constraint on `public.content_blocks` so all CMS section keys and bidirectional sync blocks persist cleanly).
    - `20261126_razorpay_shiprocket_production.sql` (adds `order_refunds`, `shipments`, `webhook_events.status`, `notifications.dedup_key`/`metadata`, and expanded payment status constraints while preserving historical orders).
 3. Under **Project Settings → API**, record:
    - `NEXT_PUBLIC_SUPABASE_URL`

@@ -13,6 +13,11 @@ export interface FocusTrapProps {
 export function FocusTrap({ children, onEscape, focusRef, disabled = false }: FocusTrapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const onEscapeRef = useRef(onEscape);
+
+  useEffect(() => {
+    onEscapeRef.current = onEscape;
+  }, [onEscape]);
 
   useEffect(() => {
     if (disabled) return;
@@ -32,8 +37,8 @@ export function FocusTrap({ children, onEscape, focusRef, disabled = false }: Fo
     }
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onEscape) {
-        onEscape();
+      if (e.key === 'Escape' && onEscapeRef.current) {
+        onEscapeRef.current();
         return;
       }
 
@@ -56,9 +61,11 @@ export function FocusTrap({ children, onEscape, focusRef, disabled = false }: Fo
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      previousActiveElement.current?.focus();
+      if (previousActiveElement.current && document.body.contains(previousActiveElement.current)) {
+        previousActiveElement.current.focus();
+      }
     };
-  }, [onEscape, disabled]);
+  }, [disabled]);
 
   const handleRef = (el: HTMLDivElement | null) => {
     // @ts-expect-error - RefObject.current is readonly in TypeScript but mutable at runtime

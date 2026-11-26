@@ -477,7 +477,7 @@ export async function saveWhatsAppFlowsConfig(
     const { error } = await supabaseAdmin.from('content_blocks').upsert(
       {
         key: 'whatsapp_flows_config',
-        type: 'whatsapp_flows',
+        type: 'text_block',
         title: 'WhatsApp Automated Flows Configuration',
         content: { flows } as unknown as Json,
         is_active: false,

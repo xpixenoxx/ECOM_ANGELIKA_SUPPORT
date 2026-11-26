@@ -353,21 +353,48 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (!file) continue;
-        const formData = new FormData();
-        formData.append('file', file);
 
-        const res = await fetch('/api/admin/products/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        const endpoints = [
+          '/api/admin/products/upload',
+          '/api/admin/content/upload',
+          '/api/admin/upload',
+        ];
+        let uploadedUrl = '';
+        let lastError = `Failed to upload ${file.name}`;
 
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || `Failed to upload ${file.name}`);
+        for (const endpoint of endpoints) {
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('target', 'products');
+
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              body: formData,
+            });
+            const rawText = await res.text();
+            let data: any = {};
+            try {
+              data = JSON.parse(rawText);
+            } catch {
+              // ignore non-json fallback response
+            }
+            if (res.ok && data?.success && data?.url) {
+              uploadedUrl = data.url;
+              break;
+            }
+            if (data?.error) lastError = data.error;
+          } catch (err: any) {
+            lastError = err?.message || lastError;
+          }
         }
 
-        if (data.url && !images.includes(data.url) && !newUrls.includes(data.url)) {
-          newUrls.push(data.url);
+        if (!uploadedUrl) {
+          throw new Error(lastError);
+        }
+
+        if (!images.includes(uploadedUrl) && !newUrls.includes(uploadedUrl)) {
+          newUrls.push(uploadedUrl);
         }
       }
 
@@ -396,6 +423,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
         setDeleting(false);
       } else {
         router.push('/admin/products');
+        router.refresh();
       }
     });
   }
@@ -462,6 +490,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
           }
 
           setSavedSuccess(true);
+          router.refresh();
           setTimeout(() => {
             router.push('/admin/products');
           }, 1000);
@@ -492,6 +521,7 @@ export default function ProductFormClient({ initialProduct, categories, isNew = 
           }
 
           setSavedSuccess(true);
+          router.refresh();
           setTimeout(() => setSavedSuccess(false), 3000);
           setSaving(false);
         }

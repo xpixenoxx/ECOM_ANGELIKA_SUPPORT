@@ -12,6 +12,21 @@ const categoryLabels: Record<string, string> = {
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {
   const category = (await params).category;
 
+  if (category === 'kurtis') {
+    try {
+      const siteContent = await getSiteContent();
+      const kurtisContent = siteContent['kurtis-page'];
+      if (kurtisContent?.metaTitle) {
+        return {
+          title: kurtisContent.metaTitle,
+          description: kurtisContent.metaDescription || 'Explore handcrafted designer kurtis, tunics, and anarkalis curated by Vidhya.',
+        };
+      }
+    } catch {
+      // fallback
+    }
+  }
+
   if (category === 'salwars') {
     try {
       const siteContent = await getSiteContent();

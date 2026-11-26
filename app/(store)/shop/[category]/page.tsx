@@ -1,9 +1,10 @@
 export const runtime = 'edge';
 
 import { notFound } from 'next/navigation';
-import { getProductsByCategory, getCategoryBySlug } from '@/lib/actions/shop';
+import { getProductsByCategory, getCategoryBySlug, getStorefrontCategoryStatuses } from '@/lib/actions/shop';
 import type { ShopProductCard } from '@/lib/actions/shop-types';
 import { getSiteContent, SalwarProductItem, SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent } from '@/lib/actions/site-content';
+import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
 import { CategoryPageClient } from './CategoryPageClient';
 
 // ISR: rebuilds at most every 120s. For immediate updates, POST /api/revalidate
@@ -152,9 +153,10 @@ export default async function CategoryPage({
   const { category: categorySlug } = await params;
   const sp = await searchParams;
 
-  const [initialCategory, siteContent] = await Promise.all([
+  const [initialCategory, siteContent, storeCategories] = await Promise.all([
     getCategoryBySlug(categorySlug),
     getSiteContent(),
+    getStorefrontCategoryStatuses(),
   ]);
 
   let salwarsContent: SalwarsPageContent | null = null;
@@ -298,10 +300,43 @@ export default async function CategoryPage({
     kurtis: kurtisContent?.products,
   };
   const cmsList = cmsProductMap[categorySlug];
+  const defaultProductMap: Record<string, any[] | undefined> = {
+    kurtis: DEFAULT_SITE_CONTENT['kurtis-page']?.products,
+    salwars: DEFAULT_SITE_CONTENT['salwars-page']?.products,
+    lehengas: DEFAULT_SITE_CONTENT['lehengas-page']?.products,
+    sarees: DEFAULT_SITE_CONTENT['sarees-page']?.products,
+    dupattas: DEFAULT_SITE_CONTENT['dupattas-page']?.products,
+  };
+  const isCmsCustomized =
+    Boolean(cmsList && cmsList.length > 0) &&
+    JSON.stringify(cmsList) !== JSON.stringify(defaultProductMap[categorySlug]);
   const hasRealDbProducts = products.some(
     (p) => typeof p.defaultVariantId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(p.defaultVariantId)
   );
-  if (!hasRealDbProducts && cmsList && cmsList.length > 0) {
+  if (hasRealDbProducts && cmsList && cmsList.length > 0) {
+    // Preserve real DB product UUIDs and variant IDs while ensuring uploaded CMS images reflect immediately
+    const cmsById = new Map<string, any>();
+    const cmsBySlug = new Map<string, any>();
+    for (const cItem of cmsList) {
+      if (cItem?.id) cmsById.set(String(cItem.id), cItem);
+      const rawSlug = cItem?.slug || (typeof cItem?.href === 'string' ? cItem.href.replace(/^\/product\//i, '') : '');
+      if (rawSlug) cmsBySlug.set(String(rawSlug).toLowerCase(), cItem);
+    }
+    products = products.map((p) => {
+      const match = cmsById.get(String(p.id)) || cmsBySlug.get(String(p.slug || '').toLowerCase());
+      if (match?.image && match.image !== p.image) {
+        return {
+          ...p,
+          image: match.image,
+          images:
+            Array.isArray(p.images) && p.images.length > 0
+              ? p.images.map((img: any, idx: number) => (idx === 0 ? { ...img, url: match.image } : img))
+              : [{ id: `img-${p.id}`, product_id: p.id, url: match.image, alt_text: p.name, sort_order: 1, is_primary: true, created_at: '' } as any],
+        };
+      }
+      return p;
+    });
+  } else if (!hasRealDbProducts && isCmsCustomized && cmsList && cmsList.length > 0) {
     const categoryName = category?.name || categorySlug;
     let adminProducts = cmsList.map((item, idx) =>
       mapCategoryItemToProductCard(item, idx, categorySlug, categoryName)
@@ -366,6 +401,7 @@ export default async function CategoryPage({
       lehengasContent={lehengasContent}
       sareesContent={sareesContent}
       dupattasContent={dupattasContent}
+      storeCategories={storeCategories}
     />
   );
 }

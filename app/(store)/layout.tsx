@@ -5,21 +5,24 @@ import { WhatsAppFloatButton } from '@/components/composite/WhatsAppFloatButton'
 import { getStoreSettings, getNavbarItems } from '@/lib/actions/store-settings';
 import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import { getSiteContent } from '@/lib/actions/site-content';
+import { getStorefrontCategoryStatuses } from '@/lib/actions/shop';
+import { defaultNavigation } from '@/components/composite/header/header-navigation';
 import type { ReactNode } from 'react';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
-  const [settings, navbarItems, heroData, siteContent] = await Promise.all([
+  const [settings, navbarItems, heroData, siteContent, storeCategories] = await Promise.all([
     getStoreSettings(),
     getNavbarItems(),
     getHomepageHeroData(),
     getSiteContent(),
+    getStorefrontCategoryStatuses(),
   ]);
 
   // Determine navigation: prefer heroData.navigation if configured, fallback to navbarItems or default
-  let navigation = undefined;
+  let navigation = defaultNavigation.map((item) => ({ ...item }));
   if (heroData?.navigation && heroData.navigation.length > 0) {
     navigation = heroData.navigation
       .filter((item) => item.is_active !== false)
@@ -37,6 +40,53 @@ export default async function StoreLayout({ children }: { children: ReactNode })
     }
   }
 
+  // Sync live Product Categories (hidden/renamed/newly added) with top navigation
+  if (storeCategories.length > 0) {
+    const catBySlug = new Map(storeCategories.map((c) => [c.slug.toLowerCase(), c]));
+    const existingSlugs = new Set<string>();
+
+    navigation = navigation
+      .filter((item) => {
+        const match = item.href.match(/^\/shop\/([^/?#]+)$/);
+        if (!match?.[1]) return true;
+        const slug = match[1].toLowerCase();
+        const dbCat = catBySlug.get(slug);
+        if (dbCat && dbCat.is_active === false) return false;
+        return true;
+      })
+      .map((item) => {
+        const match = item.href.match(/^\/shop\/([^/?#]+)$/);
+        if (!match?.[1]) return item;
+        const slug = match[1].toLowerCase();
+        existingSlugs.add(slug);
+        const dbCat = catBySlug.get(slug);
+        if (dbCat && dbCat.name) {
+          return { ...item, label: dbCat.name };
+        }
+        return item;
+      });
+
+    // Append newly created active categories not yet represented in top-level nav
+    const newActiveCats = storeCategories
+      .filter((c) => c.is_active && !existingSlugs.has(c.slug.toLowerCase()))
+      .map((c) => ({ label: c.name, href: `/shop/${c.slug}` }));
+
+    if (newActiveCats.length > 0) {
+      const insertIdx = navigation.findIndex(
+        (item) => item.href === '/new-arrivals' || item.href === '/sale'
+      );
+      if (insertIdx === -1) {
+        navigation = [...navigation, ...newActiveCats];
+      } else {
+        navigation = [
+          ...navigation.slice(0, insertIdx),
+          ...newActiveCats,
+          ...navigation.slice(insertIdx),
+        ];
+      }
+    }
+  }
+
   const brandName = heroData?.brandName || settings?.site_name || 'Angelika';
   const brandTagline = heroData?.brandTagline || settings?.site_tagline || 'Fashions';
   const logoUrl = heroData?.logoUrl?.trim() || settings?.logo_url || '/images/logo.png';
@@ -44,8 +94,8 @@ export default async function StoreLayout({ children }: { children: ReactNode })
   const rawWhatsapp =
     heroData?.conciergeWhatsApp?.replace(/[^0-9]/g, '') ||
     settings?.contact_whatsapp?.replace(/[^0-9]/g, '') ||
-    '';
-  const whatsappNumber = rawWhatsapp && rawWhatsapp !== '919876543210' ? rawWhatsapp : '';
+    '917207256690';
+  const whatsappNumber = rawWhatsapp && rawWhatsapp !== '919876543210' ? rawWhatsapp : (rawWhatsapp || '917207256690');
 
   return (
     <div className="flex min-h-screen min-h-dvh flex-col">
@@ -87,7 +137,22 @@ export default async function StoreLayout({ children }: { children: ReactNode })
         socialYoutube={settings?.social_youtube || undefined}
       />
       {whatsappNumber && (
-        <WhatsAppFloatButton phoneNumber={whatsappNumber} businessName={brandName} />
+        <WhatsAppFloatButton
+          phoneNumber={whatsappNumber}
+          businessName={brandName}
+          conciergeTitle={
+            (heroData?.conciergeTitle || "Vidhya's Concierge")
+              .replace(/conciergesss/gi, 'Concierge')
+              .replace(/sss$/gi, '')
+              .trim() || "Vidhya's Concierge"
+          }
+          conciergeSubtitle={
+            (heroData?.conciergeSubtitle || 'Bespoke Styling Chat')
+              .replace(/chatsss/gi, 'Chat')
+              .replace(/sss$/gi, '')
+              .trim() || 'Bespoke Styling Chat'
+          }
+        />
       )}
     </div>
   );

@@ -1,6 +1,7 @@
 import { getNewArrivals, getVidhyasPicks, getLooks, getInstagramPosts } from '@/lib/actions/homepage';
 import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
 import { getSiteContent } from '@/lib/actions/site-content';
+import { getStorefrontCategoryStatuses } from '@/lib/actions/shop';
 import HomePageClient from './HomePageClient';
 
 export const runtime = 'edge';
@@ -106,13 +107,14 @@ const homeJsonLd = {
 };
 
 export default async function HomePage() {
-  const [vidhyasPicks, newArrivals, looks, instagramPosts, heroData, siteContent] = await Promise.all([
+  const [vidhyasPicks, newArrivals, looks, instagramPosts, heroData, siteContent, storeCategories] = await Promise.all([
     getVidhyasPicks(4),
     getNewArrivals(8),
-    getLooks(3),
+    getLooks(12),
     getInstagramPosts(8),
     getHomepageHeroData(),
     getSiteContent(),
+    getStorefrontCategoryStatuses(),
   ]);
 
   return (
@@ -128,6 +130,7 @@ export default async function HomePage() {
         instagramPosts={instagramPosts}
         heroData={heroData}
         siteContent={siteContent}
+        storeCategories={storeCategories}
       />
     </>
   );

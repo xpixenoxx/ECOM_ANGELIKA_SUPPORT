@@ -618,10 +618,12 @@ export default function AdminContentPage() {
 
       const result = await res.json();
       if (result.success) {
+        const savedData = result.content?.[editingSection] || formData;
         setContentState((prev) => ({
           ...prev,
-          [editingSection]: formData,
+          [editingSection]: savedData,
         }));
+        setFormData(JSON.parse(JSON.stringify(savedData)));
         const sectionLabel =
           homepageSections.find((s) => s.id === editingSection)?.label || editingSection;
         toast.success(`"${sectionLabel}" updated and synced live!`);

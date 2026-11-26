@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
+import { AdminImageInputWithUpload } from '@/components/admin/AdminImageUploadControl';
 import type { DupattasPageContent, DupattaProductItem, SalwarsCollectionNavItem } from '@/lib/actions/site-content-types';
 
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size', 'Custom'];
@@ -447,6 +448,9 @@ export function DupattasPageEditor({ onCancel, onSaved }: DupattasPageEditorProp
       });
       const data = await res.json();
       if (data.success) {
+        if (data.content?.['dupattas-page']) {
+          setFormData(data.content['dupattas-page']);
+        }
         setStatusMessage({
           type: 'success',
           text: '✓ All Dupattas Page updates saved live! Refresh /shop/dupattas to see changes.',
@@ -1302,18 +1306,13 @@ export function DupattasPageEditor({ onCancel, onSaved }: DupattasPageEditorProp
             <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-gold)]">
               Navigation Items
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-3">
               {(formData.navigation.items || []).map((item, idx) => (
                 <div
                   key={item.name || idx}
-                  className="p-3 rounded-xl border border-[var(--color-whisper)] bg-[var(--color-snow)]/60 flex items-center gap-3"
+                  className="p-3.5 rounded-xl border border-[var(--color-whisper)] bg-[var(--color-snow)]/60 space-y-2.5"
                 >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-10 h-10 rounded-full object-cover border border-[var(--color-gold)]/40 shrink-0"
-                  />
-                  <div className="flex-1 min-w-0 space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input
                       type="text"
                       value={item.name}
@@ -1325,7 +1324,8 @@ export function DupattasPageEditor({ onCancel, onSaved }: DupattasPageEditorProp
                           navigation: { ...prev.navigation, items: updated },
                         }));
                       }}
-                      className="w-full text-xs font-semibold px-2 py-1 rounded border border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-ink)]"
+                      placeholder="Collection Name"
+                      className="w-full text-xs font-semibold px-2.5 py-1.5 rounded border border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-ink)]"
                     />
                     <input
                       type="text"
@@ -1338,9 +1338,24 @@ export function DupattasPageEditor({ onCancel, onSaved }: DupattasPageEditorProp
                           navigation: { ...prev.navigation, items: updated },
                         }));
                       }}
-                      className="w-full text-[11px] px-2 py-0.5 rounded border border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-slate)] font-mono"
+                      placeholder="/shop/..."
+                      className="w-full text-[11px] px-2.5 py-1.5 rounded border border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-slate)] font-mono"
                     />
                   </div>
+                  <AdminImageInputWithUpload
+                    value={item.image}
+                    previewShape="circle"
+                    target="dupattas-nav-pill"
+                    placeholder="/images/..."
+                    onChange={(url) => {
+                      const updated = [...(formData.navigation.items || [])];
+                      updated[idx] = { ...item, image: url };
+                      setFormData((prev) => ({
+                        ...prev,
+                        navigation: { ...prev.navigation, items: updated },
+                      }));
+                    }}
+                  />
                 </div>
               ))}
             </div>

@@ -13,6 +13,7 @@ import { Card } from '@/components/ui/Card';
 import { ToastProvider, useToast } from '@/components/ui/Toast';
 import { Icon } from '@/components/ui/Icon';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { AdminImageInputWithUpload } from '@/components/admin/AdminImageUploadControl';
 
 interface Product {
   id: string;
@@ -422,13 +423,13 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lifestyle_image_url">Lifestyle Image URL *</Label>
-                    <Input
-                      id="lifestyle_image_url"
+                    <AdminImageInputWithUpload
+                      label="Lifestyle Image *"
                       value={look.lifestyle_image_url}
-                      onChange={(e) => setLook({ ...look, lifestyle_image_url: e.target.value })}
-                      placeholder="https://..."
-                      required
+                      onChange={(url) => setLook((prev) => (prev ? { ...prev, lifestyle_image_url: url } : prev))}
+                      placeholder="/images/uploads/... or https://..."
+                      target="looks"
+                      helperText="Upload directly from your local device or paste an image URL"
                     />
                   </div>
                   <div>
@@ -467,17 +468,20 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
               </Card>
 
               {/* Image Preview */}
-              <Card className="p-0 overflow-hidden">
-                <div className="relative aspect-[16/9] bg-gray-100">
-                  <Image
-                    src={look.lifestyle_image_url}
-                    alt={look.lifestyle_image_alt || look.name}
-                    fill
-                    className="object-cover"
-                    priority
-                  />
-                </div>
-              </Card>
+              {look.lifestyle_image_url && (
+                <Card className="p-0 overflow-hidden">
+                  <div className="relative aspect-[16/9] bg-gray-100">
+                    <Image
+                      src={look.lifestyle_image_url}
+                      alt={look.lifestyle_image_alt || look.name}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                      priority
+                    />
+                  </div>
+                </Card>
+              )}
             </TabsContent>
 
             {/* Hotspots Tab */}
@@ -492,6 +496,7 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
                         src={look.lifestyle_image_url}
                         alt={look.lifestyle_image_alt || look.name}
                         fill
+                        unoptimized
                         className="object-cover"
                         priority
                       />

@@ -181,11 +181,12 @@ export function WhatsAppFloatButton({
   if (!mounted || !isConfigured) return null;
 
   return (
-    <div className={cn('fixed z-[var(--z-toast)]', positionClasses[position], className)}>
+    <>
+      {/* Blurred Backdrop behind popup */}
       <AnimatePresence>
         {isExpanded && (
           <motion.div
-            className="fixed inset-0 bg-[var(--color-ink)]/40 backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -195,122 +196,127 @@ export function WhatsAppFloatButton({
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col items-end gap-3" role="region" aria-label="WhatsApp actions">
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.9 }}
-              transition={{ duration: 0.2, ease: [0.175, 0.885, 0.32, 1.275] }}
-              className="w-72"
-            >
+      {/* Floating Concierge & Popup Container */}
+      <div className={cn('fixed z-50 pointer-events-auto', positionClasses[position], className)}>
+        <div className="relative z-50 flex flex-col items-end gap-3" role="region" aria-label="WhatsApp actions">
+          <AnimatePresence>
+            {isExpanded && (
               <motion.div
-                className="bg-[var(--color-white)] rounded-[var(--radius-xl)] shadow-[var(--shadow-xl)] border border-[var(--color-whisper)] overflow-hidden"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
+                initial={{ opacity: 0, y: 16, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 16, scale: 0.95 }}
+                transition={{ duration: 0.2, ease: [0.175, 0.885, 0.32, 1.275] }}
+                className="w-80 max-w-[calc(100vw-2rem)]"
               >
-                <div className="p-4 bg-[var(--color-gold)] text-[var(--color-ink)] flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
-                      <WhatsAppIcon className="w-10 h-10" />
+                <div className="bg-[#FAF7F2] dark:bg-[#18181B] rounded-2xl shadow-2xl border border-stone-200 dark:border-stone-800 overflow-hidden">
+                  {/* Card Header */}
+                  <div className="p-4 bg-[#C9A84C] text-[#0D0D0D] flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <WhatsAppIcon className="w-10 h-10" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm leading-tight text-[#0D0D0D]">{businessName}</p>
+                        <p className="text-xs text-[#0D0D0D]/80 font-medium">Online · Replies in minutes</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-sm">{businessName}</p>
-                      <p className="text-xs opacity-80">Online · Replies in minutes</p>
-                    </div>
-                  </div>
-                  <motion.button
-                    onClick={() => setIsExpanded(false)}
-                    className="p-1 rounded-full hover:bg-[var(--color-ink)]/10 transition-colors"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    aria-label="Close WhatsApp menu"
-                  >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </motion.button>
-                </div>
-
-                <div className="p-2 space-y-1 max-h-[320px] overflow-y-auto">
-                  {effectiveActions.map((action, index) => (
                     <motion.button
-                      key={action.label}
-                      onClick={() => handleActionClick(action)}
-                      className="w-full p-3 flex items-center gap-3 text-left rounded-[var(--radius-lg)] hover:bg-[var(--color-gold-light)] transition-colors group"
-                      whileHover={{ x: 4 }}
-                      whileTap={{ scale: 0.98 }}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.1 + index * 0.03 }}
+                      onClick={() => setIsExpanded(false)}
+                      className="p-1.5 rounded-full hover:bg-black/15 text-[#0D0D0D] transition-colors"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      aria-label="Close WhatsApp menu"
                     >
-                      <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] flex-shrink-0 group-hover:bg-[var(--color-gold)] group-hover:text-[var(--color-ink)] transition-colors">
-                        {action.icon}
-                      </div>
-                      <div className="flex-1 min-w-0 text-sm">
-                        <p className="font-medium text-[var(--color-ink)] truncate">{action.label}</p>
-                        <p className="text-xs text-[var(--color-slate)] truncate">{action.description}</p>
-                      </div>
-                      <svg className="h-4 w-4 text-[var(--color-mist)] group-hover:text-[var(--color-gold)] transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                        <path d="M18 6L6 18M6 6l12 12" />
                       </svg>
                     </motion.button>
-                  ))}
-                </div>
+                  </div>
 
-                <div className="px-4 py-3 border-t border-[var(--color-whisper)]">
-                  <Button
-                    variant="whatsapp"
-                    className="w-full"
-                    onClick={() => {
-                      const url = `https://wa.me/${normalizedDigits}?text=${encodeURIComponent(defaultMessage)}`;
-                      window.open(url, '_blank');
-                      setIsExpanded(false);
-                    }}
-                  >
-                    <SocialIcon platform="whatsapp" size="sm" className="mr-2" />
-                    Start a Conversation
-                  </Button>
+                  {/* Card Action Items */}
+                  <div className="p-3 space-y-2 max-h-[320px] overflow-y-auto bg-white/60 dark:bg-stone-900/40">
+                    {effectiveActions.map((action, index) => (
+                      <motion.button
+                        key={action.label}
+                        onClick={() => handleActionClick(action)}
+                        className="w-full p-3 flex items-center gap-3 text-left rounded-xl bg-white dark:bg-stone-800/80 hover:bg-[#F5EBCC]/70 dark:hover:bg-stone-700/80 border border-stone-200/60 dark:border-stone-700/60 shadow-sm transition-all group"
+                        whileHover={{ x: 3 }}
+                        whileTap={{ scale: 0.98 }}
+                        initial={{ opacity: 0, x: -16 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.06 + index * 0.03 }}
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-[#F5EBCC] dark:bg-[#3D351A] flex items-center justify-center text-[#74590E] dark:text-[#D4B85C] flex-shrink-0 group-hover:bg-[#C9A84C] group-hover:text-[#0D0D0D] transition-colors shadow-xs">
+                          {action.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-stone-900 dark:text-stone-100 truncate group-hover:text-[#74590E] dark:group-hover:text-[#D4B85C] transition-colors">
+                            {action.label}
+                          </p>
+                          <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
+                            {action.description}
+                          </p>
+                        </div>
+                        <svg className="h-4 w-4 text-stone-400 group-hover:text-[#74590E] dark:group-hover:text-[#D4B85C] transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                          <path d="M5 12h14M12 5l7 7-7 7" />
+                        </svg>
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Card Footer */}
+                  <div className="p-3 border-t border-stone-200 dark:border-stone-800 bg-[#FAF7F2] dark:bg-[#18181B]">
+                    <Button
+                      variant="whatsapp"
+                      className="w-full font-semibold shadow-md py-2.5"
+                      onClick={() => {
+                        const url = `https://wa.me/${normalizedDigits}?text=${encodeURIComponent(defaultMessage)}`;
+                        window.open(url, '_blank');
+                        setIsExpanded(false);
+                      }}
+                    >
+                      <SocialIcon platform="whatsapp" size="sm" className="mr-2" />
+                      Start a Conversation
+                    </Button>
+                  </div>
                 </div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
 
-        <div className="flex items-center">
-          {/* Floating WhatsApp Action Button */}
-          <motion.button
-            ref={buttonRef}
-            onClick={handleMainClick}
-            className={cn(
-              'group relative flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2',
-              'drop-shadow-[0_4px_16px_rgba(0,0,0,0.18)] hover:drop-shadow-[0_8px_24px_rgba(37,211,102,0.45)]',
-              isExpanded
-                ? 'w-12 h-12 md:w-14 md:h-14 bg-[var(--color-ink)] border border-[var(--color-gold)] text-white'
-                : 'w-12 h-12 md:w-14 md:h-14 bg-transparent p-0'
-            )}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.94 }}
-            aria-label={`Chat with ${businessName} Concierge on WhatsApp`}
-            aria-expanded={isExpanded}
-            aria-haspopup="true"
-          >
-            {isExpanded ? (
-              <svg className="h-6 w-6 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            ) : (
-              <div className="relative w-full h-full flex items-center justify-center flex-shrink-0 transition-transform">
-                <WhatsAppIcon className="w-12 h-12 md:w-14 md:h-14" />
-              </div>
-            )}
-          </motion.button>
+          <div className="flex items-center">
+            {/* Floating WhatsApp Action Button */}
+            <motion.button
+              ref={buttonRef}
+              onClick={handleMainClick}
+              className={cn(
+                'group relative flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366] focus-visible:ring-offset-2',
+                'drop-shadow-[0_4px_16px_rgba(0,0,0,0.18)] hover:drop-shadow-[0_8px_24px_rgba(37,211,102,0.45)]',
+                isExpanded
+                  ? 'w-12 h-12 md:w-14 md:h-14 bg-[var(--color-ink)] border border-[var(--color-gold)] text-white'
+                  : 'w-12 h-12 md:w-14 md:h-14 bg-transparent p-0'
+              )}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              aria-label={`Chat with ${businessName} Concierge on WhatsApp`}
+              aria-expanded={isExpanded}
+              aria-haspopup="true"
+            >
+              {isExpanded ? (
+                <svg className="h-6 w-6 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              ) : (
+                <div className="relative w-full h-full flex items-center justify-center flex-shrink-0 transition-transform">
+                  <WhatsAppIcon className="w-12 h-12 md:w-14 md:h-14" />
+                </div>
+              )}
+            </motion.button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

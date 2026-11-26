@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
+import { AdminImageInputWithUpload } from '@/components/admin/AdminImageUploadControl';
 import type {
   SizeFinderPageContent,
   SizeFinderSilhouette,
@@ -592,9 +593,10 @@ export function SizeFinderPageEditor({
                   }
                   placeholder="Kurtis & Tunics"
                 />
-                <AdminFormField
-                  label="Image Asset Path"
+                <AdminImageInputWithUpload
+                  label="Silhouette Photo (Upload or Path)"
                   value={currentSil.image}
+                  target="size-finder"
                   onChange={(val) =>
                     handleUpdateSilhouette(activeSilhouetteIdx, 'image', val)
                   }

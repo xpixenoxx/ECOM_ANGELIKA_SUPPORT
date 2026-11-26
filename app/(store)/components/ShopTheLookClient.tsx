@@ -8,6 +8,7 @@ interface LookWithHotspots {
   name: string;
   lifestyle_image_url: string;
   lifestyle_image_alt?: string | null;
+  subtitle?: string | null;
   look_hotspots: Array<{
     id: string;
     x_percent: number;
@@ -28,15 +29,18 @@ interface LookWithHotspots {
 }
 
 function normalizeLookInput(config: any): LookWithHotspots | null {
-  if (!config || !config.lifestyle_image_url) return null;
+  if (!config) return null;
+  const imageUrl = config.lifestyle_image_url || config.cover_image;
+  if (!imageUrl) return null;
 
-  // Real DB LookData shape from getLooks()
-  if (Array.isArray(config.look_hotspots) && config.look_hotspots.length > 0) {
+  // Real DB LookData or LookWithHotspots shape (supports 0 or more hotspots)
+  if (Array.isArray(config.look_hotspots)) {
     return {
       id: config.id || 'db-look',
-      name: config.name || 'Curated Ensemble',
-      lifestyle_image_url: config.lifestyle_image_url,
-      lifestyle_image_alt: config.lifestyle_image_alt || config.name || 'Featured Ensemble',
+      name: config.name || config.title || 'Curated Ensemble',
+      lifestyle_image_url: imageUrl,
+      lifestyle_image_alt: config.lifestyle_image_alt || config.description || config.name || config.title || 'Featured Ensemble',
+      subtitle: config.subtitle || config.description || null,
       look_hotspots: config.look_hotspots
         .map((hs: any, idx: number) => {
           const prod = hs.products;
@@ -80,14 +84,50 @@ function normalizeLookInput(config: any): LookWithHotspots | null {
     };
   }
 
+  // LookData `{ cover_image, products }` shape
+  if (Array.isArray(config.products)) {
+    return {
+      id: config.id || 'db-look',
+      name: config.title || config.name || 'Curated Ensemble',
+      lifestyle_image_url: imageUrl,
+      lifestyle_image_alt: config.description || config.title || 'Featured Ensemble',
+      look_hotspots: config.products.map((prod: any, idx: number) => ({
+        id: `hs-${config.id || 'look'}-${idx}`,
+        x_percent: Number(prod.x_position ?? 50),
+        y_percent: Number(prod.y_position ?? 50),
+        display_order: idx,
+        products: {
+          id: prod.id,
+          slug: prod.slug,
+          name: prod.name,
+          price: Number(prod.price ?? 0),
+          compare_at_price: prod.compare_at_price ?? null,
+          images: [prod.image || '/images/placeholder.jpg'],
+          thumbnail_url: prod.image || '/images/placeholder.jpg',
+          default_variant_id: prod.id,
+          variants: [],
+        },
+      })),
+    };
+  }
+
   // CMS site-content fallback look (displays curated look; links cleanly to product page)
-  if (!config.productName) return null;
   const parsedPrice = Number(String(config.productPrice || 0).replace(/[^0-9.]/g, ''));
+  const cleanTitle = (config.title || 'Festive Elegance')
+    .replace(/elegancesss/gi, 'Elegance')
+    .replace(/sss$/gi, '')
+    .trim();
+  const cleanSubtitle = (config.subtitle || 'Click pins on image to explore')
+    .replace(/sss$/gi, '')
+    .trim();
+  const prodName = config.productName || 'Mirror Work Lehenga';
+
   return {
     id: 'site-look-1',
-    name: config.title || 'Festive Elegance',
-    lifestyle_image_url: config.lifestyle_image_url,
-    lifestyle_image_alt: config.lifestyle_image_alt || config.title || 'Featured Ensemble',
+    name: cleanTitle,
+    lifestyle_image_url: imageUrl,
+    lifestyle_image_alt: config.badge || config.lifestyle_image_alt || cleanTitle || 'Featured Ensemble',
+    subtitle: cleanSubtitle,
     look_hotspots: [
       {
         id: 'hotspot-1',
@@ -97,7 +137,7 @@ function normalizeLookInput(config: any): LookWithHotspots | null {
         products: {
           id: config.productSlug || 'featured-look',
           slug: config.productSlug || 'mirror-work-lehenga',
-          name: config.productName,
+          name: prodName,
           price: parsedPrice,
           compare_at_price: config.productOriginalPrice
             ? Number(String(config.productOriginalPrice).replace(/[^0-9.]/g, ''))
@@ -114,15 +154,33 @@ function normalizeLookInput(config: any): LookWithHotspots | null {
   };
 }
 
-export function ShopTheLookClient({ initialLook }: { initialLook?: any }) {
-  const normalizedInitial = normalizeLookInput(initialLook);
-  const [look, setLook] = useState<LookWithHotspots | null>(normalizedInitial);
-  const [loading, setLoading] = useState(!normalizedInitial);
+export function ShopTheLookClient({
+  initialLook,
+  initialLooks,
+  onActiveLookChange,
+}: {
+  initialLook?: any;
+  initialLooks?: any[];
+  onActiveLookChange?: (lookName: string) => void;
+}) {
+  const normalizedList: LookWithHotspots[] = (
+    Array.isArray(initialLooks) && initialLooks.length > 0
+      ? initialLooks
+      : initialLook
+        ? [initialLook]
+        : []
+  )
+    .map(normalizeLookInput)
+    .filter((item): item is LookWithHotspots => item !== null);
+
+  const [looksList, setLooksList] = useState<LookWithHotspots[]>(normalizedList);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [loading, setLoading] = useState(normalizedList.length === 0);
 
   useEffect(() => {
-    // If initialLook has real DB hotspots, use it directly
-    if (Array.isArray(initialLook?.look_hotspots) && initialLook.look_hotspots.length > 0) {
-      setLook(normalizeLookInput(initialLook));
+    if (normalizedList.length > 0) {
+      setLooksList(normalizedList);
+      setActiveIndex((prev) => (prev < normalizedList.length ? prev : 0));
       setLoading(false);
       return;
     }
@@ -134,7 +192,7 @@ export function ShopTheLookClient({ initialLook }: { initialLook?: any }) {
         if (res.ok && !cancelled) {
           const data = await res.json();
           if (data?.lifestyle_image_url) {
-            setLook(data);
+            setLooksList([data]);
           }
         }
       } catch (error) {
@@ -147,7 +205,15 @@ export function ShopTheLookClient({ initialLook }: { initialLook?: any }) {
     return () => {
       cancelled = true;
     };
-  }, [initialLook]);
+  }, [initialLook, initialLooks]);
+
+  const activeLook = looksList[activeIndex] || looksList[0] || null;
+
+  useEffect(() => {
+    if (activeLook?.name) {
+      onActiveLookChange?.(activeLook.name);
+    }
+  }, [activeLook?.name, onActiveLookChange]);
 
   if (loading) {
     return (
@@ -157,7 +223,7 @@ export function ShopTheLookClient({ initialLook }: { initialLook?: any }) {
     );
   }
 
-  if (!look) {
+  if (!activeLook) {
     return (
       <div className="py-12 text-center border border-dashed border-[var(--color-whisper)] rounded-2xl bg-white/70">
         <p className="text-sm text-[var(--color-slate)]">No active Shop the Look curation at this moment.</p>
@@ -165,5 +231,27 @@ export function ShopTheLookClient({ initialLook }: { initialLook?: any }) {
     );
   }
 
-  return <ShopTheLook look={look} className="py-4" />;
+  return (
+    <div className="space-y-4">
+      {looksList.length > 1 && (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {looksList.map((item, idx) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveIndex(idx)}
+              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
+                idx === activeIndex
+                  ? 'bg-[var(--color-ink)] text-[var(--color-gold)] border-[var(--color-gold)] shadow-sm'
+                  : 'bg-white text-[var(--color-slate)] border-[var(--color-whisper)] hover:border-[var(--color-gold)]'
+              }`}
+            >
+              {item.name}
+            </button>
+          ))}
+        </div>
+      )}
+      <ShopTheLook key={activeLook.id} look={activeLook} className="py-4" />
+    </div>
+  );
 }

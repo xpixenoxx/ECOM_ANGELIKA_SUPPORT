@@ -21,7 +21,7 @@ const DEFAULT_NEW_ARRIVALS: NewArrivalsContent = {
   headingHighlight: 'the Atelier',
   ctaText: 'View All New',
   ctaLink: '/new-arrivals',
-  mode: 'custom',
+  mode: 'auto',
   limit: 8,
   items: [
     {

@@ -15,16 +15,37 @@ export interface HomepageProductCard {
 export interface LookData {
   id: string;
   title: string;
+  name?: string;
   description: string | null;
   cover_image: string | null;
+  lifestyle_image_url?: string | null;
+  lifestyle_image_alt?: string | null;
   products: Array<{
     id: string;
     slug: string;
     name: string;
     price: number;
+    compare_at_price?: number | null;
     image: string;
     x_position: number;
     y_position: number;
+  }>;
+  look_hotspots?: Array<{
+    id: string;
+    x_percent: number;
+    y_percent: number;
+    display_order: number;
+    products: {
+      id: string;
+      slug: string;
+      name: string;
+      price: number;
+      compare_at_price?: number | null;
+      images: string[];
+      thumbnail_url?: string | null;
+      default_variant_id?: string;
+      variants?: Array<{ id: string; size?: string; price: number }>;
+    } | null;
   }>;
 }
 

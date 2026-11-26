@@ -55,7 +55,11 @@ function formatFabricString(fabric: unknown): string | null {
 }
 
 function mapProductToCard(p: any): ShopProductCard {
-  const primaryImage = p.product_images?.find((img: any) => img.is_primary) || p.product_images?.[0];
+  const sortedImages = [...(p.product_images || [])].sort(
+    (a: any, b: any) =>
+      (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0) || (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  );
+  const primaryImage = sortedImages[0];
   const imageUrl = primaryImage?.url || '/images/collection-kurtis.jpg';
   
   // Find lowest price variant or default variant
@@ -89,7 +93,7 @@ function mapProductToCard(p: any): ShopProductCard {
     compare_at_price: compareAtPrice,
     originalPrice: compareAtPrice,
     compareAtPrice: compareAtPrice,
-    images: p.product_images || [],
+    images: sortedImages,
     image: imageUrl,
     category: p.category || null,
     discount,
@@ -674,6 +678,7 @@ export async function getAllProducts(
 }
 
 export async function getCategoryBySlug(slug: string): Promise<CategoryRow | null> {
+  let foundInactiveInDb = false;
   try {
     const supabase = await getSupabaseClient();
 
@@ -681,13 +686,20 @@ export async function getCategoryBySlug(slug: string): Promise<CategoryRow | nul
       .from('categories')
       .select('*')
       .eq('slug', slug)
-      .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
-    if (!error && category) return category;
+    if (!error && category) {
+      if (category.is_active === false) {
+        foundInactiveInDb = true;
+      } else {
+        return category;
+      }
+    }
   } catch (err) {
     // Non-blocking fallback
   }
+
+  if (foundInactiveInDb) return null;
 
   // Graceful fallback for store categories
   const normalized = (slug || '').toLowerCase();
@@ -758,4 +770,20 @@ export async function getAllCategories(): Promise<CategoryRow[]> {
 
   if (error || !categories) return [];
   return categories;
+}
+
+export async function getStorefrontCategoryStatuses(): Promise<CategoryRow[]> {
+  try {
+    const supabase = await getSupabaseClient();
+
+    const { data: categories, error } = await supabase
+      .from('categories')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (error || !categories) return [];
+    return categories;
+  } catch {
+    return [];
+  }
 }

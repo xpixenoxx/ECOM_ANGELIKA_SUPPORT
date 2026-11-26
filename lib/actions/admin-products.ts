@@ -8,6 +8,28 @@ import {
   logAdminAction,
 } from '@/lib/supabase/admin-auth';
 import { revalidatePath } from 'next/cache';
+import { syncDbCategoryToCmsSection, syncLooksToSiteContent } from './product-cms-sync';
+
+async function syncCategoriesForIds(
+  supabase: any,
+  categoryIds: Array<string | null | undefined>
+) {
+  const uniqueIds = Array.from(
+    new Set(categoryIds.filter((id): id is string => Boolean(id)))
+  );
+  if (uniqueIds.length === 0) return;
+
+  const { data: cats } = await supabase
+    .from('categories')
+    .select('id, slug')
+    .in('id', uniqueIds);
+
+  for (const cat of cats || []) {
+    if (cat?.slug) {
+      await syncDbCategoryToCmsSection(cat.slug);
+    }
+  }
+}
 
 export interface AdminProduct {
   id: string;
@@ -335,9 +357,14 @@ export async function createProduct(payload: {
     afterState: { name: newProd.name, slug: newProd.slug, sku: newProd.sku },
   });
 
+  await syncCategoriesForIds(supabase, [newProd.category_id]);
+
   revalidatePath('/admin/products');
+  revalidatePath('/admin/content');
   revalidatePath('/shop');
   revalidatePath('/');
+  revalidatePath('/new-arrivals');
+  revalidatePath('/vidhyas-picks');
   return { success: true, data: newProd };
 }
 
@@ -371,6 +398,12 @@ export async function updateProduct(
 ) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
   if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
+
+  const { data: prevProd } = await supabase
+    .from('products')
+    .select('category_id')
+    .eq('id', id)
+    .maybeSingle();
 
   // 1. Update product table
   const prodUpdates: any = { updated_at: new Date().toISOString() };
@@ -550,60 +583,83 @@ export async function updateProduct(
     afterState: prodUpdates,
   });
 
+  await syncCategoriesForIds(supabase, [prevProd?.category_id, payload.category_id]);
+
   revalidatePath('/admin/products');
   revalidatePath(`/admin/products/${id}/edit`);
+  revalidatePath('/admin/content');
   revalidatePath('/shop');
   revalidatePath('/');
+  revalidatePath('/new-arrivals');
+  revalidatePath('/vidhyas-picks');
   return { success: true };
 }
 
 export async function toggleProductActive(id: string, is_active: boolean) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
   if (!isAdmin) return { error: authError || 'Unauthorized' };
-  const { error } = await supabase
+  const { data: updatedRow, error } = await supabase
     .from('products')
     .update({ is_active, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('category_id')
+    .maybeSingle();
   if (error) {
     console.error('toggleProductActive error:', error);
     return { error: error.message };
   }
   await logAdminAction({ actorId: userId, action: 'toggle_product_active', entityType: 'product', entityId: id, afterState: { is_active } });
+  await syncCategoriesForIds(supabase, [updatedRow?.category_id]);
   revalidatePath('/admin/products');
+  revalidatePath('/admin/content');
   revalidatePath('/shop');
+  revalidatePath('/');
+  revalidatePath('/new-arrivals');
+  revalidatePath('/vidhyas-picks');
   return { error: null };
 }
 
 export async function toggleProductFeatured(id: string, is_featured: boolean) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
   if (!isAdmin) return { error: authError || 'Unauthorized' };
-  const { error } = await supabase
+  const { data: updatedRow, error } = await supabase
     .from('products')
     .update({ is_featured, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('category_id')
+    .maybeSingle();
   if (error) {
     console.error('toggleProductFeatured error:', error);
     return { error: error.message };
   }
   await logAdminAction({ actorId: userId, action: 'toggle_product_featured', entityType: 'product', entityId: id, afterState: { is_featured } });
+  await syncCategoriesForIds(supabase, [updatedRow?.category_id]);
   revalidatePath('/admin/products');
+  revalidatePath('/admin/content');
+  revalidatePath('/shop');
   revalidatePath('/');
+  revalidatePath('/new-arrivals');
   return { error: null };
 }
 
 export async function toggleProductVidyasPick(id: string, is_vidyas_pick: boolean) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
   if (!isAdmin) return { error: authError || 'Unauthorized' };
-  const { error } = await supabase
+  const { data: updatedRow, error } = await supabase
     .from('products')
     .update({ is_vidyas_pick, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('category_id')
+    .maybeSingle();
   if (error) {
     console.error('toggleProductVidyasPick error:', error);
     return { error: error.message };
   }
   await logAdminAction({ actorId: userId, action: 'toggle_product_vidyas_pick', entityType: 'product', entityId: id, afterState: { is_vidyas_pick } });
+  await syncCategoriesForIds(supabase, [updatedRow?.category_id]);
   revalidatePath('/admin/products');
+  revalidatePath('/admin/content');
+  revalidatePath('/shop');
   revalidatePath('/');
   revalidatePath('/vidhyas-picks');
   return { error: null };
@@ -613,14 +669,25 @@ export async function deleteProduct(id: string) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
   if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   try {
+    const { data: existingProd } = await supabase
+      .from('products')
+      .select('category_id')
+      .eq('id', id)
+      .maybeSingle();
+
     await supabase.from('product_variants').delete().eq('product_id', id);
     await supabase.from('product_images').delete().eq('product_id', id);
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) throw error;
 
     await logAdminAction({ actorId: userId, action: 'delete_product', entityType: 'product', entityId: id });
+    await syncCategoriesForIds(supabase, [existingProd?.category_id]);
     revalidatePath('/admin/products');
+    revalidatePath('/admin/content');
     revalidatePath('/shop');
+    revalidatePath('/');
+    revalidatePath('/new-arrivals');
+    revalidatePath('/vidhyas-picks');
     return { success: true, error: null };
   } catch (err: any) {
     console.error('deleteProduct error:', err);
@@ -633,14 +700,24 @@ export async function bulkDeleteProducts(ids: string[]) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
   if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
   try {
+    const { data: affectedRows } = await supabase
+      .from('products')
+      .select('category_id')
+      .in('id', ids);
+
     await supabase.from('product_variants').delete().in('product_id', ids);
     await supabase.from('product_images').delete().in('product_id', ids);
     const { error } = await supabase.from('products').delete().in('id', ids);
     if (error) throw error;
 
     await logAdminAction({ actorId: userId, action: 'bulk_delete_products', entityType: 'product', afterState: { ids, count: ids.length } });
+    await syncCategoriesForIds(supabase, (affectedRows || []).map((r: any) => r.category_id));
     revalidatePath('/admin/products');
+    revalidatePath('/admin/content');
     revalidatePath('/shop');
+    revalidatePath('/');
+    revalidatePath('/new-arrivals');
+    revalidatePath('/vidhyas-picks');
     return { success: true, count: ids.length };
   } catch (err: any) {
     console.error('bulkDeleteProducts error:', err);
@@ -661,12 +738,21 @@ export async function bulkUpdateProducts(
     if (updates.is_featured !== undefined) payload.is_featured = updates.is_featured;
     if (updates.is_vidyas_pick !== undefined) payload.is_vidyas_pick = updates.is_vidyas_pick;
 
-    const { error } = await supabase.from('products').update(payload).in('id', ids);
+    const { data: updatedRows, error } = await supabase
+      .from('products')
+      .update(payload)
+      .in('id', ids)
+      .select('category_id');
     if (error) throw error;
 
     await logAdminAction({ actorId: userId, action: 'bulk_update_products', entityType: 'product', afterState: { ids, updates } });
+    await syncCategoriesForIds(supabase, (updatedRows || []).map((r: any) => r.category_id));
     revalidatePath('/admin/products');
+    revalidatePath('/admin/content');
     revalidatePath('/shop');
+    revalidatePath('/');
+    revalidatePath('/new-arrivals');
+    revalidatePath('/vidhyas-picks');
     return { success: true, count: ids.length };
   } catch (err: any) {
     console.error('bulkUpdateProducts error:', err);
@@ -734,7 +820,9 @@ export async function duplicateProduct(id: string) {
       metadata: { sourceProductId: id },
     });
 
+    await syncCategoriesForIds(supabase, [newProd.category_id]);
     revalidatePath('/admin/products');
+    revalidatePath('/admin/content');
     return { success: true, data: newProd };
   } catch (err: any) {
     console.error('duplicateProduct error:', err);
@@ -777,6 +865,7 @@ export async function bulkCreateProducts(products: BulkProductInput[]) {
     });
 
     let totalInserted = 0;
+    const insertedCatIds = new Set<string>();
     const BATCH_SIZE = 50;
 
     for (let i = 0; i < products.length; i += BATCH_SIZE) {
@@ -788,6 +877,7 @@ export async function bulkCreateProducts(products: BulkProductInput[]) {
           catId = catNameToId[p.category_name.toLowerCase()] || defaultCategoryId;
         }
         if (!catId) catId = defaultCategoryId;
+        if (catId) insertedCatIds.add(catId);
 
         const baseSlug = (p.slug || p.name)
           .toLowerCase()
@@ -860,8 +950,13 @@ export async function bulkCreateProducts(products: BulkProductInput[]) {
       totalInserted += (insertedProds || []).length;
     }
 
+    await syncCategoriesForIds(supabase, Array.from(insertedCatIds));
     revalidatePath('/admin/products');
+    revalidatePath('/admin/content');
     revalidatePath('/shop');
+    revalidatePath('/');
+    revalidatePath('/new-arrivals');
+    revalidatePath('/vidhyas-picks');
     return { success: true, count: totalInserted };
   } catch (err: any) {
     console.error('bulkCreateProducts error:', err);
@@ -1001,6 +1096,8 @@ export async function createCategory(payload: {
   await logAdminAction({ actorId: userId, action: 'create_category', entityType: 'category', entityId: data.id, afterState: { name: data.name, slug: data.slug } });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
+  revalidatePath(`/shop/${data.slug}`);
+  revalidatePath('/shop/[category]', 'page');
   revalidatePath('/');
   return { success: true, data };
 }
@@ -1017,6 +1114,13 @@ export async function updateCategory(
 ) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
   if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
+
+  const { data: existingCat } = await supabase
+    .from('categories')
+    .select('slug')
+    .eq('id', id)
+    .maybeSingle();
+
   const updates: any = { updated_at: new Date().toISOString() };
   if (payload.name !== undefined) updates.name = payload.name;
   if (payload.slug !== undefined) updates.slug = payload.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-');
@@ -1024,37 +1128,58 @@ export async function updateCategory(
   if (payload.image_url !== undefined) updates.image_url = payload.image_url;
   if (payload.is_active !== undefined) updates.is_active = payload.is_active;
 
-  const { error } = await supabase.from('categories').update(updates).eq('id', id);
+  const { data: updatedCat, error } = await supabase
+    .from('categories')
+    .update(updates)
+    .eq('id', id)
+    .select('*')
+    .single();
   if (error) return { success: false, error: error.message };
   await logAdminAction({ actorId: userId, action: 'update_category', entityType: 'category', entityId: id, afterState: updates });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
+  if (existingCat?.slug) revalidatePath(`/shop/${existingCat.slug}`);
+  if (updatedCat?.slug) revalidatePath(`/shop/${updatedCat.slug}`);
+  revalidatePath('/shop/[category]', 'page');
   revalidatePath('/');
-  return { success: true };
+  return { success: true, data: updatedCat };
 }
 
 export async function toggleCategoryActive(id: string, is_active: boolean) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
   if (!isAdmin) return { error: authError || 'Unauthorized' };
-  const { error } = await supabase
+  const { data: toggled, error } = await supabase
     .from('categories')
     .update({ is_active, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    .eq('id', id)
+    .select('slug')
+    .maybeSingle();
   if (error) return { error: error.message };
   await logAdminAction({ actorId: userId, action: 'toggle_category_active', entityType: 'category', entityId: id, afterState: { is_active } });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
+  if (toggled?.slug) revalidatePath(`/shop/${toggled.slug}`);
+  revalidatePath('/shop/[category]', 'page');
+  revalidatePath('/');
   return { error: null };
 }
 
 export async function deleteCategory(id: string) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(OPS_ADMIN_ROLES);
   if (!isAdmin) return { error: authError || 'Unauthorized' };
+  const { data: existingCat } = await supabase
+    .from('categories')
+    .select('slug')
+    .eq('id', id)
+    .maybeSingle();
   const { error } = await supabase.from('categories').delete().eq('id', id);
   if (error) return { error: error.message };
   await logAdminAction({ actorId: userId, action: 'delete_category', entityType: 'category', entityId: id });
   revalidatePath('/admin/products/categories');
   revalidatePath('/shop');
+  if (existingCat?.slug) revalidatePath(`/shop/${existingCat.slug}`);
+  revalidatePath('/shop/[category]', 'page');
+  revalidatePath('/');
   return { error: null };
 }
 
@@ -1084,6 +1209,71 @@ export async function getAdminCollections(): Promise<AdminCollection[]> {
   }));
 }
 
+export async function updateCollectionDetails(
+  id: string,
+  payload: {
+    name?: string;
+    lifestyle_image_url?: string;
+    lifestyle_image_alt?: string | null;
+    is_active?: boolean;
+    display_order?: number;
+  }
+) {
+  const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
+  if (!isAdmin) return { success: false, error: authError || 'Unauthorized' };
+
+  const updates: {
+    name?: string;
+    lifestyle_image_url?: string;
+    lifestyle_image_alt?: string | null;
+    is_active?: boolean;
+    display_order?: number;
+    updated_at: string;
+  } = { updated_at: new Date().toISOString() };
+  if (payload.name !== undefined) updates.name = payload.name.trim();
+  if (payload.lifestyle_image_url !== undefined) updates.lifestyle_image_url = payload.lifestyle_image_url.trim();
+  if (payload.lifestyle_image_alt !== undefined) updates.lifestyle_image_alt = payload.lifestyle_image_alt?.trim() || null;
+  if (payload.is_active !== undefined) updates.is_active = payload.is_active;
+  if (payload.display_order !== undefined) updates.display_order = Number(payload.display_order) || 0;
+
+  const { data: updatedLook, error } = await supabase
+    .from('looks')
+    .update(updates)
+    .eq('id', id)
+    .select('*, look_hotspots(id)')
+    .single();
+
+  if (error) return { success: false, error: error.message };
+
+  await logAdminAction({
+    actorId: userId,
+    action: 'update_collection_details',
+    entityType: 'look',
+    entityId: id,
+    afterState: updates,
+  });
+
+  await syncLooksToSiteContent();
+  revalidatePath('/admin/products/collections');
+  revalidatePath('/admin/looks');
+  revalidatePath('/admin/content');
+  revalidatePath(`/admin/looks/${id}/edit`);
+  revalidatePath('/');
+  return {
+    success: true,
+    data: {
+      id: updatedLook.id,
+      name: updatedLook.name,
+      lifestyle_image_url: updatedLook.lifestyle_image_url,
+      lifestyle_image_alt: updatedLook.lifestyle_image_alt,
+      is_active: updatedLook.is_active,
+      display_order: updatedLook.display_order,
+      created_at: updatedLook.created_at,
+      hotspots_count: (updatedLook.look_hotspots || []).length,
+    } as AdminCollection,
+  };
+}
+
 export async function toggleCollectionActive(id: string, is_active: boolean) {
   const { supabase, isAdmin, userId, error: authError } = await getAdminClient(CONTENT_ADMIN_ROLES);
   if (!isAdmin) return { error: authError || 'Unauthorized' };
@@ -1093,7 +1283,10 @@ export async function toggleCollectionActive(id: string, is_active: boolean) {
     .eq('id', id);
   if (error) return { error: error.message };
   await logAdminAction({ actorId: userId, action: 'toggle_collection_active', entityType: 'look', entityId: id, afterState: { is_active } });
+  await syncLooksToSiteContent();
   revalidatePath('/admin/products/collections');
+  revalidatePath('/admin/looks');
+  revalidatePath('/admin/content');
   revalidatePath('/');
   return { error: null };
 }
@@ -1105,7 +1298,10 @@ export async function deleteCollection(id: string) {
   const { error } = await supabase.from('looks').delete().eq('id', id);
   if (error) return { error: error.message };
   await logAdminAction({ actorId: userId, action: 'delete_collection', entityType: 'look', entityId: id });
+  await syncLooksToSiteContent();
   revalidatePath('/admin/products/collections');
+  revalidatePath('/admin/looks');
+  revalidatePath('/admin/content');
   revalidatePath('/');
   return { error: null };
 }

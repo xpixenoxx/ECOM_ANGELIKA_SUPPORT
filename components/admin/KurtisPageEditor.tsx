@@ -302,14 +302,15 @@ export function KurtisPageEditor({ onCancel, onSaved }: KurtisPageEditorProps) {
   };
 
   const handleRemoveProduct = (index: number) => {
-    if (data.products.length <= 1) return;
     setData((prev) => ({
       ...prev,
       products: prev.products.filter((_, i) => i !== index),
     }));
-    if (selectedProductIndex >= index && selectedProductIndex > 0) {
-      setSelectedProductIndex((prev) => prev - 1);
-    }
+    setSelectedProductIndex((prev) => {
+      if (data.products.length <= 1) return 0;
+      if (prev >= index && prev > 0) return prev - 1;
+      return Math.min(prev, Math.max(0, data.products.length - 2));
+    });
   };
 
   const handleHighlightChange = (index: number, field: 'title' | 'description', text: string) => {
@@ -339,12 +340,26 @@ export function KurtisPageEditor({ onCancel, onSaved }: KurtisPageEditorProps) {
       body.append('file', file);
       body.append('target', targetName);
 
-      const res = await fetch('/api/admin/content/upload', {
+      let res = await fetch('/api/admin/content/upload', {
         method: 'POST',
         body,
       });
 
-      const resJson = await res.json();
+      if (!res.ok) {
+        res = await fetch('/api/admin/upload', {
+          method: 'POST',
+          body,
+        });
+      }
+
+      if (!res.ok) {
+        res = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          body,
+        });
+      }
+
+      const resJson = await res.json().catch(() => ({}));
       if (resJson.success && resJson.url) {
         if (fieldKey === 'productImage' && typeof prodIndex === 'number') {
           handleProductChange(prodIndex, 'image', resJson.url);
@@ -377,14 +392,16 @@ export function KurtisPageEditor({ onCancel, onSaved }: KurtisPageEditorProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sectionId: 'kurtis-page',
-          content: data,
+          data,
         }),
       });
 
       const json = await res.json();
       if (json.success) {
+        const nextSection = json.content?.['kurtis-page'] || data;
+        setData(nextSection);
         setSaveStatus({ type: 'success', message: 'Kurtis page content and products saved and live on storefront!' });
-        if (onSaved) onSaved(data);
+        if (onSaved) onSaved(nextSection);
         setTimeout(() => setSaveStatus(null), 4000);
       } else {
         setSaveStatus({ type: 'error', message: json.error || 'Failed to save changes.' });
@@ -1000,19 +1017,17 @@ export function KurtisPageEditor({ onCancel, onSaved }: KurtisPageEditorProps) {
                       </div>
                     </div>
 
-                    {data.products.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveProduct(idx);
-                        }}
-                        className="text-slate-400 hover:text-rose-500 p-1.5 transition-colors text-xs"
-                        title="Delete product card"
-                      >
-                        ✕
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveProduct(idx);
+                      }}
+                      className="text-slate-400 hover:text-rose-500 p-1.5 transition-colors text-xs"
+                      title="Delete product card"
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>
@@ -1091,7 +1106,14 @@ export function KurtisPageEditor({ onCancel, onSaved }: KurtisPageEditorProps) {
                       Fabric
                     </label>
                     <Input
-                      value={selectedProduct.fabric || 'Cotton'}
+                      value={
+                        typeof selectedProduct.fabric === 'string' &&
+                        selectedProduct.fabric.trim() !== '[object Object]'
+                          ? selectedProduct.fabric
+                          : (typeof (selectedProduct.fabric as any)?.main === 'string'
+                              ? (selectedProduct.fabric as any).main
+                              : 'Cotton & Silk')
+                      }
                       onChange={(e) => handleProductChange(selectedProductIndex, 'fabric', e.target.value)}
                       placeholder="Silk, Cotton, Chanderi, Velvet..."
                       className="text-xs"

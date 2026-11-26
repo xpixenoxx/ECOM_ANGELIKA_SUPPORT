@@ -12,6 +12,7 @@ interface LookWithHotspots {
   name: string;
   lifestyle_image_url: string;
   lifestyle_image_alt?: string | null;
+  subtitle?: string | null;
   look_hotspots: Array<{
     id: string;
     x_percent: number;
@@ -73,6 +74,7 @@ export function ShopTheLook({ look, className = '' }: ShopTheLookProps) {
             src={look.lifestyle_image_url}
             alt={look.lifestyle_image_alt || `Shop the Look: ${look.name}`}
             fill
+            unoptimized
             className="object-cover w-full h-full select-none"
             priority
             sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
@@ -112,7 +114,7 @@ export function ShopTheLook({ look, className = '' }: ShopTheLookProps) {
           <div className="absolute top-4 left-4 z-10 pointer-events-auto">
             <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-full shadow-lg border border-[var(--color-whisper)]">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-gold)] block">
-                Featured Ensemble
+                {look.lifestyle_image_alt || 'Featured Ensemble'}
               </span>
               <h2 className="font-display text-base md:text-lg font-semibold text-[var(--color-ink)] leading-tight">
                 {look.name}
@@ -123,7 +125,7 @@ export function ShopTheLook({ look, className = '' }: ShopTheLookProps) {
           <div className="absolute bottom-4 right-4 z-10 pointer-events-none hidden sm:block">
             <span className="bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full font-medium shadow flex items-center gap-1.5">
               <span>✦</span>
-              <span>Click pins on image to explore</span>
+              <span>{(look as any).subtitle || 'Click pins on image to explore'}</span>
             </span>
           </div>
         </div>
@@ -149,11 +151,10 @@ export function ShopTheLook({ look, className = '' }: ShopTheLookProps) {
                 return (
                   <div
                     key={hotspot.id}
-                    className={`flex items-center gap-3 p-3 bg-white rounded-xl border transition-all duration-200 ${
-                      isSelected
-                        ? 'border-[var(--color-gold)] shadow-md ring-1 ring-[var(--color-gold)]/40'
-                        : 'border-[var(--color-whisper)] shadow-sm hover:border-[var(--color-gold)]/50'
-                    }`}
+                    className={`flex items-center gap-3 p-3 bg-white rounded-xl border transition-all duration-200 ${isSelected
+                      ? 'border-[var(--color-gold)] shadow-md ring-1 ring-[var(--color-gold)]/40'
+                      : 'border-[var(--color-whisper)] shadow-sm hover:border-[var(--color-gold)]/50'
+                      }`}
                   >
                     <div className="relative w-16 h-20 rounded-lg overflow-hidden bg-[var(--color-whisper)] flex-shrink-0">
                       <Image
@@ -175,11 +176,10 @@ export function ShopTheLook({ look, className = '' }: ShopTheLookProps) {
                         <button
                           type="button"
                           onClick={() => handleQuickShopClick(hotspot.id)}
-                          className={`text-xs font-semibold px-2.5 py-1 rounded transition-colors ${
-                            isSelected
-                              ? 'bg-[var(--color-ink)] text-[var(--color-gold)]'
-                              : 'bg-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold-hover)]'
-                          }`}
+                          className={`text-xs font-semibold px-2.5 py-1 rounded transition-colors ${isSelected
+                            ? 'bg-[var(--color-ink)] text-[var(--color-gold)]'
+                            : 'bg-[var(--color-gold)] text-[var(--color-ink)] hover:bg-[var(--color-gold-hover)]'
+                            }`}
                         >
                           {isSelected ? 'Viewing on Look' : 'Quick Shop'}
                         </button>

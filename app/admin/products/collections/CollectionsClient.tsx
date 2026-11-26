@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useTransition } from 'react';
+import React, { useState, useTransition, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ShoppingBag,
@@ -10,29 +10,61 @@ import {
   Trash2,
   Eye,
   EyeOff,
-  ExternalLink,
-  Sparkles,
-  Layers,
   MapPin,
+  Upload,
+  X,
+  Save,
+  Check,
+  AlertTriangle,
+  Sliders,
 } from 'lucide-react';
 import { AdminSectionInfo } from '@/components/admin/AdminSectionInfo';
 import {
-  getAdminCollections,
+  AdminImageInputWithUpload,
+  uploadAdminImageWithFallback,
+} from '@/components/admin/AdminImageUploadControl';
+import {
   toggleCollectionActive,
   deleteCollection,
+  updateCollectionDetails,
 } from '@/lib/actions/admin-products';
 import type { AdminCollection } from '@/lib/actions/admin-products';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface Props {
   initialCollections: AdminCollection[];
 }
 
 export default function CollectionsClient({ initialCollections }: Props) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const [collections, setCollections] = useState(initialCollections);
   const [search, setSearch] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingCardId, setUploadingCardId] = useState<string | null>(null);
+  const quickFileInputRef = useRef<HTMLInputElement | null>(null);
+  const quickUploadTargetIdRef = useRef<string | null>(null);
+
+  // Quick Edit Modal State
+  const [editingLook, setEditingLook] = useState<AdminCollection | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editImage, setEditImage] = useState('');
+  const [editAlt, setEditAlt] = useState('');
+  const [editOrder, setEditOrder] = useState<number>(0);
+  const [editActive, setEditActive] = useState<boolean>(true);
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [toastMsg, setToastMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  function showToast(text: string, type: 'success' | 'error' = 'success') {
+    setToastMsg({ text, type });
+    setTimeout(() => setToastMsg(null), 3500);
+  }
+
+  useEffect(() => {
+    setCollections(initialCollections);
+  }, [initialCollections]);
 
   const filtered = collections.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -43,7 +75,16 @@ export default function CollectionsClient({ initialCollections }: Props) {
       prev.map((c) => (c.id === id ? { ...c, is_active: !current } : c))
     );
     startTransition(async () => {
-      await toggleCollectionActive(id, !current);
+      const res = await toggleCollectionActive(id, !current);
+      if (res?.error) {
+        setCollections((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, is_active: current } : c))
+        );
+        showToast(`Failed to update visibility: ${res.error}`, 'error');
+      } else {
+        showToast(!current ? 'Look published to Homepage' : 'Look moved to Draft');
+        router.refresh();
+      }
     });
   }
 
@@ -54,16 +95,132 @@ export default function CollectionsClient({ initialCollections }: Props) {
     startTransition(async () => {
       const res = await deleteCollection(id);
       if (res.error) {
-        alert(`Error deleting collection: ${res.error}`);
+        showToast(`Error deleting collection: ${res.error}`, 'error');
       } else {
         setCollections((prev) => prev.filter((c) => c.id !== id));
+        showToast(`Deleted "${name}"`);
+        router.refresh();
       }
       setDeletingId(null);
     });
   }
 
+  function openQuickEdit(look: AdminCollection) {
+    setEditingLook(look);
+    setEditName(look.name || '');
+    setEditImage(look.lifestyle_image_url || '');
+    setEditAlt(look.lifestyle_image_alt || '');
+    setEditOrder(Number(look.display_order) || 0);
+    setEditActive(look.is_active);
+  }
+
+  async function handleSaveQuickEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingLook || !editName.trim() || !editImage.trim()) {
+      showToast('Look name and image are required', 'error');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const res = await updateCollectionDetails(editingLook.id, {
+        name: editName.trim(),
+        lifestyle_image_url: editImage.trim(),
+        lifestyle_image_alt: editAlt.trim() || null,
+        display_order: Number(editOrder) || 0,
+        is_active: editActive,
+      });
+
+      if (!res.success || !res.data) {
+        showToast(res.error || 'Failed to update look', 'error');
+        return;
+      }
+
+      setCollections((prev) =>
+        prev.map((c) => (c.id === editingLook.id ? res.data! : c))
+      );
+      setEditingLook(null);
+      showToast('Collection look updated on storefront!');
+      router.refresh();
+    } catch (err: any) {
+      showToast(err?.message || 'Error updating collection', 'error');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  function triggerCardPhotoUpload(lookId: string) {
+    quickUploadTargetIdRef.current = lookId;
+    quickFileInputRef.current?.click();
+  }
+
+  async function handleCardFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    const targetId = quickUploadTargetIdRef.current;
+    if (e.target) e.target.value = '';
+    if (!file || !targetId) return;
+
+    setUploadingCardId(targetId);
+    try {
+      const uploaded = await uploadAdminImageWithFallback(file, `look-${targetId}`);
+      if (!uploaded.success || !uploaded.url) {
+        showToast(uploaded.error || 'Failed to upload image', 'error');
+        return;
+      }
+
+      const saved = await updateCollectionDetails(targetId, {
+        lifestyle_image_url: uploaded.url,
+      });
+      if (!saved.success || !saved.data) {
+        showToast(saved.error || 'Failed to save uploaded photo', 'error');
+        return;
+      }
+
+      setCollections((prev) =>
+        prev.map((c) => (c.id === targetId ? saved.data! : c))
+      );
+      showToast('Photo uploaded from device and updated!');
+      router.refresh();
+    } catch (err: any) {
+      showToast(err?.message || 'Upload error', 'error');
+    } finally {
+      setUploadingCardId(null);
+      quickUploadTargetIdRef.current = null;
+    }
+  }
+
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <input
+        ref={quickFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleCardFileSelected}
+      />
+
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-xl shadow-lg border text-sm font-medium flex items-center gap-2 ${
+              toastMsg.type === 'error'
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : 'bg-green-50 border-green-200 text-green-800'
+            }`}
+          >
+            {toastMsg.type === 'error' ? (
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+            ) : (
+              <Check className="w-4 h-4 text-green-600" />
+            )}
+            <span>{toastMsg.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -177,12 +334,30 @@ export default function CollectionsClient({ initialCollections }: Props) {
                 </button>
 
                 <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => triggerCardPhotoUpload(look.id)}
+                    disabled={uploadingCardId === look.id}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--color-ink,#111111)] bg-white border border-[var(--color-whisper,#E5E5E5)] hover:border-[var(--color-gold,#C9A84C)] transition-colors disabled:opacity-50"
+                    title="Upload photo from local device"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-[var(--color-gold,#C9A84C)]" />
+                    <span>{uploadingCardId === look.id ? 'Uploading...' : 'Photo'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openQuickEdit(look)}
+                    className="p-2 rounded-lg text-[var(--color-slate,#666666)] hover:text-[var(--color-gold,#C9A84C)] hover:bg-white transition-colors"
+                    title="Quick edit look details & photo"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
                   <Link
                     href={`/admin/looks/${look.id}/edit`}
                     className="p-2 rounded-lg text-[var(--color-slate,#666666)] hover:text-[var(--color-gold,#C9A84C)] hover:bg-white transition-colors"
-                    title="Edit look and configure hotspots"
+                    title="Configure interactive hotspots"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    <Sliders className="w-4 h-4" />
                   </Link>
                   <button
                     type="button"
@@ -212,6 +387,115 @@ export default function CollectionsClient({ initialCollections }: Props) {
           </Link>
         </div>
       )}
+
+      {/* Quick Edit & Local Upload Modal */}
+      <AnimatePresence>
+        {editingLook && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="bg-white rounded-2xl border border-[var(--color-whisper,#E5E5E5)] max-w-lg w-full p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-medium text-[var(--color-ink,#111111)]" style={{ fontFamily: 'var(--font-display)' }}>
+                  Edit Collection &amp; Look
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setEditingLook(null)}
+                  className="p-1.5 rounded-lg text-gray-500 hover:text-gray-900"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveQuickEdit} className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Look Name *</label>
+                  <input
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="e.g., Festive Elegance"
+                    className="w-full mt-1 px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30 focus:border-[var(--color-gold,#C9A84C)]"
+                  />
+                </div>
+
+                <div>
+                  <AdminImageInputWithUpload
+                    label="Look / Collection Photo *"
+                    value={editImage}
+                    onChange={setEditImage}
+                    placeholder="/images/uploads/... or https://..."
+                    target={`look-${editingLook.id}`}
+                    helperText="Upload directly from your local device or paste an image URL"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Alt Text</label>
+                    <input
+                      value={editAlt}
+                      onChange={(e) => setEditAlt(e.target.value)}
+                      placeholder="Image alt description"
+                      className="w-full mt-1 px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Display Order</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editOrder}
+                      onChange={(e) => setEditOrder(Number(e.target.value) || 0)}
+                      className="w-full mt-1 px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--color-gold,#C9A84C)]/30"
+                    />
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editActive}
+                    onChange={(e) => setEditActive(e.target.checked)}
+                    className="rounded text-[var(--color-gold,#C9A84C)]"
+                  />
+                  <span className="text-sm text-gray-700">Live on Storefront Homepage</span>
+                </label>
+
+                <div className="flex items-center justify-between pt-3 border-t border-[var(--color-whisper,#E5E5E5)]">
+                  <Link
+                    href={`/admin/looks/${editingLook.id}/edit`}
+                    className="text-xs font-medium text-[var(--color-gold,#C9A84C)] hover:underline"
+                  >
+                    Open Hotspot Pin Editor →
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingLook(null)}
+                      className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingEdit}
+                      className="flex items-center gap-2 px-5 py-2 bg-[var(--color-gold,#C9A84C)] text-white text-sm font-medium rounded-xl hover:opacity-90 disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      {savingEdit ? 'Saving...' : 'Save Changes'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

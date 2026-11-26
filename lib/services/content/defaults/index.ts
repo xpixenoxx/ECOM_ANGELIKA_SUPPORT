@@ -164,7 +164,7 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
     headingHighlight: 'the Atelier',
     ctaText: 'View All New',
     ctaLink: '/new-arrivals',
-    mode: 'custom',
+    mode: 'auto',
     limit: 8,
     items: [
       {

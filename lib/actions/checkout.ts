@@ -7,6 +7,7 @@ import { OPS_ADMIN_ROLES, requireAdminRole } from '@/lib/supabase/admin-auth';
 import { createOrderReceiptToken, verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
 import { checkRateLimitAsync } from '@/lib/utils/rate-limit';
 import { getRazorpayConfig, type RazorpayMode } from '@/lib/env';
+import { revalidatePath } from 'next/cache';
 import { calculateOrderTotals, PRICING_CONSTANTS, toPaise, type CouponSpec } from '@/lib/pricing';
 import { normalizeAddress } from '@/lib/utils/address';
 import {
@@ -143,13 +144,65 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       return { success: false, error: 'Your shopping bag is empty.' };
     }
 
-    for (const item of orderData.items) {
-      if (!item.variant_id || !UUID_REGEX.test(item.variant_id)) {
+    const normalizedItems: CartItem[] = [];
+    for (const rawItem of orderData.items) {
+      let resolvedVariantId = rawItem.variant_id;
+
+      if (!resolvedVariantId || !UUID_REGEX.test(resolvedVariantId)) {
+        try {
+          let candidateProductId =
+            rawItem.product_id && UUID_REGEX.test(rawItem.product_id)
+              ? rawItem.product_id
+              : null;
+
+          if (!candidateProductId && resolvedVariantId && !resolvedVariantId.startsWith('var-')) {
+            const { data: prodBySlug } = await supabase
+              .from('products')
+              .select('id')
+              .eq('slug', resolvedVariantId)
+              .eq('is_active', true)
+              .maybeSingle();
+            candidateProductId = prodBySlug?.id || null;
+          }
+
+          if (!candidateProductId && rawItem.product_name?.trim()) {
+            const { data: prodByName } = await supabase
+              .from('products')
+              .select('id')
+              .ilike('name', rawItem.product_name.trim())
+              .eq('is_active', true)
+              .limit(1)
+              .maybeSingle();
+            candidateProductId = prodByName?.id || null;
+          }
+
+          if (candidateProductId) {
+            const { data: activeVariant } = await supabase
+              .from('product_variants')
+              .select('id')
+              .eq('product_id', candidateProductId)
+              .eq('is_active', true)
+              .order('sort_order', { ascending: true })
+              .limit(1)
+              .maybeSingle();
+
+            if (activeVariant?.id) {
+              resolvedVariantId = activeVariant.id;
+            }
+          }
+        } catch {
+          // Fall through to strict UUID validation below
+        }
+      }
+
+      if (!resolvedVariantId || !UUID_REGEX.test(resolvedVariantId)) {
         return { success: false, error: 'Invalid variant identifier in bag. Please refresh your bag.' };
       }
-      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 10) {
+      if (!Number.isInteger(rawItem.quantity) || rawItem.quantity < 1 || rawItem.quantity > 10) {
         return { success: false, error: 'Item quantity must be between 1 and 10.' };
       }
+
+      normalizedItems.push({ ...rawItem, variant_id: resolvedVariantId });
     }
 
     // 4. Scoped idempotency check (binds ownership to email or authenticated userId to prevent cross-user token leaks)
@@ -206,7 +259,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
     }
 
     // 5. Authoritative Server Price & Active Variant Lookup (NEVER trust client item.price)
-    const variantIds = Array.from(new Set(orderData.items.map((i) => i.variant_id)));
+    const variantIds = Array.from(new Set(normalizedItems.map((i) => i.variant_id)));
     const { data: dbVariants, error: variantsError } = await supabase
       .from('product_variants')
       .select(`
@@ -251,7 +304,7 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       gstSlab?: number | null;
     }> = [];
 
-    for (const item of orderData.items) {
+    for (const item of normalizedItems) {
       const v: any = variantMap.get(item.variant_id);
       const prod = v?.product;
       if (!v || !v.is_active || !prod || !prod.is_active) {
@@ -477,6 +530,13 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         await supabase.from('carts').delete().eq('user_id', userId);
       }
       await sendOrderConfirmedNotification(order.id);
+      try {
+        revalidatePath('/admin/orders');
+        revalidatePath('/admin');
+        revalidatePath('/account/orders');
+      } catch {
+        // Non-blocking outside request context
+      }
 
       return {
         success: true,
@@ -544,6 +604,14 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         success: false,
         error: 'Could not finalize payment session. Please try again.',
       };
+    }
+
+    try {
+      revalidatePath('/admin/orders');
+      revalidatePath('/admin');
+      revalidatePath('/account/orders');
+    } catch {
+      // Non-blocking outside request context
     }
 
     return {

@@ -405,38 +405,36 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     if (user && !isTestEnv) {
-      (async () => {
-        try {
-          const { data: existingCarts } = await supabase
-            .from('carts')
-            .select('id')
-            .eq('user_id', user.id)
-            .order('updated_at', { ascending: false })
-            .limit(1);
+      try {
+        const { data: existingCarts } = await supabase
+          .from('carts')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1);
 
-          const existingId = existingCarts?.[0]?.id;
+        const existingId = existingCarts?.[0]?.id;
 
-          const cartPayload = {
-            user_id: user.id,
-            items: newItems.map((item) => ({
-              id: item.id,
-              variant_id: item.variant_id,
-              quantity: item.quantity,
-              size: item.size,
-              color: item.color,
-            })),
-            updated_at: new Date().toISOString(),
-          };
+        const cartPayload = {
+          user_id: user.id,
+          items: newItems.map((item) => ({
+            id: item.id,
+            variant_id: item.variant_id,
+            quantity: item.quantity,
+            size: item.size,
+            color: item.color,
+          })),
+          updated_at: new Date().toISOString(),
+        };
 
-          if (existingId) {
-            await supabase.from('carts').update(cartPayload).eq('id', existingId);
-          } else {
-            await supabase.from('carts').insert(cartPayload);
-          }
-        } catch (error) {
-          console.warn('Background cart sync notice:', error);
+        if (existingId) {
+          await supabase.from('carts').update(cartPayload).eq('id', existingId);
+        } else {
+          await supabase.from('carts').insert(cartPayload);
         }
-      })();
+      } catch (error) {
+        console.warn('Background cart sync notice:', error);
+      }
     }
   };
 

@@ -97,19 +97,26 @@ export async function validateAndPersistAdminImage(params: {
   }
 
   try {
-    const fs = await import('fs/promises');
-    const path = await import('path');
+    const fsModule = await import('fs/promises');
+    const fs = (fsModule as any).default || fsModule;
+    const pathModule = await import('path');
+    const path = (pathModule as any).default || pathModule;
+
+    const joinPath =
+      typeof path?.join === 'function'
+        ? path.join.bind(path)
+        : (...parts: string[]) => parts.filter(Boolean).join('/').replace(/\\+/g, '/');
 
     const localSubDir =
       folder === 'icons'
-        ? path.join('public', 'uploads', 'icons')
+        ? joinPath('public', 'uploads', 'icons')
         : folder === 'products'
-          ? path.join('public', 'images', 'products')
-          : path.join('public', 'images', 'uploads');
+          ? joinPath('public', 'images', 'products')
+          : joinPath('public', 'images', 'uploads');
 
-    const uploadDir = path.join(process.cwd(), localSubDir);
+    const uploadDir = joinPath(process.cwd(), localSubDir);
     await fs.mkdir(uploadDir, { recursive: true });
-    await fs.writeFile(path.join(uploadDir, filename), buffer);
+    await fs.writeFile(joinPath(uploadDir, filename), buffer);
 
     const publicUrl =
       folder === 'icons'

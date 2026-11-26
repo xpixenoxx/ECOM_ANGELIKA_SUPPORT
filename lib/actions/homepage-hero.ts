@@ -130,6 +130,27 @@ export async function getHomepageHeroData(): Promise<HomepageHeroData> {
     console.warn('Could not fetch homepage_hero from Supabase, using fallback:', err);
   }
 
+  // 3. Sanitize concierge titles (removes any test "sss" suffixes)
+  if (typeof heroData.conciergeTitle === 'string') {
+    heroData.conciergeTitle =
+      heroData.conciergeTitle
+        .replace(/conciergesss/gi, 'Concierge')
+        .replace(/sss$/gi, '')
+        .trim() || "Vidhya's Concierge";
+  } else {
+    heroData.conciergeTitle = "Vidhya's Concierge";
+  }
+
+  if (typeof heroData.conciergeSubtitle === 'string') {
+    heroData.conciergeSubtitle =
+      heroData.conciergeSubtitle
+        .replace(/chatsss/gi, 'Chat')
+        .replace(/sss$/gi, '')
+        .trim() || 'Bespoke Styling Chat';
+  } else {
+    heroData.conciergeSubtitle = 'Bespoke Styling Chat';
+  }
+
   return heroData;
 }
 
@@ -143,6 +164,22 @@ export async function saveHomepageHeroData(
     const auth = await requireAdminRole(CONTENT_ADMIN_ROLES);
     if (!auth.authorized) {
       return { success: false, error: auth.error || 'Unauthorized' };
+    }
+
+    // Cleanse any test "sss" suffixes
+    if (data.conciergeTitle) {
+      data.conciergeTitle =
+        data.conciergeTitle
+          .replace(/conciergesss/gi, 'Concierge')
+          .replace(/sss$/gi, '')
+          .trim() || "Vidhya's Concierge";
+    }
+    if (data.conciergeSubtitle) {
+      data.conciergeSubtitle =
+        data.conciergeSubtitle
+          .replace(/chatsss/gi, 'Chat')
+          .replace(/sss$/gi, '')
+          .trim() || 'Bespoke Styling Chat';
     }
 
     // 1. Write to local JSON backup in local dev only

@@ -23,6 +23,9 @@ import type { ShopProductCard, ShopFilters } from '@/lib/actions/shop-types';
 import type { SalwarsPageContent, LehengasPageContent, SareesPageContent, DupattasPageContent, ShopPageContent } from '@/lib/actions/site-content-types';
 import { SHOP_SORT_OPTIONS, SHOP_CATEGORIES, SHOP_FABRICS, SHOP_COLORS, SHOP_SIZES, SHOP_OCCASIONS } from '@/lib/actions/shop-types';
 import type { KurtisPageContent } from '@/lib/actions/site-content';
+import type { Database } from '@/types/database';
+
+type StorefrontCategoryRow = Database['public']['Tables']['categories']['Row'];
 
 interface CategoryPageClientProps {
   category: {
@@ -31,6 +34,7 @@ interface CategoryPageClientProps {
     slug: string;
     description: string | null;
     image_url: string | null;
+    updated_at?: string;
   };
   initialProducts: ShopProductCard[];
   totalCount: number;
@@ -45,6 +49,7 @@ interface CategoryPageClientProps {
   sareesContent?: SareesPageContent | null;
   dupattasContent?: DupattasPageContent | null;
   shopContent?: ShopPageContent | null;
+  storeCategories?: StorefrontCategoryRow[];
 }
 
 const CATEGORIES_NAVIGATION = [
@@ -76,6 +81,7 @@ export function CategoryPageClient({
   sareesContent,
   dupattasContent,
   shopContent,
+  storeCategories = [],
 }: CategoryPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,23 +129,87 @@ export function CategoryPageClient({
   }, [isSortOpen]);
   const activeCategoryContent = shopContent || salwarsContent || lehengasContent || sareesContent || dupattasContent;
 
-  // Dynamic Kurtis Page configurations from admin panel
+  // Dynamic Kurtis / Category Page configurations synced with Product Categories
   const isKurtis = (categorySlug || '').toLowerCase() === 'kurtis';
-  const pageTitle = isKurtis && kurtisContent?.title
-    ? kurtisContent.title
-    : (activeCategoryContent?.hero?.title || category.name || 'All Collections');
+  const dbCatUpdatedAt = category.updated_at ? new Date(category.updated_at).getTime() : 0;
+  const cmsUpdatedAtRaw = isKurtis
+    ? (kurtisContent as any)?._updated_at
+    : (activeCategoryContent as any)?._updated_at;
+  const cmsUpdatedAt = cmsUpdatedAtRaw ? new Date(cmsUpdatedAtRaw).getTime() : 0;
+  const preferDbCategory = Boolean(categorySlug && dbCatUpdatedAt > cmsUpdatedAt && category.name);
+
+  const pageTitle = preferDbCategory
+    ? category.name
+    : isKurtis && kurtisContent?.title
+      ? kurtisContent.title
+      : (activeCategoryContent?.hero?.title || category.name || 'All Collections');
   const showCategoryNav = isKurtis ? kurtisContent?.showCategoryStrip !== false : true;
   const showSidebar = isKurtis ? kurtisContent?.showSidebar !== false : true;
   const showStyling = isKurtis && kurtisContent?.showStylingGuide !== false;
   const stylingBadge = isKurtis && kurtisContent?.stylingBadge ? kurtisContent.stylingBadge : 'ATELIER NOTES & STYLING';
 
-  // Convert custom Kurtis products from admin panel into ShopProductCard format
+  const activeCategoryCheckboxes = useMemo(() => {
+    const active = storeCategories.filter((c) => c.is_active !== false);
+    if (active.length === 0) return SHOP_CATEGORIES;
+    return active.map((c) => ({ value: c.slug, label: c.name }));
+  }, [storeCategories]);
+
+  const syncedNavItems = useMemo(() => {
+    const baseItems =
+      activeCategoryContent?.navigation?.items && activeCategoryContent.navigation.items.length > 0
+        ? activeCategoryContent.navigation.items
+        : CATEGORIES_NAVIGATION;
+    if (storeCategories.length === 0) return baseItems;
+
+    const catBySlug = new Map(storeCategories.map((c) => [c.slug.toLowerCase(), c]));
+    const seenSlugs = new Set<string>();
+
+    const merged = baseItems
+      .filter((item) => {
+        const slug = (item.slug || '').toLowerCase();
+        if (!slug) return true;
+        const dbCat = catBySlug.get(slug);
+        return !(dbCat && dbCat.is_active === false);
+      })
+      .map((item) => {
+        const slug = (item.slug || '').toLowerCase();
+        if (!slug) return item;
+        seenSlugs.add(slug);
+        const dbCat = catBySlug.get(slug);
+        if (!dbCat) return item;
+        const preserveEditorial = typeof item.image === 'string' && item.image.includes('/category-showcase/');
+        return {
+          ...item,
+          name: dbCat.name || item.name,
+          image: preserveEditorial ? item.image : (dbCat.image_url || item.image),
+        };
+      });
+
+    const extras = storeCategories
+      .filter((c) => c.is_active !== false && !seenSlugs.has(c.slug.toLowerCase()))
+      .map((c) => ({
+        slug: c.slug,
+        name: c.name,
+        image: c.image_url || '/images/collection-kurtis.jpg',
+        href: `/shop/${c.slug}`,
+      }));
+
+    return [...merged, ...extras];
+  }, [activeCategoryContent?.navigation?.items, storeCategories]);
+
+  // Convert custom Kurtis products from admin panel only when DB has no synced products yet
   const resolvedInitialProducts: ShopProductCard[] = useMemo(() => {
     if (initialProducts && initialProducts.length > 0) {
       return initialProducts;
     }
 
-    if (isKurtis && Array.isArray(kurtisContent?.products) && kurtisContent.products.length > 0 && kurtisContent?.productsMode !== 'database') {
+    if (
+      isKurtis &&
+      !(kurtisContent as any)?._products_synced_at &&
+      Array.isArray(kurtisContent?.products) &&
+      kurtisContent.products.length > 0 &&
+      kurtisContent?.productsMode !== 'database'
+    ) {
       return kurtisContent.products.map((p) => {
         const pTags = (p as any).tags || [];
         const pOccasions = (p as any).occasion || ['Festive', 'Casual'];
@@ -531,7 +601,7 @@ export function CategoryPageClient({
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
             <div className="flex items-start justify-center gap-1 min-w-max py-2">
-              {(activeCategoryContent?.navigation?.items && activeCategoryContent.navigation.items.length > 0 ? activeCategoryContent.navigation.items : CATEGORIES_NAVIGATION).map((cat) => {
+              {syncedNavItems.map((cat) => {
                 const isActive = (cat.slug === '' && (!categorySlug || categorySlug === 'all')) || categorySlug === cat.slug;
                 return (
                   <Link
@@ -694,6 +764,7 @@ export function CategoryPageClient({
                 inStockCount={inStockCount}
                 vidhyasCount={vidhyasCount}
                 sidebarContent={activeCategoryContent?.sidebar}
+                categoryOptions={activeCategoryCheckboxes}
               />
             </div>
             <div className="p-4 border-t border-[var(--color-whisper)] bg-white flex items-center gap-3">
@@ -715,11 +786,13 @@ export function CategoryPageClient({
               {activeFilterCount > 0 && (
                 <div className="flex flex-wrap items-center gap-2 mb-6 p-3 bg-[var(--color-snow)]/90 rounded-[var(--radius-md)] border border-[var(--color-whisper)]">
                   <span className="text-xs uppercase tracking-wider text-[var(--color-slate)] font-semibold mr-1">
-                    Active Filters:
+                    {(!categorySlug || categorySlug === 'all') && activeCategoryContent?.sidebar?.activeTag
+                      ? activeCategoryContent.sidebar.activeTag
+                      : 'Active Filters:'}
                   </span>
                   {/* Category Pills */}
                   {filters.categories?.map((catVal) => {
-                    const label = SHOP_CATEGORIES.find((c) => c.value === catVal)?.label || catVal;
+                    const label = activeCategoryCheckboxes.find((c) => c.value === catVal)?.label || SHOP_CATEGORIES.find((c) => c.value === catVal)?.label || catVal;
                     return (
                       <button
                         key={`pill-cat-${catVal}`}
@@ -906,6 +979,38 @@ export function CategoryPageClient({
           </div>
         </section>
       )}
+      {/* Concierge Assistance Desk (from Shop & Category Page Editors) */}
+      {activeCategoryContent?.concierge?.enabled && (
+        <section className="py-12 bg-[var(--color-snow)] border-t border-[var(--color-whisper)]">
+          <div className="container-custom px-6">
+            <div className="max-w-4xl mx-auto rounded-2xl bg-[var(--color-ink)] text-white p-6 sm:p-10 border border-[var(--color-gold)]/40 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-2 text-center md:text-left">
+                <span className="inline-block px-3 py-0.5 rounded-full bg-[var(--color-gold)]/20 border border-[var(--color-gold)]/40 text-[var(--color-gold)] text-[10px] font-bold uppercase tracking-widest">
+                  Personal Atelier Concierge
+                </span>
+                <h2 className="text-[var(--font-display)] text-2xl sm:text-3xl font-normal text-white">
+                  {activeCategoryContent.concierge.title || 'Need Bespoke Sizing or Styling?'}
+                </h2>
+                {activeCategoryContent.concierge.subtitle && (
+                  <p className="text-sm text-white/80 max-w-xl leading-relaxed">
+                    {activeCategoryContent.concierge.subtitle}
+                  </p>
+                )}
+              </div>
+              {activeCategoryContent.concierge.link && (
+                <Link
+                  href={activeCategoryContent.concierge.link}
+                  target={activeCategoryContent.concierge.link.startsWith('http') ? '_blank' : undefined}
+                  rel={activeCategoryContent.concierge.link.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  className="px-6 py-3 rounded-full bg-gradient-to-r from-[var(--color-gold)] to-[var(--color-gold-hover)] text-[var(--color-ink)] font-semibold text-xs uppercase tracking-wider shadow-md hover:shadow-lg transition-all shrink-0"
+                >
+                  Chat with Vidhya →
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -923,6 +1028,7 @@ function CategoryFilterFields({
   inStockCount,
   vidhyasCount,
   sidebarContent,
+  categoryOptions = SHOP_CATEGORIES,
 }: {
   filters: ShopFilters;
   onFilterChange: (key: string, value: any) => void;
@@ -935,6 +1041,7 @@ function CategoryFilterFields({
   inStockCount?: number;
   vidhyasCount?: number;
   sidebarContent?: any;
+  categoryOptions?: Array<{ value: string; label: string }>;
 }) {
   return (
     <div className="space-y-6">
@@ -942,7 +1049,7 @@ function CategoryFilterFields({
         <div className="flex items-center gap-2">
           <span className="w-1.5 h-4 bg-[var(--color-gold)] rounded-full" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-ink)]">
-            Filter Collection
+            {sidebarContent?.title || 'Filter Collection'}
           </h3>
         </div>
         {activeFilterCount > 0 && (
@@ -966,7 +1073,7 @@ function CategoryFilterFields({
         </h4>
         {(!categorySlug || categorySlug === 'all') ? (
           <div className="space-y-2.5">
-            {SHOP_CATEGORIES.map((cat) => {
+            {categoryOptions.map((cat) => {
               const isChecked = Boolean(filters.categories?.includes(cat.value));
               const count = categoryCounts?.[cat.value] ?? 0;
               return (
@@ -997,7 +1104,7 @@ function CategoryFilterFields({
                 {categoryName || categorySlug}
               </span>
               <span className="text-[10px] uppercase font-bold tracking-wider text-[var(--color-gold)] bg-black px-2 py-0.5 rounded-full">
-                Active Collection
+                {sidebarContent?.activeTag || 'Active Collection'}
               </span>
             </div>
             <Link
@@ -1012,7 +1119,7 @@ function CategoryFilterFields({
 
       <div className="border-t border-[var(--color-whisper)] pt-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] mb-3 flex items-center justify-between">
-          <span>Fabric</span>
+          <span>{sidebarContent?.fabricTitle || 'Fabric'}</span>
           {filters.fabrics && filters.fabrics.length > 0 && (
             <span className="text-[10px] font-bold text-[var(--color-gold)]">
               {filters.fabrics.length} selected
@@ -1048,7 +1155,7 @@ function CategoryFilterFields({
 
       <div className="border-t border-[var(--color-whisper)] pt-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] mb-3 flex items-center justify-between">
-          <span>Color</span>
+          <span>{sidebarContent?.colorTitle || 'Color'}</span>
           {filters.colors && filters.colors.length > 0 && (
             <span className="text-[10px] font-bold text-[var(--color-gold)]">
               {filters.colors.length} selected
@@ -1097,7 +1204,7 @@ function CategoryFilterFields({
 
       <div className="border-t border-[var(--color-whisper)] pt-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] mb-3 flex items-center justify-between">
-          <span>Size</span>
+          <span>{sidebarContent?.sizeTitle || 'Size'}</span>
           {filters.sizes && filters.sizes.length > 0 && (
             <span className="text-[10px] font-bold text-[var(--color-gold)]">
               {filters.sizes.length} selected
@@ -1135,7 +1242,7 @@ function CategoryFilterFields({
       <div className="border-t border-[var(--color-whisper)] pt-4">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)]">
-            Price Range
+            {sidebarContent?.priceTitle || 'Price Range'}
           </h4>
           <span className="text-xs font-semibold text-[var(--color-gold)]">
             ₹{((Array.isArray(filters.priceRange) ? filters.priceRange[0] : 0) ?? 0).toLocaleString()} - ₹{((Array.isArray(filters.priceRange) ? filters.priceRange[1] : 25000) ?? 25000).toLocaleString()}
@@ -1154,7 +1261,7 @@ function CategoryFilterFields({
 
       <div className="border-t border-[var(--color-whisper)] pt-4">
         <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-slate)] mb-3 flex items-center justify-between">
-          <span>Occasion</span>
+          <span>{sidebarContent?.occasionTitle || 'Occasion'}</span>
           {filters.occasion && filters.occasion.length > 0 && (
             <span className="text-[10px] font-bold text-[var(--color-gold)]">
               {filters.occasion.length} selected

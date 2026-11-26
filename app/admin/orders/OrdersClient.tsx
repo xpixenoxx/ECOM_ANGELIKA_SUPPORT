@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { Search, Eye, Copy, Check, Gift, RefreshCw, AlertCircle, Package } from 'lucide-react';
@@ -48,6 +48,10 @@ function timeAgo(d: string) {
 
 export default function OrdersClient({ initialOrders }: { initialOrders: AdminOrder[] }) {
   const [orders, setOrders] = useState<AdminOrder[]>(initialOrders);
+
+  useEffect(() => {
+    setOrders(initialOrders);
+  }, [initialOrders]);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);

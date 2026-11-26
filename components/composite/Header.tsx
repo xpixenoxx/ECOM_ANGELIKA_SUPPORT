@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, ReactNode } from 'react';
+import React, { useState, useEffect, useRef, useCallback, ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -88,9 +88,20 @@ export function Header({
   const effectiveItemCount = cart.itemCount ?? (effectiveCartItems?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) ?? 0);
   const handleUpdateQuantity = onCartUpdateQuantity || cart.updateQuantity;
   const handleRemoveItem = onCartRemoveItem || cart.removeItem;
-  const handleProceedToCheckout = onCartProceedToCheckout || (() => {
+  const handleProceedToCheckout = useCallback(() => {
+    if (onCartProceedToCheckout) {
+      onCartProceedToCheckout();
+      return;
+    }
     router.push('/checkout');
-  });
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        if (window.location.pathname !== '/checkout') {
+          window.location.assign('/checkout');
+        }
+      }, 450);
+    }
+  }, [onCartProceedToCheckout, router]);
   const handleApplyCoupon = onApplyCoupon || (async (code: string) => { await cart.applyCoupon(code); });
   const handleRemoveCoupon = onRemoveCoupon || cart.removeCoupon;
 
@@ -616,10 +627,14 @@ function CartButton({
   const activeSubtotal = localCart?.subtotal ?? (subtotal > 0 ? subtotal : cart.subtotal);
   const activeTotal = localCart?.total ?? (total > 0 ? total : cart.total);
 
-  const handleCheckoutClick = () => {
+  const handleCloseCart = useCallback(() => {
     setIsCartOpen(false);
+  }, []);
+
+  const handleCheckoutClick = useCallback(() => {
     onProceedToCheckout?.();
-  };
+    setIsCartOpen(false);
+  }, [onProceedToCheckout]);
 
   return (
     <>
@@ -653,7 +668,7 @@ function CartButton({
 
       <CartDrawer
         isOpen={isCartOpen && pathname !== '/checkout'}
-        onClose={() => setIsCartOpen(false)}
+        onClose={handleCloseCart}
         items={activeItems as any}
         subtotal={activeSubtotal}
         total={activeTotal}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
+import { Upload } from 'lucide-react';
 import type { ShopPageContent, SalwarProductItem, SalwarsCollectionNavItem } from '@/lib/actions/site-content-types';
 
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free Size', 'Custom'];
@@ -87,15 +88,32 @@ function ShopProductImageUploader({
       const fd = new FormData();
       fd.append('file', file);
       fd.append('category', 'shop');
+      fd.append('target', 'shop-product');
+      fd.append('folder', 'content');
 
-      const res = await fetch('/api/admin/upload', {
+      let res = await fetch('/api/admin/content/upload', {
         method: 'POST',
         body: fd,
       });
 
+      if (!res.ok) {
+        res = await fetch('/api/admin/upload', {
+          method: 'POST',
+          body: fd,
+        });
+      }
+
+      if (!res.ok) {
+        res = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          body: fd,
+        });
+      }
+
       const data = await res.json().catch(() => ({}));
-      if (res.ok && data.url) {
-        onChange(data.url);
+      const uploadedUrl = data.url || data.secure_url;
+      if (res.ok && uploadedUrl) {
+        onChange(uploadedUrl);
         setPasteSuccess(true);
         setTimeout(() => setPasteSuccess(false), 3000);
         return;
@@ -200,6 +218,187 @@ function ShopProductImageUploader({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Row editor for Category Quick-Browse Strip collection pills with local device upload
+function NavigationItemEditorRow({
+  item,
+  onUpdate,
+  onRemove,
+}: {
+  item: SalwarsCollectionNavItem;
+  onUpdate: (field: keyof SalwarsCollectionNavItem, val: string) => void;
+  onRemove: () => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (JPG, PNG, WebP)');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Image size must be under 10MB');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('target', 'collection-pill');
+      fd.append('category', 'content');
+      fd.append('folder', 'content');
+
+      let res = await fetch('/api/admin/content/upload', {
+        method: 'POST',
+        body: fd,
+      });
+
+      if (!res.ok) {
+        res = await fetch('/api/admin/upload', {
+          method: 'POST',
+          body: fd,
+        });
+      }
+
+      if (!res.ok) {
+        res = await fetch('/api/admin/media/upload', {
+          method: 'POST',
+          body: fd,
+        });
+      }
+
+      const resJson = await res.json().catch(() => ({}));
+      const uploadedUrl = resJson.url || resJson.secure_url;
+      if (res.ok && uploadedUrl) {
+        onUpdate('image', uploadedUrl);
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
+      } else {
+        setUploadError(resJson.error || 'Failed to upload image. Please try again or paste a URL.');
+      }
+    } catch (err: any) {
+      setUploadError(err?.message || 'Network error during upload');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="p-3.5 rounded-xl border border-[var(--color-whisper)] bg-[var(--color-snow)] flex flex-col gap-2 transition-colors hover:border-[var(--color-gold)]/40">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/avif"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handleFileUpload(f);
+        }}
+      />
+
+      <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="relative group cursor-pointer shrink-0 rounded-full overflow-hidden w-11 h-11 border-2 border-[var(--color-gold)]/50 hover:border-[var(--color-gold)] shadow-xs transition-transform hover:scale-105 disabled:opacity-70"
+          title="Click to upload an image from your local device"
+        >
+          <img
+            src={item.image || '/images/collection-kurtis.jpg'}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <Upload className="w-4 h-4 text-white" />
+          </div>
+          {isUploading && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        </button>
+
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 flex-1 w-full items-center">
+          <div className="sm:col-span-3">
+            <input
+              type="text"
+              value={item.name}
+              onChange={(e) => onUpdate('name', e.target.value)}
+              placeholder="Name"
+              className="w-full h-8 text-xs px-2.5 rounded border border-[var(--color-whisper)] bg-white focus:outline-none focus:border-[var(--color-gold)]"
+            />
+          </div>
+          <div className="sm:col-span-4">
+            <input
+              type="text"
+              value={item.href}
+              onChange={(e) => onUpdate('href', e.target.value)}
+              placeholder="URL (/shop/...)"
+              className="w-full h-8 text-xs px-2.5 rounded border border-[var(--color-whisper)] bg-white font-mono focus:outline-none focus:border-[var(--color-gold)]"
+            />
+          </div>
+          <div className="sm:col-span-5 flex items-center gap-1.5">
+            <input
+              type="text"
+              value={item.image}
+              onChange={(e) => onUpdate('image', e.target.value)}
+              placeholder="Image URL"
+              className="w-full h-8 text-xs px-2.5 rounded border border-[var(--color-whisper)] bg-white min-w-0 focus:outline-none focus:border-[var(--color-gold)]"
+            />
+            <button
+              type="button"
+              disabled={isUploading}
+              onClick={() => fileInputRef.current?.click()}
+              className="h-8 px-2.5 text-xs font-semibold rounded border border-[var(--color-gold)] text-[var(--color-ink)] bg-[var(--color-champagne-light)] hover:bg-[var(--color-gold)]/20 transition-all flex items-center gap-1 shrink-0 shadow-2xs disabled:opacity-50"
+              title="Upload image from local device"
+            >
+              {isUploading ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin" />
+                  <span className="hidden sm:inline">Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-3.5 h-3.5 text-[var(--color-gold)]" />
+                  <span>Upload</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-xs text-rose-500 hover:text-rose-700 underline shrink-0 px-1"
+        >
+          Remove
+        </button>
+      </div>
+
+      {uploadSuccess && (
+        <div className="text-[11px] text-emerald-600 font-medium sm:pl-14">
+          ✓ Image uploaded from device! Click &ldquo;Save Changes&rdquo; to publish.
+        </div>
+      )}
+
+      {uploadError && (
+        <div className="text-[11px] text-rose-600 font-medium sm:pl-14">
+          ⚠️ {uploadError}
+        </div>
+      )}
     </div>
   );
 }
@@ -909,46 +1108,12 @@ export function ShopPageEditor({
 
             <div className="space-y-3">
               {formData.navigation.items.map((item, idx) => (
-                <div
+                <NavigationItemEditorRow
                   key={idx}
-                  className="p-3.5 rounded-xl border border-[var(--color-whisper)] bg-[var(--color-snow)] flex flex-col sm:flex-row items-center gap-3"
-                >
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-10 h-10 rounded-full object-cover border border-[var(--color-gold)]/40 shrink-0"
-                  />
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 w-full">
-                    <input
-                      type="text"
-                      value={item.name}
-                      onChange={(e) => handleUpdateNavigationItem(idx, 'name', e.target.value)}
-                      placeholder="Name"
-                      className="h-8 text-xs px-2.5 rounded border border-[var(--color-whisper)] bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={item.href}
-                      onChange={(e) => handleUpdateNavigationItem(idx, 'href', e.target.value)}
-                      placeholder="URL (/shop/...)"
-                      className="h-8 text-xs px-2.5 rounded border border-[var(--color-whisper)] bg-white font-mono"
-                    />
-                    <input
-                      type="text"
-                      value={item.image}
-                      onChange={(e) => handleUpdateNavigationItem(idx, 'image', e.target.value)}
-                      placeholder="Image URL"
-                      className="h-8 text-xs px-2.5 rounded border border-[var(--color-whisper)] bg-white"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveNavigationItem(idx)}
-                    className="text-xs text-rose-500 hover:text-rose-700 underline shrink-0"
-                  >
-                    Remove
-                  </button>
-                </div>
+                  item={item}
+                  onUpdate={(field, val) => handleUpdateNavigationItem(idx, field, val)}
+                  onRemove={() => handleRemoveNavigationItem(idx)}
+                />
               ))}
             </div>
           </div>

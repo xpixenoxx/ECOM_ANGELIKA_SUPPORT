@@ -1,6 +1,6 @@
 export const runtime = 'edge';
 
-import { getAllProducts } from '@/lib/actions/shop';
+import { getAllProducts, getStorefrontCategoryStatuses } from '@/lib/actions/shop';
 
 // ISR: rebuilds at most every 120s. For immediate updates, POST /api/revalidate
 export const dynamic = 'force-dynamic';
@@ -72,14 +72,11 @@ export default async function ShopPage({
   const sortBy = (sortParam as string) || 'newest';
   const page = Number(pageParam) || 1;
 
-  const { products, totalCount, totalPages } = await getAllProducts(
-    filters,
-    sortBy,
-    page,
-    48
-  );
-
-  const siteContent = await getSiteContent();
+  const [{ products, totalCount, totalPages }, siteContent, storeCategories] = await Promise.all([
+    getAllProducts(filters, sortBy, page, 48),
+    getSiteContent(),
+    getStorefrontCategoryStatuses(),
+  ]);
   const shopContent = siteContent?.['shop-page'];
 
   const shopCategory = {
@@ -101,6 +98,7 @@ export default async function ShopPage({
       initialFilters={filters}
       categorySlug=""
       shopContent={shopContent}
+      storeCategories={storeCategories}
     />
   );
 }

@@ -21,6 +21,9 @@ import type { CircleUpdate } from '@/lib/actions/circle-types';
 import type { HomepageProductCard, LookData } from '@/lib/actions/homepage-types';
 import type { HomepageHeroData } from '@/lib/actions/homepage-hero-types';
 import type { SiteContent } from '@/lib/actions/site-content-types';
+import type { Database } from '@/types/database';
+
+type StorefrontCategoryRow = Database['public']['Tables']['categories']['Row'];
 
 const navigation = [
   { label: 'Kurtis', href: '/shop/kurtis' },
@@ -124,6 +127,7 @@ interface HomePageClientProps {
   instagramPosts: Array<{ id: string; image_url: string; handle?: string; caption?: string; productName?: string; productLink?: string }>;
   heroData?: HomepageHeroData;
   siteContent?: SiteContent;
+  storeCategories?: StorefrontCategoryRow[];
 }
 
 export default function HomePageClient({
@@ -133,6 +137,7 @@ export default function HomePageClient({
   instagramPosts,
   heroData,
   siteContent,
+  storeCategories,
 }: HomePageClientProps) {
   const { addItem } = useCart();
   const { toggleItem, isInWishlist } = useWishlist();
@@ -144,6 +149,7 @@ export default function HomePageClient({
   const [circleMessage, setCircleMessage] = useState<string | null>(null);
   const [circleError, setCircleError] = useState<string | null>(null);
   const [latestCircleUpdates, setLatestCircleUpdates] = useState<CircleUpdate[]>([]);
+  const [activeLookTitle, setActiveLookTitle] = useState<string | null>(null);
 
   useEffect(() => {
     getLatestCircleUpdates(2)
@@ -440,6 +446,7 @@ export default function HomePageClient({
       {/* Explore Collections: Editorial Magazine Grid */}
       <ExploreCollections
         categoriesContent={siteContent?.categories}
+        storeCategories={storeCategories}
         className="mt-[10px]"
         style={{ marginTop: '10px' }}
       />
@@ -513,21 +520,40 @@ export default function HomePageClient({
       </section>
 
       {/* Shop the Look Editorial Hotspots */}
-      {(looks.length > 0 || siteContent?.['shop-the-look']?.lifestyle_image_url) && (
-        <section className="section bg-[var(--color-snow)]/70 border-y border-[var(--color-whisper)]">
-          <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
-            <div className="text-center mb-8">
-              <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)] block mb-2">
-                {siteContent?.['shop-the-look']?.badge || 'Curated Ensemble'}
-              </span>
-              <h2 className="text-[var(--font-display)] text-3xl md:text-4xl font-medium text-[var(--color-ink)]">
-                {siteContent?.['shop-the-look']?.title || 'Shop the Look'}
-              </h2>
+      {(() => {
+        const stlContent = siteContent?.['shop-the-look'] as any;
+        const hasLiveDbLooks = Array.isArray(looks) && looks.length > 0;
+        const looksExplicitlySyncedEmpty = Boolean(stlContent?._looks_synced_at && !hasLiveDbLooks);
+        const shouldRenderShopTheLook =
+          !looksExplicitlySyncedEmpty &&
+          (hasLiveDbLooks || Boolean(stlContent?.lifestyle_image_url));
+
+        if (!shouldRenderShopTheLook) return null;
+
+        const displayTitle = hasLiveDbLooks
+          ? (activeLookTitle || looks[0]?.name || looks[0]?.title || stlContent?.title || 'Festive Elegance')
+          : (stlContent?.title || 'Festive Elegance');
+
+        return (
+          <section className="section bg-[var(--color-snow)]/70 border-y border-[var(--color-whisper)]">
+            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+              <div className="text-center mb-8">
+                <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)] block mb-2">
+                  {(stlContent?.badge || 'Curated Ensemble').replace(/ensemblesss/gi, 'Ensemble')}
+                </span>
+                <h2 className="text-[var(--font-display)] text-3xl md:text-4xl font-medium text-[var(--color-ink)]">
+                  {String(displayTitle).replace(/elegancesss/gi, 'Elegance')}
+                </h2>
+              </div>
+              <ShopTheLookClient
+                initialLooks={hasLiveDbLooks ? looks : undefined}
+                initialLook={hasLiveDbLooks ? looks[0] : stlContent}
+                onActiveLookChange={setActiveLookTitle}
+              />
             </div>
-            <ShopTheLookClient initialLook={looks?.[0] || siteContent?.['shop-the-look']} />
-          </div>
-        </section>
-      )}
+          </section>
+        );
+      })()}
 
       {/* New Arrivals: Reference Style */}
       {(() => {
@@ -539,9 +565,14 @@ export default function HomePageClient({
         const ctaLink = naContent?.ctaLink || '/new-arrivals';
 
         // Choose between custom curated items or dynamic database items
-        const isCustomMode = naContent?.mode === 'custom' && Array.isArray(naContent?.items) && naContent.items.length > 0;
+        const isCustomMode = Boolean(
+          naContent?.mode === 'custom' &&
+          (naContent as any)?._updated_at &&
+          Array.isArray(naContent?.items) &&
+          naContent.items.length > 0
+        );
         const productsToDisplay = isCustomMode
-          ? naContent.items
+          ? (naContent?.items || [])
           : (newArrivals.length > 0 ? newArrivals : (naContent?.items || []));
 
         return (

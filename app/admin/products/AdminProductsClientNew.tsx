@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useTransition, useMemo } from 'react';
+import React, { useState, useTransition, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   toggleProductActive,
   toggleProductFeatured,
@@ -59,8 +60,13 @@ interface Props {
 }
 
 export default function AdminProductsClientNew({ initialProducts, categories }: Props) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
   const [products, setProducts] = useState<AdminProduct[]>(initialProducts);
+
+  useEffect(() => {
+    setProducts(initialProducts);
+  }, [initialProducts]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -144,6 +150,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         showToast(`Failed to update status: ${res.error}`, 'error');
       } else {
         showToast(updated ? 'Product published to store' : 'Product hidden from store');
+        router.refresh();
       }
     });
   }
@@ -163,6 +170,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         showToast(`Failed to update: ${res.error}`, 'error');
       } else {
         showToast(updated ? 'Garment featured on homepage' : 'Garment removed from homepage');
+        router.refresh();
       }
     });
   }
@@ -182,6 +190,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         showToast(`Failed to update: ${res.error}`, 'error');
       } else {
         showToast(updated ? "Added to Vidhya's Picks collection" : "Removed from Vidhya's Picks");
+        router.refresh();
       }
     });
   }
@@ -201,6 +210,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         setSelectedIds((prev) => prev.filter((item) => item !== id));
         setDeletingId(null);
         showToast('Product deleted successfully');
+        router.refresh();
       }
     });
   }
@@ -208,6 +218,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
   // Duplicate Single Product
   function handleDuplicate(id: string) {
     setDuplicatingId(id);
+    const sourceProd = products.find((item) => item.id === id);
     startTransition(async () => {
       const res = await duplicateProduct(id);
       setDuplicatingId(null);
@@ -215,29 +226,31 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
         showToast(`Failed to duplicate: ${res?.error || 'Unknown error'}`, 'error');
       } else {
         const p = res.data;
+        const matchedCat = categories.find((c) => c.id === p.category_id);
         const newProductItem: AdminProduct = {
           id: p.id,
           sku: p.sku,
           name: p.name,
           slug: p.slug,
           description: p.description,
-          price: 3999,
-          compare_at_price: null,
+          price: sourceProd?.price ?? 3999,
+          compare_at_price: sourceProd?.compare_at_price ?? null,
           category_id: p.category_id,
-          category_name: categories.find((c) => c.id === p.category_id)?.name || 'Ethnic Wear',
-          category_slug: null,
+          category_name: matchedCat?.name || sourceProd?.category_name || 'Ethnic Wear',
+          category_slug: matchedCat?.slug || sourceProd?.category_slug || null,
           is_active: p.is_active,
           is_featured: p.is_featured,
           is_vidyas_pick: p.is_vidyas_pick,
-          images: ['/images/placeholder.jpg'],
+          images: sourceProd?.images && sourceProd.images.length > 0 ? sourceProd.images : ['/images/placeholder.jpg'],
           tags: p.tags,
-          variant_count: 1,
-          total_inventory: 20,
+          variant_count: sourceProd?.variant_count ?? 1,
+          total_inventory: sourceProd?.total_inventory ?? 20,
           created_at: p.created_at || new Date().toISOString(),
           updated_at: p.updated_at || new Date().toISOString(),
         };
         setProducts((prev) => [newProductItem, ...prev]);
         showToast(`Duplicated: "${newProductItem.name}"`);
+        router.refresh();
       }
     });
   }
@@ -281,6 +294,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
       );
       showToast(`${selectedIds.length} products ${publish ? 'published' : 'unpublished'}`);
       setSelectedIds([]);
+      router.refresh();
     }
   }
 
@@ -298,6 +312,7 @@ export default function AdminProductsClientNew({ initialProducts, categories }: 
       setProducts((prev) => prev.filter((p) => !selectedIds.includes(p.id)));
       showToast(`${selectedIds.length} garments deleted successfully`);
       setSelectedIds([]);
+      router.refresh();
     }
   }
 

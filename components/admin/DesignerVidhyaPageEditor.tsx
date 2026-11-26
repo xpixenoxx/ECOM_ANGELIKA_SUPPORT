@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
+import { AdminImageInputWithUpload } from '@/components/admin/AdminImageUploadControl';
 import type {
   DesignerVidhyaPageContent,
   DesignerVidhyaMetric,
@@ -655,17 +656,18 @@ export function DesignerVidhyaPageEditor({
                 Designer Portrait & Caption Overlay
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <AdminFormField
+                <AdminImageInputWithUpload
                   label="Portrait Image Path / URL"
                   value={formData.story.image}
                   placeholder="/images/categories/sarees.jpg"
+                  target="designer-vidhya"
                   onChange={(val) =>
                     setFormData((prev) => ({
                       ...prev,
                       story: { ...prev.story, image: val },
                     }))
                   }
-                  helperText="Local public image path or secure HTTPS photo."
+                  helperText="Upload from device, select below, or paste image URL."
                 />
                 <AdminFormField
                   label="Image Alt Text"

@@ -208,18 +208,28 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 4 * 1024 * 1024) {
-        setStatusMessage({ type: 'error', text: 'Image must be under 4MB' });
+      if (file.size > 10 * 1024 * 1024) {
+        setStatusMessage({ type: 'error', text: 'Image must be under 10MB' });
         return;
       }
       try {
         const body = new FormData();
         body.append('file', file);
+        body.append('target', 'footer-logo');
         body.append('folder', 'footer');
-        const res = await fetch('/api/admin/media/upload', {
+
+        let res = await fetch('/api/admin/content/upload', {
           method: 'POST',
           body,
         });
+
+        if (!res.ok) {
+          res = await fetch('/api/admin/media/upload', {
+            method: 'POST',
+            body,
+          });
+        }
+
         const resJson = await res.json();
         if (resJson.success && resJson.url) {
           setContent((prev) => ({
@@ -231,8 +241,8 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
         } else {
           setStatusMessage({ type: 'error', text: resJson.error || 'Failed to upload logo. Check storage permissions.' });
         }
-      } catch {
-        setStatusMessage({ type: 'error', text: 'Upload error: Please verify network and storage setup' });
+      } catch (err: any) {
+        setStatusMessage({ type: 'error', text: `Upload error: ${err?.message || 'Please verify network and storage setup'}` });
       } finally {
         e.target.value = '';
       }

@@ -116,19 +116,19 @@ export async function getVidhyasPicks(limit = 4): Promise<HomepageProductCard[]>
 }
 
 // ─── getLooks ─────────────────────────────────────────────────────────────────
-export async function getLooks(limit = 3): Promise<LookData[]> {
+export async function getLooks(limit = 12): Promise<LookData[]> {
   const supabase = await getSupabaseClient();
 
   const { data: looks, error } = await supabase
     .from('looks')
     .select(`
-      id, name, lifestyle_image_url, lifestyle_image_alt,
+      id, name, lifestyle_image_url, lifestyle_image_alt, display_order,
       look_hotspots!look_hotspots_look_id_fkey(
-        x_percent, y_percent, display_order,
+        id, x_percent, y_percent, display_order,
         product:products!look_hotspots_product_id_fkey(
           id, slug, name,
-          product_variants!product_variants_product_id_fkey(price, is_active),
-          product_images!product_images_product_id_fkey(url, is_primary)
+          product_variants!product_variants_product_id_fkey(id, size, price, compare_at_price, is_active),
+          product_images!product_images_product_id_fkey(url, is_primary, sort_order)
         )
       )
     `)
@@ -138,32 +138,66 @@ export async function getLooks(limit = 3): Promise<LookData[]> {
 
   if (error || !looks) return [];
 
-  return looks.map((look: any) => ({
-    id: look.id,
-    title: look.name,
-    description: look.lifestyle_image_alt ?? null,
-    cover_image: look.lifestyle_image_url,
-    products: (look.look_hotspots ?? [])
-      .map((hotspot: any): any => {
+  return looks.map((look: any) => {
+    const sortedHotspots = [...(look.look_hotspots ?? [])].sort(
+      (a: any, b: any) => (a.display_order ?? 0) - (b.display_order ?? 0)
+    );
+
+    const mappedHotspots = sortedHotspots
+      .map((hotspot: any, idx: number) => {
         const prod = hotspot.product;
         if (!prod?.id) return null;
-        const { price } = cheapestVariant(prod.product_variants ?? []);
-        const primaryImg =
-          (prod.product_images ?? []).find((i: any) => i.is_primary)?.url ||
-          prod.product_images?.[0]?.url ||
-          '/images/placeholder.jpg';
+        const activeVariants = (prod.product_variants ?? []).filter((v: any) => v.is_active !== false);
+        const { id: defaultVariantId, price, compare_at_price } = cheapestVariant(prod.product_variants ?? []);
+        const sortedProdImages = sortImages(prod.product_images ?? []);
+        const imgUrls = sortedProdImages.map((img) => img.url).filter(Boolean);
+        const primaryImg = imgUrls[0] || '/images/placeholder.jpg';
+
         return {
-          id: prod.id,
-          slug: prod.slug,
-          name: prod.name,
-          price,
-          image: primaryImg,
-          x_position: Number(hotspot.x_percent),
-          y_position: Number(hotspot.y_percent),
+          id: hotspot.id || `hs-${look.id}-${idx}`,
+          x_percent: Number(hotspot.x_percent ?? 50),
+          y_percent: Number(hotspot.y_percent ?? 50),
+          display_order: Number(hotspot.display_order ?? idx),
+          products: {
+            id: prod.id,
+            slug: prod.slug,
+            name: prod.name,
+            price,
+            compare_at_price,
+            images: imgUrls.length > 0 ? imgUrls : [primaryImg],
+            thumbnail_url: primaryImg,
+            default_variant_id: defaultVariantId || prod.id,
+            variants: activeVariants.map((v: any) => ({
+              id: v.id,
+              size: v.size,
+              price: Number(v.price),
+            })),
+          },
         };
       })
-      .filter(Boolean),
-  }));
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+
+    return {
+      id: look.id,
+      title: look.name,
+      name: look.name,
+      description: look.lifestyle_image_alt ?? null,
+      cover_image: look.lifestyle_image_url,
+      lifestyle_image_url: look.lifestyle_image_url,
+      lifestyle_image_alt: look.lifestyle_image_alt ?? look.name,
+      look_hotspots: mappedHotspots,
+      products: mappedHotspots.map((hs) => ({
+        id: hs.products.id,
+        slug: hs.products.slug,
+        name: hs.products.name,
+        price: hs.products.price,
+        compare_at_price: hs.products.compare_at_price ?? null,
+        image: hs.products.thumbnail_url || '/images/placeholder.jpg',
+        x_position: hs.x_percent,
+        y_position: hs.y_percent,
+      })),
+    };
+  });
 }
 
 // ─── getInstagramPosts ────────────────────────────────────────────────────────

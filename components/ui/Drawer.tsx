@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, ReactNode, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
@@ -106,7 +107,7 @@ export function Drawer({
   const drawerContent = (
     <AnimatePresence mode="wait">
       <motion.div
-        className="fixed inset-0 z-50 z-[var(--z-drawer,80)] overflow-hidden"
+        className="fixed inset-0 z-[80] overflow-hidden"
         initial="hidden"
         animate="visible"
         exit="exit"
@@ -116,7 +117,7 @@ export function Drawer({
         aria-describedby={descriptionId}
       >
         <motion.div
-          className="absolute inset-0 bg-[var(--color-ink)]/50 backdrop-blur-sm"
+          className="absolute inset-0 z-0 bg-[var(--color-ink)]/50 backdrop-blur-sm"
           initial="hidden"
           animate="visible"
           exit="exit"
@@ -131,7 +132,7 @@ export function Drawer({
         >
           <motion.div
             className={cn(
-              'fixed bg-[var(--color-white)] shadow-[var(--shadow-2xl)]',
+              'fixed z-10 bg-[var(--color-white)] shadow-[var(--shadow-2xl)]',
               'flex flex-col h-full max-h-screen max-h-dvh',
               sizeStyles[size],
               position === 'right' && 'inset-y-0 right-0 rounded-l-[var(--radius-xl)]',
@@ -247,8 +248,13 @@ export function CartDrawer({
 }: CartDrawerProps) {
   const router = useRouter();
   const [storedGuestItems, setStoredGuestItems] = useState<CartItem[]>([]);
+  const [isNavigatingCheckout, setIsNavigatingCheckout] = useState(false);
 
   useEffect(() => {
+    if (isOpen) {
+      setIsNavigatingCheckout(false);
+      router.prefetch('/checkout');
+    }
     if (typeof window !== 'undefined') {
       try {
         const raw = localStorage.getItem('guest_cart');
@@ -256,11 +262,15 @@ export function CartDrawer({
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setStoredGuestItems(parsed);
+          } else {
+            setStoredGuestItems([]);
           }
+        } else {
+          setStoredGuestItems([]);
         }
       } catch {}
     }
-  }, [isOpen]);
+  }, [isOpen, router]);
 
   const effectiveDrawerItems = (items && items.length > 0) ? items : storedGuestItems;
   const effectiveSubtotal = subtotal > 0
@@ -487,15 +497,34 @@ export function CartDrawer({
         </motion.button>
       ) : (
         <div className="pt-4 border-t border-[var(--color-whisper)] mt-auto flex-shrink-0">
-          <motion.button
-            className="w-full px-6 py-4 text-base font-semibold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-md)] shadow-[var(--shadow-gold)] hover:bg-[var(--color-gold-hover)] hover:shadow-[var(--shadow-lg)] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onProceedToCheckout}
-            disabled={isLoading}
+          <Link
+            href="/checkout"
+            prefetch={true}
+            onClick={(e) => {
+              if (isLoading || isNavigatingCheckout) {
+                e.preventDefault();
+                return;
+              }
+              setIsNavigatingCheckout(true);
+              onProceedToCheckout?.();
+              if (typeof window !== 'undefined') {
+                window.setTimeout(() => {
+                  if (window.location.pathname !== '/checkout') {
+                    window.location.assign('/checkout');
+                  }
+                }, 450);
+              }
+            }}
+            aria-disabled={isLoading || isNavigatingCheckout}
+            className={cn(
+              'w-full px-6 py-4 text-base font-semibold uppercase tracking-wider bg-[var(--color-gold)] text-[var(--color-ink)] rounded-[var(--radius-md)] shadow-[var(--shadow-gold)] hover:bg-[var(--color-gold-hover)] hover:shadow-[var(--shadow-lg)] transition-all duration-200 flex items-center justify-center text-center cursor-pointer active:scale-[0.98]',
+              (isLoading || isNavigatingCheckout) && 'opacity-60 pointer-events-none'
+            )}
           >
-            {isLoading ? 'Processing...' : `Proceed to Checkout — ₹${formatCurrency(effectiveTotal)}`}
-          </motion.button>
+            {isLoading || isNavigatingCheckout
+              ? 'Proceeding to Checkout...'
+              : `Proceed to Checkout — ₹${formatCurrency(effectiveTotal)}`}
+          </Link>
         </div>
       )}
     </Drawer>
