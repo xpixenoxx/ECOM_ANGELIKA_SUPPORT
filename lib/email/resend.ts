@@ -87,6 +87,41 @@ export async function sendEmailViaResend(params: ResendSendEmailParams): Promise
 
     if (!res.ok) {
       const errorMsg = data?.message || data?.error || `Resend API error status: ${res.status}`;
+
+      // If custom domain DNS is not yet verified in Resend, automatically retry via Resend's onboarding sender
+      if (
+        res.status === 403 &&
+        errorMsg.toLowerCase().includes('domain is not verified') &&
+        !from.toLowerCase().includes('onboarding@resend.dev')
+      ) {
+        console.warn('[Resend] Custom domain not yet verified in Resend; retrying with onboarding@resend.dev');
+        const fallbackRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...payload,
+            from: 'Angelika Fashions <onboarding@resend.dev>',
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+        const fallbackData: any = await fallbackRes.json().catch(() => ({}));
+        if (fallbackRes.ok) {
+          return {
+            success: true,
+            id: fallbackData?.id,
+            statusCode: fallbackRes.status,
+          };
+        }
+        return {
+          success: false,
+          error: fallbackData?.message || errorMsg,
+          statusCode: fallbackRes.status,
+        };
+      }
+
       console.error('[Resend Error]', res.status, errorMsg);
       return {
         success: false,

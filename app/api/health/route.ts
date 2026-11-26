@@ -24,6 +24,9 @@ export async function GET() {
         shiprocketReady: flags.shiprocketConfigured,
         shiprocketWebhookReady: flags.shiprocketWebhookConfigured,
       },
+      emails: {
+        resendReady: flags.resendConfigured,
+      },
     },
     {
       status: 200,
