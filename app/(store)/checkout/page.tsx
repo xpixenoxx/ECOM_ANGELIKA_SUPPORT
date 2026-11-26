@@ -843,7 +843,7 @@ export default function CheckoutPage() {
                                   ✓
                                 </span>
                                 <span className="text-[var(--color-ink)] font-medium">
-                                  Checking out as a Guest • No password required
+                                  Express Guest Checkout • Returning buyer? Sign in for saved addresses &amp; unified My Orders
                                 </span>
                               </div>
                               <button

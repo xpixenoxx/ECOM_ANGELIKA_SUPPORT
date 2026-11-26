@@ -16,6 +16,7 @@ import { sendEmailViaResend, isResendConfigured } from '@/lib/email/resend';
 import { getOptionalEnv } from '@/lib/env';
 import { escapeHtml } from '@/lib/validators/commerce';
 import { normalizeAddress } from '@/lib/utils/address';
+import { createOrderReceiptToken } from '@/lib/utils/order-access-token';
 import type { Database, Json } from '@/types/database';
 
 type OrderRow = Database['public']['Tables']['orders']['Row'];
@@ -278,7 +279,8 @@ export async function sendOrderConfirmedNotification(orderId: string): Promise<v
   const addr = normalizeAddress(order.shipping_address);
   const firstName = escapeHtml(addr.firstName || 'Valued Patron');
   const siteUrl = getSiteUrl();
-  const trackUrl = `${siteUrl}/track-order`;
+  const receiptToken = createOrderReceiptToken(order.id, order.email);
+  const trackUrl = `${siteUrl}/track-order?order=${encodeURIComponent(order.order_number)}&token=${encodeURIComponent(receiptToken)}`;
 
   const bodyHtml = `
     <p style="font-size:14px;line-height:1.6;color:#44403C;">Namaste ${firstName},</p>
@@ -492,7 +494,9 @@ export async function sendShipmentLifecycleNotification(params: {
 
   const addr = normalizeAddress(order.shipping_address);
   const siteUrl = getSiteUrl();
-  const ctaUrl = params.trackingUrl || `${siteUrl}/track-order`;
+  const receiptToken = createOrderReceiptToken(order.id, order.email);
+  const signedTrackUrl = `${siteUrl}/track-order?order=${encodeURIComponent(order.order_number)}&token=${encodeURIComponent(receiptToken)}`;
+  const ctaUrl = params.trackingUrl || signedTrackUrl;
 
   const stageMeta: Record<typeof params.stage, { subject: string; heading: string; message: string }> = {
     created: {
@@ -538,8 +542,8 @@ export async function sendShipmentLifecycleNotification(params: {
           ${params.awbCode ? `<p style="margin:0;"><strong>AWB / Tracking #:</strong> <span style="font-family:monospace;">${escapeHtml(params.awbCode)}</span></p>` : ''}
         </div>
       `,
-      ctaLabel: params.stage === 'delivered' ? 'View Your Order' : 'Track Shipment Live',
-      ctaUrl: params.stage === 'delivered' ? `${siteUrl}/account/orders/${order.id}` : ctaUrl,
+      ctaLabel: params.stage === 'delivered' ? 'View Order Summary' : 'Track Shipment Live',
+      ctaUrl: params.stage === 'delivered' ? signedTrackUrl : ctaUrl,
     }),
     text: `${info.heading} — Order #${order.order_number}${params.courierName ? ` via ${params.courierName}` : ''}${params.awbCode ? ` (AWB: ${params.awbCode})` : ''}. Track: ${ctaUrl}`,
     link: `/account/orders/${order.id}`,

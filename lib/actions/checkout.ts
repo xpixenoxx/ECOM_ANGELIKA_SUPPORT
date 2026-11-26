@@ -838,7 +838,24 @@ export async function getOrderById(orderId: string, receiptToken?: string | null
       return null;
     }
 
-    return order;
+    let hasExistingAccount = Boolean(order.user_id);
+    if (!hasExistingAccount && order.email) {
+      try {
+        const { data: existingProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .ilike('email', order.email.trim())
+          .maybeSingle();
+        hasExistingAccount = Boolean(existingProfile?.id);
+      } catch {
+        hasExistingAccount = false;
+      }
+    }
+
+    return {
+      ...order,
+      hasExistingAccount,
+    };
   } catch (err) {
     console.error('Failed to get order:', err);
     return null;
@@ -1021,10 +1038,10 @@ export async function convertGuestToAccount({
 
     const userId = newUser?.user?.id;
     if (userId) {
+      // Link this order AND any prior unlinked guest orders placed with the same email
       await supabase
         .from('orders')
         .update({ user_id: userId })
-        .eq('id', order.id)
         .is('user_id', null)
         .ilike('email', cleanEmail);
 
@@ -1034,7 +1051,7 @@ export async function convertGuestToAccount({
         role: 'customer',
       });
 
-      return { success: true, message: 'Account activated successfully! Your order is now linked.' };
+      return { success: true, message: 'Account activated! All orders under your email are now linked to My Orders.' };
     }
 
     return { success: false, error: 'Could not complete registration' };

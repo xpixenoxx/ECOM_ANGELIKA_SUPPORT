@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { trackOrderPublic, type PublicTrackedOrder } from '@/lib/actions/customer-orders';
 
 interface TrackOrderClientProps {
   whatsappNumber?: string;
+  initialOrderNumber?: string;
+  initialToken?: string;
 }
 
 const ORDERED_STAGES = [
@@ -79,12 +81,93 @@ function formatStatusBadge(status: string): string {
     .replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
-export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
-  const [orderId, setOrderId] = useState('');
+function formatPaymentSummary(order: PublicTrackedOrder): { label: string; detail: string; badgeClass: string } {
+  const method = (order.payment_method || '').toLowerCase();
+  const status = (order.payment_status || 'pending').toLowerCase();
+  const amountText = `₹${Number(order.total_amount || 0).toLocaleString('en-IN')}`;
+
+  if (method === 'cod') {
+    return {
+      label: 'Cash on Delivery (COD)',
+      detail:
+        status === 'paid'
+          ? `Collected (${amountText})`
+          : `${amountText} payable on delivery`,
+      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+    };
+  }
+
+  if (status === 'paid') {
+    return {
+      label: 'Prepaid (Razorpay)',
+      detail: `Paid ${amountText}`,
+      badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    };
+  }
+  if (status === 'refunded' || status === 'partially_refunded' || status === 'refund_pending') {
+    return {
+      label: 'Prepaid (Razorpay)',
+      detail: formatStatusBadge(status),
+      badgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
+    };
+  }
+  if (status === 'failed') {
+    return {
+      label: 'Prepaid (Razorpay)',
+      detail: 'Payment Failed',
+      badgeClass: 'bg-rose-50 text-rose-800 border-rose-200',
+    };
+  }
+  return {
+    label: 'Prepaid (Razorpay)',
+    detail: status === 'authorized' ? 'Payment Authorized (Settling)' : 'Payment Verification Pending',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+  };
+}
+
+export function TrackOrderClient({
+  whatsappNumber,
+  initialOrderNumber = '',
+  initialToken = '',
+}: TrackOrderClientProps) {
+  const [orderId, setOrderId] = useState(initialOrderNumber);
   const [phoneOrEmail, setPhoneOrEmail] = useState('');
   const [trackedOrder, setTrackedOrder] = useState<PublicTrackedOrder | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(initialOrderNumber && initialToken));
+
+  // Auto-load 1-click signed tracking links (?order=ORD-...&token=...) cleanly
+  useEffect(() => {
+    if (!initialOrderNumber || !initialToken) return;
+    let active = true;
+    setLoading(true);
+    setLookupError(null);
+    trackOrderPublic({
+      orderNumber: initialOrderNumber,
+      receiptToken: initialToken,
+    })
+      .then((result) => {
+        if (!active) return;
+        if (result.success && result.order) {
+          setTrackedOrder(result.order);
+        } else {
+          setLookupError(
+            'Enter your registered email or 10-digit phone number below to verify and view this order.'
+          );
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setLookupError('Unable to auto-load tracking link. Please verify with your phone or email below.');
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [initialOrderNumber, initialToken]);
 
   const cleanWhatsapp = (whatsappNumber || '').replace(/[^0-9]/g, '');
   const whatsappInquiryUrl = cleanWhatsapp.length >= 8
@@ -128,6 +211,7 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
 
   const activeStageIndex = trackedOrder ? (STAGE_INDEX_MAP[trackedOrder.status] ?? -1) : -1;
   const exceptionInfo = trackedOrder ? EXCEPTION_STATUS_INFO[trackedOrder.status] : undefined;
+  const paymentSummary = trackedOrder ? formatPaymentSummary(trackedOrder) : null;
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] py-12 md:py-20">
@@ -145,7 +229,7 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
             Track Your Order
           </h1>
           <p className="mt-2 text-sm text-[var(--color-slate)] max-w-lg mx-auto font-light leading-relaxed">
-            Enter your Order ID and registered phone number or email address to check live preparation and courier status.
+            Enter your Order ID and registered phone number or email address to check live preparation, payment, and courier status — works for both Prepaid and COD orders.
           </p>
         </div>
 
@@ -165,7 +249,7 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
                   autoCapitalize="characters"
                   spellCheck={false}
                   enterKeyHint="next"
-                  placeholder="e.g. AF-2026-0001"
+                  placeholder="e.g. ORD-MWXV9139-7003"
                   value={orderId}
                   onChange={(e) => setOrderId(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-lg border border-[#E5DFD5] text-sm text-[var(--color-ink)] placeholder-[var(--color-mist)] focus:outline-none focus:border-[var(--color-gold)] focus:ring-1 focus:ring-[var(--color-gold)] transition-all bg-[#FCFAF7]"
@@ -204,7 +288,7 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4">
               <span className="text-xs text-[var(--color-mist)]">
-                Find your Order Number in your email confirmation or My Orders page.
+                Find your Order Number on your confirmation screen, email, or My Orders page.
               </span>
               <button
                 type="submit"
@@ -219,14 +303,21 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
           {trackedOrder && (
             <div className="mt-8 pt-8 border-t border-[#EAE4D9] space-y-6 animate-fadeIn">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-xl bg-[#FCFAF7] border border-[#E5DECF]">
-                <div>
+                <div className="space-y-1">
                   <span className="text-[10px] font-semibold tracking-widest uppercase text-[var(--color-gold)]">
                     Order Verified
                   </span>
                   <p className="font-serif text-lg text-[var(--color-ink)]">
                     Order #{trackedOrder.order_number}
                   </p>
-                  <p className="text-xs text-[var(--color-slate)] mt-0.5">
+                  {paymentSummary && (
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-[11px] font-semibold ${paymentSummary.badgeClass}`}>
+                        {paymentSummary.label} · {paymentSummary.detail}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-xs text-[var(--color-slate)] pt-0.5">
                     {trackedOrder.courier_partner
                       ? `Courier Partner: ${trackedOrder.courier_partner}`
                       : 'Courier assignment pending dispatch'}
@@ -234,8 +325,13 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
                       ? ` · AWB #${trackedOrder.tracking_number}`
                       : ''}
                   </p>
+                  {trackedOrder.etd && (
+                    <p className="text-xs text-emerald-700 font-medium">
+                      Estimated Delivery: {trackedOrder.etd}
+                    </p>
+                  )}
                   {(trackedOrder.destination_city || trackedOrder.destination_state) && (
-                    <p className="text-xs text-[var(--color-mist)] mt-0.5">
+                    <p className="text-xs text-[var(--color-mist)]">
                       Destination: {[trackedOrder.destination_city, trackedOrder.destination_state].filter(Boolean).join(', ')}
                     </p>
                   )}
@@ -264,7 +360,7 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
                       rel="noopener noreferrer"
                       className="text-xs font-medium text-[var(--color-gold-hover)] underline hover:text-[var(--color-gold)]"
                     >
-                      Open Carrier Tracking →
+                      Open Live Carrier Tracking →
                     </a>
                   )}
                 </div>
@@ -307,10 +403,37 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
                 </div>
               )}
 
+              {Array.isArray(trackedOrder.scans) && trackedOrder.scans.length > 0 && (
+                <div className="pt-4 border-t border-[#EAE4D9] space-y-2.5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)]">
+                    Courier Scan Updates
+                  </p>
+                  <ul className="space-y-2">
+                    {trackedOrder.scans.map((scan, idx) => (
+                      <li key={idx} className="text-xs bg-[#FCFAF7] border border-[#EAE4D9] rounded-lg px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <div>
+                          <span className="font-medium text-[var(--color-ink)]">
+                            {scan.activity || scan.status || 'Shipment Update'}
+                          </span>
+                          {scan.location && (
+                            <span className="text-[var(--color-slate)]"> · {scan.location}</span>
+                          )}
+                        </div>
+                        {scan.date && (
+                          <span className="text-[11px] font-mono text-[var(--color-mist)] whitespace-nowrap">
+                            {scan.date}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {trackedOrder.items.length > 0 && (
                 <div className="pt-4 border-t border-[#EAE4D9] space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)]">
-                    Items in Shipment ({trackedOrder.items.length})
+                    Items in Order ({trackedOrder.items.length})
                   </p>
                   <ul className="space-y-1.5">
                     {trackedOrder.items.map((item, idx) => (
@@ -355,13 +478,13 @@ export function TrackOrderClient({ whatsappNumber }: TrackOrderClientProps) {
 
         <div className="mt-8 text-center space-y-2">
           <p className="text-xs text-[var(--color-slate)]">
-            Already have an Angelika account?
+            Ordered multiple times or want all your orders in one place?
           </p>
           <Link
             href="/account/orders"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-ink)] hover:text-[var(--color-gold)] underline transition-colors"
           >
-            Sign in to view complete order history, invoices, and saved sizes →
+            Sign in with your checkout email to view all past Prepaid &amp; COD orders →
           </Link>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { canCustomerCancelOrder } from '@/lib/orders/state-machine';
 import { normalizeAddress } from '@/lib/utils/address';
 import { normalizeIndianPhone, sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
 import { checkRateLimitAsync } from '@/lib/utils/rate-limit';
+import { verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
 import { sendOrderCancelledNotification } from '@/lib/actions/notifications';
 import { revalidatePath } from 'next/cache';
 import type { Json } from '@/types/database';
@@ -923,6 +924,14 @@ export interface PublicTrackedOrder {
   courier_partner: string | null;
   tracking_number: string | null;
   tracking_url: string | null;
+  shipment_status?: string | null;
+  etd?: string | null;
+  scans?: Array<{
+    date: string;
+    status: string;
+    activity: string;
+    location: string;
+  }>;
   shipped_at: string | null;
   delivered_at: string | null;
   created_at: string;
@@ -939,17 +948,19 @@ export interface PublicTrackedOrder {
 }
 
 /**
- * Privacy-safe public order tracking by Order Number + Email or 10-digit Phone.
+ * Privacy-safe public order tracking by Order Number + (Email/10-digit Phone OR signed HMAC receiptToken).
  * Never leaks street address, full phone, or full email.
  */
 export async function trackOrderPublic(params: {
   orderNumber: string;
-  contact: string;
+  contact?: string;
+  receiptToken?: string;
 }): Promise<{ success: boolean; order?: PublicTrackedOrder; error?: string }> {
   try {
     const cleanOrderNum = sanitizePostgrestSearchTerm(params.orderNumber || '').toUpperCase();
     const rawContact = (params.contact || '').trim();
-    if (!cleanOrderNum || !rawContact) {
+    const rawToken = (params.receiptToken || '').trim();
+    if (!cleanOrderNum || (!rawContact && !rawToken)) {
       return { success: false, error: 'Order number and email or phone number are required.' };
     }
 
@@ -994,15 +1005,50 @@ export async function trackOrderPublic(params: {
     const orderPhone = normalizeIndianPhone(order.phone || addr.phone || '');
 
     const matchesEmail = Boolean(
-      order.email && inputLower.includes('@') && order.email.toLowerCase() === inputLower
+      rawContact && order.email && inputLower.includes('@') && order.email.toLowerCase() === inputLower
     );
     const matchesPhone = Boolean(
-      inputPhone.length >= 10 && orderPhone.length >= 10 && inputPhone === orderPhone
+      rawContact && inputPhone.length >= 10 && orderPhone.length >= 10 && inputPhone === orderPhone
+    );
+    const matchesToken = Boolean(
+      rawToken && verifyOrderReceiptToken(order.id, order.email, rawToken)
     );
 
-    if (!matchesEmail && !matchesPhone) {
+    if (!matchesEmail && !matchesPhone && !matchesToken) {
       return { success: false, error: 'No matching order found. Please verify your Order Number and contact details.' };
     }
+
+    // Enrich with latest non-cancelled shipment record (ETD, live courier scans, tracking URL)
+    let latestShipment: any = null;
+    try {
+      const { data: shipRows } = await supabaseAdmin
+        .from('shipments')
+        .select('courier_name, awb_code, tracking_url, shipment_status, etd, scans')
+        .eq('order_id', order.id)
+        .neq('shipment_status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (Array.isArray(shipRows) && shipRows.length > 0) {
+        latestShipment = shipRows[0];
+      }
+    } catch {
+      // Safe fallback when running against minimal test mocks without shipments table
+    }
+
+    const resolvedAwb = latestShipment?.awb_code || order.tracking_number || null;
+    const resolvedCourier = latestShipment?.courier_name || order.courier_partner || null;
+    const resolvedTrackingUrl =
+      latestShipment?.tracking_url ||
+      order.tracking_url ||
+      (resolvedAwb ? `https://shiprocket.co/tracking/${encodeURIComponent(resolvedAwb)}` : null);
+
+    const rawScans = Array.isArray(latestShipment?.scans) ? latestShipment.scans : [];
+    const scans = rawScans.slice(0, 8).map((s: any) => ({
+      date: String(s?.date || s?.timestamp || ''),
+      status: String(s?.status || s?.['sr-status-label'] || ''),
+      activity: String(s?.activity || s?.description || ''),
+      location: String(s?.location || ''),
+    }));
 
     const items = ((order as any).order_items || []).map((it: any) => {
       const vd = (it.variant_details && typeof it.variant_details === 'object') ? it.variant_details : {};
@@ -1022,9 +1068,12 @@ export async function trackOrderPublic(params: {
         status: order.status,
         payment_status: order.payment_status,
         payment_method: order.payment_method,
-        courier_partner: order.courier_partner,
-        tracking_number: order.tracking_number,
-        tracking_url: order.tracking_url,
+        courier_partner: resolvedCourier,
+        tracking_number: resolvedAwb,
+        tracking_url: resolvedTrackingUrl,
+        shipment_status: latestShipment?.shipment_status || null,
+        etd: latestShipment?.etd || null,
+        scans,
         shipped_at: order.shipped_at,
         delivered_at: order.delivered_at,
         created_at: order.created_at,

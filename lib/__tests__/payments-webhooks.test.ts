@@ -604,7 +604,7 @@ describe('Razorpay Verification, Webhooks, Refunds, Reconciliation, Cancel & Tra
     expect(mockRpc).toHaveBeenCalledWith('release_order_inventory', { p_order_id: 'order-1' });
   });
 
-  it('tracks order publicly only with matching orderNumber + email/phone and omits street address PII', async () => {
+  it('tracks order publicly with matching email/phone OR signed receiptToken and omits street address PII', async () => {
     const wrongContact = await trackOrderPublic({ orderNumber: 'ORD-TEST-001', contact: 'stranger@example.com' });
     expect(wrongContact.success).toBe(false);
 
@@ -613,6 +613,16 @@ describe('Razorpay Verification, Webhooks, Refunds, Reconciliation, Cancel & Tra
     expect(validPhone.order?.destination_city).toBe('Jaipur');
     expect((validPhone.order as any)?.address1).toBeUndefined();
     expect((validPhone.order as any)?.email).toBeUndefined();
+
+    process.env['ORDER_TOKEN_SECRET'] = 'track_token_test_secret_12345';
+    const validToken = createOrderReceiptToken('order-1', 'priya@example.com');
+    const byToken = await trackOrderPublic({ orderNumber: 'ORD-TEST-001', receiptToken: validToken });
+    expect(byToken.success).toBe(true);
+    expect(byToken.order?.order_number).toBe('ORD-TEST-001');
+    expect((byToken.order as any)?.address1).toBeUndefined();
+
+    const byBadToken = await trackOrderPublic({ orderNumber: 'ORD-TEST-001', receiptToken: 'tampered_token' });
+    expect(byBadToken.success).toBe(false);
   });
 
   it('blocks unauthenticated or non-owner calls to exported executeGatewayRefund server action', async () => {

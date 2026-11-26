@@ -47,6 +47,7 @@ function OrderSuccessContent() {
   const [reconciling, setReconciling] = useState(false);
   const [reconcileNotice, setReconcileNotice] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedTrackLink, setCopiedTrackLink] = useState(false);
 
   // Guest-to-Account activation state
   const [accountPassword, setAccountPassword] = useState('');
@@ -262,8 +263,22 @@ function OrderSuccessContent() {
   const shippingCost = Number(order.shipping_cost || 0);
   const razorpayPaymentId = order.metadata?.razorpay_payment_id as string | undefined;
 
+  const directTrackPath = `/track-order?order=${encodeURIComponent(orderNumber)}${
+    receiptToken ? `&token=${encodeURIComponent(receiptToken)}` : ''
+  }`;
+  const fullTrackUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${directTrackPath}`
+      : `https://angelikafashions.com${directTrackPath}`;
+
+  const copyTrackingLink = () => {
+    navigator.clipboard.writeText(fullTrackUrl);
+    setCopiedTrackLink(true);
+    setTimeout(() => setCopiedTrackLink(false), 2500);
+  };
+
   const whatsappMessage = encodeURIComponent(
-    `Hello Angelika Atelier Concierge, I need help with order ${orderNumber}. Customer: ${customerName}.`
+    `Hello Angelika Atelier Concierge, I placed order ${orderNumber} (${isCod ? 'COD' : 'Prepaid'}). Customer: ${customerName}. Tracking link: ${fullTrackUrl}`
   );
 
   // STATE 1: PAYMENT VERIFICATION PENDING (NEVER SHOW FALSE "ORDER CONFIRMED")
@@ -399,7 +414,7 @@ function OrderSuccessContent() {
           </p>
 
           {/* Order Reference Pill */}
-          <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-[var(--color-white)] border border-[var(--color-gold)]/40 rounded-full shadow-sm mb-8 text-sm">
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 bg-[var(--color-white)] border border-[var(--color-gold)]/40 rounded-full shadow-sm mb-5 text-sm">
             <span className="text-xs uppercase tracking-wider text-[var(--color-slate)] font-semibold">
               Order Reference:
             </span>
@@ -416,8 +431,61 @@ function OrderSuccessContent() {
             </button>
           </div>
 
-          {/* 1-Click Guest Account Activation Card (ONLY for guest orders!) */}
-          {!order.user_id && accountStatus?.type !== 'success' && (
+          {/* Direct 1-Click Live Tracking Link Card (works for both Prepaid & COD, with or without login) */}
+          <div className="mb-8 print:hidden">
+            <div className="p-4 sm:p-5 rounded-xl bg-[var(--color-white)] border border-[var(--color-whisper)] shadow-xs text-left flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-gold)]">
+                  ✦ Save Your Live Tracking Link
+                </p>
+                <p className="text-xs text-[var(--color-slate)] leading-relaxed">
+                  Bookmark or copy this private link to check live preparation, payment, and courier status anytime — no login required. You can also visit <strong className="text-[var(--color-ink)]">/track-order</strong> anytime with <strong className="font-mono text-[var(--color-ink)]">{orderNumber}</strong> and your phone or email.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={copyTrackingLink}
+                  className="px-3.5 py-2 rounded-lg border border-[var(--color-gold)]/40 bg-[var(--color-gold-light)]/20 text-xs font-semibold text-[var(--color-ink)] hover:bg-[var(--color-gold)] hover:text-white transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  {copiedTrackLink ? '✓ Link Copied' : 'Copy Tracking Link'}
+                </button>
+                <Link
+                  href={directTrackPath}
+                  className="px-3.5 py-2 rounded-lg bg-[var(--color-ink)] text-white text-xs font-semibold hover:opacity-90 transition-opacity whitespace-nowrap"
+                >
+                  Open Tracker →
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Smart Returning Customer vs First-Time Guest Account Card */}
+          {!order.user_id && order.hasExistingAccount && (
+            <div className="mb-8 print:hidden">
+              <Card variant="elevated" padding="lg" className="border-[var(--color-gold)]/40 bg-gradient-to-br from-[var(--color-white)] to-[var(--color-gold-light)]/15 text-left shadow-sm">
+                <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[var(--color-gold)] text-[var(--color-ink)] text-[10px] font-bold uppercase rounded-full mb-2">
+                      ✦ Existing Account Recognized
+                    </div>
+                    <h3 className="text-lg font-display font-semibold text-[var(--color-ink)]">
+                      Welcome Back — This Order Is Matched to Your Email
+                    </h3>
+                    <p className="text-xs text-[var(--color-slate)] mt-1">
+                      You already have an Angelika Fashions account under <strong className="text-[var(--color-ink)]">{order.email}</strong>. Sign in anytime to view all your past &amp; new Prepaid and COD orders together in <strong>My Orders</strong> — no need to register again.
+                    </p>
+                  </div>
+                  <Button variant="primary" asChild className="flex-shrink-0 px-5 text-xs">
+                    <Link href="/login?redirect=/account/orders">Sign In to My Orders</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* 1-Click Guest Account Activation Card (ONLY for first-time guest orders without an account!) */}
+          {!order.user_id && !order.hasExistingAccount && accountStatus?.type !== 'success' && (
             <div className="mb-8 print:hidden">
               <Card variant="elevated" padding="lg" className="border-[var(--color-gold)]/40 bg-gradient-to-br from-[var(--color-white)] to-[var(--color-gold-light)]/15 text-left shadow-sm">
                 <CardContent className="p-6">
@@ -625,7 +693,7 @@ function OrderSuccessContent() {
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 print:hidden">
             <Button variant="primary" asChild className="w-full sm:w-auto px-8 shadow-md">
-              <Link href="/track-order">Track Order</Link>
+              <Link href={directTrackPath}>Track Order Live</Link>
             </Button>
             <Button variant="outline" asChild className="w-full sm:w-auto px-6 text-xs">
               <Link href="/shop">Continue Shopping</Link>

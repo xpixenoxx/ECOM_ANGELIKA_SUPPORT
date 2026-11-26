@@ -9,7 +9,15 @@ export const metadata: Metadata = {
     'Enter your Order Number and registered email or phone number to check live preparation and courier dispatch status.',
 };
 
-export default async function TrackOrderPage() {
+interface TrackOrderPageProps {
+  searchParams?: {
+    order?: string;
+    order_number?: string;
+    token?: string;
+  };
+}
+
+export default async function TrackOrderPage({ searchParams }: TrackOrderPageProps) {
   const [settings, heroData] = await Promise.all([
     getStoreSettings(),
     getHomepageHeroData(),
@@ -18,5 +26,14 @@ export default async function TrackOrderPage() {
   const whatsappNumber =
     heroData?.conciergeWhatsApp || settings?.contact_whatsapp || '';
 
-  return <TrackOrderClient whatsappNumber={whatsappNumber} />;
+  const initialOrderNumber = (searchParams?.order || searchParams?.order_number || '').trim();
+  const initialToken = (searchParams?.token || '').trim();
+
+  return (
+    <TrackOrderClient
+      whatsappNumber={whatsappNumber}
+      initialOrderNumber={initialOrderNumber}
+      initialToken={initialToken}
+    />
+  );
 }
