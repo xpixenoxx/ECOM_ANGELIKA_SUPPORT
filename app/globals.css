@@ -314,6 +314,82 @@
     content-visibility: auto;
     contain-intrinsic-size: auto 380px;
   }
+
+  /* --- Couture Architectural Woven-Silk Drafting Grid --- */
+  .couture-loom-grid {
+    background-image:
+      linear-gradient(to right, rgba(182, 152, 92, 0.11) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(182, 152, 92, 0.11) 1px, transparent 1px),
+      linear-gradient(to right, rgba(182, 152, 92, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(182, 152, 92, 0.045) 1px, transparent 1px);
+    background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px;
+    background-position: -1px -1px;
+  }
+}
+
+/* --- Modern Web: Branded Boutique Footer Region <select> with progressive base-select --- */
+.boutique-region-select {
+  appearance: none;
+  background-color: #FFFFFF;
+  color: #111111;
+  border: 1px solid #FFFFFF;
+  border-radius: 3px;
+  min-inline-size: 215px;
+  min-block-size: 44px;
+  padding-inline: 16px 38px;
+  padding-block: 10px;
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.boutique-region-select:focus-visible {
+  outline: 2px solid #C9A84C;
+  outline-offset: 3px;
+}
+
+@supports (appearance: base-select) {
+  .boutique-region-select,
+  .boutique-region-select::picker(select) {
+    appearance: base-select;
+  }
+
+  .boutique-region-select {
+    display: inline-flex;
+    align-items: center;
+    padding-inline: 16px 38px;
+  }
+
+  .boutique-region-select::picker-icon {
+    display: none;
+  }
+
+  .boutique-region-select::picker(select) {
+    background-color: #FFFFFF;
+    color: #111111;
+    border: 1px solid #E5E5E5;
+    border-radius: 4px;
+    padding: 4px;
+    margin-block: 6px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .boutique-region-select option {
+    padding: 8px 12px;
+    border-radius: 3px;
+    color: #111111;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .boutique-region-select option:hover,
+  .boutique-region-select option:focus-visible {
+    background-color: #F5F1E8;
+  }
+
+  .boutique-region-select option::checkmark {
+    color: #74590E;
+  }
 }
 
 /* --- Modern Web: Native <dialog> scroll containment & top-layer backdrop --- */

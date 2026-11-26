@@ -1,675 +1,464 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useId } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { SocialIcon } from '@/components/ui/SocialIcon';
-import type { FooterContent } from '@/lib/actions/site-content';
-
-export interface FooterLink {
-  label: string;
-  href: string;
-  external?: boolean;
-  badge?: string;
-}
-
-export interface FooterColumn {
-  title: string;
-  links: FooterLink[];
-}
-
-export interface SocialLink {
-  id?: string;
-  platform: 'instagram' | 'facebook' | 'pinterest' | 'youtube' | 'whatsapp' | 'twitter' | 'threads' | 'telegram' | 'tiktok' | 'linkedin' | 'snapchat' | 'spotify' | 'globe' | 'website' | 'email' | 'sms' | string;
-  icon?: string;
-  href: string;
-  label: string;
-  handle?: string;
-  enabled?: boolean;
-}
+import { PAYMENT_BADGE_ORDER, PaymentCardBadge } from '@/components/composite/FooterPaymentBadges';
+import type {
+  FooterContent,
+  FooterColumnItem,
+  FooterLinkItem,
+  FooterPaymentOptions,
+  FooterSocialItem,
+} from '@/lib/actions/site-content-types';
 
 export interface FooterProps {
-  content?: FooterContent;
-  logo?: React.ReactNode;
-  tagline?: string;
-  columns?: FooterColumn[];
-  socialLinks?: SocialLink[];
-  paymentMethods?: Array<{ name: string; icon: React.ReactNode }>;
-  copyright?: string;
   className?: string;
+  content?: FooterContent;
   contactEmail?: string;
   contactPhone?: string;
   contactWhatsapp?: string;
   siteName?: string;
+  tagline?: string;
   socialInstagram?: string;
   socialFacebook?: string;
   socialWhatsapp?: string;
   socialYoutube?: string;
 }
 
-/* =========================================================================
-   CUSTOM ATELIER DIRECTORY COLUMNS
-   Every single link resolves to an active, rich, bespoke route
-   ========================================================================= */
-
-const defaultColumns: FooterColumn[] = [
+export const BOUTIQUE_DEFAULT_COLUMNS: FooterColumnItem[] = [
   {
-    title: 'Shop Collections',
+    id: 'col-care',
+    title: 'Customer Care',
     links: [
-      { label: 'Handcrafted Kurtis', href: '/shop/kurtis' },
-      { label: 'Salwars & Palazzo Sets', href: '/shop/salwars' },
-      { label: 'Bridal & Festive Lehengas', href: '/shop/lehengas' },
-      { label: 'Pure Silk & Chanderi Sarees', href: '/shop/sarees' },
-      { label: 'Artisanal Dupattas', href: '/shop/dupattas' },
-      { label: 'New Arrivals', href: '/new-arrivals', badge: 'New' },
-      { label: "Vidhya's Curated Picks", href: '/vidhyas-picks', badge: 'Curated' },
-      { label: 'Festive Archive Sale', href: '/sale', badge: 'Sale' },
-    ],
-  },
-  {
-    title: 'Client Concierge',
-    links: [
+      { label: 'Delivery', href: '/shipping' },
+      { label: 'Returns & Exchanges', href: '/returns' },
       { label: 'Track Your Order', href: '/track-order' },
-      { label: 'Shipping & Delivery Policy', href: '/shipping' },
-      { label: 'Returns & Size Exchanges', href: '/returns' },
-      { label: 'Interactive Size Finder', href: '/size-finder' },
-      { label: 'Garment Size Guide', href: '/size-guide' },
-      { label: 'Frequently Asked Questions', href: '/faq' },
-      { label: 'Contact Our Concierge', href: '/contact' },
-      { label: 'Wholesale & B2B Inquiries', href: '/wholesale' },
+      { label: 'Size Finder', href: '/size-finder' },
+      { label: 'Contact Us', href: '/contact' },
     ],
   },
   {
-    title: 'The Atelier Story',
+    id: 'col-about',
+    title: 'About Angelika',
     links: [
-      { label: 'Our Heritage & Philosophy', href: '/about' },
+      { label: 'Our Story', href: '/about' },
       { label: 'Meet Designer Vidhya', href: '/about/vidhya' },
-      { label: 'Master Weaving Traditions', href: '/about#craft' },
-      { label: 'Ethical & Sustainable Craft', href: '/about#sustainability' },
-      { label: 'Editorial Style Journal', href: '/new-arrivals' },
-      { label: 'Press & Celebrity Spotlights', href: '/about#press' },
-      { label: 'Careers at Angelika', href: '/contact?subject=careers' },
+      { label: 'Angelika on Instagram', href: 'https://instagram.com/angelikafashions', external: true },
+      { label: 'The Edit', href: '/vidhyas-picks' },
+      { label: 'New Arrivals', href: '/new-arrivals' },
     ],
+  },
+];
+
+export const BOUTIQUE_DEFAULT_ABOUT_TEXT =
+  'Angelika Fashions is an independent Indian luxury couture house, proudly celebrating heritage handlooms and contemporary silhouettes. Founded by designer Vidhya, every drape is crafted with timeless artistry for the modern woman.';
+
+export const BOUTIQUE_DEFAULT_BOTTOM_LINKS: FooterLinkItem[] = [
+  { label: 'Terms of Service', href: '/terms' },
+  { label: 'Privacy Policy', href: '/privacy' },
+  { label: 'Shipping Policy', href: '/shipping' },
+  { label: 'Refund Policy', href: '/returns' },
+  { label: 'Cookies', href: '/cookies' },
+  { label: 'Accessibility', href: '/accessibility' },
+];
+
+export const BOUTIQUE_DEFAULT_REGIONS: string[] = [
+  'India (INR ₹)',
+  'United Arab Emirates (AED د.إ)',
+  'United Kingdom (GBP £)',
+  'United States (USD $)',
+];
+
+const DEFAULT_SOCIAL_LINKS: FooterSocialItem[] = [
+  {
+    id: 'social-fb',
+    platform: 'facebook',
+    icon: 'facebook',
+    href: 'https://facebook.com/angelikafashions',
+    label: 'Facebook',
+    handle: 'Angelika Fashions',
+    enabled: true,
   },
   {
-    title: 'Policies & Trust',
-    links: [
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Terms of Service', href: '/terms' },
-      { label: 'Cookie Policy', href: '/cookies' },
-      { label: 'Accessibility Commitment', href: '/accessibility' },
-      { label: 'Client Account & Profile', href: '/account' },
-      { label: 'My Saved Wishlist', href: '/wishlist' },
-      { label: '100% Silk Mark Authenticity', href: '/about#authenticity' },
-    ],
+    id: 'social-ig',
+    platform: 'instagram',
+    icon: 'instagram',
+    href: 'https://instagram.com/angelikafashions',
+    label: 'Instagram',
+    handle: '@angelikafashions',
+    enabled: true,
+  },
+  {
+    id: 'social-wa',
+    platform: 'whatsapp',
+    icon: 'whatsapp',
+    href: 'https://wa.me/917207256690',
+    label: 'WhatsApp Concierge',
+    handle: 'Chat with Vidhya',
+    enabled: true,
+  },
+  {
+    id: 'social-yt',
+    platform: 'youtube',
+    icon: 'youtube',
+    href: 'https://youtube.com/angelikafashions',
+    label: 'YouTube',
+    handle: 'Angelika Atelier',
+    enabled: true,
   },
 ];
 
-/* =========================================================================
-   AUTHENTIC LUXURY PAYMENT EMBLEMS (Crisp, High-End Tailored Vectors)
-   ========================================================================= */
+const DEFAULT_PAYMENT_OPTIONS: FooterPaymentOptions = {
+  amex: true,
+  gpay: true,
+  upi: true,
+  mastercard: true,
+  rupay: true,
+  visa: true,
+  razorpay: true,
+  netbanking: true,
+  cod: true,
+};
 
-function UpiEmblem() {
+function isLegacyUnmigratedFooter(content?: FooterContent): boolean {
+  if (!content) return false;
+  if (content.layoutVersion && content.layoutVersion >= 2) return false;
+  if (content.aboutText && content.aboutText.trim().length > 0) return false;
+  const colIds = (content.columns || []).map((c) => c.id);
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <svg className="w-3.5 h-3.5 text-[#0F753A]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M12 2L2 19.5h20L12 2zm0 4.2l6.5 11.3H5.5L12 6.2z" />
-      </svg>
-      <span className="text-[11px] font-bold tracking-wider text-[#1A1A1A]">UPI</span>
-    </div>
+    colIds.length === 4 &&
+    colIds.includes('col-shop') &&
+    colIds.includes('col-concierge') &&
+    colIds.includes('col-story') &&
+    colIds.includes('col-trust')
   );
 }
-
-function VisaEmblem() {
-  return (
-    <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <span className="text-xs font-serif font-black italic tracking-wide text-[#1A3F8B]">VISA</span>
-    </div>
-  );
-}
-
-function MastercardEmblem() {
-  return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <span className="flex -space-x-1 items-center" aria-hidden="true">
-        <span className="w-2.5 h-2.5 rounded-full bg-[#EB001B] inline-block" />
-        <span className="w-2.5 h-2.5 rounded-full bg-[#F79E1B] inline-block" />
-      </span>
-      <span className="text-[11px] font-semibold tracking-tight text-[#1A1A1A]">Mastercard</span>
-    </div>
-  );
-}
-
-function RuPayEmblem() {
-  return (
-    <div className="inline-flex items-center gap-0.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <span className="text-xs font-bold text-[#097938]">Ru</span>
-      <span className="text-xs font-bold text-[#B54708]">Pay</span>
-    </div>
-  );
-}
-
-function NetBankingEmblem() {
-  return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <svg className="w-3.5 h-3.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 2L2 7h20L12 2z" />
-      </svg>
-      <span className="text-[11px] font-medium text-[var(--color-slate)]">Net Banking</span>
-    </div>
-  );
-}
-
-function CodEmblem() {
-  return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <svg className="w-3.5 h-3.5 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <rect x="2" y="6" width="20" height="12" rx="2" />
-        <circle cx="12" cy="12" r="2.5" />
-        <path d="M6 12h.01M18 12h.01" />
-      </svg>
-      <span className="text-[11px] font-medium text-[var(--color-slate)]">Cash on Delivery</span>
-    </div>
-  );
-}
-
-function AmexEmblem() {
-  return (
-    <div className="inline-flex items-center px-2.5 py-1 rounded bg-[#F3EEE8] border border-[#E5DFD5] hover:border-[var(--color-gold)] transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <span className="text-xs font-black tracking-wider text-[#0052A3]">AMEX</span>
-    </div>
-  );
-}
-
-const defaultPaymentMethods = [
-  { key: 'upi', name: 'UPI', icon: <UpiEmblem /> },
-  { key: 'visa', name: 'Visa', icon: <VisaEmblem /> },
-  { key: 'mastercard', name: 'Mastercard', icon: <MastercardEmblem /> },
-  { key: 'rupay', name: 'RuPay', icon: <RuPayEmblem /> },
-  { key: 'netbanking', name: 'Net Banking', icon: <NetBankingEmblem /> },
-  { key: 'cod', name: 'Cash on Delivery', icon: <CodEmblem /> },
-  { key: 'amex', name: 'Amex', icon: <AmexEmblem /> },
-];
-
-/* =========================================================================
-   AUTHENTIC ARTISANAL TRUST BADGES (Bespoke SVGs, No Hallucinations or Emojis)
-   ========================================================================= */
-
-function SilkMarkBadge({ text }: { text?: string } = {}) {
-  return (
-    <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
-      <svg className="w-4 h-4 text-[var(--color-gold)] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <path d="M12 2C8 6 4 9 4 14a8 8 0 0016 0c0-5-4-8-8-12z" />
-        <path d="M12 8c-2 2.5-3 5-3 7a3 3 0 006 0c0-2-1-4.5-3-7z" fill="currentColor" fillOpacity="0.2" />
-      </svg>
-      <span>{text || "100% Certified Authentic Handloom"}</span>
-    </div>
-  );
-}
-
-function ExpressDispatchBadge({ text }: { text?: string } = {}) {
-  return (
-    <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
-      <svg className="w-4 h-4 text-[var(--color-gold)] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <rect x="1" y="3" width="15" height="13" rx="1" />
-        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-        <circle cx="5.5" cy="18.5" r="2.5" />
-        <circle cx="18.5" cy="18.5" r="2.5" />
-      </svg>
-      <span>{text || "Pan-India Express & Global Shipping"}</span>
-    </div>
-  );
-}
-
-function SecureCheckoutBadge({ text }: { text?: string } = {}) {
-  return (
-    <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
-      <svg className="w-4 h-4 text-[#16A34A] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-        <path d="M7 11V7a5 5 0 0110 0v4" />
-      </svg>
-      <span>{text || "256-Bit SSL Encrypted Checkout"}</span>
-    </div>
-  );
-}
-
-function ExchangeGuaranteeBadge({ text }: { text?: string } = {}) {
-  return (
-    <div className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
-      <svg className="w-4 h-4 text-[var(--color-gold)] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-        <polyline points="23 4 23 10 17 10" />
-        <polyline points="1 20 1 14 7 14" />
-        <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-      </svg>
-      <span>{text || "7-Day Complimentary Size Exchange"}</span>
-    </div>
-  );
-}
-
-/* =========================================================================
-   MAIN BESPOKE FOOTER COMPONENT
-   ========================================================================= */
 
 export function Footer({
+  className,
   content,
-  logo,
-  tagline = 'Modern Indian luxury — rooted in craft, elevated for today.',
-  columns = defaultColumns,
-  socialLinks,
-  paymentMethods = defaultPaymentMethods,
-  copyright,
-  className = '',
-  contactEmail,
-  contactPhone,
   contactWhatsapp,
-  siteName = 'Angelika Fashions',
+  siteName,
   socialInstagram,
   socialFacebook,
   socialWhatsapp,
   socialYoutube,
 }: FooterProps) {
-  const scrollToTop = () => {
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  const regionSelectId = useId();
+  const isLegacy = isLegacyUnmigratedFooter(content);
+
+  const rawBrandName = content?.brandName?.trim() || siteName?.trim() || 'Angelika';
+  const wordmarkText = rawBrandName.toLowerCase() === 'angelika' ? 'ANGELIKA' : rawBrandName;
+  const useLogoImage = Boolean(content?.useLogoImage && content?.logoUrl?.trim());
+  const logoUrl = content?.logoUrl?.trim() || '/images/logo.png';
+
+  const aboutText =
+    content?.aboutText?.trim() ||
+    (!isLegacy && content?.tagline?.trim() && content.tagline.trim().length > 75
+      ? content.tagline.trim()
+      : BOUTIQUE_DEFAULT_ABOUT_TEXT);
+
+  const readMoreLabel = content?.readMoreLabel?.trim() || 'Read More';
+  const readMoreHref = content?.readMoreHref?.trim() || '/about';
+
+  // Use clean 2-column boutique defaults if DB row is legacy v1 boilerplate; otherwise honor Admin columns
+  const columns: FooterColumnItem[] =
+    !isLegacy && Array.isArray(content?.columns) && content.columns.length > 0
+      ? content.columns
+      : BOUTIQUE_DEFAULT_COLUMNS;
+
+  // Normalize social channels & replace placeholder 919876543210 if live store WhatsApp is set
+  const cleanLiveWa = (socialWhatsapp || contactWhatsapp || '').replace(/[^0-9]/g, '');
+  const fallbackWaHref =
+    cleanLiveWa && cleanLiveWa !== '919876543210'
+      ? `https://wa.me/${cleanLiveWa}`
+      : 'https://wa.me/917207256690';
+
+  const socialOverrideByPlatform: Record<string, string | undefined> = {
+    instagram: socialInstagram,
+    facebook: socialFacebook,
+    whatsapp: socialWhatsapp || (cleanLiveWa ? fallbackWaHref : undefined),
+    youtube: socialYoutube,
   };
 
-  const currentYear = new Date().getFullYear();
-  const displayCopyright =
-    copyright ||
-    `© ${currentYear} ${siteName}. All rights reserved. Handcrafted with reverence for Indian heritage.`;
+  const rawSocials: FooterSocialItem[] =
+    Array.isArray(content?.socialLinks) && content.socialLinks.length > 0
+      ? content.socialLinks
+      : DEFAULT_SOCIAL_LINKS;
 
-  // Resolved dynamic contact details (never fabricate placeholder phone numbers)
-  const activeEmail = contactEmail?.trim() || '';
-  const activePhone = contactPhone?.trim() || '';
-  const rawWhatsapp = (contactWhatsapp || activePhone).replace(/[^0-9]/g, '');
-  const activeWhatsappLink =
-    rawWhatsapp.length >= 8
-      ? `https://wa.me/${rawWhatsapp}?text=${encodeURIComponent(
-          'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.'
-        )}`
-      : '';
+  const activeSocials = rawSocials
+    .filter((s) => s.enabled !== false)
+    .map((s) => {
+      const key = (s.icon || s.platform || '').toLowerCase();
+      let href = s.href?.trim() || '';
+      if (href.includes('919876543210')) {
+        href = fallbackWaHref;
+      }
+      if (!href && socialOverrideByPlatform[key]) {
+        href = socialOverrideByPlatform[key]!;
+      }
+      return { ...s, href };
+    })
+    .filter((s) => Boolean(s.href));
 
-  // Resolved social links — only include channels actually configured in Store Settings
-  const defaultConfiguredSocials: SocialLink[] = [];
-  if (socialInstagram) {
-    defaultConfiguredSocials.push({
-      platform: 'instagram',
-      href: socialInstagram,
-      label: 'Instagram',
-      handle: '@angelikafashions',
-    });
-  }
-  if (socialWhatsapp || activeWhatsappLink) {
-    defaultConfiguredSocials.push({
-      platform: 'whatsapp',
-      href: socialWhatsapp || activeWhatsappLink,
-      label: 'WhatsApp Concierge',
-      handle: 'Chat with Vidhya',
-    });
-  }
-  if (socialFacebook) {
-    defaultConfiguredSocials.push({
-      platform: 'facebook',
-      href: socialFacebook,
-      label: 'Facebook',
-      handle: 'Angelika Fashions',
-    });
-  }
-  if (socialYoutube) {
-    defaultConfiguredSocials.push({
-      platform: 'youtube',
-      href: socialYoutube,
-      label: 'YouTube',
-      handle: 'Angelika Atelier',
-    });
-  }
-  const resolvedSocialLinks: SocialLink[] = socialLinks || defaultConfiguredSocials;
+  const regionOptions =
+    Array.isArray(content?.regionOptions) && content.regionOptions.length > 0
+      ? content.regionOptions
+      : BOUTIQUE_DEFAULT_REGIONS;
 
-  const effectiveBrand = content?.brandName || siteName;
-  const effectiveBrandSub = content?.brandTagline || 'Fashions';
-  const effectiveTagline = content?.tagline || tagline;
-  const effectiveLogoUrl = content?.logoUrl || '/images/logo.png';
-  const showAtelierCard = content ? content.showAtelierDesk !== false : true;
-  const effectiveAtelierBadge = content?.atelierBadge || "Vidhya's Styling Atelier";
-  const effectiveAtelierStatus = content?.atelierStatusText || 'Concierge Active';
-  const effectiveAtelierTitle = content?.atelierTitle || 'Personal Styling & Drape Consultation';
-  const effectiveAtelierDesc = content?.atelierDescription || 'Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.';
-  const effectiveAtelierCta = content?.atelierWhatsappCta || 'Connect with Vidhya on WhatsApp';
-  const effectiveAtelierPhone = content?.atelierPhone?.trim() || activePhone;
-  const effectiveAtelierEmail = content?.atelierEmail?.trim() || activeEmail;
-  const effectiveAtelierSchedule = content?.atelierSchedule || 'Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response';
-  const cmsWhatsappDigits = (content?.atelierWhatsappNumber || '').replace(/[^0-9]/g, '');
-  const effectiveWhatsappUrl =
-    cmsWhatsappDigits.length >= 8 && cmsWhatsappDigits !== '919876543210'
-      ? `https://wa.me/${cmsWhatsappDigits}?text=${encodeURIComponent(
-          content?.atelierWhatsappMessage ||
-            'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.'
-        )}`
-      : activeWhatsappLink;
-  const effectiveSocialTitle = content?.socialTitle || 'Connect With Us';
-  const effectiveSocialLinks = content?.socialLinks && content.socialLinks.length > 0
-    ? content.socialLinks.filter(
-        (s) => s.enabled !== false && !s.href.includes('919876543210') && !s.href.includes('91XXXXXXXXXX')
-      )
-    : resolvedSocialLinks;
-  const effectiveColumns = content?.columns && content.columns.length > 0 ? content.columns : columns;
-  const effectivePaymentLabel = content?.paymentLabel || 'Payment Options:';
-  const effectivePaymentMethods = content?.paymentOptions
-    ? defaultPaymentMethods.filter((m) => Boolean(content.paymentOptions?.[m.key as keyof typeof content.paymentOptions]))
-    : (paymentMethods || defaultPaymentMethods);
-  const effectiveTrustBadges = content?.trustBadges && content.trustBadges.length > 0
-    ? content.trustBadges.filter((b) => b.enabled !== false)
-    : [
-        { id: 'tb-ssl', text: '256-Bit SSL Encrypted Checkout', icon: 'ssl', enabled: true },
-        { id: 'tb-handloom', text: '100% Certified Authentic Handloom', icon: 'handloom', enabled: true },
-        { id: 'tb-shipping', text: 'Pan-India Express & Global Shipping', icon: 'shipping', enabled: true },
-        { id: 'tb-exchange', text: '7-Day Complimentary Size Exchange', icon: 'exchange', enabled: true },
-      ];
-  const effectiveCopyright = content?.copyright || displayCopyright;
-  const effectiveBottomLinks = content?.bottomLinks && content.bottomLinks.length > 0
-    ? content.bottomLinks
-    : [
-        { label: 'Privacy', href: '/privacy' },
-        { label: 'Terms', href: '/terms' },
-        { label: 'Cookies', href: '/cookies' },
-        { label: 'Accessibility', href: '/accessibility' },
-      ];
-  const effectiveShowTop = content ? content.showScrollTop !== false : true;
-  const effectiveTopText = content?.scrollTopText || 'Top';
+  const initialRegion = content?.regionLabel?.trim() || regionOptions[0] || 'India (INR ₹)';
+  const [selectedRegion, setSelectedRegion] = useState(initialRegion);
+
+  // Sync if Admin preview edits regionLabel live
+  const activeRegionValue = regionOptions.includes(selectedRegion)
+    ? selectedRegion
+    : initialRegion;
+
+  const resolvedPaymentOptions: FooterPaymentOptions = {
+    ...DEFAULT_PAYMENT_OPTIONS,
+    ...(content?.paymentOptions || {}),
+  };
+
+  const activePaymentBadges = PAYMENT_BADGE_ORDER.filter(
+    (badge) => resolvedPaymentOptions[badge.key] !== false
+  );
+
+  const bottomLinks: FooterLinkItem[] =
+    !isLegacy && Array.isArray(content?.bottomLinks) && content.bottomLinks.length > 0
+      ? content.bottomLinks
+      : BOUTIQUE_DEFAULT_BOTTOM_LINKS;
+
+  const copyrightText =
+    isLegacy || !content?.copyright?.trim()
+      ? '© 2026 Angelika Fashions.'
+      : content.copyright.trim();
+
+  const showRegionSelector = content?.showRegionSelector !== false;
+
+  const columnsGridClass =
+    columns.length === 1
+      ? 'grid-cols-1'
+      : columns.length === 2
+      ? 'grid-cols-2 gap-x-10 sm:gap-x-16 gap-y-10'
+      : columns.length === 3
+      ? 'grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-10'
+      : 'grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-10';
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <footer
       className={cn(
-        'relative bg-[#FAF8F5] text-[var(--color-ink)] border-t border-[#EAE4D9]',
+        'relative bg-[#000000] text-[#FFFFFF] border-t border-white/10',
         className
       )}
-      role="contentinfo"
-      aria-label="Site Footer"
     >
-      {/* Hairline gold accent bar at top border */}
-      <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[var(--color-gold)]/60 to-transparent" />
+      <div className="max-w-[1440px] mx-auto px-6 sm:px-10 lg:px-16 pt-14 sm:pt-16 pb-10 sm:pb-12">
+        {/* TOP ROW: Asymmetric 3-Zone Boutique Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-y-12 lg:gap-x-12 items-start">
+          {/* Left & Middle: Open Editorial Link Columns */}
+          <nav
+            aria-label="Footer"
+            className={cn('lg:col-span-7 grid', columnsGridClass)}
+          >
+            {columns.map((column) => (
+              <div key={column.id || column.title}>
+                <h2 className="text-[15px] font-normal tracking-[0.01em] text-white mb-5">
+                  {column.title}
+                </h2>
+                <ul className="space-y-3.5">
+                  {column.links.map((link, idx) => {
+                    const isExternal =
+                      link.external ||
+                      /^https?:\/\//i.test(link.href || '');
 
-      {/* Main Container */}
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 xl:gap-14">
+                    return (
+                      <li key={`${link.href}-${link.label}-${idx}`}>
+                        {isExternal ? (
+                          <a
+                            href={link.href || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-[14px] font-light text-[#D4D4D4] hover:text-white transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#C9A84C]"
+                          >
+                            <span>{link.label}</span>
+                            {link.badge && (
+                              <span className="text-[9px] uppercase tracking-[0.14em] px-1.5 py-0.5 border border-white/25 text-white/85">
+                                {link.badge}
+                              </span>
+                            )}
+                          </a>
+                        ) : (
+                          <Link
+                            href={link.href || '/'}
+                            className="inline-flex items-center gap-2 text-[14px] font-light text-[#D4D4D4] hover:text-white transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#C9A84C]"
+                          >
+                            <span>{link.label}</span>
+                            {link.badge && (
+                              <span className="text-[9px] uppercase tracking-[0.14em] px-1.5 py-0.5 border border-white/25 text-white/85">
+                                {link.badge}
+                              </span>
+                            )}
+                          </Link>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </nav>
 
-          {/* =============================================================
-              COLUMN 1: BRAND IDENTITY & BESPOKE STYLING DESK
-              Spans 5 columns on desktop for balanced breathing room
-              ============================================================= */}
-          <div className="lg:col-span-5 space-y-6">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-3 group focus:outline-none"
-              aria-label={`${effectiveBrand} - Home`}
-            >
-              {logo || (
-                <div className="flex items-center gap-3">
-                  <img
-                    src={effectiveLogoUrl}
-                    alt={effectiveBrand}
-                    className="h-10 w-auto object-contain rounded"
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-display text-2xl font-bold tracking-tight text-[var(--color-ink)] leading-none group-hover:text-[var(--color-gold-text)] transition-colors">
-                      {effectiveBrand}
-                    </span>
-                    {effectiveBrandSub && (
-                      <span className="text-[10px] tracking-[0.26em] text-[var(--color-gold-text)] uppercase font-semibold mt-0.5">
-                        {effectiveBrandSub}
-                      </span>
-                    )}
-                  </div>
-                </div>
+          {/* Right: Editorial Brand Bio + Bold Wordmark + Minimal Social Icons */}
+          <div className="lg:col-span-5 flex flex-col items-start">
+            <p className="text-[14px] leading-[1.72] font-light text-[#E5E5E5] max-w-[460px]">
+              {aboutText}
+              {readMoreLabel && readMoreHref && (
+                <>
+                  {' '}
+                  <Link
+                    href={readMoreHref}
+                    aria-label={`${readMoreLabel} about ${rawBrandName}`}
+                    className="text-white font-normal underline underline-offset-4 decoration-white/75 hover:decoration-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#C9A84C]"
+                  >
+                    {readMoreLabel}
+                  </Link>
+                </>
               )}
-            </Link>
-
-            <p className="text-[var(--color-slate)] text-sm leading-relaxed max-w-md font-light">
-              {effectiveTagline}
             </p>
 
-            {/* =========================================================
-                BESPOKE ATELIER STYLING DESK (Vidhya's Personal Styling Concierge)
-                Elevated luxury consultation module
-                ========================================================= */}
-            {showAtelierCard && (
-            <div className="relative rounded-xl bg-[#FCFAF7] border border-[#E5DECF] p-5 shadow-[0_4px_20px_rgba(201,168,76,0.06)] hover:border-[var(--color-gold)]/50 transition-all duration-300 max-w-md overflow-hidden">
-              {/* Gold hairline highlight */}
-              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--color-gold)] to-transparent" />
-
-              {/* Atelier Header & Status */}
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#EAE4D9]">
-                <div className="flex items-center gap-2">
-                  {/* Subtle Lotus / Atelier Seal */}
-                  <svg className="w-4 h-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                    <path d="M12 2c-2 3-4 6-4 9a4 4 0 008 0c0-3-2-6-4-9z" />
-                    <path d="M12 11c-3-2-6-3-9-2 2 3 5 5 9 5s7-2 9-5c-3-1-6 0-9 2z" />
-                  </svg>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)]">
-                    {effectiveAtelierBadge}
+            {/* Bold Sculptural Brand Wordmark / Optional Uploaded Logo */}
+            <div className="mt-8">
+              <Link
+                href="/"
+                aria-label={`${rawBrandName} home`}
+                className="inline-block group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#C9A84C]"
+              >
+                {useLogoImage ? (
+                  <img
+                    src={logoUrl}
+                    alt={rawBrandName}
+                    className="h-12 sm:h-14 w-auto object-contain brightness-0 invert"
+                  />
+                ) : (
+                  <span
+                    className="block text-[42px] sm:text-[52px] font-bold tracking-[-0.02em] leading-[0.92] text-white transition-opacity duration-200 group-hover:opacity-90"
+                    style={{ fontFamily: 'var(--font-cormorant)' }}
+                  >
+                    {wordmarkText}
                   </span>
-                </div>
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--color-slate)] font-medium bg-[#F3EEE8] px-2.5 py-0.5 rounded-full border border-[#EAE4D9]">
-                  <span className="w-2 h-2 rounded-full bg-[#16A34A]" />
-                  <span>{effectiveAtelierStatus}</span>
-                </span>
-              </div>
+                )}
+              </Link>
+            </div>
 
-              {/* Atelier Title & Editorial Microcopy */}
-              <div className="mt-3.5 space-y-1.5">
-                <h4 className="font-serif text-base text-[var(--color-ink)] font-normal tracking-wide">
-                  {effectiveAtelierTitle}
-                </h4>
-                <p className="text-xs text-[var(--color-slate)] leading-relaxed">
-                  {effectiveAtelierDesc}
-                </p>
-              </div>
-
-              {/* Direct WhatsApp Concierge CTA */}
-              {effectiveWhatsappUrl && (
-                <div className="mt-4 pt-1">
+            {/* Clean Bare Monochrome White Social Icons */}
+            {activeSocials.length > 0 && (
+              <div className="mt-5 flex items-center gap-3.5 flex-wrap">
+                {activeSocials.map((social, idx) => (
                   <a
-                    href={effectiveWhatsappUrl}
+                    key={social.id || `${social.platform}-${idx}`}
+                    href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full inline-flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg bg-[var(--color-ink)] hover:bg-[#25221E] text-white text-xs font-medium tracking-wide border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] transition-all duration-200 shadow-sm group"
+                    aria-label={social.label || social.platform}
+                    className="inline-flex min-w-[28px] min-h-[28px] items-center justify-center text-white/90 hover:text-white transition-all duration-200 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9A84C]"
                   >
-                    <span className="text-[#25D366] group-hover:scale-110 transition-transform">
-                      <SocialIcon platform="whatsapp" size="sm" />
-                    </span>
-                    <span>{effectiveAtelierCta}</span>
-                    <svg className="w-3.5 h-3.5 text-[var(--color-gold)] transition-transform group-hover:translate-x-0.5 ml-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
+                    <SocialIcon
+                      platform={(social.icon || social.platform) as any}
+                      size="md"
+                      className="h-[18px] w-[18px]"
+                    />
                   </a>
-                </div>
-              )}
-
-              {/* Secondary Atelier Channels (Hotline & Email) */}
-              {(effectiveAtelierPhone || effectiveAtelierEmail) && (
-                <div className="mt-3.5 pt-3 border-t border-[#EAE4D9]/70 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {effectiveAtelierPhone && (
-                    <a
-                      href={`tel:${effectiveAtelierPhone.replace(/\s+/g, '')}`}
-                      className="inline-flex items-center gap-2 text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors py-0.5"
-                    >
-                      <span className="w-5 h-5 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-gold)] flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                        </svg>
-                      </span>
-                      <span className="truncate">{effectiveAtelierPhone}</span>
-                    </a>
-                  )}
-
-                  {effectiveAtelierEmail && (
-                    <a
-                      href={`mailto:${effectiveAtelierEmail}`}
-                      className="inline-flex items-center gap-2 text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors py-0.5"
-                    >
-                      <span className="w-5 h-5 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-gold)] flex items-center justify-center flex-shrink-0">
-                        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                          <polyline points="22,6 12,13 2,6" />
-                        </svg>
-                      </span>
-                      <span className="truncate">{effectiveAtelierEmail}</span>
-                    </a>
-                  )}
-                </div>
-              )}
-
-              {/* Atelier Operating Schedule */}
-              <div className="mt-2.5 text-[11px] text-[var(--color-mist)] flex items-center gap-1.5 font-light">
-                <svg className="w-3 h-3 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                <span>{effectiveAtelierSchedule}</span>
-              </div>
-            </div>
-            )}
-
-            {/* Social Media Channels */}
-            {effectiveSocialLinks.length > 0 && (
-              <div className="space-y-2.5 pt-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)] block">
-                  {effectiveSocialTitle}
-                </span>
-                <nav className="flex items-center gap-2.5 flex-wrap" aria-label="Social media channels">
-                  {effectiveSocialLinks.map((social, sIdx) => (
-                    <a
-                      key={social.id || `${social.platform}-${sIdx}`}
-                      href={social.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-8 h-8 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-slate)] hover:bg-[var(--color-gold)] hover:text-white hover:border-[var(--color-gold)] flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-xs"
-                      aria-label={social.label || social.platform}
-                      title={social.handle || social.label || social.platform}
-                    >
-                      <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
-                    </a>
-                  ))}
-                </nav>
+                ))}
               </div>
             )}
           </div>
+        </div>
 
-          {/* =============================================================
-              COLUMNS 2-5: NAVIGATION DIRECTORY (Spans 7 columns on desktop)
-              Even 4-column sub-grid with airy vertical spacing
-              ============================================================= */}
-          <div className="lg:col-span-7">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 xl:gap-10">
-              {effectiveColumns.map((column) => (
-                <nav
-                  key={column.title}
-                  className="space-y-4"
-                  aria-label={column.title}
+        {/* BOTTOM BAR: Region Selector & Copyright (Left) + Payment Cards & Policies (Right) */}
+        <div className="mt-14 sm:mt-16 pt-4 flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+          {/* Bottom-Left: Crisp White Region Selector + Minimal Copyright */}
+          <div className="flex flex-col items-start gap-5">
+            {showRegionSelector && (
+              <div className="relative inline-flex items-center">
+                <label htmlFor={regionSelectId} className="sr-only">
+                  Country and currency
+                </label>
+                <select
+                  id={regionSelectId}
+                  name="boutique-region"
+                  value={activeRegionValue}
+                  onChange={(e) => setSelectedRegion(e.target.value)}
+                  className="boutique-region-select"
                 >
-                  <h3 className="font-display text-[12px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink)] pb-1.5 border-b border-[#EAE4D9]">
-                    {column.title}
-                  </h3>
-                  <ul className="space-y-2.5" role="list">
-                    {column.links.map((link) => (
-                      <li key={`${column.title}-${link.label}-${link.href}`}>
-                        <Link
-                          href={link.href}
-                          target={link.external ? '_blank' : undefined}
-                          rel={link.external ? 'noopener noreferrer' : undefined}
-                          className="group inline-flex items-center gap-1.5 text-xs text-[var(--color-slate)] hover:text-[var(--color-gold)] transition-colors duration-150 leading-relaxed"
-                        >
-                          <span className="group-hover:translate-x-0.5 transition-transform duration-150">
-                            {link.label}
-                          </span>
-                          {link.badge && (
-                            <span
-                              className={cn(
-                                'text-[9px] font-medium tracking-[0.14em] uppercase px-1.5 py-0.5 rounded-xs border',
-                                link.badge === 'New'
-                                  ? 'bg-[var(--color-gold-light)]/50 text-[var(--color-gold-text)] border-[var(--color-gold)]/30'
-                                  : link.badge === 'Sale'
-                                    ? 'bg-[#FEE2E2]/60 text-[#B91C1C] border-[#FCA5A5]/40'
-                                    : 'bg-[#F3F4F6] text-[var(--color-slate)] border-[#E5E7EB]'
-                              )}
-                            >
-                              {link.badge}
-                            </span>
-                          )}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </nav>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* =============================================================
-            PAYMENT METHODS & ARTISANAL TRUST ASSURANCES ROW
-            ============================================================= */}
-        <div className="mt-14 pt-8 border-t border-[#EAE4D9] flex flex-col lg:flex-row items-center justify-between gap-6">
-          <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-slate)] mr-1">
-              {effectivePaymentLabel}
-            </span>
-            {effectivePaymentMethods.map((method) => (
-              <div key={method.name} title={method.name}>
-                {method.icon}
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-5 xl:gap-7">
-            {effectiveTrustBadges.map((badge) => {
-              if (badge.icon === 'ssl') return <SecureCheckoutBadge key={badge.id} text={badge.text} />;
-              if (badge.icon === 'handloom') return <SilkMarkBadge key={badge.id} text={badge.text} />;
-              if (badge.icon === 'shipping') return <ExpressDispatchBadge key={badge.id} text={badge.text} />;
-              if (badge.icon === 'exchange') return <ExchangeGuaranteeBadge key={badge.id} text={badge.text} />;
-              return (
-                <div key={badge.id} className="inline-flex items-center gap-2 text-xs text-[var(--color-slate)]">
-                  <span className="text-[var(--color-gold)]">✦</span>
-                  <span>{badge.text}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* =============================================================
-          SUB-FOOTER: COPYRIGHT & SMOOTH SCROLL TO TOP
-          ============================================================= */}
-      <div className="border-t border-[#EAE4D9] bg-[#F5F2EC] py-4">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[var(--color-mist)]">
-          <p className="text-center sm:text-left text-[var(--color-slate)]">
-            {effectiveCopyright}
-          </p>
-          <div className="flex items-center gap-5">
-            {effectiveBottomLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="hover:text-[var(--color-gold)] transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-            {effectiveShowTop && (
-              <button
-                type="button"
-                onClick={scrollToTop}
-                className="inline-flex items-center gap-1 text-[var(--color-gold-text)] hover:underline font-medium transition-colors cursor-pointer ml-2"
-                aria-label="Scroll back to top"
-              >
-                <span>{effectiveTopText}</span>
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                  <path d="M18 15l-6-6-6 6" />
+                  {regionOptions.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </select>
+                <svg
+                  aria-hidden="true"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="pointer-events-none absolute right-3.5 h-3.5 w-3.5 text-[#222222]"
+                >
+                  <path d="M4 6l4 4 4-4" />
                 </svg>
-              </button>
+              </div>
             )}
+
+            <p className="text-[11.5px] font-light text-[#9E9E9E] tracking-[0.01em]">
+              {copyrightText}
+            </p>
+          </div>
+
+          {/* Bottom-Right: Sleek Payment Card Badges + Single-Row Legal Links */}
+          <div className="flex flex-col items-start lg:items-end gap-4">
+            {activePaymentBadges.length > 0 && (
+              <ul
+                aria-label="Accepted payment methods"
+                className="flex flex-wrap items-center gap-1.5 lg:justify-end"
+              >
+                {activePaymentBadges.map((badge) => (
+                  <li key={badge.key}>
+                    <PaymentCardBadge type={badge.key} />
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 lg:justify-end text-[11.5px] font-light text-[#9E9E9E]">
+              {bottomLinks.map((link, idx) => (
+                <Link
+                  key={`${link.href}-${link.label}-${idx}`}
+                  href={link.href || '/'}
+                  className="hover:text-white transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9A84C]"
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              {content?.showScrollTop === true && (
+                <button
+                  type="button"
+                  onClick={scrollToTop}
+                  className="inline-flex items-center gap-1 text-[#C9A84C] hover:text-white transition-colors cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9A84C]"
+                  aria-label="Scroll back to top"
+                >
+                  <span>{content.scrollTopText || 'Top'}</span>
+                  <span aria-hidden="true">↑</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -677,41 +466,25 @@ export function Footer({
   );
 }
 
-/* =========================================================================
-   SIMPLE FOOTER (For minimal checkout/auth flows)
-   ========================================================================= */
-
 export interface SimpleFooterProps {
-  copyright?: string;
   className?: string;
 }
 
-export function SimpleFooter({
-  copyright = `© ${new Date().getFullYear()} Angelika Fashions. All rights reserved.`,
-  className = '',
-}: SimpleFooterProps) {
+export function SimpleFooter({ className }: SimpleFooterProps) {
   return (
-    <footer
-      className={cn('bg-[#FAF8F5] border-t border-[#EAE4D9] text-[var(--color-ink)]', className)}
-      role="contentinfo"
-    >
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[var(--color-slate)]">
-          <p>{copyright}</p>
-          <div className="flex items-center gap-6">
-            <Link href="/privacy" className="hover:text-[var(--color-gold)] transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:text-[var(--color-gold)] transition-colors">
-              Terms of Service
-            </Link>
-            <Link href="/cookies" className="hover:text-[var(--color-gold)] transition-colors">
-              Cookie Policy
-            </Link>
-            <Link href="/contact" className="hover:text-[var(--color-gold)] transition-colors">
-              Concierge Contact
-            </Link>
-          </div>
+    <footer className={cn('bg-[#000000] text-[#9E9E9E] border-t border-white/10 py-6', className)}>
+      <div className="max-w-[1440px] mx-auto px-6 sm:px-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px]">
+        <p>© 2026 Angelika Fashions.</p>
+        <div className="flex items-center gap-5">
+          <Link href="/terms" className="hover:text-white transition-colors">
+            Terms of Service
+          </Link>
+          <Link href="/privacy" className="hover:text-white transition-colors">
+            Privacy Policy
+          </Link>
+          <Link href="/contact" className="hover:text-white transition-colors">
+            Contact
+          </Link>
         </div>
       </div>
     </footer>

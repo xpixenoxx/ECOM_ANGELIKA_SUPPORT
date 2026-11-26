@@ -112,6 +112,8 @@ async function loadMergedSiteContent(): Promise<SiteContent> {
       ...parsed,
       hero: { ...DEFAULT_SITE_CONTENT.hero, ...(parsed.hero || {}) },
       features: {
+        ...DEFAULT_SITE_CONTENT.features,
+        ...(parsed.features || {}),
         items: (parsed.features?.items && parsed.features.items.length > 0)
           ? parsed.features.items
           : DEFAULT_SITE_CONTENT.features.items,
@@ -792,6 +794,9 @@ async function loadMergedSiteContent(): Promise<SiteContent> {
           ...DEFAULT_SITE_CONTENT.footer?.paymentOptions,
           ...(parsed.footer?.paymentOptions || {}),
         },
+        regionOptions: Array.isArray(parsed.footer?.regionOptions) && parsed.footer.regionOptions.length > 0
+          ? parsed.footer.regionOptions
+          : (DEFAULT_SITE_CONTENT.footer?.regionOptions || []),
         socialLinks: Array.isArray(parsed.footer?.socialLinks)
           ? parsed.footer.socialLinks
           : (DEFAULT_SITE_CONTENT.footer?.socialLinks || []),
@@ -835,11 +840,19 @@ export async function updateSectionContent(
     let normalizedData = sectionData;
     if (sectionId === 'features' && Array.isArray(sectionData?.items)) {
       normalizedData = {
+        eyebrow:
+          sectionData?.eyebrow !== undefined
+            ? String(sectionData.eyebrow)
+            : (DEFAULT_SITE_CONTENT.features.eyebrow || 'THE ANGELIKA ATELIER PROMISE'),
+        showGrid: sectionData?.showGrid !== undefined ? Boolean(sectionData.showGrid) : true,
+        showWaves: sectionData?.showWaves !== undefined ? Boolean(sectionData.showWaves) : true,
         items: sectionData.items.map((item: any) => ({
-          icon: item.icon || '✨',
+          icon: item.icon || 'drape',
+          eyebrow: item.eyebrow || '',
           title: item.title || '',
           desc: item.desc || item.description || '',
           description: item.desc || item.description || '',
+          href: item.href || '',
         })),
       };
     } else if (sectionId === 'vidhyas-picks' && Array.isArray(sectionData?.items)) {
@@ -986,10 +999,20 @@ export async function updateSectionContent(
     if (sectionId === 'footer') {
       const defaultFooter = DEFAULT_SITE_CONTENT.footer!;
       normalizedData = {
+        layoutVersion: 2,
         brandName: sectionData?.brandName || defaultFooter.brandName,
         brandTagline: sectionData?.brandTagline || defaultFooter.brandTagline,
         logoUrl: sectionData?.logoUrl || defaultFooter.logoUrl,
+        useLogoImage: sectionData?.useLogoImage !== undefined ? Boolean(sectionData.useLogoImage) : false,
         tagline: sectionData?.tagline || defaultFooter.tagline,
+        aboutText: sectionData?.aboutText !== undefined ? String(sectionData.aboutText) : defaultFooter.aboutText,
+        readMoreLabel: sectionData?.readMoreLabel !== undefined ? String(sectionData.readMoreLabel) : defaultFooter.readMoreLabel,
+        readMoreHref: sectionData?.readMoreHref !== undefined ? String(sectionData.readMoreHref) : defaultFooter.readMoreHref,
+        showRegionSelector: sectionData?.showRegionSelector !== undefined ? Boolean(sectionData.showRegionSelector) : true,
+        regionLabel: sectionData?.regionLabel || defaultFooter.regionLabel,
+        regionOptions: Array.isArray(sectionData?.regionOptions) && sectionData.regionOptions.length > 0
+          ? sectionData.regionOptions
+          : defaultFooter.regionOptions,
         showAtelierDesk: sectionData?.showAtelierDesk !== undefined ? Boolean(sectionData.showAtelierDesk) : defaultFooter.showAtelierDesk,
         atelierBadge: sectionData?.atelierBadge || defaultFooter.atelierBadge,
         atelierStatusText: sectionData?.atelierStatusText || defaultFooter.atelierStatusText,

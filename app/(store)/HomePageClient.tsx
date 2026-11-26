@@ -14,6 +14,7 @@ import { StaggerContainer, StaggerItem } from '@/components/animations/Stagger';
 import { ScrollReveal as ScrollRevealAnim } from '@/components/animations/ScrollReveal';
 import { ShopTheLookClient } from '@/app/(store)/components/ShopTheLookClient';
 import { ExploreCollections } from '@/components/composite/ExploreCollections';
+import { CoutureAssurancesStrip } from '@/components/composite/CoutureAssurancesStrip';
 import { useCart } from '@/lib/hooks/useCart';
 import { useWishlist } from '@/lib/hooks/useWishlist';
 import { subscribeToAngelikaCircle, getLatestCircleUpdates } from '@/lib/actions/circle';
@@ -76,47 +77,38 @@ const featuredCollections = [
   },
 ];
 
-const features = [
+const defaultCoutureFeatures = [
   {
-    icon: (
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-        <path d="M3.27 6.96L12 12.01l8.73-5.05" />
-        <path d="M12 22.08V12" />
-      </svg>
-    ),
-    title: 'Free Shipping',
-    description: 'On orders above ₹2,999 across India',
+    icon: 'shipping',
+    eyebrow: 'Complimentary Dispatch',
+    title: 'Complimentary Shipping',
+    desc: 'Insured pan-India express delivery on orders ₹2,999+',
+    description: 'Insured pan-India express delivery on orders ₹2,999+',
+    href: '/shipping',
   },
   {
-    icon: (
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-    title: 'Secure Payments',
-    description: 'Razorpay, UPI, Cards, COD & EMI options',
+    icon: 'returns',
+    eyebrow: 'Effortless Care',
+    title: '15-Day Exchanges',
+    desc: 'Seamless size exchanges & atelier-assisted returns',
+    description: 'Seamless size exchanges & atelier-assisted returns',
+    href: '/returns',
   },
   {
-    icon: (
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-      </svg>
-    ),
-    title: 'Easy Returns',
-    description: '15-day hassle-free returns & exchanges',
-  },
-  {
-    icon: (
-      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
+    icon: 'styling',
+    eyebrow: 'Vidhya Atelier',
     title: 'Personal Styling',
-    description: 'Chat with Vidhya for custom recommendations',
+    desc: 'Private drape & trousseau guidance with Vidhya',
+    description: 'Private drape & trousseau guidance with Vidhya',
+    href: '/contact',
+  },
+  {
+    icon: 'gift',
+    eyebrow: 'Signature Packaging',
+    title: 'Couture Gift Wrapping',
+    desc: 'Hand-tied heirloom boxes complimentary on every order',
+    description: 'Hand-tied heirloom boxes complimentary on every order',
+    href: '/about',
   },
 ];
 
@@ -262,38 +254,10 @@ export default function HomePageClient({
     ? myAngelikaLookContent.posts
     : instagramPosts;
 
-  const activeFeatures = (siteContent?.features?.items && siteContent.features.items.length > 0)
-    ? siteContent.features.items.map((item, index) => {
-      let iconNode: React.ReactNode = features[index % features.length]?.icon;
-      if (typeof item.icon === 'string' && item.icon.trim()) {
-        const isImageUrl =
-          item.icon.startsWith('/') ||
-          item.icon.startsWith('http') ||
-          item.icon.startsWith('data:image');
-
-        if (isImageUrl) {
-          iconNode = (
-            <img
-              src={item.icon}
-              alt={item.title || 'Feature icon'}
-              className="w-5 h-5 sm:w-6 sm:h-6 object-contain"
-            />
-          );
-        } else {
-          iconNode = (
-            <span className="text-base sm:text-lg leading-none select-none inline-flex items-center justify-center" aria-hidden="true">
-              {item.icon}
-            </span>
-          );
-        }
-      }
-      return {
-        icon: iconNode,
-        title: item.title,
-        description: item.desc || item.description || '',
-      };
-    })
-    : features;
+  const activeFeatureItems =
+    siteContent?.features?.items && siteContent.features.items.length > 0
+      ? siteContent.features.items
+      : defaultCoutureFeatures;
 
   const handleAddToBag = async (product: any) => {
     const targetId = product.variant_id || product.defaultVariantId || product.id || product.slug || 'na-1';
@@ -413,35 +377,13 @@ export default function HomePageClient({
         </motion.div>
       </section>
 
-      {/* Trust & Craft Assurances (from siteContent.features) */}
-      {activeFeatures.length > 0 && (
-        <section className="border-b border-[var(--color-whisper)] bg-white py-8">
-          <div className="container-custom px-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              {activeFeatures.map((feat, idx) => (
-                <div
-                  key={`${feat.title}-${idx}`}
-                  className="flex items-start gap-3.5 p-3 rounded-xl bg-[var(--color-snow)]/60 border border-[var(--color-whisper)]/70"
-                >
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-gold-light)]/60 text-[var(--color-gold-text)] flex items-center justify-center flex-shrink-0 border border-[var(--color-gold)]/20">
-                    {feat.icon}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-ink)]">
-                      {feat.title}
-                    </h3>
-                    {feat.description && (
-                      <p className="text-xs text-[var(--color-slate)] mt-0.5 leading-snug">
-                        {feat.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Couture Service Assurances (Woven Silk Grid & Drape Wave Strip) */}
+      <CoutureAssurancesStrip
+        items={activeFeatureItems}
+        eyebrow={siteContent?.features?.eyebrow}
+        showGrid={siteContent?.features?.showGrid !== false}
+        showWaves={siteContent?.features?.showWaves !== false}
+      />
 
       {/* Explore Collections: Editorial Magazine Grid */}
       <ExploreCollections

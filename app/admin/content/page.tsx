@@ -37,6 +37,7 @@ import {
 
 // Admin Editors
 import { HomepageHeroEditor } from '@/components/admin/HomepageHeroEditor';
+import { FeaturesStripEditor } from '@/components/admin/FeaturesStripEditor';
 import { CategoryShowcaseEditor } from '@/components/admin/CategoryShowcaseEditor';
 import { NewArrivalsEditor } from '@/components/admin/NewArrivalsEditor';
 import { BrandStoryEditor } from '@/components/admin/BrandStoryEditor';
@@ -82,6 +83,12 @@ const homepageSections: ContentSectionMeta[] = [
     description: 'Header announcement, slide carousels, headlines, and primary CTA buttons',
   },
   {
+    id: 'features',
+    label: 'Couture Assurances Strip',
+    type: 'editorial',
+    description: 'Woven silk grid & saree drape wave service bar below hero (bespoke SVG emblems)',
+  },
+  {
     id: 'categories',
     label: 'Category Showcase',
     type: 'categories',
@@ -125,9 +132,9 @@ const homepageSections: ContentSectionMeta[] = [
   },
   {
     id: 'footer',
-    label: 'Global Site Footer & Atelier Desk',
+    label: 'Global Boutique Footer (Black)',
     type: 'global',
-    description: 'Atelier live WhatsApp concierge desk, store policies, social links, and copyright',
+    description: 'Jet-black boutique columns, brand story, bold wordmark, region selector & payment badges',
   },
 ];
 
@@ -467,7 +474,7 @@ function ImageUploadField({
           className="flex-1 border-2 border-dashed border-[var(--color-whisper)] hover:border-[var(--color-gold)] rounded-xl p-3 bg-[var(--color-white)] cursor-pointer transition-colors flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left"
         >
           <div className="flex items-center gap-2">
-            <span className="text-xl">🖼️</span>
+            <Upload className="w-4 h-4 text-[var(--color-gold)] shrink-0" />
             <div>
               <p className="text-xs font-medium text-[var(--color-ink)] flex items-center gap-1.5 justify-center sm:justify-start">
                 <span>Upload from device</span>
@@ -701,6 +708,17 @@ export default function AdminContentPage() {
           <HomepageHeroEditor
             onCancel={() => setEditingSection(null)}
             onSaved={() => toast.success('Homepage Hero saved successfully!')}
+          />
+        </Card>
+      );
+    }
+
+    if (editingSection === 'features') {
+      return (
+        <Card variant="elevated" padding="lg">
+          <FeaturesStripEditor
+            onCancel={() => setEditingSection(null)}
+            onSaved={() => toast.success('Couture Assurances Strip saved successfully!')}
           />
         </Card>
       );

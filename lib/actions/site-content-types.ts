@@ -1,8 +1,17 @@
 export interface FeatureItem {
   icon: string;
+  eyebrow?: string;
   title: string;
   desc?: string;
   description?: string;
+  href?: string;
+}
+
+export interface FeaturesContent {
+  eyebrow?: string;
+  showGrid?: boolean;
+  showWaves?: boolean;
+  items: FeatureItem[];
 }
 
 export interface HeroContent {
@@ -453,31 +462,41 @@ export interface FooterTrustBadgeItem {
 }
 
 export interface FooterPaymentOptions {
+  amex: boolean;
+  gpay?: boolean;
   upi: boolean;
-  visa: boolean;
   mastercard: boolean;
   rupay: boolean;
+  visa: boolean;
+  razorpay?: boolean;
   netbanking: boolean;
   cod: boolean;
-  amex: boolean;
 }
 
 export interface FooterContent {
+  layoutVersion?: number;
   brandName: string;
   brandTagline: string;
   logoUrl: string;
+  useLogoImage?: boolean;
   tagline: string;
-  showAtelierDesk: boolean;
-  atelierBadge: string;
-  atelierStatusText: string;
-  atelierTitle: string;
-  atelierDescription: string;
-  atelierWhatsappCta: string;
-  atelierWhatsappNumber: string;
-  atelierWhatsappMessage: string;
-  atelierPhone: string;
-  atelierEmail: string;
-  atelierSchedule: string;
+  aboutText?: string;
+  readMoreLabel?: string;
+  readMoreHref?: string;
+  showRegionSelector?: boolean;
+  regionLabel?: string;
+  regionOptions?: string[];
+  showAtelierDesk?: boolean;
+  atelierBadge?: string;
+  atelierStatusText?: string;
+  atelierTitle?: string;
+  atelierDescription?: string;
+  atelierWhatsappCta?: string;
+  atelierWhatsappNumber?: string;
+  atelierWhatsappMessage?: string;
+  atelierPhone?: string;
+  atelierEmail?: string;
+  atelierSchedule?: string;
   socialTitle: string;
   socialLinks: FooterSocialItem[];
   columns: FooterColumnItem[];
@@ -1156,9 +1175,7 @@ export interface VidhyasPicksPageContent {
 
 export interface SiteContent {
   hero: HeroContent;
-  features: {
-    items: FeatureItem[];
-  };
+  features: FeaturesContent;
   'vidhyas-picks'?: VidhyasPicksSection;
   'vidhyas-picks-page'?: VidhyasPicksPageContent;
   categories?: CategoriesContent;

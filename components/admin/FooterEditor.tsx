@@ -5,13 +5,20 @@ import type {
   FooterContent,
   FooterColumnItem,
   FooterLinkItem,
+  FooterPaymentOptions,
   FooterSocialItem,
-  FooterTrustBadgeItem,
-} from '@/lib/actions/site-content';
+} from '@/lib/actions/site-content-types';
+import {
+  Footer,
+  BOUTIQUE_DEFAULT_ABOUT_TEXT,
+  BOUTIQUE_DEFAULT_BOTTOM_LINKS,
+  BOUTIQUE_DEFAULT_COLUMNS,
+  BOUTIQUE_DEFAULT_REGIONS,
+} from '@/components/composite/Footer';
+import { PAYMENT_BADGE_ORDER, PaymentCardBadge } from '@/components/composite/FooterPaymentBadges';
 import { SocialIcon } from '@/components/ui/SocialIcon';
 import {
   Upload,
-  Image as ImageIcon,
   Check,
   RotateCcw,
   Eye,
@@ -19,21 +26,17 @@ import {
   Trash2,
   ExternalLink,
   Save,
-  Sparkles,
-  Shield,
-  Truck,
-  Phone,
-  Mail,
-  Clock,
-  MessageCircle,
-  HelpCircle,
-  ChevronRight,
   Layers,
-  ArrowUp,
   CreditCard,
-  Building,
-  HeartHandshake,
+  Globe,
+  FileText,
+  Sparkles,
+  Share2,
+  ArrowLeft,
+  ArrowRight,
+  Info,
 } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 
 interface FooterEditorProps {
   initialContent?: FooterContent;
@@ -42,499 +45,576 @@ interface FooterEditorProps {
 }
 
 const AVAILABLE_SOCIAL_ICONS: { value: string; label: string }[] = [
+  { value: 'facebook', label: 'Facebook' },
   { value: 'instagram', label: 'Instagram' },
   { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'facebook', label: 'Facebook' },
-  { value: 'pinterest', label: 'Pinterest' },
   { value: 'youtube', label: 'YouTube' },
-  { value: 'twitter', label: 'Twitter / X' },
+  { value: 'pinterest', label: 'Pinterest' },
+  { value: 'twitter', label: 'X / Twitter' },
   { value: 'threads', label: 'Threads' },
   { value: 'tiktok', label: 'TikTok' },
   { value: 'linkedin', label: 'LinkedIn' },
   { value: 'telegram', label: 'Telegram' },
-  { value: 'snapchat', label: 'Snapchat' },
-  { value: 'spotify', label: 'Spotify' },
-  { value: 'globe', label: 'Website / Globe' },
+  { value: 'globe', label: 'Website' },
   { value: 'email', label: 'Email' },
-  { value: 'sms', label: 'Phone / SMS' },
 ];
 
-const DEFAULT_FOOTER_CONTENT: FooterContent = {
+const DEFAULT_FOOTER_V2: FooterContent = {
+  layoutVersion: 2,
   brandName: 'Angelika',
   brandTagline: 'Fashions',
   logoUrl: '/images/logo.png',
+  useLogoImage: false,
   tagline: 'Modern Indian luxury — rooted in craft, elevated for today.',
-  showAtelierDesk: true,
+  aboutText: BOUTIQUE_DEFAULT_ABOUT_TEXT,
+  readMoreLabel: 'Read More',
+  readMoreHref: '/about',
+  showRegionSelector: true,
+  regionLabel: 'India (INR ₹)',
+  regionOptions: [...BOUTIQUE_DEFAULT_REGIONS],
+  showAtelierDesk: false,
   atelierBadge: "VIDHYA'S STYLING ATELIER",
   atelierStatusText: 'Concierge Active',
   atelierTitle: 'Personal Styling & Drape Consultation',
-  atelierDescription: 'Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.',
+  atelierDescription:
+    'Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya.',
   atelierWhatsappCta: 'Connect with Vidhya on WhatsApp',
-  atelierWhatsappNumber: '+91 98765 43210',
-  atelierWhatsappMessage: 'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.',
-  atelierPhone: '+91 98765 43210',
-  atelierEmail: 'hallo@angelikafashions.com',
-  atelierSchedule: 'Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response',
+  atelierWhatsappNumber: '+91 72072 56690',
+  atelierWhatsappMessage:
+    'Hi Vidhya, I would love personal styling guidance and drape consultation for my order.',
+  atelierPhone: '+91 72072 56690',
+  atelierEmail: 'hello@angelikafashions.com',
+  atelierSchedule: 'Mon – Sat · 10:00 AM – 7:00 PM IST',
   socialTitle: 'Connect With Us',
   socialLinks: [
-    { platform: 'instagram', href: 'https://instagram.com/angelikafashions', label: 'Instagram', handle: '@angelikafashions', enabled: true },
-    { platform: 'whatsapp', href: 'https://wa.me/919876543210', label: 'WhatsApp Concierge', handle: 'Chat with Vidhya', enabled: true },
-    { platform: 'facebook', href: 'https://facebook.com/angelikafashions', label: 'Facebook', handle: 'Angelika Fashions', enabled: true },
-    { platform: 'pinterest', href: 'https://pinterest.com/angelikafashions', label: 'Pinterest', handle: 'Angelika Haute Couture', enabled: true },
-    { platform: 'youtube', href: 'https://youtube.com/angelikafashions', label: 'YouTube', handle: 'Angelika Atelier', enabled: true },
-  ],
-  columns: [
     {
-      id: 'col-shop',
-      title: 'Shop Collections',
-      links: [
-        { label: 'Handcrafted Kurtis', href: '/shop/kurtis' },
-        { label: 'Salwars & Palazzo Sets', href: '/shop/salwars' },
-        { label: 'Bridal & Festive Lehengas', href: '/shop/lehengas' },
-        { label: 'Pure Silk & Chanderi Sarees', href: '/shop/sarees' },
-        { label: 'Artisanal Dupattas', href: '/shop/dupattas' },
-        { label: 'New Arrivals', href: '/new-arrivals', badge: 'New' },
-        { label: "Vidhya's Curated Picks", href: '/vidhyas-picks', badge: 'Curated' },
-        { label: 'Festive Archive Sale', href: '/sale', badge: 'Sale' },
-      ],
+      id: 'social-fb',
+      platform: 'facebook',
+      icon: 'facebook',
+      href: 'https://facebook.com/angelikafashions',
+      label: 'Facebook',
+      handle: 'Angelika Fashions',
+      enabled: true,
     },
     {
-      id: 'col-concierge',
-      title: 'Client Concierge',
-      links: [
-        { label: 'Track Your Order', href: '/track-order' },
-        { label: 'Shipping & Delivery Policy', href: '/shipping' },
-        { label: 'Returns & Size Exchanges', href: '/returns' },
-        { label: 'Interactive Size Finder', href: '/size-finder' },
-        { label: 'Garment Size Guide', href: '/size-guide' },
-        { label: 'Frequently Asked Questions', href: '/faq' },
-        { label: 'Contact Our Concierge', href: '/contact' },
-        { label: 'Wholesale & B2B Inquiries', href: '/wholesale' },
-      ],
+      id: 'social-ig',
+      platform: 'instagram',
+      icon: 'instagram',
+      href: 'https://instagram.com/angelikafashions',
+      label: 'Instagram',
+      handle: '@angelikafashions',
+      enabled: true,
     },
     {
-      id: 'col-story',
-      title: 'The Atelier Story',
-      links: [
-        { label: 'Our Heritage & Philosophy', href: '/about' },
-        { label: 'Meet Designer Vidhya', href: '/about/vidhya' },
-        { label: 'Master Weaving Traditions', href: '/about#craft' },
-        { label: 'Ethical & Sustainable Craft', href: '/about#sustainability' },
-        { label: 'Editorial Style Journal', href: '/new-arrivals' },
-        { label: 'Press & Celebrity Spotlights', href: '/about#press' },
-        { label: 'Careers at Angelika', href: '/contact?subject=careers' },
-      ],
+      id: 'social-wa',
+      platform: 'whatsapp',
+      icon: 'whatsapp',
+      href: 'https://wa.me/917207256690',
+      label: 'WhatsApp Concierge',
+      handle: 'Chat with Vidhya',
+      enabled: true,
     },
     {
-      id: 'col-trust',
-      title: 'Policies & Trust',
-      links: [
-        { label: 'Privacy Policy', href: '/privacy' },
-        { label: 'Terms of Service', href: '/terms' },
-        { label: 'Cookie Policy', href: '/cookies' },
-        { label: 'Accessibility Commitment', href: '/accessibility' },
-        { label: 'Client Account & Profile', href: '/account' },
-        { label: 'My Saved Wishlist', href: '/wishlist' },
-        { label: '100% Silk Mark Authenticity', href: '/about#authenticity' },
-      ],
+      id: 'social-yt',
+      platform: 'youtube',
+      icon: 'youtube',
+      href: 'https://youtube.com/angelikafashions',
+      label: 'YouTube',
+      handle: 'Angelika Atelier',
+      enabled: true,
     },
   ],
+  columns: JSON.parse(JSON.stringify(BOUTIQUE_DEFAULT_COLUMNS)),
   paymentLabel: 'Payment Options:',
   paymentOptions: {
+    amex: true,
+    gpay: true,
     upi: true,
-    visa: true,
     mastercard: true,
     rupay: true,
+    visa: true,
+    razorpay: true,
     netbanking: true,
     cod: true,
-    amex: true,
   },
-  trustBadges: [
-    { id: 'tb-ssl', text: '256-Bit SSL Encrypted Checkout', icon: 'ssl', enabled: true },
-    { id: 'tb-handloom', text: '100% Certified Authentic Handloom', icon: 'handloom', enabled: true },
-    { id: 'tb-shipping', text: 'Pan-India Express & Global Shipping', icon: 'shipping', enabled: true },
-    { id: 'tb-exchange', text: '7-Day Complimentary Size Exchange', icon: 'exchange', enabled: true },
-  ],
-  copyright: '© 2026 Angelika. All rights reserved. Handcrafted with reverence for Indian heritage.',
-  showScrollTop: true,
+  trustBadges: [],
+  copyright: '© 2026 Angelika Fashions.',
+  showScrollTop: false,
   scrollTopText: 'Top',
-  bottomLinks: [
-    { label: 'Privacy', href: '/privacy' },
-    { label: 'Terms', href: '/terms' },
-    { label: 'Cookies', href: '/cookies' },
-    { label: 'Accessibility', href: '/accessibility' },
-  ],
+  bottomLinks: JSON.parse(JSON.stringify(BOUTIQUE_DEFAULT_BOTTOM_LINKS)),
 };
 
-const PRESET_LOGOS = [
-  { label: 'Standard Logo (/images/logo.png)', url: '/images/logo.png' },
-  { label: 'Hero Atelier Emblem', url: '/images/logo-gold.png' },
-];
+function isLegacyV1Footer(raw?: Partial<FooterContent>): boolean {
+  if (!raw) return false;
+  if (raw.layoutVersion && raw.layoutVersion >= 2) return false;
+  if (raw.aboutText && raw.aboutText.trim().length > 0) return false;
+  const colIds = (raw.columns || []).map((c) => c.id);
+  return (
+    colIds.length === 4 &&
+    colIds.includes('col-shop') &&
+    colIds.includes('col-concierge') &&
+    colIds.includes('col-story') &&
+    colIds.includes('col-trust')
+  );
+}
 
-export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditorProps) {
-  const [activeTab, setActiveTab] = useState<'brand' | 'columns' | 'social' | 'payments' | 'legal' | 'preview'>('brand');
-  const [content, setContent] = useState<FooterContent>(() => {
-    return initialContent || DEFAULT_FOOTER_CONTENT;
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+function hydrateFooterForEditor(raw?: Partial<FooterContent>): { data: FooterContent; upgradedFromLegacy: boolean } {
+  if (!raw) {
+    return { data: JSON.parse(JSON.stringify(DEFAULT_FOOTER_V2)), upgradedFromLegacy: false };
+  }
 
-  // Logo file upload ref
-  const logoInputRef = useRef<HTMLInputElement>(null);
+  const legacy = isLegacyV1Footer(raw);
 
-  // Fetch site content if initialContent is not fully provided
-  useEffect(() => {
-    async function loadData() {
-      if (!initialContent) {
-        setIsLoading(true);
-        try {
-          const res = await fetch('/api/admin/content');
-          const json = await res.json();
-          if (json?.content?.footer) {
-            setContent(json.content.footer);
-          }
-        } catch (e) {
-          console.error('Failed to load footer content:', e);
-        } finally {
-          setIsLoading(false);
-        }
-      }
-    }
-    loadData();
-  }, [initialContent]);
+  const sanitizedSocials: FooterSocialItem[] =
+    Array.isArray(raw.socialLinks) && raw.socialLinks.length > 0
+      ? raw.socialLinks.map((s, idx) => ({
+          ...s,
+          id: s.id || `social-${idx}-${s.platform}`,
+          icon: s.icon || s.platform,
+          href: s.href?.includes('919876543210') ? 'https://wa.me/917207256690' : s.href,
+        }))
+      : DEFAULT_FOOTER_V2.socialLinks;
 
-  // Handle image upload for logo via storage endpoint
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setStatusMessage({ type: 'error', text: 'Image must be under 10MB' });
-        return;
-      }
-      try {
-        const body = new FormData();
-        body.append('file', file);
-        body.append('target', 'footer-logo');
-        body.append('folder', 'footer');
-
-        let res = await fetch('/api/admin/content/upload', {
-          method: 'POST',
-          body,
-        });
-
-        if (!res.ok) {
-          res = await fetch('/api/admin/media/upload', {
-            method: 'POST',
-            body,
-          });
-        }
-
-        const resJson = await res.json();
-        if (resJson.success && resJson.url) {
-          setContent((prev) => ({
-            ...prev,
-            logoUrl: resJson.url,
-          }));
-          setStatusMessage({ type: 'success', text: 'Logo uploaded successfully!' });
-          setTimeout(() => setStatusMessage(null), 3000);
-        } else {
-          setStatusMessage({ type: 'error', text: resJson.error || 'Failed to upload logo. Check storage permissions.' });
-        }
-      } catch (err: any) {
-        setStatusMessage({ type: 'error', text: `Upload error: ${err?.message || 'Please verify network and storage setup'}` });
-      } finally {
-        e.target.value = '';
-      }
-    }
+  const merged: FooterContent = {
+    ...DEFAULT_FOOTER_V2,
+    ...raw,
+    layoutVersion: 2,
+    aboutText: raw.aboutText?.trim() || DEFAULT_FOOTER_V2.aboutText,
+    readMoreLabel: raw.readMoreLabel?.trim() || DEFAULT_FOOTER_V2.readMoreLabel,
+    readMoreHref: raw.readMoreHref?.trim() || DEFAULT_FOOTER_V2.readMoreHref,
+    useLogoImage: Boolean(raw.useLogoImage),
+    showRegionSelector: raw.showRegionSelector !== false,
+    regionLabel: raw.regionLabel?.trim() || DEFAULT_FOOTER_V2.regionLabel,
+    regionOptions:
+      Array.isArray(raw.regionOptions) && raw.regionOptions.length > 0
+        ? raw.regionOptions
+        : [...DEFAULT_FOOTER_V2.regionOptions!],
+    columns:
+      !legacy && Array.isArray(raw.columns) && raw.columns.length > 0
+        ? raw.columns
+        : JSON.parse(JSON.stringify(DEFAULT_FOOTER_V2.columns)),
+    socialLinks: sanitizedSocials,
+    paymentOptions: {
+      ...DEFAULT_FOOTER_V2.paymentOptions,
+      ...(raw.paymentOptions || {}),
+    },
+    copyright:
+      !legacy && raw.copyright?.trim()
+        ? raw.copyright.trim()
+        : DEFAULT_FOOTER_V2.copyright,
+    bottomLinks:
+      !legacy && Array.isArray(raw.bottomLinks) && raw.bottomLinks.length > 0
+        ? raw.bottomLinks
+        : JSON.parse(JSON.stringify(DEFAULT_FOOTER_V2.bottomLinks)),
+    showScrollTop: raw.layoutVersion && raw.layoutVersion >= 2 ? Boolean(raw.showScrollTop) : false,
   };
 
-  // Save handler
+  return { data: merged, upgradedFromLegacy: legacy };
+}
+
+export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditorProps) {
+  const [content, setContent] = useState<FooterContent>(() => hydrateFooterForEditor(initialContent).data);
+  const [upgradedNotice, setUpgradedNotice] = useState(false);
+  const [activeTab, setActiveTab] = useState<'story' | 'columns' | 'social' | 'payments' | 'legal' | 'preview'>('story');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(!initialContent);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [newRegionText, setNewRegionText] = useState('');
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (initialContent) {
+      const hydrated = hydrateFooterForEditor(initialContent);
+      setContent(hydrated.data);
+      setUpgradedNotice(hydrated.upgradedFromLegacy);
+      setIsLoading(false);
+      return;
+    }
+
+    let mounted = true;
+    async function load() {
+      try {
+        const res = await fetch('/api/admin/content');
+        if (res.ok) {
+          const data = await res.json();
+          if (mounted && data?.success && data.content?.footer) {
+            const hydrated = hydrateFooterForEditor(data.content.footer);
+            setContent(hydrated.data);
+            setUpgradedNotice(hydrated.upgradedFromLegacy);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load footer config:', err);
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    }
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [initialContent]);
+
   const handleSave = async () => {
     setIsSaving(true);
     setStatusMessage(null);
     try {
+      const payload: FooterContent = {
+        ...content,
+        layoutVersion: 2,
+      };
       const res = await fetch('/api/admin/content', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sectionId: 'footer', data: content }),
+        body: JSON.stringify({
+          sectionId: 'footer',
+          data: payload,
+        }),
       });
       const data = await res.json();
-      if (data.success) {
-        setStatusMessage({ type: 'success', text: 'Footer updated successfully!' });
-        if (onSaved) onSaved(content);
+      if (res.ok && data.success) {
+        const saved = hydrateFooterForEditor(data.content?.footer || payload).data;
+        setContent(saved);
+        setUpgradedNotice(false);
+        setStatusMessage({
+          type: 'success',
+          text: 'Jet-Black Boutique Footer saved and synced live across the storefront.',
+        });
+        onSaved?.(saved);
       } else {
-        setStatusMessage({ type: 'error', text: data.error || 'Failed to save footer' });
+        setStatusMessage({ type: 'error', text: data.error || 'Failed to save footer.' });
       }
-    } catch (err: any) {
-      setStatusMessage({ type: 'error', text: err.message || 'Error saving footer' });
+    } catch {
+      setStatusMessage({ type: 'error', text: 'Network error while saving footer.' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  // Reset to defaults
   const handleReset = () => {
-    if (confirm('Reset footer to default configuration?')) {
-      setContent(DEFAULT_FOOTER_CONTENT);
-      setStatusMessage({ type: 'success', text: 'Reset to default footer settings' });
-      setTimeout(() => setStatusMessage(null), 3000);
+    if (confirm('Reset all footer settings to the Jet-Black Boutique defaults?')) {
+      setContent(JSON.parse(JSON.stringify(DEFAULT_FOOTER_V2)));
+      setStatusMessage({ type: 'success', text: 'Boutique defaults restored. Click "Save & Publish" to apply live.' });
     }
   };
 
-  // Column helpers
-  const handleUpdateColumnTitle = (colIndex: number, title: string) => {
-    setContent((prev) => {
-      const newCols = prev.columns.map((col, idx) => {
-        if (idx === colIndex) {
-          return { ...col, title };
-        }
-        return col;
-      });
-      return { ...prev, columns: newCols };
-    });
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('target', 'logo');
+      const res = await fetch('/api/admin/content/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (res.ok && data.success && data.url) {
+        setContent((prev) => ({ ...prev, logoUrl: data.url, useLogoImage: true }));
+        setStatusMessage({ type: 'success', text: `Uploaded logo "${file.name}".` });
+      } else {
+        setStatusMessage({ type: 'error', text: data.error || 'Logo upload failed.' });
+      }
+    } catch {
+      setStatusMessage({ type: 'error', text: 'Network error uploading logo.' });
+    } finally {
+      setIsUploadingLogo(false);
+      e.target.value = '';
+    }
   };
 
-  const handleUpdateLink = (colIndex: number, linkIndex: number, field: keyof FooterLinkItem, value: any) => {
-    setContent((prev) => {
-      const newCols = prev.columns.map((col, cIdx) => {
-        if (cIdx !== colIndex) return col;
-        const newLinks = col.links.map((link, lIdx) => {
-          if (lIdx !== linkIndex) return link;
-          return { ...link, [field]: value } as FooterLinkItem;
-        });
-        return { ...col, links: newLinks };
-      });
-      return { ...prev, columns: newCols };
-    });
-  };
-
-  const handleAddLink = (colIndex: number) => {
-    setContent((prev) => {
-      const newCols = prev.columns.map((col, idx) => {
-        if (idx !== colIndex) return col;
-        return {
-          ...col,
-          links: [...col.links, { label: 'New Link', href: '/shop', badge: '' }],
-        };
-      });
-      return { ...prev, columns: newCols };
-    });
-  };
-
-  const handleDeleteLink = (colIndex: number, linkIndex: number) => {
-    setContent((prev) => {
-      const newCols = prev.columns.map((col, idx) => {
-        if (idx !== colIndex) return col;
-        return {
-          ...col,
-          links: col.links.filter((_, lIdx) => lIdx !== linkIndex),
-        };
-      });
-      return { ...prev, columns: newCols };
-    });
-  };
-
-  // Social link helpers
-  const handleUpdateSocial = (index: number, field: string, value: any) => {
-    setContent((prev) => {
-      const updated = prev.socialLinks.map((s, i) => {
-        if (i === index) {
-          return { ...s, [field]: value };
-        }
-        return s;
-      });
-      return { ...prev, socialLinks: updated };
-    });
-  };
-
-  const handleAddSocial = () => {
-    setContent((prev) => {
-      const newSocial: FooterSocialItem = {
-        id: `social-${Date.now()}`,
-        platform: 'instagram',
-        icon: 'instagram',
-        label: 'Instagram',
-        handle: '@angelikafashions',
-        href: 'https://instagram.com/angelikafashions',
-        enabled: true,
-      };
-      return {
-        ...prev,
-        socialLinks: [...prev.socialLinks, newSocial],
-      };
-    });
-    setStatusMessage({
-      type: 'success',
-      text: 'New social platform added! Customize its name, icon, and URL below, then click Save Changes.',
-    });
-    setTimeout(() => setStatusMessage(null), 3500);
-  };
-
-  const handleDeleteSocial = (index: number) => {
-    const item = content.socialLinks[index];
-    const name = item?.label || item?.platform || 'platform';
+  // Column handlers
+  const handleAddColumn = () => {
+    if (content.columns.length >= 4) return;
     setContent((prev) => ({
       ...prev,
-      socialLinks: prev.socialLinks.filter((_, i) => i !== index),
+      columns: [
+        ...prev.columns,
+        {
+          id: `col-${Date.now()}`,
+          title: 'Collections',
+          links: [{ label: 'Shop All', href: '/shop' }],
+        },
+      ],
     }));
-    setStatusMessage({
-      type: 'success',
-      text: `Deleted "${name}" from social channels. Click Save Changes to publish.`,
-    });
-    setTimeout(() => setStatusMessage(null), 3000);
   };
 
-  // Trust badge helper
-  const handleUpdateTrustBadge = (badgeId: string, field: string, value: any) => {
+  const handleRemoveColumn = (colIdx: number) => {
+    if (content.columns.length <= 1) return;
+    setContent((prev) => ({
+      ...prev,
+      columns: prev.columns.filter((_, i) => i !== colIdx),
+    }));
+  };
+
+  const handleMoveColumn = (colIdx: number, dir: 'left' | 'right') => {
+    const target = dir === 'left' ? colIdx - 1 : colIdx + 1;
+    if (target < 0 || target >= content.columns.length) return;
     setContent((prev) => {
-      const updated = prev.trustBadges.map((b) => {
-        if (b.id === badgeId) {
-          return { ...b, [field]: value };
-        }
-        return b;
-      });
-      return { ...prev, trustBadges: updated };
+      const next = [...prev.columns];
+      const a = next[colIdx];
+      const b = next[target];
+      if (!a || !b) return prev;
+      next[colIdx] = b;
+      next[target] = a;
+      return { ...prev, columns: next };
     });
   };
 
-  // Bottom links helpers
-  const handleUpdateBottomLink = (index: number, field: keyof FooterLinkItem, value: any) => {
+  const handleUpdateColumnTitle = (colIdx: number, title: string) => {
     setContent((prev) => {
-      const updated = prev.bottomLinks.map((link, i) => {
-        if (i !== index) return link;
-        return { ...link, [field]: value } as FooterLinkItem;
-      });
-      return { ...prev, bottomLinks: updated };
+      const next = [...prev.columns];
+      const col = next[colIdx];
+      if (!col) return prev;
+      next[colIdx] = { ...col, title };
+      return { ...prev, columns: next };
     });
   };
 
+  const handleAddLink = (colIdx: number) => {
+    setContent((prev) => {
+      const next = [...prev.columns];
+      const col = next[colIdx];
+      if (!col) return prev;
+      next[colIdx] = { ...col, links: [...col.links, { label: 'New Link', href: '/shop' }] };
+      return { ...prev, columns: next };
+    });
+  };
+
+  const handleUpdateLink = (colIdx: number, linkIdx: number, patch: Partial<FooterLinkItem>) => {
+    setContent((prev) => {
+      const next = [...prev.columns];
+      const col = next[colIdx];
+      if (!col) return prev;
+      const links = [...col.links];
+      const current = links[linkIdx];
+      if (!current) return prev;
+      links[linkIdx] = { ...current, ...patch };
+      next[colIdx] = { ...col, links };
+      return { ...prev, columns: next };
+    });
+  };
+
+  const handleDeleteLink = (colIdx: number, linkIdx: number) => {
+    setContent((prev) => {
+      const next = [...prev.columns];
+      const col = next[colIdx];
+      if (!col) return prev;
+      next[colIdx] = { ...col, links: col.links.filter((_, i) => i !== linkIdx) };
+      return { ...prev, columns: next };
+    });
+  };
+
+  // Social handlers
+  const handleAddSocial = () => {
+    setContent((prev) => ({
+      ...prev,
+      socialLinks: [
+        ...prev.socialLinks,
+        {
+          id: `social-${Date.now()}`,
+          platform: 'instagram',
+          icon: 'instagram',
+          href: 'https://instagram.com/angelikafashions',
+          label: 'Instagram',
+          handle: '@angelikafashions',
+          enabled: true,
+        },
+      ],
+    }));
+  };
+
+  const handleUpdateSocial = (idx: number, patch: Partial<FooterSocialItem>) => {
+    setContent((prev) => {
+      const next = [...prev.socialLinks];
+      const cur = next[idx];
+      if (!cur) return prev;
+      next[idx] = { ...cur, ...patch };
+      return { ...prev, socialLinks: next };
+    });
+  };
+
+  const handleDeleteSocial = (idx: number) => {
+    setContent((prev) => ({
+      ...prev,
+      socialLinks: prev.socialLinks.filter((_, i) => i !== idx),
+    }));
+  };
+
+  // Region options handlers
+  const handleAddRegion = () => {
+    const clean = newRegionText.trim();
+    if (!clean) return;
+    const current = content.regionOptions || [];
+    if (current.includes(clean)) {
+      setNewRegionText('');
+      return;
+    }
+    setContent((prev) => ({
+      ...prev,
+      regionOptions: [...(prev.regionOptions || []), clean],
+    }));
+    setNewRegionText('');
+  };
+
+  const handleRemoveRegion = (region: string) => {
+    const remaining = (content.regionOptions || []).filter((r) => r !== region);
+    if (remaining.length === 0) return;
+    setContent((prev) => ({
+      ...prev,
+      regionOptions: remaining,
+      regionLabel: prev.regionLabel === region ? remaining[0] : prev.regionLabel,
+    }));
+  };
+
+  // Bottom legal links handlers
   const handleAddBottomLink = () => {
     setContent((prev) => ({
       ...prev,
-      bottomLinks: [...prev.bottomLinks, { label: 'New Policy', href: '/policy' }],
+      bottomLinks: [...prev.bottomLinks, { label: 'New Policy', href: '/privacy' }],
     }));
   };
 
-  const handleDeleteBottomLink = (index: number) => {
+  const handleUpdateBottomLink = (idx: number, patch: Partial<FooterLinkItem>) => {
+    setContent((prev) => {
+      const next = [...prev.bottomLinks];
+      const cur = next[idx];
+      if (!cur) return prev;
+      next[idx] = { ...cur, ...patch };
+      return { ...prev, bottomLinks: next };
+    });
+  };
+
+  const handleDeleteBottomLink = (idx: number) => {
     setContent((prev) => ({
       ...prev,
-      bottomLinks: prev.bottomLinks.filter((_, i) => i !== index),
+      bottomLinks: prev.bottomLinks.filter((_, i) => i !== idx),
     }));
   };
 
   if (isLoading) {
     return (
-      <div className="p-12 text-center text-sm text-[var(--color-slate)]">
-        Loading footer settings...
+      <div className="py-16 text-center">
+        <div className="mx-auto mb-3 h-7 w-7 animate-spin rounded-full border-2 border-[var(--color-gold)] border-t-transparent" />
+        <p className="text-xs text-[var(--color-slate)]">Loading Jet-Black Boutique Footer settings...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Action Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--color-whisper)]">
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/png,image/svg+xml,image/webp,image/jpeg"
+        className="hidden"
+        onChange={handleLogoUpload}
+      />
+
+      {/* Top Action Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--color-whisper)] pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-display font-medium text-[var(--color-ink)]">
-              Footer Content Manager
-            </h2>
-            <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-[var(--color-gold)]/10 text-[var(--color-gold)] border border-[var(--color-gold)]/30">
-              Live Storefront
-            </span>
-          </div>
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--color-gold-text)] mb-1">
+            <Sparkles className="w-3.5 h-3.5 text-[var(--color-gold)]" />
+            <span>Jet-Black Boutique Edition</span>
+          </span>
+          <h2 className="text-lg font-semibold text-[var(--color-ink)]">
+            Global Storefront Footer
+          </h2>
           <p className="text-xs text-[var(--color-slate)] mt-0.5">
-            Modify brand identity, Vidhya&apos;s styling atelier desk, 4 directory columns, payment options, trust assurances, and legal details.
+            Manage navigation columns, editorial brand bio, display wordmark, social icons, region selector, payment cards, and policy links.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="px-3 py-1.5 text-xs text-[var(--color-slate)] hover:text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-lg hover:bg-[var(--color-snow)] transition-colors flex items-center gap-1.5"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset</span>
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
-              className="px-3 py-1.5 text-xs text-[var(--color-slate)] hover:text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-lg hover:bg-[var(--color-snow)] transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-[var(--color-slate)] hover:text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-lg bg-white cursor-pointer"
             >
               Close
             </button>
           )}
           <button
             type="button"
+            onClick={handleReset}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--color-slate)] hover:text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-lg bg-white cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Defaults</span>
+          </button>
+          <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="px-4 py-1.5 text-xs font-medium text-white bg-[var(--color-ink)] hover:bg-[#2A2621] rounded-lg transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-black hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
           >
-            {isSaving ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-3.5 h-3.5 text-[var(--color-gold)]" />
-                <span>Save Changes</span>
-              </>
-            )}
+            <Save className="w-3.5 h-3.5" />
+            <span>{isSaving ? 'Saving...' : 'Save & Publish Footer'}</span>
           </button>
         </div>
       </div>
 
-      {/* Notification Banner */}
+      {/* Legacy Migration Info Banner */}
+      {upgradedNotice && (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+          <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+          <p>
+            Your storefront has automatically upgraded to the new <strong>Jet-Black Boutique Footer</strong>. Review your columns, brand story, and payment cards below, then click <strong>Save &amp; Publish Footer</strong> to persist the new structure in Supabase.
+          </p>
+        </div>
+      )}
+
+      {/* Status Notice */}
       {statusMessage && (
         <div
-          className={`p-3.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
+          className={cn(
+            'p-3.5 rounded-xl border text-xs flex items-center justify-between gap-3',
             statusMessage.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
-          }`}
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          )}
         >
-          <div className="flex items-center gap-2">
-            {statusMessage.type === 'success' ? (
-              <Check className="w-4 h-4 text-emerald-600" />
-            ) : (
-              <HelpCircle className="w-4 h-4 text-rose-600" />
-            )}
-            <span className="font-medium">{statusMessage.text}</span>
-          </div>
-          <button
-            onClick={() => setStatusMessage(null)}
-            className="text-[10px] uppercase font-bold tracking-wider hover:underline"
+          <span className="flex items-center gap-2 font-medium">
+            <Check className="w-4 h-4 shrink-0" />
+            <span>{statusMessage.text}</span>
+          </span>
+          <a
+            href="/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 font-semibold underline shrink-0"
           >
-            Dismiss
-          </button>
+            <span>View Live</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-[var(--color-whisper)] gap-1 overflow-x-auto pb-px">
+      <div className="flex flex-wrap gap-1.5 border-b border-[var(--color-whisper)] pb-3">
         {[
-          { id: 'brand', label: '1. Brand & Atelier Desk', icon: Building },
-          { id: 'columns', label: '2. Directory Columns (4)', icon: Layers },
-          { id: 'social', label: '3. Social Channels', icon: MessageCircle },
-          { id: 'payments', label: '4. Payments & Trust', icon: Shield },
-          { id: 'legal', label: '5. Sub-Footer & Legal', icon: HeartHandshake },
-          { id: 'preview', label: '6. Live Storefront Preview', icon: Eye },
+          { id: 'story', label: 'Brand Story & Wordmark', icon: Sparkles },
+          { id: 'columns', label: `Columns (${content.columns.length})`, icon: Layers },
+          { id: 'social', label: `Social (${content.socialLinks.filter((s) => s.enabled !== false).length})`, icon: Share2 },
+          { id: 'payments', label: 'Payments & Region', icon: CreditCard },
+          { id: 'legal', label: 'Legal & Copyright', icon: FileText },
+          { id: 'preview', label: 'Live Black Preview', icon: Eye },
         ].map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
+          const active = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium border-b-2 whitespace-nowrap transition-all ${
-                isActive
-                  ? 'border-[var(--color-gold)] text-[var(--color-gold)] bg-[var(--color-gold)]/5'
-                  : 'border-transparent text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:border-black/10'
-              }`}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer',
+                active
+                  ? 'bg-black text-white shadow-xs'
+                  : 'bg-[#F5F2EC] text-[var(--color-slate)] hover:text-[var(--color-ink)] hover:bg-[#EAE4D9]'
+              )}
             >
               <Icon className="w-3.5 h-3.5" />
               <span>{tab.label}</span>
@@ -543,931 +623,603 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
         })}
       </div>
 
-      {/* TAB 1: BRAND IDENTITY & ATELIER DESK */}
-      {activeTab === 'brand' && (
-        <div className="space-y-6">
-          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-5">
-            <h3 className="text-sm font-semibold text-[var(--color-ink)] flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[var(--color-gold)]" />
-              <span>Brand Emblem & Headline</span>
+      {/* TAB 1: BRAND STORY & WORDMARK */}
+      {activeTab === 'story' && (
+        <div className="space-y-5">
+          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-[var(--color-ink)]">
+              Right Column Editorial Narrative
             </h3>
+            <div>
+              <label htmlFor="footer-about-text" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                Boutique Brand Story Paragraph
+              </label>
+              <textarea
+                id="footer-about-text"
+                rows={4}
+                value={content.aboutText || ''}
+                onChange={(e) => setContent({ ...content, aboutText: e.target.value })}
+                placeholder="Angelika Fashions is an independent Indian luxury couture house..."
+                className="w-full px-3 py-2 text-xs leading-relaxed border border-[var(--color-whisper)] rounded-lg bg-white focus:outline-none focus:border-[var(--color-gold)]"
+              />
+              <p className="text-[11px] text-[var(--color-slate)] mt-1">
+                Displayed in crisp white on the right column directly above the brand wordmark.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Brand Name
+                <label htmlFor="footer-readmore-label" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                  Inline Link Text
                 </label>
                 <input
+                  id="footer-readmore-label"
+                  type="text"
+                  value={content.readMoreLabel || ''}
+                  onChange={(e) => setContent({ ...content, readMoreLabel: e.target.value })}
+                  placeholder="Read More"
+                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg bg-white focus:outline-none focus:border-[var(--color-gold)]"
+                />
+              </div>
+              <div>
+                <label htmlFor="footer-readmore-href" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                  Inline Link Destination
+                </label>
+                <input
+                  id="footer-readmore-href"
+                  type="text"
+                  value={content.readMoreHref || ''}
+                  onChange={(e) => setContent({ ...content, readMoreHref: e.target.value })}
+                  placeholder="/about"
+                  className="w-full px-3 py-2 text-xs font-mono border border-[var(--color-whisper)] rounded-lg bg-white focus:outline-none focus:border-[var(--color-gold)]"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-[var(--color-ink)]">
+              Bold Footer Wordmark / Logo
+            </h3>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="footer-brand-name" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                  Display Wordmark Text
+                </label>
+                <input
+                  id="footer-brand-name"
                   type="text"
                   value={content.brandName}
                   onChange={(e) => setContent({ ...content, brandName: e.target.value })}
                   placeholder="Angelika"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
+                  className="w-full px-3 py-2 text-xs font-semibold border border-[var(--color-whisper)] rounded-lg bg-white focus:outline-none focus:border-[var(--color-gold)]"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Brand Subtitle / Department
-                </label>
-                <input
-                  type="text"
-                  value={content.brandTagline}
-                  onChange={(e) => setContent({ ...content, brandTagline: e.target.value })}
-                  placeholder="Fashions"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
-                />
-              </div>
-            </div>
-
-            {/* Logo Image with Device Upload */}
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Logo Emblem Image
-              </label>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                <div className="w-14 h-14 rounded-lg bg-white border border-[#E5DFD5] p-1.5 flex items-center justify-center flex-shrink-0 shadow-xs">
-                  <img
-                    src={content.logoUrl || '/images/logo.png'}
-                    alt="Logo preview"
-                    className="max-h-full max-w-full object-contain"
-                  />
-                </div>
-                <div className="flex-1 w-full space-y-2">
+              <div className="flex items-end">
+                <label className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-[#E5DFD5] bg-white cursor-pointer">
                   <input
-                    type="text"
-                    value={content.logoUrl}
-                    onChange={(e) => setContent({ ...content, logoUrl: e.target.value })}
-                    placeholder="/images/logo.png"
-                    className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white font-mono"
+                    type="checkbox"
+                    checked={Boolean(content.useLogoImage)}
+                    onChange={(e) => setContent({ ...content, useLogoImage: e.target.checked })}
+                    className="w-4 h-4 accent-black"
                   />
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => logoInputRef.current?.click()}
-                      className="px-2.5 py-1 text-[11px] bg-white hover:bg-[var(--color-gold)]/10 text-[var(--color-gold)] border border-[var(--color-gold)]/40 rounded flex items-center gap-1.5 font-medium transition-colors"
-                    >
-                      <Upload className="w-3 h-3" />
-                      <span>Upload from this Device</span>
-                    </button>
-                    {PRESET_LOGOS.map((preset) => (
-                      <button
-                        key={preset.url}
-                        type="button"
-                        onClick={() => setContent({ ...content, logoUrl: preset.url })}
-                        className="px-2 py-1 text-[10px] text-[var(--color-slate)] hover:text-[var(--color-ink)] bg-[#F5F2EC] rounded border border-[#E5DFD5] hover:border-black/20"
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                  <span className="text-xs font-medium text-[var(--color-ink)]">
+                    Use Uploaded Logo Image (Inverted White) instead of Wordmark
+                  </span>
+                </label>
               </div>
             </div>
 
-            {/* Tagline Paragraph */}
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Tagline / Brand Intro Paragraph
-              </label>
-              <textarea
-                rows={2}
-                value={content.tagline}
-                onChange={(e) => setContent({ ...content, tagline: e.target.value })}
-                placeholder="Modern Indian luxury — rooted in craft, elevated for today."
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white leading-relaxed"
-              />
-            </div>
-          </div>
-
-          {/* Vidhya's Styling Atelier Consultation Card */}
-          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-[#EAE4D9]">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A] animate-pulse" />
-                <h3 className="text-sm font-semibold text-[var(--color-ink)]">
-                  Vidhya&apos;s Styling Atelier Concierge Card
-                </h3>
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={content.showAtelierDesk !== false}
-                  onChange={(e) => setContent({ ...content, showAtelierDesk: e.target.checked })}
-                  className="w-4 h-4 rounded text-[var(--color-gold)] accent-[var(--color-gold)]"
-                />
-                <span className="text-xs font-medium text-[var(--color-slate)]">
-                  Display Card on Footer
+            {/* Wordmark Black Preview Strip */}
+            <div className="p-5 rounded-xl bg-black text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 block mb-2">
+                  Signature Preview on Jet Black
                 </span>
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Card Eyebrow Badge
-                </label>
-                <input
-                  type="text"
-                  value={content.atelierBadge}
-                  onChange={(e) => setContent({ ...content, atelierBadge: e.target.value })}
-                  placeholder="VIDHYA'S STYLING ATELIER"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white uppercase tracking-wider"
-                />
+                {content.useLogoImage && content.logoUrl ? (
+                  <img
+                    src={content.logoUrl}
+                    alt={content.brandName}
+                    className="h-12 w-auto object-contain brightness-0 invert"
+                  />
+                ) : (
+                  <span
+                    className="text-4xl font-bold tracking-[-0.02em] leading-none text-white"
+                    style={{ fontFamily: 'var(--font-cormorant)' }}
+                  >
+                    {content.brandName.toLowerCase() === 'angelika' ? 'ANGELIKA' : content.brandName || 'ANGELIKA'}
+                  </span>
+                )}
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Status Indicator Badge
-                </label>
-                <input
-                  type="text"
-                  value={content.atelierStatusText}
-                  onChange={(e) => setContent({ ...content, atelierStatusText: e.target.value })}
-                  placeholder="Concierge Active"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Consultation Title
-              </label>
-              <input
-                type="text"
-                value={content.atelierTitle}
-                onChange={(e) => setContent({ ...content, atelierTitle: e.target.value })}
-                placeholder="Personal Styling & Drape Consultation"
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white font-serif"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Consultation Description
-              </label>
-              <textarea
-                rows={2}
-                value={content.atelierDescription}
-                onChange={(e) => setContent({ ...content, atelierDescription: e.target.value })}
-                placeholder="Complimentary bespoke drape guidance, custom blouse measurements & festive trousseau curation directly with designer Vidhya."
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white leading-relaxed"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  WhatsApp Button Text
-                </label>
-                <input
-                  type="text"
-                  value={content.atelierWhatsappCta}
-                  onChange={(e) => setContent({ ...content, atelierWhatsappCta: e.target.value })}
-                  placeholder="Connect with Vidhya on WhatsApp"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  WhatsApp Phone Number (with Country Code)
-                </label>
-                <input
-                  type="text"
-                  value={content.atelierWhatsappNumber}
-                  onChange={(e) => setContent({ ...content, atelierWhatsappNumber: e.target.value })}
-                  placeholder="+91 98765 43210"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                WhatsApp Default Greeting Message
-              </label>
-              <input
-                type="text"
-                value={content.atelierWhatsappMessage}
-                onChange={(e) => setContent({ ...content, atelierWhatsappMessage: e.target.value })}
-                placeholder="Hi Vidhya, I would love personal styling guidance and drape consultation for my order."
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Direct Atelier Phone Hotline
-                </label>
-                <input
-                  type="text"
-                  value={content.atelierPhone}
-                  onChange={(e) => setContent({ ...content, atelierPhone: e.target.value })}
-                  placeholder="+91 98765 43210"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Atelier Email
-                </label>
-                <input
-                  type="email"
-                  value={content.atelierEmail}
-                  onChange={(e) => setContent({ ...content, atelierEmail: e.target.value })}
-                  placeholder="hallo@angelikafashions.com"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white font-mono"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Atelier Schedule & Response Hours
-              </label>
-              <input
-                type="text"
-                value={content.atelierSchedule}
-                onChange={(e) => setContent({ ...content, atelierSchedule: e.target.value })}
-                placeholder="Mon – Sat · 10:00 AM – 7:00 PM IST · Direct atelier response"
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
-              />
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={isUploadingLogo}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg cursor-pointer self-start sm:self-auto"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>{isUploadingLogo ? 'Uploading...' : 'Upload Custom Logo'}</span>
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB 2: DIRECTORY NAVIGATION COLUMNS (All 4 Columns) */}
+      {/* TAB 2: NAVIGATION COLUMNS */}
       {activeTab === 'columns' && (
-        <div className="space-y-6">
-          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-4 flex items-center justify-between">
+        <div className="space-y-5">
+          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-[var(--color-ink)]">
-                4 Directory Columns (Shop, Concierge, Atelier Story, Policies)
+                Editorial Footer Columns ({content.columns.length}/4)
               </h3>
               <p className="text-xs text-[var(--color-slate)]">
-                Edit column titles, add or remove links, update target routes, and assign special luxury badges (e.g. NEW, CURATED, SALE).
+                2 crisp columns (e.g. Customer Care &amp; About Angelika) match the reference boutique aesthetic best; up to 4 columns are supported.
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleAddColumn}
+              disabled={content.columns.length >= 4}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-black hover:bg-neutral-800 rounded-lg disabled:opacity-40 cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Column</span>
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {content.columns.map((column, colIndex) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {content.columns.map((column: FooterColumnItem, colIndex: number) => (
               <div
                 key={column.id || colIndex}
-                className="bg-white border border-[#E5DFD5] rounded-xl p-4 shadow-xs space-y-4"
+                className="bg-white border border-[#E5DFD5] rounded-xl p-4 shadow-2xs space-y-4"
               >
-                <div className="flex items-center justify-between pb-3 border-b border-[#EAE4D9]">
-                  <div className="flex-1 mr-3">
-                    <label className="block text-[10px] font-bold text-[var(--color-slate)] uppercase tracking-wider mb-1">
-                      Column {colIndex + 1} Title
+                <div className="flex items-end justify-between gap-2 pb-3 border-b border-[#EAE4D9]">
+                  <div className="flex-1">
+                    <label
+                      htmlFor={`col-title-${colIndex}`}
+                      className="block text-[10px] font-bold text-[var(--color-slate)] uppercase tracking-wider mb-1"
+                    >
+                      Column {colIndex + 1} Heading
                     </label>
                     <input
+                      id={`col-title-${colIndex}`}
                       type="text"
                       value={column.title}
                       onChange={(e) => handleUpdateColumnTitle(colIndex, e.target.value)}
-                      placeholder="Column Title"
-                      className="w-full px-2.5 py-1.5 text-xs font-bold text-[var(--color-ink)] uppercase tracking-wide border border-[var(--color-whisper)] rounded focus:outline-none focus:border-[var(--color-gold)]"
+                      placeholder="Customer Care"
+                      className="w-full px-2.5 py-1.5 text-xs font-semibold text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)]"
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddLink(colIndex)}
-                    className="mt-4 px-2 py-1 text-[11px] font-medium bg-[var(--color-gold)]/10 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/20 rounded border border-[var(--color-gold)]/30 flex items-center gap-1 transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Link</span>
-                  </button>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleMoveColumn(colIndex, 'left')}
+                      disabled={colIndex === 0}
+                      className="p-1.5 rounded hover:bg-stone-100 text-[var(--color-slate)] disabled:opacity-30 cursor-pointer"
+                      aria-label={`Move column ${colIndex + 1} left`}
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMoveColumn(colIndex, 'right')}
+                      disabled={colIndex === content.columns.length - 1}
+                      className="p-1.5 rounded hover:bg-stone-100 text-[var(--color-slate)] disabled:opacity-30 cursor-pointer"
+                      aria-label={`Move column ${colIndex + 1} right`}
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveColumn(colIndex)}
+                      disabled={content.columns.length <= 1}
+                      className="p-1.5 rounded hover:bg-rose-50 text-rose-500 disabled:opacity-30 cursor-pointer"
+                      aria-label={`Delete column ${colIndex + 1}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* List of Links */}
-                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1">
+                <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
                   {column.links.map((link, linkIndex) => (
                     <div
                       key={linkIndex}
-                      className="p-2.5 bg-[#FAF8F5] border border-[#EAE4D9] rounded-lg space-y-2 group"
+                      className="p-2.5 bg-[#FAF8F5] border border-[#EAE4D9] rounded-lg space-y-2"
                     >
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
                         <input
                           type="text"
                           value={link.label}
-                          onChange={(e) => handleUpdateLink(colIndex, linkIndex, 'label', e.target.value)}
-                          placeholder="Link Label"
-                          className="flex-1 px-2 py-1 text-xs border border-[var(--color-whisper)] rounded bg-white font-medium focus:outline-none focus:border-[var(--color-gold)]"
+                          onChange={(e) => handleUpdateLink(colIndex, linkIndex, { label: e.target.value })}
+                          placeholder="Link label"
+                          className="flex-1 px-2.5 py-1 text-xs border border-[var(--color-whisper)] rounded bg-white font-medium focus:outline-none focus:border-[var(--color-gold)]"
                         />
                         <button
                           type="button"
                           onClick={() => handleDeleteLink(colIndex, linkIndex)}
-                          className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition-colors"
-                          title="Delete link"
+                          className="p-1 text-rose-500 hover:bg-rose-50 rounded cursor-pointer"
+                          aria-label={`Delete link ${link.label}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-
-                      <div className="grid grid-cols-12 gap-2">
+                      <div className="grid grid-cols-12 gap-2 items-center">
                         <div className="col-span-8">
                           <input
                             type="text"
                             value={link.href}
-                            onChange={(e) => handleUpdateLink(colIndex, linkIndex, 'href', e.target.value)}
-                            placeholder="/shop/kurtis"
-                            className="w-full px-2 py-1 text-[11px] font-mono border border-[var(--color-whisper)] rounded bg-white focus:outline-none focus:border-[var(--color-gold)]"
+                            onChange={(e) => handleUpdateLink(colIndex, linkIndex, { href: e.target.value })}
+                            placeholder="/shipping or https://..."
+                            className="w-full px-2.5 py-1 text-[11px] font-mono border border-[var(--color-whisper)] rounded bg-white focus:outline-none focus:border-[var(--color-gold)]"
                           />
                         </div>
                         <div className="col-span-4">
                           <input
                             type="text"
                             value={link.badge || ''}
-                            onChange={(e) => handleUpdateLink(colIndex, linkIndex, 'badge', e.target.value)}
-                            placeholder="Badge (e.g. New)"
-                            className="w-full px-2 py-1 text-[11px] uppercase tracking-wider border border-[var(--color-whisper)] rounded bg-white focus:outline-none focus:border-[var(--color-gold)]"
+                            onChange={(e) => handleUpdateLink(colIndex, linkIndex, { badge: e.target.value })}
+                            placeholder="Badge (opt.)"
+                            className="w-full px-2 py-1 text-[11px] border border-[var(--color-whisper)] rounded bg-white focus:outline-none focus:border-[var(--color-gold)]"
                           />
                         </div>
                       </div>
                     </div>
                   ))}
-                  {column.links.length === 0 && (
-                    <div className="p-4 text-center text-xs text-[var(--color-slate)] italic border border-dashed border-[#EAE4D9] rounded-lg">
-                      No links in this column. Click &quot;Add Link&quot; above.
-                    </div>
-                  )}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleAddLink(colIndex)}
+                  className="w-full py-1.5 text-xs font-medium text-[var(--color-gold-text)] bg-[#FAF6EE] hover:bg-[#F3EBD8] border border-[#E2D6C1] rounded-lg inline-flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Link to {column.title || 'Column'}</span>
+                </button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* TAB 3: SOCIAL MEDIA CHANNELS */}
+      {/* TAB 3: SOCIAL CHANNELS */}
       {activeTab === 'social' && (
-        <div className="space-y-6">
-          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-5">
-            {/* Top Bar: Section Heading & Add Platform Button */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-4 border-b border-[#EAE4D9]">
-              <div className="flex-1 max-w-md">
-                <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Section Heading
-                </label>
-                <input
-                  type="text"
-                  value={content.socialTitle}
-                  onChange={(e) => setContent({ ...content, socialTitle: e.target.value })}
-                  placeholder="CONNECT WITH US"
-                  className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white uppercase tracking-wider font-semibold text-[var(--color-ink)]"
-                />
-                <p className="text-[10px] text-[var(--color-slate)] mt-1">
-                  Header text displayed above social channels on the storefront footer.
-                </p>
-              </div>
+        <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#EAE4D9]">
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--color-ink)]">
+                Monochrome White Social Icons (Below Wordmark)
+              </h3>
+              <p className="text-xs text-[var(--color-slate)]">
+                Displayed directly beneath the bold ANGELIKA wordmark on the black footer canvas.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAddSocial}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-black hover:bg-neutral-800 rounded-lg cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Channel</span>
+            </button>
+          </div>
 
-              <button
-                type="button"
-                onClick={handleAddSocial}
-                className="px-3.5 py-2 text-xs font-medium text-white bg-[var(--color-ink)] hover:bg-[#2A2621] rounded-lg transition-all shadow-xs flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+          <div className="space-y-3">
+            {content.socialLinks.map((social, idx) => (
+              <div
+                key={social.id || `${social.platform}-${idx}`}
+                className="p-3.5 bg-white border border-[#E5DFD5] rounded-xl flex flex-col lg:flex-row lg:items-center gap-3"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Social Platform</span>
-              </button>
-            </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={social.enabled !== false}
+                    onChange={(e) => handleUpdateSocial(idx, { enabled: e.target.checked })}
+                    aria-label={`Enable ${social.label || social.platform}`}
+                    className="w-4 h-4 accent-black cursor-pointer"
+                  />
+                  <div className="w-9 h-9 rounded-lg bg-black text-white flex items-center justify-center shrink-0">
+                    <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
+                  </div>
+                </div>
 
-            {/* List of Dynamic Social Media Platforms */}
-            <div className="space-y-3.5 pt-1">
-              {content.socialLinks.map((social, idx) => (
-                <div
-                  key={social.id || `${social.platform}-${idx}`}
-                  className="p-4 bg-white border border-[#E5DFD5] rounded-xl flex flex-col xl:flex-row xl:items-center justify-between gap-4 shadow-xs hover:border-[var(--color-gold)]/50 transition-all"
+                <div className="flex-1 grid sm:grid-cols-3 gap-2.5">
+                  <input
+                    type="text"
+                    value={social.label || ''}
+                    onChange={(e) => handleUpdateSocial(idx, { label: e.target.value })}
+                    placeholder="Instagram"
+                    className="px-2.5 py-1.5 text-xs font-medium border border-[var(--color-whisper)] rounded-lg bg-white"
+                  />
+                  <select
+                    value={(social.icon || social.platform || 'instagram').toLowerCase()}
+                    onChange={(e) => handleUpdateSocial(idx, { icon: e.target.value, platform: e.target.value })}
+                    className="px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg bg-white"
+                  >
+                    {AVAILABLE_SOCIAL_ICONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="text"
+                    value={social.href}
+                    onChange={(e) => handleUpdateSocial(idx, { href: e.target.value })}
+                    placeholder="https://..."
+                    className="px-2.5 py-1.5 text-xs font-mono border border-[var(--color-whisper)] rounded-lg bg-white"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleDeleteSocial(idx)}
+                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer self-end lg:self-auto"
+                  aria-label={`Delete ${social.label || social.platform}`}
                 >
-                  {/* Left: Enable toggle, Live Icon Preview, Platform Name & Icon Select */}
-                  <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-                    <label
-                      className="flex items-center cursor-pointer p-1"
-                      title={social.enabled !== false ? 'Enabled on storefront' : 'Disabled (Hidden on storefront)'}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={social.enabled !== false}
-                        onChange={(e) => handleUpdateSocial(idx, 'enabled', e.target.checked)}
-                        className="w-4 h-4 rounded text-[var(--color-gold)] accent-[var(--color-gold)] cursor-pointer"
-                      />
-                    </label>
-
-                    {/* Round Live Icon Preview */}
-                    <div
-                      className="w-10 h-10 rounded-full bg-[#FAF8F5] border border-[#E5DFD5] flex items-center justify-center text-[var(--color-slate)] flex-shrink-0 shadow-xs"
-                      title={`Icon: ${social.icon || social.platform}`}
-                    >
-                      <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
-                    </div>
-
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
-                          Platform Name
-                        </label>
-                        <input
-                          type="text"
-                          value={social.label || ''}
-                          onChange={(e) => handleUpdateSocial(idx, 'label', e.target.value)}
-                          placeholder="e.g. Instagram"
-                          className="w-full px-2.5 py-1.5 text-xs font-semibold text-[var(--color-ink)] border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
-                          Icon
-                        </label>
-                        <select
-                          value={(social.icon || social.platform || 'instagram').toLowerCase()}
-                          onChange={(e) => {
-                            const newIcon = e.target.value;
-                            handleUpdateSocial(idx, 'icon', newIcon);
-                            handleUpdateSocial(idx, 'platform', newIcon);
-                          }}
-                          className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white text-[var(--color-ink)] cursor-pointer"
-                        >
-                          {AVAILABLE_SOCIAL_ICONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: URL, Handle, and Delete Button */}
-                  <div className="flex items-center gap-2.5 flex-1 xl:max-w-xl">
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
-                          Profile / Channel URL
-                        </label>
-                        <input
-                          type="text"
-                          value={social.href}
-                          onChange={(e) => handleUpdateSocial(idx, 'href', e.target.value)}
-                          placeholder="https://..."
-                          className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] font-mono text-[var(--color-ink)] bg-white"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-semibold text-[var(--color-slate)] uppercase tracking-wider mb-0.5">
-                          Handle / Subtitle
-                        </label>
-                        <input
-                          type="text"
-                          value={social.handle || ''}
-                          onChange={(e) => handleUpdateSocial(idx, 'handle', e.target.value)}
-                          placeholder="@angelikafashions"
-                          className="w-full px-2.5 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] text-[var(--color-ink)] bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="pt-3.5">
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteSocial(idx)}
-                        title={`Delete ${social.label || social.platform}`}
-                        className="p-2 text-[var(--color-slate)] hover:text-[var(--color-error)] hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {content.socialLinks.length === 0 && (
-                <div className="p-8 text-center bg-white border border-dashed border-[#E5DFD5] rounded-xl space-y-3">
-                  <p className="text-xs text-[var(--color-slate)]">No social media platforms added yet.</p>
-                  <button
-                    type="button"
-                    onClick={handleAddSocial}
-                    className="px-3.5 py-2 text-xs font-medium text-white bg-[var(--color-ink)] hover:bg-[#2A2621] rounded-lg inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Your First Social Platform</span>
-                  </button>
-                </div>
-              )}
-
-              {content.socialLinks.length > 0 && (
-                <div className="pt-2 flex justify-start">
-                  <button
-                    type="button"
-                    onClick={handleAddSocial}
-                    className="px-3.5 py-1.5 text-xs font-medium text-[var(--color-gold)] hover:text-[#967637] border border-[var(--color-gold)]/40 hover:border-[var(--color-gold)] bg-white hover:bg-[var(--color-gold-light)]/20 rounded-lg transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Another Social Platform</span>
-                  </button>
-                </div>
-              )}
-            </div>
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* TAB 4: PAYMENT OPTIONS & ARTISANAL TRUST BADGES */}
+      {/* TAB 4: PAYMENT CARDS & REGION SELECTOR */}
       {activeTab === 'payments' && (
-        <div className="space-y-6">
-          {/* Payment Options Row */}
+        <div className="space-y-5">
+          {/* Payment Badges */}
           <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-[var(--color-ink)] flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-[var(--color-gold)]" />
-              <span>Payment Options Emblems</span>
-            </h3>
-
             <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Payment Label
-              </label>
-              <input
-                type="text"
-                value={content.paymentLabel}
-                onChange={(e) => setContent({ ...content, paymentLabel: e.target.value })}
-                placeholder="PAYMENT OPTIONS:"
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white uppercase tracking-wider"
-              />
+              <h3 className="text-sm font-semibold text-[var(--color-ink)] flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-[var(--color-gold-text)]" />
+                <span>Payment Method Card Badges (Bottom-Right Strip)</span>
+              </h3>
+              <p className="text-xs text-[var(--color-slate)] mt-0.5">
+                Choose which full-color payment card emblems appear in the jet-black footer bar.
+              </p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              {[
-                { key: 'upi', label: 'UPI (Google Pay, PhonePe, Paytm)' },
-                { key: 'visa', label: 'VISA' },
-                { key: 'mastercard', label: 'Mastercard' },
-                { key: 'rupay', label: 'RuPay' },
-                { key: 'netbanking', label: 'Net Banking' },
-                { key: 'cod', label: 'Cash on Delivery (COD)' },
-                { key: 'amex', label: 'American Express (AMEX)' },
-              ].map((p) => {
-                const isChecked = Boolean(content.paymentOptions?.[p.key as keyof typeof content.paymentOptions]);
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {PAYMENT_BADGE_ORDER.map((badge) => {
+                const isChecked = content.paymentOptions?.[badge.key] !== false;
                 return (
                   <label
-                    key={p.key}
-                    className={`p-3 rounded-lg border flex items-center gap-2.5 cursor-pointer transition-all ${
+                    key={badge.key}
+                    className={cn(
+                      'p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all',
                       isChecked
-                        ? 'bg-white border-[var(--color-gold)] shadow-xs'
-                        : 'bg-[#F5F2EC] border-[#E5DFD5] opacity-60'
-                    }`}
+                        ? 'bg-white border-black shadow-2xs'
+                        : 'bg-[#F3EFE8] border-[#E5DFD5] opacity-65'
+                    )}
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      onChange={(e) => {
+                      onChange={(e) =>
                         setContent({
                           ...content,
                           paymentOptions: {
                             ...content.paymentOptions,
-                            [p.key]: e.target.checked,
-                          },
-                        });
-                      }}
-                      className="w-4 h-4 rounded text-[var(--color-gold)] accent-[var(--color-gold)]"
+                            [badge.key]: e.target.checked,
+                          } as FooterPaymentOptions,
+                        })
+                      }
+                      className="w-4 h-4 accent-black"
                     />
-                    <span className="text-xs font-medium text-[var(--color-ink)]">{p.label}</span>
+                    <span className="p-1.5 rounded bg-black flex items-center justify-center shrink-0">
+                      <PaymentCardBadge type={badge.key} />
+                    </span>
+                    <span className="text-xs font-medium text-[var(--color-ink)] truncate">
+                      {badge.label}
+                    </span>
                   </label>
                 );
               })}
             </div>
           </div>
 
-          {/* Artisanal Trust Assurances */}
+          {/* Region / Currency Selector */}
           <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-[var(--color-ink)] flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[#16A34A]" />
-              <span>Artisanal Trust Assurances</span>
-            </h3>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--color-ink)] flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-[var(--color-gold-text)]" />
+                  <span>Country / Currency Selector (Bottom-Left White Pill)</span>
+                </h3>
+                <p className="text-xs text-[var(--color-slate)] mt-0.5">
+                  Crisp white rectangular selector box matching the luxury boutique reference.
+                </p>
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={content.showRegionSelector !== false}
+                  onChange={(e) => setContent({ ...content, showRegionSelector: e.target.checked })}
+                  className="w-4 h-4 accent-black"
+                />
+                <span>Visible</span>
+              </label>
+            </div>
 
-            <div className="space-y-3">
-              {content.trustBadges.map((badge) => (
-                <div
-                  key={badge.id}
-                  className="p-3.5 bg-white border border-[#E5DFD5] rounded-xl flex items-center gap-4 shadow-xs"
-                >
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={badge.enabled !== false}
-                      onChange={(e) => handleUpdateTrustBadge(badge.id, 'enabled', e.target.checked)}
-                      className="w-4 h-4 rounded text-[var(--color-gold)] accent-[var(--color-gold)]"
-                    />
+            {content.showRegionSelector !== false && (
+              <div className="space-y-4 pt-2 border-t border-[#EAE4D9]">
+                <div>
+                  <label htmlFor="footer-default-region" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                    Default Selected Region
                   </label>
-                  <div className="w-8 h-8 rounded-full bg-[#FAF8F5] border border-[#E5DFD5] flex items-center justify-center text-[var(--color-gold)]">
-                    {badge.icon === 'ssl' && <Shield className="w-4 h-4 text-[#16A34A]" />}
-                    {badge.icon === 'handloom' && <Sparkles className="w-4 h-4" />}
-                    {badge.icon === 'shipping' && <Truck className="w-4 h-4" />}
-                    {badge.icon === 'exchange' && <RotateCcw className="w-4 h-4" />}
+                  <select
+                    id="footer-default-region"
+                    value={content.regionLabel || (content.regionOptions?.[0] ?? 'India (INR ₹)')}
+                    onChange={(e) => setContent({ ...content, regionLabel: e.target.value })}
+                    className="w-full sm:w-80 px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg bg-white"
+                  >
+                    {(content.regionOptions || BOUTIQUE_DEFAULT_REGIONS).map((region) => (
+                      <option key={region} value={region}>
+                        {region}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <span className="block text-xs font-semibold text-[var(--color-ink)]">
+                    Dropdown Options
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {(content.regionOptions || BOUTIQUE_DEFAULT_REGIONS).map((region) => (
+                      <span
+                        key={region}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-[#E5DFD5] text-xs font-medium text-[var(--color-ink)]"
+                      >
+                        <span>{region}</span>
+                        {(content.regionOptions || []).length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRegion(region)}
+                            className="text-rose-500 hover:text-rose-700 cursor-pointer"
+                            aria-label={`Remove ${region}`}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </span>
+                    ))}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex items-center gap-2 max-w-md pt-1">
                     <input
                       type="text"
-                      value={badge.text}
-                      onChange={(e) => handleUpdateTrustBadge(badge.id, 'text', e.target.value)}
-                      placeholder="Trust guarantee text"
-                      className="w-full px-3 py-1.5 text-xs font-medium border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)]"
+                      value={newRegionText}
+                      onChange={(e) => setNewRegionText(e.target.value)}
+                      placeholder="e.g. Singapore (SGD S$)"
+                      className="flex-1 px-3 py-1.5 text-xs border border-[var(--color-whisper)] rounded-lg bg-white"
                     />
+                    <button
+                      type="button"
+                      onClick={handleAddRegion}
+                      className="px-3 py-1.5 text-xs font-medium bg-black text-white rounded-lg cursor-pointer"
+                    >
+                      Add
+                    </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* TAB 5: SUB-FOOTER, COPYRIGHT & LEGAL LINKS */}
+      {/* TAB 5: LEGAL & COPYRIGHT */}
       {activeTab === 'legal' && (
-        <div className="space-y-6">
-          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-5">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                Copyright Notice Text
-              </label>
-              <textarea
-                rows={2}
-                value={content.copyright}
-                onChange={(e) => setContent({ ...content, copyright: e.target.value })}
-                placeholder="© 2026 Angelika. All rights reserved. Handcrafted with reverence for Indian heritage."
-                className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg focus:outline-none focus:border-[var(--color-gold)] bg-white leading-relaxed"
-              />
+        <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-5">
+          <div>
+            <label htmlFor="footer-copyright" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+              Copyright Line (Bottom-Left)
+            </label>
+            <input
+              id="footer-copyright"
+              type="text"
+              value={content.copyright}
+              onChange={(e) => setContent({ ...content, copyright: e.target.value })}
+              placeholder="© 2026 Angelika Fashions."
+              className="w-full px-3 py-2 text-xs border border-[var(--color-whisper)] rounded-lg bg-white focus:outline-none focus:border-[var(--color-gold)]"
+            />
+          </div>
+
+          <div className="pt-3 border-t border-[#EAE4D9] space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--color-ink)]">
+                Bottom-Right Policy Links
+              </h4>
+              <button
+                type="button"
+                onClick={handleAddBottomLink}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-black text-white rounded-lg cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Policy Link</span>
+              </button>
             </div>
 
-            <div className="pt-2 border-t border-[#EAE4D9]">
-              <div className="flex items-center justify-between pb-3">
-                <h4 className="text-xs font-bold text-[var(--color-ink)] uppercase tracking-wider">
-                  Bottom Bar Legal & Policy Links
-                </h4>
-                <button
-                  type="button"
-                  onClick={handleAddBottomLink}
-                  className="px-2.5 py-1 text-[11px] font-medium bg-[var(--color-gold)]/10 text-[var(--color-gold)] hover:bg-[var(--color-gold)]/20 rounded border border-[var(--color-gold)]/30 flex items-center gap-1 transition-colors"
+            <div className="space-y-2">
+              {content.bottomLinks.map((link, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center gap-2 p-2 bg-white border border-[#E5DFD5] rounded-lg"
                 >
-                  <Plus className="w-3 h-3" />
-                  <span>Add Link</span>
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {content.bottomLinks.map((link, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-2 p-2 bg-white border border-[#E5DFD5] rounded-lg shadow-xs"
+                  <input
+                    type="text"
+                    value={link.label}
+                    onChange={(e) => handleUpdateBottomLink(idx, { label: e.target.value })}
+                    placeholder="Terms of Service"
+                    className="w-44 px-2.5 py-1 text-xs font-medium border border-[var(--color-whisper)] rounded"
+                  />
+                  <input
+                    type="text"
+                    value={link.href}
+                    onChange={(e) => handleUpdateBottomLink(idx, { href: e.target.value })}
+                    placeholder="/terms"
+                    className="flex-1 px-2.5 py-1 text-xs font-mono border border-[var(--color-whisper)] rounded"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteBottomLink(idx)}
+                    className="p-1.5 text-rose-500 hover:bg-rose-50 rounded cursor-pointer"
+                    aria-label={`Delete ${link.label}`}
                   >
-                    <input
-                      type="text"
-                      value={link.label}
-                      onChange={(e) => handleUpdateBottomLink(idx, 'label', e.target.value)}
-                      placeholder="Label"
-                      className="w-40 px-2 py-1 text-xs border border-[var(--color-whisper)] rounded font-medium focus:outline-none focus:border-[var(--color-gold)]"
-                    />
-                    <input
-                      type="text"
-                      value={link.href}
-                      onChange={(e) => handleUpdateBottomLink(idx, 'href', e.target.value)}
-                      placeholder="/privacy"
-                      className="flex-1 px-2 py-1 text-xs font-mono border border-[var(--color-whisper)] rounded focus:outline-none focus:border-[var(--color-gold)]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteBottomLink(idx)}
-                      className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition-colors"
-                      title="Delete link"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
             </div>
+          </div>
 
-            <div className="pt-2 border-t border-[#EAE4D9] flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={content.showScrollTop !== false}
-                  onChange={(e) => setContent({ ...content, showScrollTop: e.target.checked })}
-                  className="w-4 h-4 rounded text-[var(--color-gold)] accent-[var(--color-gold)]"
-                />
-                <span className="text-xs font-semibold text-[var(--color-ink)]">
-                  Display &quot;Back to Top&quot; button
-                </span>
-              </label>
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--color-slate)]">Button text:</span>
-                <input
-                  type="text"
-                  value={content.scrollTopText || 'Top'}
-                  onChange={(e) => setContent({ ...content, scrollTopText: e.target.value })}
-                  placeholder="Top"
-                  className="w-20 px-2 py-1 text-xs border border-[var(--color-whisper)] rounded bg-white text-center font-medium focus:outline-none focus:border-[var(--color-gold)]"
-                />
-              </div>
-            </div>
+          <div className="pt-3 border-t border-[#EAE4D9] flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={content.showScrollTop === true}
+                onChange={(e) => setContent({ ...content, showScrollTop: e.target.checked })}
+                className="w-4 h-4 accent-black"
+              />
+              <span className="text-xs font-medium text-[var(--color-ink)]">
+                Show subtle &quot;Top ↑&quot; button in legal row
+              </span>
+            </label>
           </div>
         </div>
       )}
 
       {/* TAB 6: LIVE STOREFRONT PREVIEW */}
       {activeTab === 'preview' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800">
-            <span className="font-medium flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Live interactive preview of your footer as rendered across all storefront pages.
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 bg-neutral-950 text-neutral-200 rounded-xl text-xs border border-neutral-800">
+            <span className="flex items-center gap-2 font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Exact Live Storefront Footer Preview (Jet-Black Boutique Edition)</span>
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.2em] text-[#C9A84C]">
+              angelikafashions.com
             </span>
           </div>
 
-          {/* Interactive Browser Frame */}
-          <div className="border border-[#E5DFD5] rounded-2xl overflow-hidden shadow-lg bg-[#FAF8F5]">
-            {/* Browser top chrome */}
-            <div className="bg-[#EAE4D9]/60 px-4 py-2 border-b border-[#E5DFD5] flex items-center justify-between text-xs text-[var(--color-slate)]">
+          <div className="rounded-2xl overflow-hidden border border-neutral-800 shadow-xl bg-black">
+            <div className="bg-neutral-900 px-4 py-2 border-b border-neutral-800 flex items-center justify-between text-[11px] text-neutral-400">
               <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-400 inline-block" />
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400/80 inline-block" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400/80 inline-block" />
               </div>
-              <span className="font-mono text-[11px] text-[var(--color-slate)] font-medium">
-                Storefront Footer Preview · All Pages
-              </span>
-              <span className="text-[10px] text-[var(--color-gold)] uppercase font-semibold">
-                Angelika Fashions
-              </span>
+              <span className="font-mono">https://angelikafashions.com</span>
+              <span className="text-[10px] text-neutral-500">Live Component</span>
             </div>
 
-            {/* Simulated Instagram Strip (as in screenshot) */}
-            <div className="border-b border-[#EAE4D9] py-4 bg-white/70 text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[var(--color-whisper)] text-xs font-semibold text-[var(--color-ink)] uppercase tracking-wider bg-white shadow-xs">
-                <SocialIcon platform="instagram" size="sm" />
-                <span>FOLLOW US ON INSTAGRAM</span>
-              </div>
-            </div>
-
-            {/* Actual Footer Mockup */}
-            <footer className="relative bg-[#FAF8F5] text-[var(--color-ink)] pt-12 pb-8 px-6 sm:px-10">
-              <div className="max-w-[1300px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Brand & Atelier Desk */}
-                <div className="lg:col-span-5 space-y-5">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={content.logoUrl || '/images/logo.png'}
-                      alt={content.brandName}
-                      className="h-10 w-auto object-contain rounded"
-                    />
-                    <div className="flex flex-col">
-                      <span className="font-display text-2xl font-bold tracking-tight text-[var(--color-ink)] leading-none">
-                        {content.brandName || 'Angelika'}
-                      </span>
-                      <span className="text-[10px] tracking-[0.26em] text-[var(--color-gold)] uppercase font-semibold mt-0.5">
-                        {content.brandTagline || 'Fashions'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-[var(--color-slate)] text-xs leading-relaxed max-w-sm">
-                    {content.tagline}
-                  </p>
-
-                  {/* Atelier Desk Card */}
-                  {content.showAtelierDesk !== false && (
-                    <div className="rounded-xl bg-[#FCFAF7] border border-[#E5DECF] p-4 shadow-sm max-w-sm space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-[#EAE4D9]">
-                        <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[var(--color-gold)]">
-                          {content.atelierBadge}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-slate)] bg-white px-2 py-0.5 rounded-full border border-[#EAE4D9]">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
-                          <span>{content.atelierStatusText}</span>
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <h4 className="font-serif text-sm font-medium text-[var(--color-ink)]">
-                          {content.atelierTitle}
-                        </h4>
-                        <p className="text-[11px] text-[var(--color-slate)] leading-relaxed">
-                          {content.atelierDescription}
-                        </p>
-                      </div>
-
-                      <div className="w-full py-2 px-3 rounded-lg bg-[var(--color-ink)] text-white text-[11px] font-medium flex items-center justify-center gap-2">
-                        <SocialIcon platform="whatsapp" size="sm" />
-                        <span>{content.atelierWhatsappCta}</span>
-                        <span>→</span>
-                      </div>
-
-                      <div className="pt-2 border-t border-[#EAE4D9] grid grid-cols-2 gap-2 text-[10px] text-[var(--color-slate)]">
-                        <span className="truncate">📞 {content.atelierPhone}</span>
-                        <span className="truncate">✉️ {content.atelierEmail}</span>
-                      </div>
-                      <div className="text-[10px] text-[var(--color-mist)]">
-                        🕒 {content.atelierSchedule}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Connect with us */}
-                  <div className="space-y-2 pt-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--color-gold)] block">
-                      {content.socialTitle}
-                    </span>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {content.socialLinks
-                        .filter((s) => s.enabled !== false)
-                        .map((social, sIdx) => (
-                          <div
-                            key={social.id || `${social.platform}-${sIdx}`}
-                            className="w-7 h-7 rounded-full bg-white border border-[#E5DFD5] text-[var(--color-slate)] flex items-center justify-center shadow-xs"
-                            title={social.handle || social.label || social.platform}
-                          >
-                            <SocialIcon platform={(social.icon || social.platform) as any} size="sm" />
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Directory 4 Columns */}
-                <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-6">
-                  {content.columns.map((column) => (
-                    <div key={column.id || column.title} className="space-y-3">
-                      <h3 className="font-display text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-ink)] pb-1 border-b border-[#EAE4D9]">
-                        {column.title}
-                      </h3>
-                      <ul className="space-y-2">
-                        {column.links.map((link, i) => (
-                          <li key={i} className="flex items-center gap-1.5 text-[11px] text-[var(--color-slate)]">
-                            <span>{link.label}</span>
-                            {link.badge && (
-                              <span className="text-[8px] font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-[var(--color-gold)]/10 text-[var(--color-gold)] border border-[var(--color-gold)]/30">
-                                {link.badge}
-                              </span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Payments & Trust */}
-              <div className="mt-10 pt-6 border-t border-[#EAE4D9] flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-slate)]">
-                    {content.paymentLabel}
-                  </span>
-                  {content.paymentOptions?.upi && <span className="px-2 py-0.5 text-[10px] bg-white border border-[#E5DFD5] font-bold rounded">UPI</span>}
-                  {content.paymentOptions?.visa && <span className="px-2 py-0.5 text-[10px] bg-white border border-[#E5DFD5] font-bold text-[#1A3F8B] italic rounded">VISA</span>}
-                  {content.paymentOptions?.mastercard && <span className="px-2 py-0.5 text-[10px] bg-white border border-[#E5DFD5] font-bold rounded">Mastercard</span>}
-                  {content.paymentOptions?.rupay && <span className="px-2 py-0.5 text-[10px] bg-white border border-[#E5DFD5] font-bold text-emerald-700 rounded">RuPay</span>}
-                  {content.paymentOptions?.netbanking && <span className="px-2 py-0.5 text-[10px] bg-white border border-[#E5DFD5] rounded text-[var(--color-slate)]">Net Banking</span>}
-                  {content.paymentOptions?.cod && <span className="px-2 py-0.5 text-[10px] bg-white border border-[#E5DFD5] rounded text-[var(--color-slate)]">Cash on Delivery</span>}
-                  {content.paymentOptions?.amex && <span className="px-2 py-0.5 text-[10px] bg-white border border-[#E5DFD5] font-bold text-[#006FCF] rounded">AMEX</span>}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-[10px] text-[var(--color-slate)]">
-                  {content.trustBadges
-                    .filter((b) => b.enabled !== false)
-                    .map((b) => (
-                      <span key={b.id} className="flex items-center gap-1 font-medium">
-                        {b.icon === 'ssl' ? '🔒 ' : '✨ '}
-                        {b.text}
-                      </span>
-                    ))}
-                </div>
-              </div>
-
-              {/* Sub-footer bottom bar */}
-              <div className="mt-6 pt-4 border-t border-[#EAE4D9] flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-[var(--color-slate)]">
-                <p>{content.copyright}</p>
-                <div className="flex items-center gap-4">
-                  {content.bottomLinks.map((l, idx) => (
-                    <span key={idx}>{l.label}</span>
-                  ))}
-                  {content.showScrollTop !== false && (
-                    <span className="text-[var(--color-gold)] font-bold cursor-pointer">
-                      {content.scrollTopText || 'Top'} ↑
-                    </span>
-                  )}
-                </div>
-              </div>
-            </footer>
+            <Footer content={content} />
           </div>
         </div>
       )}
