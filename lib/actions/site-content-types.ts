@@ -479,6 +479,10 @@ export interface FooterContent {
   brandTagline: string;
   logoUrl: string;
   useLogoImage?: boolean;
+  showWatermark?: boolean;
+  watermarkText?: string;
+  watermarkSubtitle?: string;
+  backgroundPattern?: 'brocade-grid' | 'silk-loom' | 'velvet';
   tagline: string;
   aboutText?: string;
   readMoreLabel?: string;

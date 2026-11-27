@@ -84,8 +84,11 @@ function DraggableHotspotPin({
   const [isDraggingPin, setIsDraggingPin] = useState(false);
   const pinRef = useRef<HTMLButtonElement>(null);
 
+  const latestPosRef = useRef({ x: hotspot.x_percent, y: hotspot.y_percent });
+
   useEffect(() => {
     setPosition({ x: hotspot.x_percent, y: hotspot.y_percent });
+    latestPosRef.current = { x: hotspot.x_percent, y: hotspot.y_percent };
   }, [hotspot.x_percent, hotspot.y_percent]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -99,18 +102,19 @@ function DraggableHotspotPin({
     if (!isDraggingPin) return;
 
     const move = (e: MouseEvent) => {
-      if (!pinRef.current || !imageRef.current) return;
+      if (!imageRef.current) return;
       const imageRect = imageRef.current.getBoundingClientRect();
-      const pinRect = pinRef.current.getBoundingClientRect();
-      const xPercent = ((pinRect.left + pinRect.width / 2 - imageRect.left) / imageRect.width) * 100;
-      const yPercent = ((pinRect.top + pinRect.height / 2 - imageRect.top) / imageRect.height) * 100;
-      setPosition({ x: Math.max(0, Math.min(100, xPercent)), y: Math.max(0, Math.min(100, yPercent)) });
+      const xPercent = Math.max(0, Math.min(100, ((e.clientX - imageRect.left) / imageRect.width) * 100));
+      const yPercent = Math.max(0, Math.min(100, ((e.clientY - imageRect.top) / imageRect.height) * 100));
+      const rounded = { x: Math.round(xPercent * 100) / 100, y: Math.round(yPercent * 100) / 100 };
+      latestPosRef.current = rounded;
+      setPosition(rounded);
     };
 
     const up = () => {
       setIsDraggingPin(false);
       document.body.style.userSelect = '';
-      if (hotspot.id) onDrag(hotspot.id, position.x, position.y);
+      if (hotspot.id) onDrag(hotspot.id, latestPosRef.current.x, latestPosRef.current.y);
     };
 
     window.addEventListener('mousemove', move);
@@ -119,7 +123,7 @@ function DraggableHotspotPin({
       window.removeEventListener('mousemove', move);
       window.removeEventListener('mouseup', up);
     };
-  }, [isDraggingPin, hotspot.id, position, onDrag, imageRef]);
+  }, [isDraggingPin, hotspot.id, onDrag, imageRef]);
 
   return (
     <button
@@ -467,16 +471,16 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
                 </div>
               </Card>
 
-              {/* Image Preview */}
+              {/* Image Preview (Portrait Editorial Framing matching live Storefront) */}
               {look.lifestyle_image_url && (
-                <Card className="p-0 overflow-hidden">
-                  <div className="relative aspect-[16/9] bg-gray-100">
+                <Card className="p-0 overflow-hidden max-w-md mx-auto">
+                  <div className="relative aspect-[4/5] bg-[#161310]">
                     <Image
                       src={look.lifestyle_image_url}
                       alt={look.lifestyle_image_alt || look.name}
                       fill
                       unoptimized
-                      className="object-cover"
+                      className="object-cover object-top"
                       priority
                     />
                   </div>
@@ -486,18 +490,18 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
 
             {/* Hotspots Tab */}
             <TabsContent value="hotspots" className="max-w-7xl mx-auto">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Image with hotspots */}
-                <div className="lg:col-span-2">
-                  <Card className="p-0 overflow-hidden">
-                    <div ref={imageRef} className="relative aspect-[16/9] bg-gray-100">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left: Portrait Editorial Image with Hotspots */}
+                <div className="lg:col-span-7">
+                  <Card className="p-0 overflow-hidden border-[1.5px] border-[#C5B18C]">
+                    <div ref={imageRef} className="relative aspect-[4/5] max-h-[680px] mx-auto bg-[#161310]">
                       <Image
                         ref={imageElementRef}
                         src={look.lifestyle_image_url}
                         alt={look.lifestyle_image_alt || look.name}
                         fill
                         unoptimized
-                        className="object-cover"
+                        className="object-cover object-top"
                         priority
                       />
 
@@ -532,7 +536,7 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
                 </div>
 
                 {/* Right: Controls */}
-                <div className="space-y-4">
+                <div className="lg:col-span-5 space-y-4">
                   {/* Product selector */}
                   <Card className="p-4">
                     <h3 className="font-semibold text-gray-900 mb-3">Add Hotspot</h3>
@@ -557,7 +561,7 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
                       </div>
                       {selectedProductId && (
                         <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
-                          <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                          <div className="relative w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
                             {(() => {
                               const product = products.find((p) => p.id === selectedProductId);
                               return product?.thumbnail_url ? (

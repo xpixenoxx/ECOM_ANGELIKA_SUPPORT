@@ -132,9 +132,9 @@ const homepageSections: ContentSectionMeta[] = [
   },
   {
     id: 'footer',
-    label: 'Global Boutique Footer (Black)',
+    label: 'Global Couture Footer & Watermark',
     type: 'global',
-    description: 'Jet-black boutique columns, brand story, bold wordmark, region selector & payment badges',
+    description: 'Woven couture brocade grid canvas, monumental ANGELIKA watermark, navigation columns & payment badges',
   },
 ];
 
@@ -1045,7 +1045,14 @@ export default function AdminContentPage() {
                 Shop The Look (Interactive Pin & Hotspot Editor)
               </CardTitle>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Link
+                href="/admin/looks"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold border border-[#C5B18C] bg-[#FAF4E8] text-[#4E3808] hover:bg-[#F3E9D4] transition-colors"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Manage All Looks &amp; Pins</span>
+              </Link>
               <Button variant="outline" onClick={() => setEditingSection(null)}>
                 Close
               </Button>
@@ -1133,11 +1140,11 @@ export default function AdminContentPage() {
                 <p className="text-xs text-[var(--color-slate)]">
                   The pulsing pin appears over the lifestyle photo at the selected coordinates
                 </p>
-                <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-stone-100 border border-[var(--color-whisper)]">
+                <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-[#161310] border border-[#C5B18C]">
                   <img
                     src={lookData['lifestyle_image_url'] || '/images/products/lehenga-bridal-1.jpg'}
                     alt="Lifestyle model"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-top"
                   />
                   {/* Pin overlay */}
                   <div

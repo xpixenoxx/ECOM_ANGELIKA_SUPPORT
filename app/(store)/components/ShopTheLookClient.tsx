@@ -1,32 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShopTheLook } from '@/components/composite/ShopTheLook';
-
-interface LookWithHotspots {
-  id: string;
-  name: string;
-  lifestyle_image_url: string;
-  lifestyle_image_alt?: string | null;
-  subtitle?: string | null;
-  look_hotspots: Array<{
-    id: string;
-    x_percent: number;
-    y_percent: number;
-    display_order: number;
-    products: {
-      id: string;
-      slug: string;
-      name: string;
-      price: number;
-      compare_at_price?: number | null;
-      images: string[];
-      thumbnail_url?: string | null;
-      default_variant_id?: string;
-      variants?: Array<{ id: string; size?: string; price: number }>;
-    } | null;
-  }>;
-}
+import Image from 'next/image';
+import { ShopTheLook, type LookWithHotspots } from '@/components/composite/ShopTheLook';
 
 function normalizeLookInput(config: any): LookWithHotspots | null {
   if (!config) return null;
@@ -215,43 +191,95 @@ export function ShopTheLookClient({
     }
   }, [activeLook?.name, onActiveLookChange]);
 
+  const handlePrevLook = () => {
+    setActiveIndex((prev) => (prev - 1 + looksList.length) % looksList.length);
+  };
+
+  const handleNextLook = () => {
+    setActiveIndex((prev) => (prev + 1) % looksList.length);
+  };
+
   if (loading) {
     return (
-      <div className="py-12">
-        <div className="animate-pulse bg-[var(--color-whisper)] rounded-[var(--radius-2xl)] aspect-[16/9] max-w-7xl mx-auto" />
+      <div className="py-8 max-w-[1440px] mx-auto">
+        <div className="animate-pulse bg-[#E8DCCA] rounded-2xl h-[560px] w-full" />
       </div>
     );
   }
 
   if (!activeLook) {
     return (
-      <div className="py-12 text-center border border-dashed border-[var(--color-whisper)] rounded-2xl bg-white/70">
-        <p className="text-sm text-[var(--color-slate)]">No active Shop the Look curation at this moment.</p>
+      <div className="py-12 text-center border-[1.5px] border-dashed border-[#C9B38C] rounded-2xl bg-[#FFFDF9]">
+        <p className="text-sm font-medium text-[#4A4238]">No active Shop the Look curation at this moment.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Architectural Numbered Lookbook Switcher with Mini Portrait Previews */}
       {looksList.length > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {looksList.map((item, idx) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setActiveIndex(idx)}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border ${
-                idx === activeIndex
-                  ? 'bg-[var(--color-ink)] text-[var(--color-gold)] border-[var(--color-gold)] shadow-sm'
-                  : 'bg-white text-[var(--color-slate)] border-[var(--color-whisper)] hover:border-[var(--color-gold)]'
-              }`}
-            >
-              {item.name}
-            </button>
-          ))}
+        <div
+          role="tablist"
+          aria-label="Curated Couture Looks"
+          className="flex items-stretch justify-start sm:justify-center gap-3 overflow-x-auto pb-1 no-scrollbar"
+        >
+          {looksList.map((item, idx) => {
+            const isSelected = idx === activeIndex;
+            const num = String(idx + 1).padStart(2, '0');
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => setActiveIndex(idx)}
+                className={`group shrink-0 flex items-center gap-3 pl-2 pr-4 py-2 rounded-xl border-[1.5px] transition-all duration-200 cursor-pointer text-left ${
+                  isSelected
+                    ? 'bg-[#161310] text-[#FAF6F0] border-[#161310] shadow-[0_10px_24px_rgba(22,19,16,0.18)]'
+                    : 'bg-[#FFFDF9] text-[#2F2A24] border-[#C9B38C] hover:border-[#8C6A16] hover:bg-[#FAF4E8]'
+                }`}
+              >
+                <div className="relative h-11 w-9 rounded-lg overflow-hidden shrink-0 border border-[#D8B454]/40 bg-[#24201B]">
+                  <Image
+                    src={item.lifestyle_image_url}
+                    alt=""
+                    fill
+                    unoptimized
+                    className="object-cover object-top"
+                    sizes="36px"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <span
+                    className={`block text-[10px] font-bold uppercase tracking-[0.2em] ${
+                      isSelected ? 'text-[#E5C56B]' : 'text-[#7A5B10]'
+                    }`}
+                  >
+                    Look {num}
+                  </span>
+                  <span
+                    className={`block font-display text-base font-bold leading-tight whitespace-nowrap ${
+                      isSelected ? 'text-[#FAF6F0]' : 'text-[#11100E]'
+                    }`}
+                  >
+                    {item.name}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
-      <ShopTheLook key={activeLook.id} look={activeLook} className="py-4" />
+
+      <ShopTheLook
+        key={activeLook.id}
+        look={activeLook}
+        lookIndex={activeIndex}
+        totalLooks={looksList.length}
+        onPrevLook={handlePrevLook}
+        onNextLook={handleNextLook}
+      />
     </div>
   );
 }

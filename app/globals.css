@@ -318,12 +318,75 @@
   /* --- Couture Architectural Woven-Silk Drafting Grid --- */
   .couture-loom-grid {
     background-image:
-      linear-gradient(to right, rgba(182, 152, 92, 0.11) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(182, 152, 92, 0.11) 1px, transparent 1px),
-      linear-gradient(to right, rgba(182, 152, 92, 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(182, 152, 92, 0.045) 1px, transparent 1px);
+      linear-gradient(to right, rgba(154, 121, 56, 0.18) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(154, 121, 56, 0.18) 1px, transparent 1px),
+      linear-gradient(to right, rgba(154, 121, 56, 0.075) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(154, 121, 56, 0.075) 1px, transparent 1px);
     background-size: 96px 96px, 96px 96px, 24px 24px, 24px 24px;
     background-position: -1px -1px;
+  }
+
+  /* --- Luxury Women's Couture Dark Woven Brocade & Silk Grid (Footer Canvas) --- */
+  .couture-footer-brocade-grid {
+    background-color: #120F0D;
+    background-image:
+      radial-gradient(ellipse 68% 52% at 50% 0%, rgba(216, 180, 84, 0.12) 0%, transparent 72%),
+      radial-gradient(ellipse 46% 42% at 12% 100%, rgba(196, 146, 108, 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 46% 42% at 88% 100%, rgba(216, 180, 84, 0.08) 0%, transparent 70%),
+      linear-gradient(to right, rgba(216, 180, 84, 0.105) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(216, 180, 84, 0.105) 1px, transparent 1px),
+      repeating-linear-gradient(45deg, rgba(216, 180, 84, 0.04) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(-45deg, rgba(216, 180, 84, 0.04) 0 1px, transparent 1px 34px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 72px 72px, 72px 72px, 48px 48px, 48px 48px;
+  }
+
+  .couture-footer-silk-loom {
+    background-color: #13100E;
+    background-image:
+      radial-gradient(ellipse 70% 55% at 50% 0%, rgba(216, 180, 84, 0.11) 0%, transparent 70%),
+      linear-gradient(to right, rgba(216, 180, 84, 0.12) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(216, 180, 84, 0.12) 1px, transparent 1px),
+      linear-gradient(to right, rgba(216, 180, 84, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(216, 180, 84, 0.045) 1px, transparent 1px);
+    background-size: 100% 100%, 96px 96px, 96px 96px, 24px 24px, 24px 24px;
+  }
+
+  .couture-footer-velvet {
+    background-color: #14110F;
+    background-image:
+      radial-gradient(ellipse 75% 60% at 50% 0%, rgba(216, 180, 84, 0.13) 0%, transparent 72%),
+      radial-gradient(ellipse 55% 45% at 85% 95%, rgba(196, 146, 108, 0.09) 0%, transparent 72%);
+  }
+
+  /* --- Embossed Champagne-Gold Couture Watermark Typography --- */
+  .angelika-footer-watermark {
+    font-family: var(--font-cormorant), Georgia, serif;
+    background: linear-gradient(180deg var(--in-oklab), rgba(242, 217, 145, 0.34) 0%, rgba(216, 180, 84, 0.16) 52%, rgba(201, 168, 76, 0.045) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(226, 193, 108, 0.24);
+  }
+}
+
+:root {
+  --in-oklab: ;
+  --in-oklch: ;
+}
+
+@supports (background: linear-gradient(in oklab, white, black)) {
+  :root {
+    --in-oklab: in oklab;
+    --in-oklch: in oklch;
+  }
+}
+
+@media (forced-colors: active) {
+  .angelika-footer-watermark {
+    background: none;
+    -webkit-text-stroke: 0;
+    color: CanvasText;
+    opacity: 0.35;
   }
 }
 

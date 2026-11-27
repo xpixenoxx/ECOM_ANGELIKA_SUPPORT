@@ -402,7 +402,7 @@ export default function HomePageClient({
             className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-12"
           >
             <div>
-              <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)]">
+              <h2 className="font-display text-4xl md:text-5xl font-semibold text-[#11100E]">
                 {vidhyasPicksSection?.title ? (
                   vidhyasPicksSection.titleHighlight && vidhyasPicksSection.title.includes(vidhyasPicksSection.titleHighlight) ? (
                     <>
@@ -479,15 +479,29 @@ export default function HomePageClient({
           : (stlContent?.title || 'Festive Elegance');
 
         return (
-          <section className="section bg-[var(--color-snow)]/70 border-y border-[var(--color-whisper)]">
-            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
-              <div className="text-center mb-8">
-                <span className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-gold-text)] block mb-2">
-                  {(stlContent?.badge || 'Curated Ensemble').replace(/ensemblesss/gi, 'Ensemble')}
-                </span>
-                <h2 className="text-[var(--font-display)] text-3xl md:text-4xl font-medium text-[var(--color-ink)]">
+          <section
+            aria-labelledby="curated-ensemble-heading"
+            className="relative overflow-x-clip bg-[#F4ECE0] border-y-[1.5px] border-[#C9B38C]"
+          >
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0 couture-loom-grid opacity-75" />
+            <div className="relative z-10 max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 py-12 sm:py-16">
+              <div className="text-center mb-8 sm:mb-10">
+                <div className="inline-flex items-center justify-center gap-3 mb-2.5">
+                  <span className="h-[1.5px] w-8 sm:w-14 bg-gradient-to-r from-transparent to-[#8C6A16]" aria-hidden="true" />
+                  <span className="text-[11px] font-bold uppercase tracking-[0.26em] text-[#5C4308]">
+                    {(stlContent?.badge || 'Curated Ensemble').replace(/ensemblesss/gi, 'Ensemble')}
+                  </span>
+                  <span className="h-[1.5px] w-8 sm:w-14 bg-gradient-to-l from-transparent to-[#8C6A16]" aria-hidden="true" />
+                </div>
+                <h2
+                  id="curated-ensemble-heading"
+                  className="font-display text-3xl sm:text-4xl lg:text-[46px] font-bold text-[#11100E] leading-[1.1] tracking-[-0.01em]"
+                >
                   {String(displayTitle).replace(/elegancesss/gi, 'Elegance')}
                 </h2>
+                <p className="mt-2.5 text-sm font-medium text-[#3D362E] max-w-xl mx-auto">
+                  Explore complete handloom silhouettes styled by our atelier — tap any numbered pin to inspect and add pieces directly to your bag.
+                </p>
               </div>
               <ShopTheLookClient
                 initialLooks={hasLiveDbLooks ? looks : undefined}
@@ -610,61 +624,108 @@ export default function HomePageClient({
             : '/contact';
         const isExternalWa = whatsappLink.startsWith('http');
 
+        const storyQuote = bs?.quote?.trim() || 'Fashion that honors where you come from while embracing where you are going.';
+
         return (
-          <section className="section bg-[var(--color-white)]">
-            <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+          <section
+            aria-labelledby="brand-story-heading"
+            className="relative overflow-x-clip bg-[#F3EEE8] border-t border-[#D8C7A8]"
+          >
+            <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 py-12 sm:py-16">
               <motion.div
-                className="grid lg:grid-cols-2 gap-16 items-center"
+                className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center rounded-2xl border-[1.5px] border-[#C5B18C] bg-[#FFFDF9] p-6 sm:p-8 lg:p-10 shadow-[0_20px_54px_rgba(20,16,12,0.08)]"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
               >
-                <div className="relative aspect-[4/5] rounded-[var(--radius-2xl)] overflow-hidden">
-                  <Image
-                    src={imageUrl}
-                    alt={imageAlt}
-                    fill
-                    unoptimized
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                  />
-                  <div className="absolute -bottom-6 -right-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
-                  <div className="absolute -top-6 -left-6 w-48 h-48 rounded-full bg-[var(--color-gold)]/10 blur-3xl" aria-hidden="true" />
+                {/* Left Editorial Portrait Frame */}
+                <div className="lg:col-span-5 relative">
+                  <div className="relative aspect-[4/5] rounded-xl overflow-hidden border-[1.5px] border-[#C5B18C] bg-[#161310] shadow-md">
+                    <Image
+                      src={imageUrl}
+                      alt={imageAlt}
+                      fill
+                      unoptimized
+                      className="object-cover object-top"
+                      sizes="(max-width: 1024px) 100vw, 42vw"
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#120F0D]/80 via-[#120F0D]/25 to-transparent"
+                    />
+                    <div className="absolute bottom-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2 rounded-lg bg-[#161310]/85 backdrop-blur-md border border-[#D8B454]/45 px-3.5 py-2.5">
+                      <div>
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-[#E5C56B]">
+                          Founder &amp; Creative Director
+                        </span>
+                        <span className="font-display text-lg font-bold text-[#FAF6F0] leading-tight">
+                          Vidhya · Angelika Atelier
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#D8B454] shrink-0">
+                        Est. Heritage
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span className="inline-block px-3 py-1 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold-text)] text-xs font-semibold uppercase tracking-wider mb-4">
-                    {badge}
-                  </span>
-                  <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-6">
+
+                {/* Right Editorial Narrative */}
+                <div className="lg:col-span-7 flex flex-col justify-center">
+                  <div className="inline-flex items-center gap-2.5 mb-3">
+                    <span className="h-[1.5px] w-7 bg-[#9E7820]" aria-hidden="true" />
+                    <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#5C4308]">
+                      {badge}
+                    </span>
+                  </div>
+
+                  <h2
+                    id="brand-story-heading"
+                    className="font-display text-3xl sm:text-4xl lg:text-[46px] font-bold leading-[1.1] text-[#11100E] mb-5"
+                  >
                     {headingPrefix && `${headingPrefix} `}
-                    {headingHighlight && <span className="text-gradient-gold">{headingHighlight}</span>}
+                    {headingHighlight && <span className="italic text-[#7A5B10]">{headingHighlight}</span>}
                     {headingSuffix}
                   </h2>
-                  <div className="space-y-4 text-[var(--color-slate)] text-lg leading-relaxed">
+
+                  <div className="space-y-4 text-[#2F2A24] text-[15px] sm:text-base font-medium leading-[1.7]">
                     {paragraphs.map((p: string, idx: number) => (
                       <p key={idx}>{p}</p>
                     ))}
                   </div>
+
+                  {storyQuote && (
+                    <blockquote className="mt-6 pl-4 border-l-2 border-[#B8922E] font-display italic text-lg sm:text-xl font-semibold text-[#4E3808] leading-snug">
+                      {storyQuote.replace(/^["“]|["”]$/g, '')}
+                    </blockquote>
+                  )}
+
                   <motion.div
-                    className="mt-8 flex flex-wrap gap-4"
-                    initial={{ opacity: 0, y: 20 }}
+                    className="mt-7 pt-6 border-t border-[#E5D7BF] flex flex-wrap gap-3"
+                    initial={{ opacity: 0, y: 12 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    transition={{ delay: 0.3 }}
+                    transition={{ delay: 0.15 }}
                   >
-                    <Button variant="primary" asChild>
-                      <Link href={primaryCtaLink}>{primaryCtaText}</Link>
-                    </Button>
-                    <Button variant={isExternalWa ? 'whatsapp' : 'outline'} asChild>
-                      <Link
-                        href={whatsappLink}
-                        target={isExternalWa ? '_blank' : undefined}
-                        rel={isExternalWa ? 'noopener noreferrer' : undefined}
-                      >
-                        {isExternalWa && <SocialIcon platform="whatsapp" size="sm" className="mr-2" />}
-                        {isExternalWa ? whatsappCtaText : 'Message Our Stylists'}
-                      </Link>
-                    </Button>
+                    <Link
+                      href={primaryCtaLink}
+                      className="min-h-[46px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-[#161310] hover:bg-[#2B241C] text-[#FAF6F0] text-xs font-bold uppercase tracking-[0.18em] transition-colors"
+                    >
+                      <span>{primaryCtaText}</span>
+                      <span aria-hidden="true">→</span>
+                    </Link>
+                    <Link
+                      href={whatsappLink}
+                      target={isExternalWa ? '_blank' : undefined}
+                      rel={isExternalWa ? 'noopener noreferrer' : undefined}
+                      className={`min-h-[46px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
+                        isExternalWa
+                          ? 'bg-[#0D6E3B] hover:bg-[#09532C] text-[#FFFFFF] shadow-xs'
+                          : 'border-[1.5px] border-[#BDA478] bg-[#FAF4E8] hover:bg-[#F3E9D4] text-[#3F352A]'
+                      }`}
+                    >
+                      {isExternalWa && <SocialIcon platform="whatsapp" size="sm" />}
+                      <span>{isExternalWa ? whatsappCtaText : 'Message Our Stylists'}</span>
+                    </Link>
                   </motion.div>
                 </div>
               </motion.div>
@@ -926,61 +987,74 @@ export default function HomePageClient({
       </section>
 
       {/* Instagram Feed / Social Proof */}
-      <section className="section bg-[var(--color-white)]" id="MyAngelikaLook">
-        <div className="container-custom px-6 py-12" style={{ padding: '48px 24px' }}>
+      <section className="bg-[#F3EEE8] border-t border-[#DDD0B8]" id="MyAngelikaLook">
+        <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 py-12 sm:py-16">
           <motion.div
-            className="text-center mb-12"
-            initial={{ opacity: 0, y: 20 }}
+            className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-9"
+            initial={{ opacity: 0, y: 18 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-[var(--font-display)] text-4xl md:text-5xl font-medium text-[var(--color-ink)] mb-4">
-              {lookTag}
-            </h2>
-            <p className="text-[var(--color-slate)] text-lg max-w-2xl mx-auto">
-              {lookSubtitle}
-            </p>
+            <div className="text-left">
+              <div className="inline-flex items-center gap-2.5 mb-2">
+                <span className="h-[1.5px] w-7 bg-[#9E7820]" aria-hidden="true" />
+                <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#5C4308]">
+                  Worn by Our Community
+                </span>
+              </div>
+              <h2 className="font-display text-3xl sm:text-4xl lg:text-[44px] font-bold text-[#11100E] leading-tight">
+                {lookTag}
+              </h2>
+              <p className="text-[#3D362E] text-sm sm:text-base font-medium mt-1.5 max-w-xl">
+                {lookSubtitle}
+              </p>
+            </div>
+
+            <Link
+              href={lookInstagramUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border-[1.5px] border-[#BDA478] bg-[#FFFDF9] hover:border-[#161310] hover:bg-[#161310] text-[#161310] hover:text-[#FAF6F0] text-xs font-bold uppercase tracking-[0.16em] transition-colors self-start md:self-auto"
+            >
+              <SocialIcon platform="instagram" size="sm" />
+              <span>{lookButtonText}</span>
+            </Link>
           </motion.div>
+
           <StaggerContainer variant="fast" className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {displayPosts.length > 0 ? (
               displayPosts.map((post: any, i: number) => (
-                <StaggerItem key={post.id || i} delay={i * 0.05} variant="scale" className="aspect-square relative overflow-hidden rounded-[var(--radius-lg)] group">
+                <StaggerItem
+                  key={post.id || i}
+                  delay={i * 0.05}
+                  variant="scale"
+                  className="aspect-[4/5] relative overflow-hidden rounded-xl border-[1.5px] border-[#CEBA96] bg-[#161310] group shadow-sm"
+                >
                   <Image
                     src={post.image_url || post.image || '/images/placeholder.jpg'}
                     alt={post.caption || post.productName || 'Instagram post'}
                     fill
-                    className="object-cover"
+                    className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 25vw"
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/0 transition-colors duration-300 flex items-center justify-center">
-                    <MagneticButton
-                      className="px-4 py-2 rounded-full bg-white text-[var(--color-ink)] text-sm font-medium opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-all duration-300 hover:bg-[var(--color-gold-light)] shadow-sm"
-                      strength={0.3}
-                      asChild
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#120F0D]/75 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3.5">
+                    <Link
+                      href={post.productLink || post.link || '/shop'}
+                      className="w-full py-2.5 px-3.5 rounded-lg bg-[#FFFDF9]/95 hover:bg-[#D8B454] text-[#14110E] text-[11px] font-bold uppercase tracking-[0.15em] text-center shadow-md transition-colors"
                     >
-                      <Link href={post.productLink || post.link || '/shop'}>
-                        Shop this look
-                      </Link>
-                    </MagneticButton>
+                      {post.productName ? `Shop · ${post.productName}` : 'Shop This Look →'}
+                    </Link>
                   </div>
                 </StaggerItem>
               ))
             ) : (
-              <div className="col-span-full py-10 px-6 rounded-2xl border border-dashed border-[var(--color-whisper)] bg-[var(--color-snow)]/60 text-center space-y-2">
-                <p className="text-sm text-[var(--color-slate)]">
-                  Share your Angelika look with <span className="font-semibold text-[var(--color-ink)]">{lookTag}</span> to be featured in our gallery.
+              <div className="col-span-full py-10 px-6 rounded-2xl border-[1.5px] border-dashed border-[#C9B38C] bg-[#FFFDF9] text-center space-y-2">
+                <p className="text-sm font-medium text-[#3D362E]">
+                  Share your Angelika look with <span className="font-bold text-[#11100E]">{lookTag}</span> to be featured in our gallery.
                 </p>
               </div>
             )}
           </StaggerContainer>
-          <div className="text-center mt-10">
-            <Button variant="outline" asChild>
-              <Link href={lookInstagramUrl} target="_blank" rel="noopener noreferrer">
-                <SocialIcon platform="instagram" size="sm" className="mr-2" />
-                {lookButtonText}
-              </Link>
-            </Button>
-          </div>
         </div>
       </section>
     </div>

@@ -1024,6 +1024,21 @@ export async function updateSectionContent(
         brandTagline: sectionData?.brandTagline || defaultFooter.brandTagline,
         logoUrl: sectionData?.logoUrl || defaultFooter.logoUrl,
         useLogoImage: sectionData?.useLogoImage !== undefined ? Boolean(sectionData.useLogoImage) : false,
+        showWatermark: sectionData?.showWatermark !== undefined ? Boolean(sectionData.showWatermark) : true,
+        watermarkText:
+          sectionData?.watermarkText !== undefined
+            ? String(sectionData.watermarkText)
+            : (defaultFooter.watermarkText || 'ANGELIKA'),
+        watermarkSubtitle:
+          sectionData?.watermarkSubtitle !== undefined
+            ? String(sectionData.watermarkSubtitle)
+            : (defaultFooter.watermarkSubtitle || 'HANDCRAFTED INDIAN COUTURE'),
+        backgroundPattern:
+          sectionData?.backgroundPattern === 'silk-loom' ||
+          sectionData?.backgroundPattern === 'velvet' ||
+          sectionData?.backgroundPattern === 'brocade-grid'
+            ? sectionData.backgroundPattern
+            : (defaultFooter.backgroundPattern || 'brocade-grid'),
         tagline: sectionData?.tagline || defaultFooter.tagline,
         aboutText: sectionData?.aboutText !== undefined ? String(sectionData.aboutText) : defaultFooter.aboutText,
         readMoreLabel: sectionData?.readMoreLabel !== undefined ? String(sectionData.readMoreLabel) : defaultFooter.readMoreLabel,

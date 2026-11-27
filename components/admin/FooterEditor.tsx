@@ -65,6 +65,10 @@ const DEFAULT_FOOTER_V2: FooterContent = {
   brandTagline: 'Fashions',
   logoUrl: '/images/logo.png',
   useLogoImage: false,
+  showWatermark: true,
+  watermarkText: 'ANGELIKA',
+  watermarkSubtitle: 'HANDCRAFTED INDIAN COUTURE',
+  backgroundPattern: 'brocade-grid',
   tagline: 'Modern Indian luxury — rooted in craft, elevated for today.',
   aboutText: BOUTIQUE_DEFAULT_ABOUT_TEXT,
   readMoreLabel: 'Read More',
@@ -184,6 +188,15 @@ function hydrateFooterForEditor(raw?: Partial<FooterContent>): { data: FooterCon
     readMoreLabel: raw.readMoreLabel?.trim() || DEFAULT_FOOTER_V2.readMoreLabel,
     readMoreHref: raw.readMoreHref?.trim() || DEFAULT_FOOTER_V2.readMoreHref,
     useLogoImage: Boolean(raw.useLogoImage),
+    showWatermark: raw.showWatermark !== false,
+    watermarkText: raw.watermarkText?.trim() || DEFAULT_FOOTER_V2.watermarkText,
+    watermarkSubtitle: raw.watermarkSubtitle?.trim() || DEFAULT_FOOTER_V2.watermarkSubtitle,
+    backgroundPattern:
+      raw.backgroundPattern === 'silk-loom' ||
+      raw.backgroundPattern === 'velvet' ||
+      raw.backgroundPattern === 'brocade-grid'
+        ? raw.backgroundPattern
+        : 'brocade-grid',
     showRegionSelector: raw.showRegionSelector !== false,
     regionLabel: raw.regionLabel?.trim() || DEFAULT_FOOTER_V2.regionLabel,
     regionOptions:
@@ -517,13 +530,13 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
         <div>
           <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--color-gold-text)] mb-1">
             <Sparkles className="w-3.5 h-3.5 text-[var(--color-gold)]" />
-            <span>Jet-Black Boutique Edition</span>
+            <span>Woven Couture Grid &amp; Watermark Edition</span>
           </span>
           <h2 className="text-lg font-semibold text-[var(--color-ink)]">
             Global Storefront Footer
           </h2>
           <p className="text-xs text-[var(--color-slate)] mt-0.5">
-            Manage navigation columns, editorial brand bio, display wordmark, social icons, region selector, payment cards, and policy links.
+            Manage navigation columns, editorial brand bio, monumental ANGELIKA watermark, couture grid texture, social icons, region selector, payment cards, and policy links.
           </p>
         </div>
 
@@ -596,12 +609,12 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-1.5 border-b border-[var(--color-whisper)] pb-3">
         {[
-          { id: 'story', label: 'Brand Story & Wordmark', icon: Sparkles },
+          { id: 'story', label: 'Brand Story & Watermark', icon: Sparkles },
           { id: 'columns', label: `Columns (${content.columns.length})`, icon: Layers },
           { id: 'social', label: `Social (${content.socialLinks.filter((s) => s.enabled !== false).length})`, icon: Share2 },
           { id: 'payments', label: 'Payments & Region', icon: CreditCard },
           { id: 'legal', label: 'Legal & Copyright', icon: FileText },
-          { id: 'preview', label: 'Live Black Preview', icon: Eye },
+          { id: 'preview', label: 'Live Couture Preview', icon: Eye },
         ].map((tab) => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
@@ -678,15 +691,31 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
             </div>
           </div>
 
-          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-[var(--color-ink)]">
-              Bold Footer Wordmark / Logo
-            </h3>
+          <div className="bg-[#FAF8F5] border border-[#EAE4D9] rounded-xl p-5 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--color-ink)]">
+                  Monumental Brand Watermark &amp; Woven Couture Background
+                </h3>
+                <p className="text-xs text-[var(--color-slate)] mt-0.5">
+                  Replaces the small side wordmark with a full-width embossed couture watermark over a tailored women&apos;s fashion woven grid canvas.
+                </p>
+              </div>
+              <label className="inline-flex items-center gap-2 text-xs font-semibold text-[var(--color-ink)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={content.showWatermark !== false}
+                  onChange={(e) => setContent({ ...content, showWatermark: e.target.checked })}
+                  className="w-4 h-4 accent-[#161310]"
+                />
+                <span>Show Watermark</span>
+              </label>
+            </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="footer-brand-name" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
-                  Display Wordmark Text
+                  House Name (Bio Heading)
                 </label>
                 <input
                   id="footer-brand-name"
@@ -698,52 +727,100 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
                 />
               </div>
 
-              <div className="flex items-end">
-                <label className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-[#E5DFD5] bg-white cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(content.useLogoImage)}
-                    onChange={(e) => setContent({ ...content, useLogoImage: e.target.checked })}
-                    className="w-4 h-4 accent-black"
-                  />
-                  <span className="text-xs font-medium text-[var(--color-ink)]">
-                    Use Uploaded Logo Image (Inverted White) instead of Wordmark
-                  </span>
+              <div>
+                <label htmlFor="footer-watermark-text" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                  Premium Watermark Title
                 </label>
+                <input
+                  id="footer-watermark-text"
+                  type="text"
+                  value={content.watermarkText ?? 'ANGELIKA'}
+                  onChange={(e) => setContent({ ...content, watermarkText: e.target.value })}
+                  placeholder="ANGELIKA"
+                  className="w-full px-3 py-2 text-xs font-semibold uppercase tracking-widest border border-[var(--color-whisper)] rounded-lg bg-white focus:outline-none focus:border-[var(--color-gold)]"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="footer-watermark-subtitle" className="block text-xs font-semibold text-[var(--color-ink)] mb-1">
+                  Watermark Micro-Signature
+                </label>
+                <input
+                  id="footer-watermark-subtitle"
+                  type="text"
+                  value={content.watermarkSubtitle ?? 'HANDCRAFTED INDIAN COUTURE'}
+                  onChange={(e) => setContent({ ...content, watermarkSubtitle: e.target.value })}
+                  placeholder="HANDCRAFTED INDIAN COUTURE"
+                  className="w-full px-3 py-2 text-xs uppercase tracking-wider border border-[var(--color-whisper)] rounded-lg bg-white focus:outline-none focus:border-[var(--color-gold)]"
+                />
               </div>
             </div>
 
-            {/* Wordmark Black Preview Strip */}
-            <div className="p-5 rounded-xl bg-black text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 block mb-2">
-                  Signature Preview on Jet Black
-                </span>
-                {content.useLogoImage && content.logoUrl ? (
-                  <img
-                    src={content.logoUrl}
-                    alt={content.brandName}
-                    className="h-12 w-auto object-contain brightness-0 invert"
-                  />
-                ) : (
-                  <span
-                    className="text-4xl font-bold tracking-[-0.02em] leading-none text-white"
-                    style={{ fontFamily: 'var(--font-cormorant)' }}
-                  >
-                    {content.brandName.toLowerCase() === 'angelika' ? 'ANGELIKA' : content.brandName || 'ANGELIKA'}
-                  </span>
-                )}
+            {/* Woven Couture Background Pattern Selector */}
+            <div className="space-y-2">
+              <span className="block text-xs font-semibold text-[var(--color-ink)]">
+                Footer Woven Background Texture
+              </span>
+              <div className="grid sm:grid-cols-3 gap-3">
+                {[
+                  {
+                    id: 'brocade-grid' as const,
+                    label: 'Brocade Couture Grid',
+                    desc: 'Gold silk warp/weft grid + diagonal jacquard lattice',
+                    swatchClass: 'couture-footer-brocade-grid',
+                  },
+                  {
+                    id: 'silk-loom' as const,
+                    label: 'Silk Loom Drafting Grid',
+                    desc: 'Clean architectural 96px/24px atelier grid',
+                    swatchClass: 'couture-footer-silk-loom',
+                  },
+                  {
+                    id: 'velvet' as const,
+                    label: 'Warm Obsidian Velvet',
+                    desc: 'Soft champagne-bronze ambient studio glow',
+                    swatchClass: 'couture-footer-velvet',
+                  },
+                ].map((opt) => {
+                  const active = (content.backgroundPattern || 'brocade-grid') === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setContent({ ...content, backgroundPattern: opt.id })}
+                      className={cn(
+                        'p-3 rounded-xl border text-left transition-all cursor-pointer',
+                        active
+                          ? 'border-[#8C6A16] bg-white ring-2 ring-[#C9A84C]/35 shadow-xs'
+                          : 'border-[#E5DFD5] bg-white/80 hover:border-[#C9A84C]'
+                      )}
+                    >
+                      <div className={cn('h-12 w-full rounded-lg border border-[#C9A84C]/30 mb-2.5', opt.swatchClass)} />
+                      <span className="block text-xs font-bold text-[#11100E]">{opt.label}</span>
+                      <span className="block text-[11px] text-[#5B554D] mt-0.5 leading-snug">{opt.desc}</span>
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={() => logoInputRef.current?.click()}
-                disabled={isUploadingLogo}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg cursor-pointer self-start sm:self-auto"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>{isUploadingLogo ? 'Uploading...' : 'Upload Custom Logo'}</span>
-              </button>
+            {/* Live Embossed Watermark Preview Strip */}
+            <div
+              className={cn(
+                'p-6 rounded-xl border border-[#C9A84C]/35 text-center overflow-hidden',
+                content.backgroundPattern === 'silk-loom'
+                  ? 'couture-footer-silk-loom'
+                  : content.backgroundPattern === 'velvet'
+                  ? 'couture-footer-velvet'
+                  : 'couture-footer-brocade-grid'
+              )}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.34em] text-[#D8B454]/80 block mb-2">
+                {content.watermarkSubtitle || 'HANDCRAFTED INDIAN COUTURE'}
+              </span>
+              <span className="angelika-footer-watermark block text-5xl sm:text-6xl font-bold uppercase tracking-[0.2em] leading-none">
+                {(content.watermarkText || content.brandName || 'ANGELIKA').toUpperCase()}
+              </span>
             </div>
           </div>
         </div>
