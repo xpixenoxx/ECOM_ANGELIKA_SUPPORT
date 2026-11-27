@@ -1034,11 +1034,12 @@ export async function updateSectionContent(
             ? String(sectionData.watermarkSubtitle)
             : (defaultFooter.watermarkSubtitle || 'HANDCRAFTED INDIAN COUTURE'),
         backgroundPattern:
-          sectionData?.backgroundPattern === 'silk-loom' ||
-          sectionData?.backgroundPattern === 'velvet' ||
-          sectionData?.backgroundPattern === 'brocade-grid'
+          sectionData?.backgroundPattern === 'champagne-grid' ||
+          sectionData?.backgroundPattern === 'blush-brocade' ||
+          sectionData?.backgroundPattern === 'ivory-loom' ||
+          sectionData?.backgroundPattern === 'obsidian-grid'
             ? sectionData.backgroundPattern
-            : (defaultFooter.backgroundPattern || 'brocade-grid'),
+            : 'champagne-grid',
         tagline: sectionData?.tagline || defaultFooter.tagline,
         aboutText: sectionData?.aboutText !== undefined ? String(sectionData.aboutText) : defaultFooter.aboutText,
         readMoreLabel: sectionData?.readMoreLabel !== undefined ? String(sectionData.readMoreLabel) : defaultFooter.readMoreLabel,

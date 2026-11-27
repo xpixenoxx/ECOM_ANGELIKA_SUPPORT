@@ -471,19 +471,15 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
                 </div>
               </Card>
 
-              {/* Image Preview (Portrait Editorial Framing matching live Storefront) */}
+              {/* Image Preview (Exact Uncropped Natural Proportion matching Storefront) */}
               {look.lifestyle_image_url && (
-                <Card className="p-0 overflow-hidden max-w-md mx-auto">
-                  <div className="relative aspect-[4/5] bg-[#161310]">
-                    <Image
-                      src={look.lifestyle_image_url}
-                      alt={look.lifestyle_image_alt || look.name}
-                      fill
-                      unoptimized
-                      className="object-cover object-top"
-                      priority
-                    />
-                  </div>
+                <Card className="p-4 bg-[#EFE6D6] border border-[#C5B18C] flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={look.lifestyle_image_url}
+                    alt={look.lifestyle_image_alt || look.name}
+                    className="block max-h-[540px] w-auto max-w-full h-auto rounded-lg shadow-md"
+                  />
                 </Card>
               )}
             </TabsContent>
@@ -491,18 +487,16 @@ export default function LookEditPage({ params }: { params: { id: string } }) {
             {/* Hotspots Tab */}
             <TabsContent value="hotspots" className="max-w-7xl mx-auto">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left: Portrait Editorial Image with Hotspots */}
+                {/* Left: Exact Uncropped Portrait Image with Zero-Drift Hotspots */}
                 <div className="lg:col-span-7">
-                  <Card className="p-0 overflow-hidden border-[1.5px] border-[#C5B18C]">
-                    <div ref={imageRef} className="relative aspect-[4/5] max-h-[680px] mx-auto bg-[#161310]">
-                      <Image
+                  <Card className="p-4 border-[1.5px] border-[#C5B18C] bg-[#EFE6D6] flex flex-col items-center">
+                    <div ref={imageRef} className="relative inline-block max-w-full rounded-xl overflow-hidden bg-[#161310] shadow-md">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         ref={imageElementRef}
                         src={look.lifestyle_image_url}
                         alt={look.lifestyle_image_alt || look.name}
-                        fill
-                        unoptimized
-                        className="object-cover object-top"
-                        priority
+                        className="block max-h-[600px] w-auto max-w-full h-auto select-none"
                       />
 
                       {/* Hotspot pins */}

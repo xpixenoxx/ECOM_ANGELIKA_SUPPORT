@@ -68,7 +68,7 @@ const DEFAULT_FOOTER_V2: FooterContent = {
   showWatermark: true,
   watermarkText: 'ANGELIKA',
   watermarkSubtitle: 'HANDCRAFTED INDIAN COUTURE',
-  backgroundPattern: 'brocade-grid',
+  backgroundPattern: 'champagne-grid',
   tagline: 'Modern Indian luxury — rooted in craft, elevated for today.',
   aboutText: BOUTIQUE_DEFAULT_ABOUT_TEXT,
   readMoreLabel: 'Read More',
@@ -192,11 +192,12 @@ function hydrateFooterForEditor(raw?: Partial<FooterContent>): { data: FooterCon
     watermarkText: raw.watermarkText?.trim() || DEFAULT_FOOTER_V2.watermarkText,
     watermarkSubtitle: raw.watermarkSubtitle?.trim() || DEFAULT_FOOTER_V2.watermarkSubtitle,
     backgroundPattern:
-      raw.backgroundPattern === 'silk-loom' ||
-      raw.backgroundPattern === 'velvet' ||
-      raw.backgroundPattern === 'brocade-grid'
+      raw.backgroundPattern === 'champagne-grid' ||
+      raw.backgroundPattern === 'blush-brocade' ||
+      raw.backgroundPattern === 'ivory-loom' ||
+      raw.backgroundPattern === 'obsidian-grid'
         ? raw.backgroundPattern
-        : 'brocade-grid',
+        : 'champagne-grid',
     showRegionSelector: raw.showRegionSelector !== false,
     regionLabel: raw.regionLabel?.trim() || DEFAULT_FOOTER_V2.regionLabel,
     regionOptions:
@@ -761,28 +762,34 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
               <span className="block text-xs font-semibold text-[var(--color-ink)]">
                 Footer Woven Background Texture
               </span>
-              <div className="grid sm:grid-cols-3 gap-3">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {[
                   {
-                    id: 'brocade-grid' as const,
-                    label: 'Brocade Couture Grid',
-                    desc: 'Gold silk warp/weft grid + diagonal jacquard lattice',
-                    swatchClass: 'couture-footer-brocade-grid',
+                    id: 'champagne-grid' as const,
+                    label: 'Champagne Silk Grid',
+                    desc: 'Warm sunlit silk + zari diamond lattice (Recommended)',
+                    swatchClass: 'couture-footer-champagne-grid',
                   },
                   {
-                    id: 'silk-loom' as const,
-                    label: 'Silk Loom Drafting Grid',
-                    desc: 'Clean architectural 96px/24px atelier grid',
-                    swatchClass: 'couture-footer-silk-loom',
+                    id: 'blush-brocade' as const,
+                    label: 'Blush Rose Brocade',
+                    desc: 'Soft blush-ivory + rose-gold atelier grid',
+                    swatchClass: 'couture-footer-blush-brocade',
                   },
                   {
-                    id: 'velvet' as const,
-                    label: 'Warm Obsidian Velvet',
-                    desc: 'Soft champagne-bronze ambient studio glow',
-                    swatchClass: 'couture-footer-velvet',
+                    id: 'ivory-loom' as const,
+                    label: 'Porcelain Ivory Loom',
+                    desc: 'Airy architectural drafting grid on warm ivory',
+                    swatchClass: 'couture-footer-ivory-loom',
+                  },
+                  {
+                    id: 'obsidian-grid' as const,
+                    label: 'Obsidian Brocade (Dark)',
+                    desc: 'Deep espresso-black + antique gold lattice',
+                    swatchClass: 'couture-footer-obsidian-grid',
                   },
                 ].map((opt) => {
-                  const active = (content.backgroundPattern || 'brocade-grid') === opt.id;
+                  const active = (content.backgroundPattern || 'champagne-grid') === opt.id;
                   return (
                     <button
                       key={opt.id}
@@ -795,7 +802,7 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
                           : 'border-[#E5DFD5] bg-white/80 hover:border-[#C9A84C]'
                       )}
                     >
-                      <div className={cn('h-12 w-full rounded-lg border border-[#C9A84C]/30 mb-2.5', opt.swatchClass)} />
+                      <div className={cn('h-12 w-full rounded-lg border border-[#C5AE84] mb-2.5', opt.swatchClass)} />
                       <span className="block text-xs font-bold text-[#11100E]">{opt.label}</span>
                       <span className="block text-[11px] text-[#5B554D] mt-0.5 leading-snug">{opt.desc}</span>
                     </button>
@@ -807,18 +814,32 @@ export function FooterEditor({ initialContent, onSaved, onCancel }: FooterEditor
             {/* Live Embossed Watermark Preview Strip */}
             <div
               className={cn(
-                'p-6 rounded-xl border border-[#C9A84C]/35 text-center overflow-hidden',
-                content.backgroundPattern === 'silk-loom'
-                  ? 'couture-footer-silk-loom'
-                  : content.backgroundPattern === 'velvet'
-                  ? 'couture-footer-velvet'
-                  : 'couture-footer-brocade-grid'
+                'p-6 rounded-xl border border-[#C5AE84] text-center overflow-hidden',
+                content.backgroundPattern === 'blush-brocade'
+                  ? 'couture-footer-blush-brocade'
+                  : content.backgroundPattern === 'ivory-loom'
+                  ? 'couture-footer-ivory-loom'
+                  : content.backgroundPattern === 'obsidian-grid'
+                  ? 'couture-footer-obsidian-grid'
+                  : 'couture-footer-champagne-grid'
               )}
             >
-              <span className="text-[10px] font-bold uppercase tracking-[0.34em] text-[#D8B454]/80 block mb-2">
-                {content.watermarkSubtitle || 'HANDCRAFTED INDIAN COUTURE'}
+              <span
+                className={cn(
+                  'text-[10px] font-bold uppercase tracking-[0.34em] block mb-2',
+                  content.backgroundPattern === 'obsidian-grid' ? 'text-[#D8B454]/80' : 'text-[#7A580D]'
+                )}
+              >
+                ◆ {content.watermarkSubtitle || 'HANDCRAFTED INDIAN COUTURE'} ◆
               </span>
-              <span className="angelika-footer-watermark block text-5xl sm:text-6xl font-bold uppercase tracking-[0.2em] leading-none">
+              <span
+                className={cn(
+                  'block text-5xl sm:text-6xl font-bold uppercase tracking-[0.2em] leading-none',
+                  content.backgroundPattern === 'obsidian-grid'
+                    ? 'angelika-footer-watermark-dark'
+                    : 'angelika-footer-watermark'
+                )}
+              >
                 {(content.watermarkText || content.brandName || 'ANGELIKA').toUpperCase()}
               </span>
             </div>

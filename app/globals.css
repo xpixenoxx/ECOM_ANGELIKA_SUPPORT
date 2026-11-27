@@ -326,46 +326,76 @@
     background-position: -1px -1px;
   }
 
-  /* --- Luxury Women's Couture Dark Woven Brocade & Silk Grid (Footer Canvas) --- */
-  .couture-footer-brocade-grid {
-    background-color: #120F0D;
+  /* --- Luxury Women's Couture Warm Champagne-Silk & Zari Brocade Grid (Footer Default) --- */
+  .couture-footer-champagne-grid {
+    background-color: #EFE5D5;
     background-image:
-      radial-gradient(ellipse 68% 52% at 50% 0%, rgba(216, 180, 84, 0.12) 0%, transparent 72%),
-      radial-gradient(ellipse 46% 42% at 12% 100%, rgba(196, 146, 108, 0.08) 0%, transparent 70%),
-      radial-gradient(ellipse 46% 42% at 88% 100%, rgba(216, 180, 84, 0.08) 0%, transparent 70%),
-      linear-gradient(to right, rgba(216, 180, 84, 0.105) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(216, 180, 84, 0.105) 1px, transparent 1px),
-      repeating-linear-gradient(45deg, rgba(216, 180, 84, 0.04) 0 1px, transparent 1px 34px),
-      repeating-linear-gradient(-45deg, rgba(216, 180, 84, 0.04) 0 1px, transparent 1px 34px);
-    background-size: 100% 100%, 100% 100%, 100% 100%, 72px 72px, 72px 72px, 48px 48px, 48px 48px;
+      radial-gradient(ellipse 72% 55% at 50% 0%, rgba(255, 252, 245, 0.85) 0%, transparent 70%),
+      radial-gradient(ellipse 52% 48% at 10% 95%, rgba(214, 166, 134, 0.22) 0%, transparent 72%),
+      radial-gradient(ellipse 52% 48% at 90% 95%, rgba(201, 168, 76, 0.20) 0%, transparent 72%),
+      linear-gradient(to right, rgba(148, 112, 42, 0.14) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(148, 112, 42, 0.14) 1px, transparent 1px),
+      repeating-linear-gradient(45deg, rgba(176, 126, 98, 0.08) 0 1px, transparent 1px 36px),
+      repeating-linear-gradient(-45deg, rgba(176, 126, 98, 0.08) 0 1px, transparent 1px 36px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 72px 72px, 72px 72px, 50px 50px, 50px 50px;
   }
 
-  .couture-footer-silk-loom {
-    background-color: #13100E;
+  /* --- Soft Blush-Rose Silk Atelier Grid (Footer Light Variant) --- */
+  .couture-footer-blush-brocade {
+    background-color: #F4E8E1;
     background-image:
-      radial-gradient(ellipse 70% 55% at 50% 0%, rgba(216, 180, 84, 0.11) 0%, transparent 70%),
-      linear-gradient(to right, rgba(216, 180, 84, 0.12) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(216, 180, 84, 0.12) 1px, transparent 1px),
-      linear-gradient(to right, rgba(216, 180, 84, 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(216, 180, 84, 0.045) 1px, transparent 1px);
+      radial-gradient(ellipse 70% 55% at 50% 0%, rgba(255, 252, 250, 0.88) 0%, transparent 70%),
+      radial-gradient(ellipse 55% 48% at 85% 95%, rgba(206, 152, 134, 0.24) 0%, transparent 72%),
+      linear-gradient(to right, rgba(164, 112, 92, 0.13) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(164, 112, 92, 0.13) 1px, transparent 1px),
+      repeating-linear-gradient(45deg, rgba(182, 136, 76, 0.075) 0 1px, transparent 1px 36px),
+      repeating-linear-gradient(-45deg, rgba(182, 136, 76, 0.075) 0 1px, transparent 1px 36px);
+    background-size: 100% 100%, 100% 100%, 72px 72px, 72px 72px, 50px 50px, 50px 50px;
+  }
+
+  /* --- Porcelain Ivory Silk Loom Drafting Grid (Footer Light Variant) --- */
+  .couture-footer-ivory-loom {
+    background-color: #FAF5EC;
+    background-image:
+      radial-gradient(ellipse 72% 58% at 50% 0%, rgba(255, 255, 255, 0.9) 0%, transparent 72%),
+      linear-gradient(to right, rgba(154, 121, 56, 0.16) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(154, 121, 56, 0.16) 1px, transparent 1px),
+      linear-gradient(to right, rgba(154, 121, 56, 0.065) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(154, 121, 56, 0.065) 1px, transparent 1px);
     background-size: 100% 100%, 96px 96px, 96px 96px, 24px 24px, 24px 24px;
   }
 
-  .couture-footer-velvet {
-    background-color: #14110F;
+  /* --- Optional Dark Obsidian Woven Brocade Grid (Footer Dark Variant) --- */
+  .couture-footer-obsidian-grid {
+    background-color: #15120F;
     background-image:
-      radial-gradient(ellipse 75% 60% at 50% 0%, rgba(216, 180, 84, 0.13) 0%, transparent 72%),
-      radial-gradient(ellipse 55% 45% at 85% 95%, rgba(196, 146, 108, 0.09) 0%, transparent 72%);
+      radial-gradient(ellipse 68% 52% at 50% 0%, rgba(216, 180, 84, 0.13) 0%, transparent 72%),
+      linear-gradient(to right, rgba(216, 180, 84, 0.11) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(216, 180, 84, 0.11) 1px, transparent 1px),
+      repeating-linear-gradient(45deg, rgba(216, 180, 84, 0.045) 0 1px, transparent 1px 34px),
+      repeating-linear-gradient(-45deg, rgba(216, 180, 84, 0.045) 0 1px, transparent 1px 34px);
+    background-size: 100% 100%, 72px 72px, 72px 72px, 48px 48px, 48px 48px;
   }
 
-  /* --- Embossed Champagne-Gold Couture Watermark Typography --- */
+  /* --- Blind-Embossed Champagne-Gold Couture Watermark Typography (Light Canvas) --- */
   .angelika-footer-watermark {
+    font-family: var(--font-cormorant), Georgia, serif;
+    background: linear-gradient(180deg var(--in-oklab), rgba(126, 90, 22, 0.30) 0%, rgba(154, 114, 38, 0.15) 56%, rgba(154, 114, 38, 0.05) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: 1.15px rgba(132, 95, 25, 0.34);
+    filter: drop-shadow(0 1px 0 rgba(255, 253, 249, 0.65));
+  }
+
+  /* --- Dark Canvas Gold Watermark Variant --- */
+  .angelika-footer-watermark-dark {
     font-family: var(--font-cormorant), Georgia, serif;
     background: linear-gradient(180deg var(--in-oklab), rgba(242, 217, 145, 0.34) 0%, rgba(216, 180, 84, 0.16) 52%, rgba(201, 168, 76, 0.045) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    -webkit-text-stroke: 1px rgba(226, 193, 108, 0.24);
+    -webkit-text-stroke: 1px rgba(226, 193, 108, 0.26);
   }
 }
 
@@ -382,9 +412,11 @@
 }
 
 @media (forced-colors: active) {
-  .angelika-footer-watermark {
+  .angelika-footer-watermark,
+  .angelika-footer-watermark-dark {
     background: none;
     -webkit-text-stroke: 0;
+    filter: none;
     color: CanvasText;
     opacity: 0.35;
   }

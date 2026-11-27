@@ -26,14 +26,16 @@ export function HotspotPin({
   price,
   onHover,
 }: HotspotPinProps) {
-  const [showLabel, setShowLabel] = useState(false);
-  const emphasized = Boolean(isActive || isHighlighted);
+  const [hovered, setHovered] = useState(false);
+  const emphasized = Boolean(isActive || isHighlighted || hovered);
   const displayNumber = typeof index === 'number' ? String(index + 1).padStart(2, '0') : null;
+  const openLeft = xPercent > 56;
+  const openAbove = yPercent > 72;
 
   return (
     <motion.button
       type="button"
-      className="hotspot-trigger absolute z-20 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E5C56B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161310] rounded-full"
+      className="hotspot-trigger absolute z-20 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B8922E] focus-visible:ring-offset-2 rounded-full"
       style={{
         left: `${xPercent}%`,
         top: `${yPercent}%`,
@@ -44,11 +46,11 @@ export function HotspotPin({
         onClick();
       }}
       onMouseEnter={() => {
-        if (!isActive) setShowLabel(true);
+        setHovered(true);
         onHover?.(true);
       }}
       onMouseLeave={() => {
-        setShowLabel(false);
+        setHovered(false);
         onHover?.(false);
       }}
       aria-label={label ? `Shop ${label}` : 'View piece'}
@@ -56,25 +58,26 @@ export function HotspotPin({
       whileTap={{ scale: 0.92 }}
     >
       <div className="relative flex items-center justify-center">
-        {/* Soft champagne couture pulse ring */}
-        <motion.div
+        {/* Breathing pearl-gold couture pulse */}
+        <motion.span
+          aria-hidden="true"
           initial={{ scale: 0.9, opacity: 0.7 }}
-          animate={{ scale: emphasized ? [1, 1.85, 1] : [1, 1.65, 1], opacity: [0.65, 0, 0.65] }}
-          transition={{ duration: 2.3, repeat: Infinity, ease: 'easeOut' }}
+          animate={{ scale: emphasized ? [1, 2.05, 1] : [1, 1.75, 1], opacity: [0.65, 0, 0.65] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeOut' }}
           className={`absolute -inset-2 rounded-full border-2 pointer-events-none ${
-            emphasized ? 'border-[#E5C56B]' : 'border-[#FAF6F0]/75'
+            emphasized ? 'border-[#D8B454]' : 'border-[#FFFDF9]/90'
           }`}
         />
 
-        {/* Numbered Atelier Pin Medallion */}
-        <motion.div
+        {/* Sculpted Pearl-Ivory & Spun-Gold Atelier Bead */}
+        <motion.span
           initial={{ scale: 0 }}
-          animate={{ scale: emphasized ? 1.15 : 1 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 22 }}
-          className={`h-8 w-8 rounded-full border-2 shadow-[0_8px_22px_rgba(0,0,0,0.45)] flex items-center justify-center transition-all duration-200 ${
+          animate={{ scale: emphasized ? 1.18 : 1 }}
+          transition={{ type: 'spring', stiffness: 340, damping: 22 }}
+          className={`h-8 w-8 rounded-full border-2 shadow-[0_6px_18px_rgba(18,14,10,0.45)] flex items-center justify-center transition-colors duration-200 ${
             emphasized
-              ? 'bg-[#D8B454] border-[#FAF6F0] text-[#14110E] ring-4 ring-[#D8B454]/35'
-              : 'bg-[#161310]/90 border-[#E5C56B] text-[#FAF6F0] hover:bg-[#D8B454] hover:text-[#14110E] hover:border-[#FAF6F0]'
+              ? 'bg-[#171310] border-[#E6C770] text-[#F2D991] ring-4 ring-[#D8B454]/30'
+              : 'bg-[#FFFDF9]/95 border-[#8C6A16] text-[#171310] hover:bg-[#171310] hover:text-[#F2D991] hover:border-[#E6C770]'
           }`}
         >
           {displayNumber ? (
@@ -82,28 +85,38 @@ export function HotspotPin({
               {displayNumber}
             </span>
           ) : (
-            <span className="h-2.5 w-2.5 rounded-full bg-current" />
+            <span className="h-2 w-2 rounded-full bg-current" />
           )}
-        </motion.div>
+        </motion.span>
 
-        {/* Crisp Editorial Hover Tooltip */}
+        {/* Precision Glass-Ivory Couture Garment Callout Tag (flips cleanly away from edges) */}
         <AnimatePresence>
-          {!isActive && (showLabel || isHighlighted) && label && (
+          {emphasized && label && (
             <motion.div
-              initial={{ opacity: 0, y: 5, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 5, scale: 0.95 }}
+              initial={{ opacity: 0, x: openLeft ? 6 : -6, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: openLeft ? 6 : -6, scale: 0.95 }}
               transition={{ duration: 0.16 }}
-              className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5 px-3 py-1.5 rounded-lg bg-[#161310]/95 border border-[#D8B454]/60 text-[#FAF6F0] whitespace-nowrap shadow-[0_12px_28px_rgba(0,0,0,0.45)] pointer-events-none"
+              className={`pointer-events-none absolute z-30 flex items-center ${
+                openAbove ? 'bottom-full mb-2.5 left-1/2 -translate-x-1/2' : openLeft ? 'right-full mr-2.5 top-1/2 -translate-y-1/2 flex-row-reverse' : 'left-full ml-2.5 top-1/2 -translate-y-1/2'
+              }`}
             >
-              <span className="block text-[11px] font-semibold tracking-wide leading-tight">
-                {label}
-              </span>
-              {typeof price === 'number' && price > 0 && (
-                <span className="block text-[10px] font-bold text-[#E5C56B] mt-0.5 tabular-nums">
-                  ₹{price.toLocaleString('en-IN')}
-                </span>
+              {!openAbove && (
+                <span
+                  aria-hidden="true"
+                  className="h-[1.5px] w-4 bg-[#D8B454] shrink-0 shadow-xs"
+                />
               )}
+              <div className="rounded-lg bg-[#FFFDF9]/95 backdrop-blur-md border border-[#BDA478] px-3 py-1.5 text-left shadow-[0_12px_28px_rgba(18,14,10,0.28)] whitespace-nowrap">
+                <span className="block text-[11px] font-bold text-[#14110E] leading-tight">
+                  {label}
+                </span>
+                {typeof price === 'number' && price > 0 && (
+                  <span className="block text-[10.5px] font-bold text-[#7A580D] mt-0.5 tabular-nums">
+                    ₹{price.toLocaleString('en-IN')}
+                  </span>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

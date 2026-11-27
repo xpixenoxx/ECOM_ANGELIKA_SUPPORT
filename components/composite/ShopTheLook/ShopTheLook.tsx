@@ -3,9 +3,9 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { HotspotPin } from './HotspotPin';
-import { ProductCardPopup, LookProduct } from './ProductCardPopup';
+import type { LookProduct } from './ProductCardPopup';
 import { useCart } from '@/lib/hooks/useCart';
 import { toast } from '@/components/ui/Toast';
 
@@ -42,12 +42,22 @@ export function ShopTheLook({
   onNextLook,
 }: ShopTheLookProps) {
   const { addItem } = useCart();
-  const [activeHotspotId, setActiveHotspotId] = useState<string | null>(null);
+  const [activeHotspotId, setActiveHotspotId] = useState<string | null>(
+    () => look.look_hotspots.find((h) => h.products !== null)?.id ?? null
+  );
   const [hoveredHotspotId, setHoveredHotspotId] = useState<string | null>(null);
   const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
   const [addingId, setAddingId] = useState<string | null>(null);
   const [addingEnsemble, setAddingEnsemble] = useState(false);
-  const imageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Interactive Couture Fabric Zoom Loupe state
+  const [loupeEnabled, setLoupeEnabled] = useState(false);
+  const [loupePos, setLoupePos] = useState<{ x: number; y: number; visible: boolean }>({
+    x: 50,
+    y: 50,
+    visible: false,
+  });
+  const photoStageRef = useRef<HTMLDivElement>(null);
 
   const validHotspots = useMemo(
     () => look.look_hotspots.filter((h) => h.products !== null),
@@ -55,17 +65,8 @@ export function ShopTheLook({
   );
 
   const handlePinClick = useCallback((hotspotId: string) => {
-    setActiveHotspotId((prev) => (prev === hotspotId ? null : hotspotId));
+    setActiveHotspotId(hotspotId);
   }, []);
-
-  const handleClosePopup = useCallback(() => {
-    setActiveHotspotId(null);
-  }, []);
-
-  const activeHotspot = useMemo(
-    () => validHotspots.find((h) => h.id === activeHotspotId),
-    [validHotspots, activeHotspotId]
-  );
 
   const ensembleTotal = useMemo(
     () => validHotspots.reduce((sum, hs) => sum + Number(hs.products?.price || 0), 0),
@@ -130,6 +131,14 @@ export function ShopTheLook({
     }
   };
 
+  const handleStageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!loupeEnabled || !photoStageRef.current) return;
+    const rect = photoStageRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+    setLoupePos({ x, y, visible: true });
+  };
+
   if (!look.lifestyle_image_url) return null;
 
   const lookCounter = `${String(lookIndex + 1).padStart(2, '0')} / ${String(Math.max(totalLooks, 1)).padStart(2, '0')}`;
@@ -138,309 +147,322 @@ export function ShopTheLook({
     look.lifestyle_image_alt.trim().toLowerCase() !== look.name.trim().toLowerCase() &&
     look.lifestyle_image_alt.trim().toLowerCase() !== 'curated ensemble'
       ? look.lifestyle_image_alt.trim()
-      : look.subtitle?.trim() || 'Hand-curated Indian couture styled by Vidhya — click any numbered pin or select a piece to shop.';
+      : look.subtitle?.trim() || 'Hand-curated Indian couture styled by Vidhya — hover any garment pin or enable the fabric loupe to inspect the drape.';
 
   return (
-    <div className={`relative w-full ${className}`}>
-      <div className="max-w-[1440px] mx-auto">
-        {/* Asymmetric Couture Lookbook Stage */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden rounded-2xl border-[1.5px] border-[#C5B18C] bg-[#FFFDF9] shadow-[0_24px_60px_rgba(20,16,12,0.09)]">
-          {/* LEFT STAGE: Full Portrait-Framed Editorial Photo with Numbered Pins */}
-          <div className="lg:col-span-7 relative bg-[#161310] border-b lg:border-b-0 lg:border-r border-[#C9B38C]">
-            <div
-              ref={imageContainerRef}
-              className="relative w-full aspect-[4/5] sm:aspect-[5/5.5] lg:aspect-auto lg:h-full lg:min-h-[600px] lg:max-h-[680px] overflow-hidden bg-[#161310]"
-            >
-              <Image
-                src={look.lifestyle_image_url}
-                alt={look.lifestyle_image_alt || `Shop the Look: ${look.name}`}
-                fill
-                unoptimized
-                className="object-cover object-top w-full h-full select-none transition-transform duration-700"
-                priority
-                sizes="(max-width: 1024px) 100vw, 58vw"
-              />
-
-              {/* Subtle bottom scrim so pins & caption read crisply */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#120F0D]/80 via-[#120F0D]/30 to-transparent"
-              />
-
-              {/* Numbered Atelier Hotspot Pins */}
-              <div className="absolute inset-0">
-                {validHotspots.map((hotspot, idx) => (
-                  <HotspotPin
-                    key={hotspot.id}
-                    index={idx}
-                    xPercent={Number(hotspot.x_percent)}
-                    yPercent={Number(hotspot.y_percent)}
-                    onClick={() => handlePinClick(hotspot.id)}
-                    isActive={activeHotspotId === hotspot.id}
-                    isHighlighted={hoveredHotspotId === hotspot.id}
-                    onHover={(isHovering) => setHoveredHotspotId(isHovering ? hotspot.id : null)}
-                    label={hotspot.products?.name}
-                    price={hotspot.products?.price}
-                  />
-                ))}
-              </div>
-
-              {/* Floating Quick-Shop Card when a pin is clicked directly on the photo */}
-              <AnimatePresence>
-                {activeHotspot && activeHotspot.products && (
-                  <ProductCardPopup
-                    key={activeHotspot.id}
-                    product={activeHotspot.products}
-                    hotspot={{
-                      x_percent: Number(activeHotspot.x_percent),
-                      y_percent: Number(activeHotspot.y_percent),
-                    }}
-                    onClose={handleClosePopup}
-                    isOpen={true}
-                  />
-                )}
-              </AnimatePresence>
-
-              {/* Editorial Footer Strip inside Portrait Canvas */}
-              <div className="absolute bottom-4 inset-x-4 z-10 flex items-center justify-between gap-3 pointer-events-none">
-                <div className="inline-flex items-center gap-2.5 rounded-full bg-[#161310]/85 backdrop-blur-md border border-[#D8B454]/45 px-3.5 py-1.5 shadow-lg">
-                  <span className="h-2 w-2 rounded-full bg-[#E5C56B]" aria-hidden="true" />
-                  <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#FAF6F0]">
-                    Look {lookCounter}
-                  </span>
-                  <span className="text-[#D8B454]/60" aria-hidden="true">·</span>
-                  <span className="text-[11px] font-medium text-[#E8DFD2] hidden sm:inline">
-                    Tap numbered pins to inspect
-                  </span>
-                </div>
-
-                {totalLooks > 1 && onPrevLook && onNextLook && (
-                  <div className="flex items-center gap-1.5 pointer-events-auto">
-                    <button
-                      type="button"
-                      onClick={onPrevLook}
-                      aria-label="Previous look"
-                      className="h-9 w-9 rounded-full bg-[#161310]/85 hover:bg-[#D8B454] text-[#FAF6F0] hover:text-[#14110E] border border-[#D8B454]/55 flex items-center justify-center transition-colors cursor-pointer shadow-md"
-                    >
-                      <span aria-hidden="true">←</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={onNextLook}
-                      aria-label="Next look"
-                      className="h-9 w-9 rounded-full bg-[#161310]/85 hover:bg-[#D8B454] text-[#FAF6F0] hover:text-[#14110E] border border-[#D8B454]/55 flex items-center justify-center transition-colors cursor-pointer shadow-md"
-                    >
-                      <span aria-hidden="true">→</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+    <motion.div
+      key={look.id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className={`h-full grid grid-cols-1 xl:grid-cols-12 overflow-hidden rounded-2xl border-[1.5px] border-[#C5B18C] bg-[#FFFDF9] shadow-[0_22px_54px_rgba(24,18,10,0.09)] ${className}`}
+    >
+      {/* LEFT STAGE: Precision Uncropped Natural-Aspect Portrait Canvas (Zero Pin Drift!) */}
+      <div className="xl:col-span-6 relative flex flex-col items-center justify-center bg-[#EFE6D6] p-4 sm:p-6 border-b xl:border-b-0 xl:border-r border-[#D6C4A3]">
+        {/* Subtle top-bar controls over the warm silk studio mat */}
+        <div className="w-full flex items-center justify-between gap-2 mb-3.5">
+          <div className="inline-flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#9E7820]" aria-hidden="true" />
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.22em] text-[#5C4308]">
+              Runway Look {lookCounter}
+            </span>
           </div>
 
-          {/* RIGHT STAGE: Curated "Shop This Ensemble" Atelier Panel */}
-          <div className="lg:col-span-5 flex flex-col justify-between bg-[#FFFDF9]">
-            {/* Panel Header */}
-            <div className="px-6 sm:px-7 py-5 sm:py-6 border-b border-[#DFD0B5] bg-[#FAF4E8]">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6B4E08]">
-                  <span className="h-[1.5px] w-4 bg-[#B8922E]" aria-hidden="true" />
-                  <span>Shop This Ensemble</span>
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#161310] text-[#E6C770] tracking-wider uppercase">
-                  {validHotspots.length} {validHotspots.length === 1 ? 'Piece' : 'Pieces'}
-                </span>
-              </div>
+          <button
+            type="button"
+            onClick={() => {
+              setLoupeEnabled((prev) => !prev);
+              setLoupePos((prev) => ({ ...prev, visible: false }));
+            }}
+            aria-pressed={loupeEnabled}
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-[0.15em] border transition-colors cursor-pointer ${
+              loupeEnabled
+                ? 'bg-[#171310] text-[#F2D991] border-[#171310] shadow-xs'
+                : 'bg-[#FFFDF9] text-[#4E3808] border-[#C5B18C] hover:border-[#8C6A16]'
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35M11 8v6M8 11h6" />
+            </svg>
+            <span>{loupeEnabled ? 'Weave Loupe Active' : 'Inspect Fabric'}</span>
+          </button>
+        </div>
 
-              <h3 className="font-display text-2xl sm:text-[30px] font-bold text-[#11100E] leading-[1.15]">
-                {look.name}
-              </h3>
-              <p className="mt-2 text-[13px] font-medium text-[#3D362E] leading-relaxed">
-                {cleanCaption}
-              </p>
+        {/* Exact Natural-Aspect Photo Frame — (x%, y%) pins ALWAYS lock 1:1 to exact fabric pixels */}
+        <div
+          ref={photoStageRef}
+          onMouseMove={handleStageMouseMove}
+          onMouseLeave={() => setLoupePos((prev) => ({ ...prev, visible: false }))}
+          className={`relative inline-block max-w-full rounded-xl overflow-hidden border-[1.5px] border-[#C5B18C] bg-[#1A1612] shadow-[0_16px_38px_rgba(24,18,10,0.16)] ${
+            loupeEnabled ? 'cursor-zoom-in' : ''
+          }`}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={look.lifestyle_image_url}
+            alt={look.lifestyle_image_alt || `Shop the Look: ${look.name}`}
+            className="block max-h-[540px] w-auto max-w-full h-auto select-none"
+          />
+
+          {/* Interactive 2.4x Couture Fabric Magnifying Loupe */}
+          {loupeEnabled && loupePos.visible && (
+            <div
+              aria-hidden="true"
+              style={{
+                left: `${loupePos.x}%`,
+                top: `${loupePos.y}%`,
+                backgroundImage: `url("${look.lifestyle_image_url}")`,
+                backgroundPosition: `${loupePos.x}% ${loupePos.y}%`,
+                backgroundSize: '240%',
+              }}
+              className="pointer-events-none absolute z-30 h-36 w-36 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#E6C770] shadow-[0_16px_40px_rgba(0,0,0,0.45),inset_0_0_0_2px_rgba(255,253,249,0.7)] bg-no-repeat"
+            />
+          )}
+
+          {/* Precision Garment Pins (hidden cleanly while inspecting with loupe) */}
+          {!loupeEnabled && (
+            <div className="absolute inset-0">
+              {validHotspots.map((hotspot, idx) => (
+                <HotspotPin
+                  key={hotspot.id}
+                  index={idx}
+                  xPercent={Number(hotspot.x_percent)}
+                  yPercent={Number(hotspot.y_percent)}
+                  onClick={() => handlePinClick(hotspot.id)}
+                  isActive={activeHotspotId === hotspot.id}
+                  isHighlighted={hoveredHotspotId === hotspot.id}
+                  onHover={(isHovering) => setHoveredHotspotId(isHovering ? hotspot.id : null)}
+                  label={hotspot.products?.name}
+                  price={hotspot.products?.price}
+                />
+              ))}
             </div>
+          )}
+        </div>
 
-            {/* Interactive Styled Pieces List */}
-            <div className="flex-1 divide-y divide-[#E5D7BF] overflow-y-auto max-h-[430px] px-6 sm:px-7">
-              {validHotspots.length === 0 ? (
-                <div className="py-10 text-center">
-                  <p className="text-sm font-medium text-[#4A4238]">
-                    Explore our signature couture collection tailored to this look.
-                  </p>
-                  <Link
-                    href="/shop"
-                    className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#161310] text-[#FAF6F0] text-xs font-bold uppercase tracking-[0.16em] hover:bg-[#2B241C] transition-colors"
-                  >
-                    <span>Explore Collection</span>
-                    <span aria-hidden="true">→</span>
-                  </Link>
-                </div>
-              ) : (
-                validHotspots.map((hotspot, idx) => {
-                  const prod = hotspot.products!;
-                  const img = prod.thumbnail_url || prod.images?.[0] || '/images/collection-kurtis.jpg';
-                  const isHighlighted = activeHotspotId === hotspot.id || hoveredHotspotId === hotspot.id;
-                  const pinNumber = String(idx + 1).padStart(2, '0');
-                  const hasDiscount = Boolean(prod.compare_at_price && prod.compare_at_price > prod.price);
-                  const discountPct = hasDiscount
-                    ? Math.round(((prod.compare_at_price! - prod.price) / prod.compare_at_price!) * 100)
-                    : 0;
-                  const chosenSize = getSelectedSize(hotspot.id, prod);
+        {/* Subtle instructional footer under portrait */}
+        <p className="mt-3 text-[11px] font-medium text-[#5A4F42] text-center">
+          {loupeEnabled
+            ? 'Move cursor over the silhouette to inspect handloom weave & embroidery up close.'
+            : 'Click or hover any numbered pearl marker on the garment to inspect & shop.'}
+        </p>
+      </div>
 
-                  return (
-                    <div
-                      key={hotspot.id}
-                      onMouseEnter={() => setHoveredHotspotId(hotspot.id)}
-                      onMouseLeave={() => setHoveredHotspotId(null)}
-                      className={`py-5 transition-colors duration-200 ${
-                        isHighlighted ? 'bg-[#FAF4E8]/70 -mx-6 sm:-mx-7 px-6 sm:px-7' : ''
-                      }`}
-                    >
-                      <div className="flex items-start gap-4">
-                        {/* Numbered Pin + Portrait Product Thumb */}
-                        <div className="relative shrink-0">
-                          <Link
-                            href={prod.slug ? `/product/${prod.slug}` : '/shop'}
-                            className="block relative w-[78px] h-[102px] rounded-xl overflow-hidden border-[1.5px] border-[#CEBA96] bg-[#F3ECE0] shadow-xs"
-                          >
-                            <Image
-                              src={img}
-                              alt={prod.name}
-                              fill
-                              className="object-cover object-top"
-                              sizes="80px"
-                            />
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handlePinClick(hotspot.id)}
-                            title="Highlight on look"
-                            aria-label={`Highlight piece ${pinNumber} on look`}
-                            className={`absolute -top-2 -left-2 h-6 w-6 rounded-full border-2 border-[#FFFDF9] text-[10px] font-bold flex items-center justify-center shadow-sm cursor-pointer transition-colors ${
-                              isHighlighted
-                                ? 'bg-[#D8B454] text-[#14110E]'
-                                : 'bg-[#161310] text-[#E6C770]'
-                            }`}
-                          >
-                            {pinNumber}
-                          </button>
-                        </div>
+      {/* RIGHT STAGE: Curated Atelier Wardrobe Panel */}
+      <div className="xl:col-span-6 flex flex-col justify-between bg-[#FFFDF9]">
+        {/* Editorial Title Header */}
+        <div className="px-6 sm:px-7 py-5 border-b border-[#E3D5BC] bg-[#FAF4E8]">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[#6B4E08]">
+              <span className="h-[1.5px] w-4 bg-[#B8922E]" aria-hidden="true" />
+              <span>Styled by Vidhya</span>
+            </span>
 
-                        {/* Piece Details, Size Selector & Direct Actions */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <Link
-                              href={prod.slug ? `/product/${prod.slug}` : '/shop'}
-                              className="font-display text-[19px] font-bold text-[#11100E] hover:text-[#6B4E08] leading-snug line-clamp-2 transition-colors"
-                            >
-                              {prod.name}
-                            </Link>
-                          </div>
-
-                          {/* Price Row */}
-                          <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-                            <span className="text-[15px] font-bold text-[#11100E] tabular-nums">
-                              ₹{prod.price.toLocaleString('en-IN')}
-                            </span>
-                            {hasDiscount && (
-                              <>
-                                <span className="text-xs font-medium text-[#7A7164] line-through tabular-nums">
-                                  ₹{prod.compare_at_price!.toLocaleString('en-IN')}
-                                </span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#9E2A2B]/10 text-[#9E2A2B]">
-                                  {discountPct}% OFF
-                                </span>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Quick Size Pills */}
-                          {prod.variants && prod.variants.length > 0 && (
-                            <div className="mt-2.5 flex flex-wrap gap-1.5">
-                              {prod.variants.slice(0, 6).map((v) => {
-                                const sizeLabel = v.size || 'Free Size';
-                                const isSelected = chosenSize === sizeLabel;
-                                return (
-                                  <button
-                                    key={v.id || sizeLabel}
-                                    type="button"
-                                    onClick={() =>
-                                      setSelectedSizes((prev) => ({ ...prev, [hotspot.id]: sizeLabel }))
-                                    }
-                                    className={`px-2.5 py-1 text-[11px] font-bold rounded-md border transition-colors cursor-pointer ${
-                                      isSelected
-                                        ? 'bg-[#161310] text-[#E6C770] border-[#161310]'
-                                        : 'bg-[#FFFDF9] text-[#2F2A24] border-[#C9B38C] hover:border-[#6B4E08]'
-                                    }`}
-                                  >
-                                    {sizeLabel}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* Direct Bag & Details CTA Row */}
-                          <div className="mt-3 flex items-center gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => handleAddPieceToBag(hotspot.id, prod)}
-                              disabled={addingId === hotspot.id}
-                              className="min-h-[38px] px-4 py-2 rounded-lg bg-[#161310] hover:bg-[#2B241C] text-[#FAF6F0] text-[11px] font-bold uppercase tracking-[0.15em] transition-colors cursor-pointer disabled:opacity-60"
-                            >
-                              {addingId === hotspot.id ? 'Adding...' : 'Add to Bag'}
-                            </button>
-                            <Link
-                              href={prod.slug ? `/product/${prod.slug}` : '/shop'}
-                              className="min-h-[38px] inline-flex items-center gap-1 px-3.5 py-2 rounded-lg border-[1.5px] border-[#C5B18C] bg-[#FFFDF9] hover:border-[#6B4E08] hover:bg-[#FAF4E8] text-[11px] font-bold uppercase tracking-[0.14em] text-[#3F352A] transition-colors"
-                            >
-                              <span>View Piece</span>
-                              <span aria-hidden="true">→</span>
-                            </Link>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Bottom Ensemble Total & One-Click Shop Bar */}
-            {validHotspots.length > 0 && (
-              <div className="px-6 sm:px-7 py-4 border-t-[1.5px] border-[#DFD0B5] bg-[#F5ECDC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B4E08]">
-                    {validHotspots.length > 1 ? 'Complete Ensemble Total' : 'Featured Ensemble Piece'}
-                  </span>
-                  <span className="font-display text-2xl font-bold text-[#11100E] tabular-nums">
-                    ₹{ensembleTotal.toLocaleString('en-IN')}
-                  </span>
-                </div>
-
-                {validHotspots.length > 1 ? (
-                  <button
-                    type="button"
-                    onClick={handleAddCompleteLook}
-                    disabled={addingEnsemble}
-                    className="min-h-[44px] px-5 py-2.5 rounded-lg bg-[#D8B454] hover:bg-[#E5C56B] text-[#14110E] border border-[#9E7820] text-xs font-bold uppercase tracking-[0.16em] transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap shadow-xs"
-                  >
-                    {addingEnsemble ? 'Adding Ensemble...' : 'Add Full Look to Bag'}
-                  </button>
-                ) : (
-                  <Link
-                    href="/shop"
-                    className="min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#D8B454] hover:bg-[#E5C56B] text-[#14110E] border border-[#9E7820] text-xs font-bold uppercase tracking-[0.16em] transition-colors whitespace-nowrap shadow-xs"
-                  >
-                    <span>Explore All Looks</span>
-                    <span aria-hidden="true">→</span>
-                  </Link>
-                )}
+            {totalLooks > 1 && onPrevLook && onNextLook && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={onPrevLook}
+                  aria-label="Previous look"
+                  className="h-8 w-8 rounded-full border border-[#C5B18C] bg-[#FFFDF9] hover:bg-[#171310] hover:text-[#F2D991] hover:border-[#171310] text-[#2F2A24] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+                >
+                  ←
+                </button>
+                <button
+                  type="button"
+                  onClick={onNextLook}
+                  aria-label="Next look"
+                  className="h-8 w-8 rounded-full border border-[#C5B18C] bg-[#FFFDF9] hover:bg-[#171310] hover:text-[#F2D991] hover:border-[#171310] text-[#2F2A24] flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
+                >
+                  →
+                </button>
               </div>
             )}
           </div>
+
+          <h3 className="font-display text-2xl sm:text-[32px] font-bold text-[#14110E] leading-[1.12]">
+            {look.name}
+          </h3>
+          <p className="mt-1.5 text-[13px] font-medium text-[#463E34] leading-relaxed">
+            {cleanCaption}
+          </p>
         </div>
+
+        {/* Synchronized Styled Pieces List */}
+        <div className="flex-1 divide-y divide-[#E7DAC3] overflow-y-auto max-h-[420px] px-6 sm:px-7">
+          {validHotspots.length === 0 ? (
+            <div className="py-10 text-center">
+              <p className="text-sm font-medium text-[#4A4238]">
+                Explore our signature couture collection tailored to this look.
+              </p>
+              <Link
+                href="/shop"
+                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#171310] text-[#FAF6F0] text-xs font-bold uppercase tracking-[0.16em]"
+              >
+                <span>Explore Collection</span>
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          ) : (
+            validHotspots.map((hotspot, idx) => {
+              const prod = hotspot.products!;
+              const img = prod.thumbnail_url || prod.images?.[0] || '/images/collection-kurtis.jpg';
+              const isSelected = activeHotspotId === hotspot.id;
+              const isHovered = hoveredHotspotId === hotspot.id;
+              const pinNumber = String(idx + 1).padStart(2, '0');
+              const hasDiscount = Boolean(prod.compare_at_price && prod.compare_at_price > prod.price);
+              const discountPct = hasDiscount
+                ? Math.round(((prod.compare_at_price! - prod.price) / prod.compare_at_price!) * 100)
+                : 0;
+              const chosenSize = getSelectedSize(hotspot.id, prod);
+
+              return (
+                <div
+                  key={hotspot.id}
+                  onMouseEnter={() => setHoveredHotspotId(hotspot.id)}
+                  onMouseLeave={() => setHoveredHotspotId(null)}
+                  onClick={() => setActiveHotspotId(hotspot.id)}
+                  className={`py-5 transition-colors duration-200 cursor-pointer ${
+                    isSelected || isHovered
+                      ? 'bg-[#FAF4E8]/85 -mx-6 sm:-mx-7 px-6 sm:px-7'
+                      : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="relative shrink-0">
+                      <Link
+                        href={prod.slug ? `/product/${prod.slug}` : '/shop'}
+                        onClick={(e) => e.stopPropagation()}
+                        className="block relative w-[76px] h-[98px] rounded-xl overflow-hidden border-[1.5px] border-[#CEBA96] bg-[#F3ECE0]"
+                      >
+                        <Image
+                          src={img}
+                          alt={prod.name}
+                          fill
+                          className="object-cover object-top"
+                          sizes="80px"
+                        />
+                      </Link>
+                      <span
+                        className={`absolute -top-2 -left-2 h-6 w-6 rounded-full border-2 border-[#FFFDF9] text-[10px] font-bold flex items-center justify-center shadow-xs transition-colors ${
+                          isSelected || isHovered
+                            ? 'bg-[#D8B454] text-[#14110E]'
+                            : 'bg-[#171310] text-[#F2D991]'
+                        }`}
+                      >
+                        {pinNumber}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <Link
+                        href={prod.slug ? `/product/${prod.slug}` : '/shop'}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-display text-[19px] font-bold text-[#14110E] hover:text-[#6B4E08] leading-snug line-clamp-2 transition-colors"
+                      >
+                        {prod.name}
+                      </Link>
+
+                      <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                        <span className="text-[15px] font-bold text-[#14110E] tabular-nums">
+                          ₹{prod.price.toLocaleString('en-IN')}
+                        </span>
+                        {hasDiscount && (
+                          <>
+                            <span className="text-xs font-medium text-[#7A7164] line-through tabular-nums">
+                              ₹{prod.compare_at_price!.toLocaleString('en-IN')}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#9E2A2B]/10 text-[#9E2A2B]">
+                              {discountPct}% OFF
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {prod.variants && prod.variants.length > 0 && (
+                        <div className="mt-2.5 flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+                          {prod.variants.slice(0, 6).map((v) => {
+                            const sizeLabel = v.size || 'Free Size';
+                            const sizeActive = chosenSize === sizeLabel;
+                            return (
+                              <button
+                                key={v.id || sizeLabel}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedSizes((prev) => ({ ...prev, [hotspot.id]: sizeLabel }))
+                                }
+                                className={`px-2.5 py-1 text-[11px] font-bold rounded-md border transition-colors cursor-pointer ${
+                                  sizeActive
+                                    ? 'bg-[#171310] text-[#F2D991] border-[#171310]'
+                                    : 'bg-[#FFFDF9] text-[#2F2A24] border-[#C9B38C] hover:border-[#6B4E08]'
+                                }`}
+                              >
+                                {sizeLabel}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex items-center gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => handleAddPieceToBag(hotspot.id, prod)}
+                          disabled={addingId === hotspot.id}
+                          className="min-h-[38px] px-4 py-2 rounded-lg bg-[#171310] hover:bg-[#2E261E] text-[#FAF6F0] text-[11px] font-bold uppercase tracking-[0.15em] transition-colors cursor-pointer disabled:opacity-60"
+                        >
+                          {addingId === hotspot.id ? 'Adding...' : 'Add to Bag'}
+                        </button>
+                        <Link
+                          href={prod.slug ? `/product/${prod.slug}` : '/shop'}
+                          className="min-h-[38px] inline-flex items-center gap-1 px-3.5 py-2 rounded-lg border-[1.5px] border-[#C5B18C] bg-[#FFFDF9] hover:border-[#6B4E08] hover:bg-[#FAF4E8] text-[11px] font-bold uppercase tracking-[0.14em] text-[#3F352A] transition-colors"
+                        >
+                          <span>Details</span>
+                          <span aria-hidden="true">→</span>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Ensemble Summary Footer */}
+        {validHotspots.length > 0 && (
+          <div className="px-6 sm:px-7 py-4 border-t border-[#E3D5BC] bg-[#F5ECDC] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="block text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B4E08]">
+                {validHotspots.length > 1 ? 'Complete Ensemble Total' : 'Featured Ensemble Piece'}
+              </span>
+              <span className="font-display text-2xl font-bold text-[#14110E] tabular-nums">
+                ₹{ensembleTotal.toLocaleString('en-IN')}
+              </span>
+            </div>
+
+            {validHotspots.length > 1 ? (
+              <button
+                type="button"
+                onClick={handleAddCompleteLook}
+                disabled={addingEnsemble}
+                className="min-h-[44px] px-5 py-2.5 rounded-lg bg-[#D8B454] hover:bg-[#E5C56B] text-[#14110E] border border-[#9E7820] text-xs font-bold uppercase tracking-[0.16em] transition-colors cursor-pointer disabled:opacity-60 whitespace-nowrap"
+              >
+                {addingEnsemble ? 'Adding Ensemble...' : 'Add Full Look to Bag'}
+              </button>
+            ) : (
+              <Link
+                href="/shop"
+                className="min-h-[44px] inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#D8B454] hover:bg-[#E5C56B] text-[#14110E] border border-[#9E7820] text-xs font-bold uppercase tracking-[0.16em] transition-colors whitespace-nowrap"
+              >
+                <span>Explore Collection</span>
+                <span aria-hidden="true">→</span>
+              </Link>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </motion.div>
   );
 }

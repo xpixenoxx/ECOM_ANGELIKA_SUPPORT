@@ -629,18 +629,31 @@ export default function HomePageClient({
         return (
           <section
             aria-labelledby="brand-story-heading"
-            className="relative overflow-x-clip bg-[#F3EEE8] border-t border-[#D8C7A8]"
+            className="relative overflow-x-clip bg-[#F7F1E7] border-t border-[#D8C7A8]"
           >
-            <div className="max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-12 py-12 sm:py-16">
+            {/* Subtle Editorial Atelier Background Monogram Whisper */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute -right-8 top-6 font-display text-[clamp(5.5rem,14vw,13rem)] font-bold uppercase tracking-[0.18em] text-[#D8C5A3]/30 leading-none hidden lg:block"
+            >
+              ATELIER
+            </div>
+
+            <div className="relative z-10 max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-14 py-14 sm:py-20 lg:py-24">
               <motion.div
-                className="grid lg:grid-cols-12 gap-8 lg:gap-12 items-center rounded-2xl border-[1.5px] border-[#C5B18C] bg-[#FFFDF9] p-6 sm:p-8 lg:p-10 shadow-[0_20px_54px_rgba(20,16,12,0.08)]"
+                className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center"
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
               >
-                {/* Left Editorial Portrait Frame */}
-                <div className="lg:col-span-5 relative">
-                  <div className="relative aspect-[4/5] rounded-xl overflow-hidden border-[1.5px] border-[#C5B18C] bg-[#161310] shadow-md">
+                {/* Left: Layered Sculptural Atelier Portrait Collage (Unboxed, True 1:1 Proportion) */}
+                <div className="lg:col-span-5 relative pb-10 sm:pb-12 pr-4 sm:pr-8">
+                  {/* Offset Architectural Antique-Gold Double Frame */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-4 left-4 right-0 bottom-6 border border-[#B8922E]/65"
+                  />
+                  <div className="relative aspect-square overflow-hidden border-[1.5px] border-[#BDA478] bg-[#EFE6D6] shadow-[0_24px_54px_rgba(24,18,10,0.14)]">
                     <Image
                       src={imageUrl}
                       alt={imageAlt}
@@ -649,58 +662,91 @@ export default function HomePageClient({
                       className="object-cover object-top"
                       sizes="(max-width: 1024px) 100vw, 42vw"
                     />
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#120F0D]/80 via-[#120F0D]/25 to-transparent"
-                    />
-                    <div className="absolute bottom-3.5 left-3.5 right-3.5 flex items-center justify-between gap-2 rounded-lg bg-[#161310]/85 backdrop-blur-md border border-[#D8B454]/45 px-3.5 py-2.5">
-                      <div>
-                        <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-[#E5C56B]">
-                          Founder &amp; Creative Director
-                        </span>
-                        <span className="font-display text-lg font-bold text-[#FAF6F0] leading-tight">
-                          Vidhya · Angelika Atelier
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#D8B454] shrink-0">
-                        Est. Heritage
-                      </span>
-                    </div>
                   </div>
+
+                  {/* Overlapping Floating Handmade-Paper Atelier Quote Card */}
+                  {storyQuote && (
+                    <figure className="relative sm:absolute sm:bottom-0 sm:right-0 mt-4 sm:mt-0 z-10 max-w-[330px] bg-[#FFFDF9] border-[1.5px] border-[#C5B18C] p-5 shadow-[0_18px_40px_rgba(24,18,10,0.12)]">
+                      <span
+                        aria-hidden="true"
+                        className="font-display text-3xl leading-none text-[#B8922E] block -mb-2"
+                      >
+                        “
+                      </span>
+                      <blockquote className="font-display italic text-[17px] sm:text-[18px] font-semibold text-[#1E1914] leading-[1.35]">
+                        {storyQuote.replace(/^["“]|["”]$/g, '')}
+                      </blockquote>
+                      <figcaption className="mt-3 pt-2.5 border-t border-[#E6D9C2] flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.2em] text-[#6B4E08]">
+                        <span>Vidhya · Founder</span>
+                        <span>Angelika Atelier</span>
+                      </figcaption>
+                    </figure>
+                  )}
                 </div>
 
-                {/* Right Editorial Narrative */}
+                {/* Right: Airy Magazine-Grade Editorial Narrative + Artisanal Provenance Strip */}
                 <div className="lg:col-span-7 flex flex-col justify-center">
-                  <div className="inline-flex items-center gap-2.5 mb-3">
-                    <span className="h-[1.5px] w-7 bg-[#9E7820]" aria-hidden="true" />
-                    <span className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#5C4308]">
-                      {badge}
+                  <div className="inline-flex items-center gap-3 mb-4">
+                    <span className="h-[1.5px] w-9 bg-[#9E7820]" aria-hidden="true" />
+                    <span className="text-[11px] font-bold uppercase tracking-[0.26em] text-[#5C4308]">
+                      {badge} · Heritage Craft
                     </span>
                   </div>
 
                   <h2
                     id="brand-story-heading"
-                    className="font-display text-3xl sm:text-4xl lg:text-[46px] font-bold leading-[1.1] text-[#11100E] mb-5"
+                    className="font-display text-4xl sm:text-5xl lg:text-[56px] font-semibold leading-[1.06] tracking-[-0.01em] text-[#171310] mb-6"
                   >
                     {headingPrefix && `${headingPrefix} `}
-                    {headingHighlight && <span className="italic text-[#7A5B10]">{headingHighlight}</span>}
+                    {headingHighlight && <span className="italic text-[#7A580D]">{headingHighlight}</span>}
                     {headingSuffix}
                   </h2>
 
-                  <div className="space-y-4 text-[#2F2A24] text-[15px] sm:text-base font-medium leading-[1.7]">
+                  <div className="space-y-4 text-[#342D26] text-[15.5px] sm:text-[16.5px] font-normal leading-[1.82] max-w-2xl">
                     {paragraphs.map((p: string, idx: number) => (
-                      <p key={idx}>{p}</p>
+                      <p
+                        key={idx}
+                        className={
+                          idx === 0
+                            ? 'first-letter:font-display first-letter:text-5xl first-letter:font-bold first-letter:text-[#7A580D] first-letter:float-left first-letter:mr-2.5 first-letter:leading-[0.88] first-letter:mt-1'
+                            : undefined
+                        }
+                      >
+                        {p}
+                      </p>
                     ))}
                   </div>
 
-                  {storyQuote && (
-                    <blockquote className="mt-6 pl-4 border-l-2 border-[#B8922E] font-display italic text-lg sm:text-xl font-semibold text-[#4E3808] leading-snug">
-                      {storyQuote.replace(/^["“]|["”]$/g, '')}
-                    </blockquote>
-                  )}
+                  {/* 3-Pillar Artisanal Provenance Hairline Strip */}
+                  <div className="mt-8 py-5 border-y border-[#D4C2A1] grid grid-cols-3 gap-4 max-w-xl">
+                    <div>
+                      <span className="font-display text-2xl sm:text-[26px] font-bold text-[#171310] leading-none block">
+                        100%
+                      </span>
+                      <span className="mt-1 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6B4E08]">
+                        Handloom Silks
+                      </span>
+                    </div>
+                    <div className="border-l border-[#D4C2A1] pl-4">
+                      <span className="font-display text-2xl sm:text-[26px] font-bold text-[#171310] leading-none block">
+                        Karigar
+                      </span>
+                      <span className="mt-1 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6B4E08]">
+                        Master Weavers
+                      </span>
+                    </div>
+                    <div className="border-l border-[#D4C2A1] pl-4">
+                      <span className="font-display text-2xl sm:text-[26px] font-bold text-[#171310] leading-none block">
+                        Bespoke
+                      </span>
+                      <span className="mt-1 block text-[10.5px] font-bold uppercase tracking-[0.16em] text-[#6B4E08]">
+                        Couture Drape
+                      </span>
+                    </div>
+                  </div>
 
                   <motion.div
-                    className="mt-7 pt-6 border-t border-[#E5D7BF] flex flex-wrap gap-3"
+                    className="mt-8 flex flex-wrap items-center gap-5"
                     initial={{ opacity: 0, y: 12 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
@@ -708,7 +754,7 @@ export default function HomePageClient({
                   >
                     <Link
                       href={primaryCtaLink}
-                      className="min-h-[46px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-[#161310] hover:bg-[#2B241C] text-[#FAF6F0] text-xs font-bold uppercase tracking-[0.18em] transition-colors"
+                      className="min-h-[48px] inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-[#171310] hover:bg-[#2E261E] text-[#FAF6F0] text-xs font-bold uppercase tracking-[0.2em] transition-colors"
                     >
                       <span>{primaryCtaText}</span>
                       <span aria-hidden="true">→</span>
@@ -717,14 +763,10 @@ export default function HomePageClient({
                       href={whatsappLink}
                       target={isExternalWa ? '_blank' : undefined}
                       rel={isExternalWa ? 'noopener noreferrer' : undefined}
-                      className={`min-h-[46px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
-                        isExternalWa
-                          ? 'bg-[#0D6E3B] hover:bg-[#09532C] text-[#FFFFFF] shadow-xs'
-                          : 'border-[1.5px] border-[#BDA478] bg-[#FAF4E8] hover:bg-[#F3E9D4] text-[#3F352A]'
-                      }`}
+                      className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-[#5C4308] hover:text-[#171310] border-b-[1.5px] border-[#B8922E] pb-1 transition-colors"
                     >
                       {isExternalWa && <SocialIcon platform="whatsapp" size="sm" />}
-                      <span>{isExternalWa ? whatsappCtaText : 'Message Our Stylists'}</span>
+                      <span>{isExternalWa ? whatsappCtaText : 'Private Styling with Vidhya'}</span>
                     </Link>
                   </motion.div>
                 </div>
@@ -1021,14 +1063,16 @@ export default function HomePageClient({
             </Link>
           </motion.div>
 
-          <StaggerContainer variant="fast" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StaggerContainer variant="fast" className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-5 items-start">
             {displayPosts.length > 0 ? (
               displayPosts.map((post: any, i: number) => (
                 <StaggerItem
                   key={post.id || i}
                   delay={i * 0.05}
                   variant="scale"
-                  className="aspect-[4/5] relative overflow-hidden rounded-xl border-[1.5px] border-[#CEBA96] bg-[#161310] group shadow-sm"
+                  className={`aspect-[4/5] relative overflow-hidden border-[1.5px] border-[#CEBA96] bg-[#EFE6D6] group shadow-[0_12px_30px_rgba(24,18,10,0.08)] ${
+                    i % 2 === 1 ? 'md:mt-6' : ''
+                  }`}
                 >
                   <Image
                     src={post.image_url || post.image || '/images/placeholder.jpg'}
@@ -1037,10 +1081,10 @@ export default function HomePageClient({
                     className="object-cover object-top transition-transform duration-700 group-hover:scale-105"
                     sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 25vw"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#120F0D]/75 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3.5">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#171310]/85 via-[#171310]/35 to-transparent pt-12 pb-3.5 px-3.5 transition-opacity duration-300">
                     <Link
                       href={post.productLink || post.link || '/shop'}
-                      className="w-full py-2.5 px-3.5 rounded-lg bg-[#FFFDF9]/95 hover:bg-[#D8B454] text-[#14110E] text-[11px] font-bold uppercase tracking-[0.15em] text-center shadow-md transition-colors"
+                      className="block w-full py-2.5 px-3 bg-[#FFFDF9]/95 hover:bg-[#D8B454] text-[#14110E] text-[10.5px] font-bold uppercase tracking-[0.16em] text-center shadow-sm transition-colors"
                     >
                       {post.productName ? `Shop · ${post.productName}` : 'Shop This Look →'}
                     </Link>

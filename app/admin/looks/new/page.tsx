@@ -422,18 +422,15 @@ export default function LookNewPage() {
                 </div>
               </Card>
 
-              {/* Image Preview (Portrait Editorial Framing matching live Storefront) */}
+              {/* Image Preview (Exact Uncropped Natural Proportion matching Storefront) */}
               {look.lifestyle_image_url && (
-                <Card className="p-0 overflow-hidden max-w-md mx-auto">
-                  <div className="relative aspect-[4/5] bg-[#161310]">
-                    <Image
-                      src={look.lifestyle_image_url}
-                      alt={look.lifestyle_image_alt || look.name || 'Look preview'}
-                      fill
-                      unoptimized
-                      className="object-cover object-top"
-                    />
-                  </div>
+                <Card className="p-4 bg-[#EFE6D6] border border-[#C5B18C] flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={look.lifestyle_image_url}
+                    alt={look.lifestyle_image_alt || look.name || 'Look preview'}
+                    className="block max-h-[540px] w-auto max-w-full h-auto rounded-lg shadow-md"
+                  />
                 </Card>
               )}
             </TabsContent>
@@ -441,20 +438,18 @@ export default function LookNewPage() {
             {/* Hotspots Tab */}
             <TabsContent value="hotspots" className="max-w-7xl mx-auto">
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Left: Portrait Editorial Image with Hotspots */}
+                {/* Left: Exact Uncropped Portrait Image with Zero-Drift Hotspots */}
                 <div className="lg:col-span-7">
-                  <Card className="p-0 overflow-hidden border-[1.5px] border-[#C5B18C]">
-                    <div className="relative aspect-[4/5] max-h-[680px] mx-auto bg-[#161310]">
+                  <Card className="p-4 border-[1.5px] border-[#C5B18C] bg-[#EFE6D6] flex flex-col items-center justify-center min-h-[420px]">
                       {look.lifestyle_image_url ? (
                         <>
-                          <div ref={imageRef} className="relative w-full h-full bg-[#161310]">
-                            <Image
+                          <div ref={imageRef} className="relative inline-block max-w-full rounded-xl overflow-hidden bg-[#161310] shadow-md">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
                               ref={imageElementRef}
                               src={look.lifestyle_image_url}
                               alt={look.lifestyle_image_alt || look.name || 'Look preview'}
-                              fill
-                              unoptimized
-                              className="object-cover object-top"
+                              className="block max-h-[600px] w-auto max-w-full h-auto select-none"
                             />
 
                             {/* Hotspot pins */}
@@ -486,11 +481,10 @@ export default function LookNewPage() {
                           </div>
                         </>
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                        <div className="flex items-center justify-center py-20 text-[#5A4F42] text-sm font-medium">
                           <p>Add an image URL in the Details tab to start placing hotspots</p>
                         </div>
                       )}
-                    </div>
                   </Card>
                 </div>
 

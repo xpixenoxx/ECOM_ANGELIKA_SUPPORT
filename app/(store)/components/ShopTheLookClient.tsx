@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { ShopTheLook, type LookWithHotspots } from '@/components/composite/ShopTheLook';
 
@@ -9,7 +9,6 @@ function normalizeLookInput(config: any): LookWithHotspots | null {
   const imageUrl = config.lifestyle_image_url || config.cover_image;
   if (!imageUrl) return null;
 
-  // Real DB LookData or LookWithHotspots shape (supports 0 or more hotspots)
   if (Array.isArray(config.look_hotspots)) {
     return {
       id: config.id || 'db-look',
@@ -60,7 +59,6 @@ function normalizeLookInput(config: any): LookWithHotspots | null {
     };
   }
 
-  // LookData `{ cover_image, products }` shape
   if (Array.isArray(config.products)) {
     return {
       id: config.id || 'db-look',
@@ -87,7 +85,6 @@ function normalizeLookInput(config: any): LookWithHotspots | null {
     };
   }
 
-  // CMS site-content fallback look (displays curated look; links cleanly to product page)
   const parsedPrice = Number(String(config.productPrice || 0).replace(/[^0-9.]/g, ''));
   const cleanTitle = (config.title || 'Festive Elegance')
     .replace(/elegancesss/gi, 'Elegance')
@@ -107,8 +104,8 @@ function normalizeLookInput(config: any): LookWithHotspots | null {
     look_hotspots: [
       {
         id: 'hotspot-1',
-        x_percent: Number(config.pinX ?? 47),
-        y_percent: Number(config.pinY ?? 64),
+        x_percent: Number(config.pinX ?? 50),
+        y_percent: Number(config.pinY ?? 62),
         display_order: 1,
         products: {
           id: config.productSlug || 'featured-look',
@@ -139,15 +136,17 @@ export function ShopTheLookClient({
   initialLooks?: any[];
   onActiveLookChange?: (lookName: string) => void;
 }) {
-  const normalizedList: LookWithHotspots[] = (
-    Array.isArray(initialLooks) && initialLooks.length > 0
-      ? initialLooks
-      : initialLook
-        ? [initialLook]
-        : []
-  )
-    .map(normalizeLookInput)
-    .filter((item): item is LookWithHotspots => item !== null);
+  const normalizedList = useMemo<LookWithHotspots[]>(() => {
+    const raw =
+      Array.isArray(initialLooks) && initialLooks.length > 0
+        ? initialLooks
+        : initialLook
+          ? [initialLook]
+          : [];
+    return raw
+      .map(normalizeLookInput)
+      .filter((item): item is LookWithHotspots => item !== null);
+  }, [initialLook, initialLooks]);
 
   const [looksList, setLooksList] = useState<LookWithHotspots[]>(normalizedList);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -181,7 +180,7 @@ export function ShopTheLookClient({
     return () => {
       cancelled = true;
     };
-  }, [initialLook, initialLooks]);
+  }, [normalizedList]);
 
   const activeLook = looksList[activeIndex] || looksList[0] || null;
 
@@ -216,13 +215,13 @@ export function ShopTheLookClient({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Architectural Numbered Lookbook Switcher with Mini Portrait Previews */}
+    <div className="max-w-[1440px] mx-auto space-y-5">
+      {/* MOBILE / TABLET: Tactile Story-Card Look Selector */}
       {looksList.length > 1 && (
         <div
           role="tablist"
-          aria-label="Curated Couture Looks"
-          className="flex items-stretch justify-start sm:justify-center gap-3 overflow-x-auto pb-1 no-scrollbar"
+          aria-label="Curated Runway Looks"
+          className="flex lg:hidden items-stretch gap-3 overflow-x-auto pb-1 no-scrollbar"
         >
           {looksList.map((item, idx) => {
             const isSelected = idx === activeIndex;
@@ -234,13 +233,13 @@ export function ShopTheLookClient({
                 role="tab"
                 aria-selected={isSelected}
                 onClick={() => setActiveIndex(idx)}
-                className={`group shrink-0 flex items-center gap-3 pl-2 pr-4 py-2 rounded-xl border-[1.5px] transition-all duration-200 cursor-pointer text-left ${
+                className={`shrink-0 flex items-center gap-3 pl-2 pr-4 py-2 rounded-xl border-[1.5px] transition-all cursor-pointer text-left ${
                   isSelected
-                    ? 'bg-[#161310] text-[#FAF6F0] border-[#161310] shadow-[0_10px_24px_rgba(22,19,16,0.18)]'
-                    : 'bg-[#FFFDF9] text-[#2F2A24] border-[#C9B38C] hover:border-[#8C6A16] hover:bg-[#FAF4E8]'
+                    ? 'bg-[#171310] text-[#FAF6F0] border-[#171310] shadow-md'
+                    : 'bg-[#FFFDF9] text-[#2F2A24] border-[#C9B38C]'
                 }`}
               >
-                <div className="relative h-11 w-9 rounded-lg overflow-hidden shrink-0 border border-[#D8B454]/40 bg-[#24201B]">
+                <div className="relative h-11 w-9 rounded-lg overflow-hidden shrink-0 border border-[#D8B454]/45">
                   <Image
                     src={item.lifestyle_image_url}
                     alt=""
@@ -250,19 +249,11 @@ export function ShopTheLookClient({
                     sizes="36px"
                   />
                 </div>
-                <div className="min-w-0">
-                  <span
-                    className={`block text-[10px] font-bold uppercase tracking-[0.2em] ${
-                      isSelected ? 'text-[#E5C56B]' : 'text-[#7A5B10]'
-                    }`}
-                  >
+                <div>
+                  <span className={`block text-[10px] font-bold uppercase tracking-[0.2em] ${isSelected ? 'text-[#E6C770]' : 'text-[#7A5B10]'}`}>
                     Look {num}
                   </span>
-                  <span
-                    className={`block font-display text-base font-bold leading-tight whitespace-nowrap ${
-                      isSelected ? 'text-[#FAF6F0]' : 'text-[#11100E]'
-                    }`}
-                  >
+                  <span className={`block font-display text-base font-bold leading-tight whitespace-nowrap ${isSelected ? 'text-[#FAF6F0]' : 'text-[#14110E]'}`}>
                     {item.name}
                   </span>
                 </div>
@@ -272,14 +263,79 @@ export function ShopTheLookClient({
         </div>
       )}
 
-      <ShopTheLook
-        key={activeLook.id}
-        look={activeLook}
-        lookIndex={activeIndex}
-        totalLooks={looksList.length}
-        onPrevLook={handlePrevLook}
-        onNextLook={handleNextLook}
-      />
+      {/* DESKTOP: Living Interactive Couture Runway Accordion Deck (All Looks Live on Stage Together!) */}
+      <div className="flex flex-col lg:flex-row items-stretch gap-4">
+        {looksList.map((item, idx) => {
+          const isSelected = idx === activeIndex;
+          const num = String(idx + 1).padStart(2, '0');
+          const pieceCount = item.look_hotspots.filter((h) => h.products !== null).length;
+
+          if (isSelected) {
+            return (
+              <div key={item.id} className="flex-1 min-w-0">
+                <ShopTheLook
+                  look={item}
+                  lookIndex={activeIndex}
+                  totalLooks={looksList.length}
+                  onPrevLook={handlePrevLook}
+                  onNextLook={handleNextLook}
+                />
+              </div>
+            );
+          }
+
+          /* Collapsed Live Runway Curtain Panel (Desktop) — Click to Glide Open Into Spotlight */
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveIndex(idx)}
+              aria-label={`Open Runway Look ${num}: ${item.name}`}
+              className="hidden lg:flex group relative w-[164px] xl:w-[184px] shrink-0 overflow-hidden rounded-2xl border-[1.5px] border-[#C5B18C] bg-[#1A1612] text-left transition-all duration-500 hover:w-[208px] hover:border-[#9E7820] shadow-[0_14px_34px_rgba(24,18,10,0.1)] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9E7820]"
+            >
+              <Image
+                src={item.lifestyle_image_url}
+                alt={item.name}
+                fill
+                unoptimized
+                className="object-cover object-top transition-transform duration-700 group-hover:scale-105 opacity-90 group-hover:opacity-100"
+                sizes="210px"
+              />
+              {/* Warm silk editorial scrim */}
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-gradient-to-t from-[#14110E]/92 via-[#14110E]/35 to-[#14110E]/55 group-hover:via-[#14110E]/20 transition-colors duration-300"
+              />
+
+              {/* Top Index Pill */}
+              <div className="relative z-10 flex flex-col justify-between w-full p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-display italic text-2xl font-bold text-[#F2D991] leading-none">
+                    {num}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-[#FAF6F0]/15 backdrop-blur-xs border border-[#E6C770]/45 text-[9.5px] font-bold uppercase tracking-wider text-[#FAF6F0]">
+                    {pieceCount} {pieceCount === 1 ? 'Piece' : 'Pieces'}
+                  </span>
+                </div>
+
+                {/* Bottom Runway Chapter Title + Step-In Cue */}
+                <div className="pt-8">
+                  <span className="block text-[9.5px] font-bold uppercase tracking-[0.22em] text-[#E6C770] mb-1">
+                    Runway Look
+                  </span>
+                  <span className="block font-display text-xl font-bold text-[#FAF6F0] leading-tight">
+                    {item.name}
+                  </span>
+                  <span className="mt-3 inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-[#F2D991] group-hover:gap-2.5 transition-all">
+                    <span>Open Look</span>
+                    <span aria-hidden="true">→</span>
+                  </span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

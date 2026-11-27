@@ -482,7 +482,7 @@ export interface FooterContent {
   showWatermark?: boolean;
   watermarkText?: string;
   watermarkSubtitle?: string;
-  backgroundPattern?: 'brocade-grid' | 'silk-loom' | 'velvet';
+  backgroundPattern?: 'champagne-grid' | 'blush-brocade' | 'ivory-loom' | 'obsidian-grid' | 'brocade-grid' | 'silk-loom' | 'velvet';
   tagline: string;
   aboutText?: string;
   readMoreLabel?: string;
