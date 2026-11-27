@@ -559,4 +559,42 @@ dialog::backdrop {
   scrollbar-width: none !important;
 }
 
+/* --- Modern Web: Progressive Cross-Document View Transitions --- */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
+/* --- Atelier Silk Curtain Fine Drape Micro-Weave & No-JS Fail-Safe --- */
+@keyframes atelierCurtainFailsafe {
+  0%, 88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.atelier-curtain-root[data-curtain-phase="holding"] {
+  animation: atelierCurtainFailsafe 2.2s ease-out forwards;
+}
+
+.atelier-silk-weave::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(216, 180, 84, 0.25) 0px,
+    rgba(216, 180, 84, 0.25) 1px,
+    transparent 1px,
+    transparent 28px
+  );
+}
+
 

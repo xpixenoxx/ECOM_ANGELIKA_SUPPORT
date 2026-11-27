@@ -4,6 +4,9 @@ const {
   contentBlocksStore,
   profilesStore,
   mockCreateUser,
+  mockAuthAdminCreateUser,
+  mockGenerateLink,
+  mockVerifyOtp,
   mockUpdateUserById,
   mockListUsers,
   mockSendEmail,
@@ -11,6 +14,9 @@ const {
   contentBlocksStore: new Map<string, any>(),
   profilesStore: new Map<string, any>(),
   mockCreateUser: vi.fn(),
+  mockAuthAdminCreateUser: vi.fn(),
+  mockGenerateLink: vi.fn(),
+  mockVerifyOtp: vi.fn(),
   mockUpdateUserById: vi.fn(),
   mockListUsers: vi.fn(),
   mockSendEmail: vi.fn(),
@@ -21,6 +27,14 @@ vi.mock('@/lib/email/resend', () => ({
   isResendConfigured: () => false,
 }));
 
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => ({
+    auth: {
+      verifyOtp: (...args: any[]) => mockVerifyOtp(...args),
+    },
+  }),
+}));
+
 vi.mock('@/lib/supabase/admin', () => ({
   adminCreateUser: (...args: any[]) => mockCreateUser(...args),
   supabaseAdmin: {
@@ -28,6 +42,8 @@ vi.mock('@/lib/supabase/admin', () => ({
       admin: {
         listUsers: (...args: any[]) => mockListUsers(...args),
         updateUserById: (...args: any[]) => mockUpdateUserById(...args),
+        createUser: (...args: any[]) => mockAuthAdminCreateUser(...args),
+        generateLink: (...args: any[]) => mockGenerateLink(...args),
       },
     },
     from: vi.fn((table: string) => {
@@ -39,6 +55,25 @@ vi.mock('@/lib/supabase/admin', () => ({
               data: profilesStore.get(val) ?? null,
               error: null,
             }),
+          })),
+          ilike: vi.fn((_col: string, val: string) => ({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: profilesStore.get(val.toLowerCase()) ?? null,
+              error: null,
+            }),
+          })),
+          upsert: vi.fn(async (row: any) => {
+            if (row?.email) profilesStore.set(String(row.email).toLowerCase(), row);
+            return { error: null };
+          }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          update: vi.fn(() => ({
+            is: vi.fn(() => ({
+              ilike: vi.fn().mockResolvedValue({ error: null }),
+            })),
           })),
         };
       }
@@ -84,6 +119,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 import {
   sendSignupOtp,
   verifySignupOtp,
+  sendLoginOtp,
+  verifyLoginOtpAndSignIn,
   sendPasswordResetOtp,
   verifyPasswordResetOtp,
 } from '@/lib/actions/auth-otp';
@@ -194,5 +231,44 @@ describe('OTP Authentication Hardening', () => {
     expect(verified.success).toBe(true);
     expect(mockUpdateUserById).toHaveBeenCalledWith('user-77', { password: 'NewSecurePassword123!' });
     expect(contentBlocksStore.get('otp_reset_ok_example_com')).toBeUndefined();
+  });
+
+  it('sends hashed login OTP and mints a persistent session via magiclink verification', async () => {
+    profilesStore.set('patron@example.com', {
+      id: 'user-patron-1',
+      email: 'patron@example.com',
+      full_name: 'Ananya',
+    });
+    mockSendEmail.mockResolvedValue({ success: false });
+    mockGenerateLink.mockResolvedValue({
+      data: { properties: { hashed_token: 'hash-tok-123' } },
+      error: null,
+    });
+    mockVerifyOtp.mockResolvedValue({
+      data: { user: { id: 'user-patron-1', email: 'patron@example.com' } },
+      error: null,
+    });
+
+    const sent = await sendLoginOtp('patron@example.com');
+    expect(sent.success).toBe(true);
+    expect(sent.devCode).toMatch(/^\d{6}$/);
+    const stored = contentBlocksStore.get('otp_login_patron_example_com');
+    expect(stored?.is_active).toBe(false);
+    expect(stored?.content?.otp).toBeUndefined();
+
+    const verified = await verifyLoginOtpAndSignIn({
+      email: 'patron@example.com',
+      otp: sent.devCode!,
+    });
+    expect(verified.success).toBe(true);
+    expect(mockGenerateLink).toHaveBeenCalledWith({
+      type: 'magiclink',
+      email: 'patron@example.com',
+    });
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      token_hash: 'hash-tok-123',
+      type: 'magiclink',
+    });
+    expect(contentBlocksStore.get('otp_login_patron_example_com')).toBeUndefined();
   });
 });

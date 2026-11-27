@@ -100,6 +100,9 @@ export default async function StoreLayout({ children }: { children: ReactNode })
 
   return (
     <StoreChrome
+      logoUrl={logoUrl}
+      brandName={brandName}
+      brandTagline={brandTagline}
       header={
         <>
           <AnnouncementBar

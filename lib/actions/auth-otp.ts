@@ -611,3 +611,282 @@ export async function serverLoginAction(
     return { success: false, error: err?.message || 'Authentication failed' };
   }
 }
+
+/**
+ * 5. Action: Generate and send 6-digit passwordless Login OTP to user email.
+ * Works seamlessly for returning password users, checkout-OTP-created accounts,
+ * and first-time visitors (unified passwordless sign-in / instant activation).
+ */
+export async function sendLoginOtp(
+  email: string
+): Promise<{ success: boolean; message: string; devCode?: string; emailConfigured: boolean }> {
+  try {
+    const cleanEmail = (email || '').trim().toLowerCase();
+
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return { success: false, message: 'Please enter a valid email address.', emailConfigured: false };
+    }
+
+    const rate = checkRateLimit(
+      `otp_send_login:${cleanEmail}`,
+      MAX_SEND_REQUESTS_PER_WINDOW,
+      RATE_WINDOW_MS
+    );
+    if (!rate.allowed) {
+      return {
+        success: false,
+        message: `Too many sign-in code requests. Please try again in ${Math.ceil(rate.retryAfterSeconds / 60)} minutes.`,
+        emailConfigured: isResendConfigured(),
+      };
+    }
+
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+
+    const greetingName = profile?.full_name || 'Valued Patron';
+    const otp = randomInt(100000, 1000000).toString();
+    const otpHash = hashOtp(cleanEmail, otp);
+    const key = `otp_login_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
+    const expiresAt = Date.now() + OTP_TTL_MS;
+
+    await supabaseAdmin
+      .from('content_blocks')
+      .upsert(
+        {
+          key,
+          type: 'custom',
+          title: `Login OTP for ${cleanEmail}`,
+          content: {
+            otpHash,
+            email: cleanEmail,
+            type: 'login',
+            expiresAt,
+            attempts: 0,
+          } as unknown as Json,
+          settings: { kind: 'auth_otp_login' } as unknown as Json,
+          is_active: false,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'key' }
+      );
+
+    const emailHtml = generateOtpEmailHtml({
+      title: 'Your Instant Sign-In Code',
+      greetingName,
+      description:
+        'Enter this 6-digit security code on the Angelika Fashions sign-in page to access your orders, saved addresses, and wishlist — no password required.',
+      otp,
+      actionNote:
+        'This sign-in code expires in 10 minutes. If you did not request it, you can safely ignore this email.',
+    });
+
+    const resendResult = await sendEmailViaResend({
+      to: cleanEmail,
+      subject: `${otp} is your Angelika Fashions sign-in code`,
+      html: emailHtml,
+      text: `Namaste ${greetingName},\n\nYour Angelika Fashions sign-in code is: ${otp}\n\nThis code is valid for 10 minutes.`,
+    });
+
+    if (resendResult.success) {
+      return {
+        success: true,
+        message: `6-digit sign-in code sent to ${cleanEmail}.`,
+        emailConfigured: true,
+      };
+    }
+
+    console.warn(`[sendLoginOtp] Resend delivery unfulfilled for ${cleanEmail}:`, resendResult.error);
+
+    if (isProductionEnv()) {
+      await supabaseAdmin.from('content_blocks').delete().eq('key', key);
+      return {
+        success: false,
+        message: 'Email delivery service is currently unavailable. Please sign in with your password instead.',
+        emailConfigured: false,
+      };
+    }
+
+    return {
+      success: true,
+      message: resendResult.error
+        ? `Notice: ${resendResult.error}`
+        : 'Sign-in code generated (local dev mode).',
+      devCode: otp,
+      emailConfigured: false,
+    };
+  } catch (err: any) {
+    console.error('sendLoginOtp error:', err);
+    return {
+      success: false,
+      message: 'Failed to send sign-in code. Please try again.',
+      emailConfigured: false,
+    };
+  }
+}
+
+/**
+ * 6. Action: Verify 6-digit Login OTP and mint a persistent Supabase Auth session cookie.
+ * Automatically activates accounts if needed and unifies any prior guest orders under this email.
+ */
+export async function verifyLoginOtpAndSignIn(data: {
+  email: string;
+  otp: string;
+}): Promise<{ success: boolean; isNewAccount?: boolean; message: string }> {
+  try {
+    const cleanEmail = (data.email || '').trim().toLowerCase();
+    const cleanOtp = (data.otp || '').replace(/\D/g, '').trim();
+
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail) || !/^\d{6}$/.test(cleanOtp)) {
+      return { success: false, message: 'Please enter your email and the 6-digit verification code.' };
+    }
+
+    const rate = checkRateLimit(
+      `otp_verify_login:${cleanEmail}`,
+      MAX_VERIFY_ATTEMPTS_PER_WINDOW,
+      RATE_WINDOW_MS
+    );
+    if (!rate.allowed) {
+      return { success: false, message: 'Too many verification attempts. Please try again later.' };
+    }
+
+    const key = `otp_login_${cleanEmail.replace(/[^a-z0-9_]/g, '_')}`;
+    const { data: record, error: fetchErr } = await supabaseAdmin
+      .from('content_blocks')
+      .select('id, content')
+      .eq('key', key)
+      .maybeSingle();
+
+    if (fetchErr || !record) {
+      return { success: false, message: 'Sign-in code expired or not found. Please request a new code.' };
+    }
+
+    const content = (
+      record.content && typeof record.content === 'object' && !Array.isArray(record.content)
+        ? record.content
+        : {}
+    ) as Record<string, any>;
+
+    if (Date.now() > Number(content['expiresAt'] || 0)) {
+      await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+      return { success: false, message: 'Sign-in code has expired. Please request a new code.' };
+    }
+
+    const currentAttempts = Number(content['attempts'] || 0);
+    if (currentAttempts >= MAX_OTP_ATTEMPTS) {
+      await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+      return { success: false, message: 'Maximum verification attempts exceeded. Please request a new code.' };
+    }
+
+    const storedHash = String(content['otpHash'] || '');
+    const submittedHash = hashOtp(cleanEmail, cleanOtp);
+    if (!timingSafeHexEqual(storedHash, submittedHash)) {
+      const nextAttempts = currentAttempts + 1;
+      if (nextAttempts >= MAX_OTP_ATTEMPTS) {
+        await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+        return { success: false, message: 'Maximum verification attempts exceeded. Please request a new code.' };
+      }
+      await supabaseAdmin
+        .from('content_blocks')
+        .update({ content: { ...content, attempts: nextAttempts } as unknown as Json })
+        .eq('id', record.id);
+      return { success: false, message: 'Incorrect verification code. Please check your email and try again.' };
+    }
+
+    // Consume OTP immediately (strict one-time use)
+    await supabaseAdmin.from('content_blocks').delete().eq('id', record.id);
+
+    let isNewAccount = false;
+    let userId: string | null = null;
+
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .ilike('email', cleanEmail)
+      .maybeSingle();
+
+    if (existingProfile?.id) {
+      userId = existingProfile.id;
+    } else {
+      const randomPassword = `Af!${hmacSha256Hex(
+        `${Date.now()}:${randomInt(100000, 999999)}`,
+        cleanEmail
+      ).slice(0, 24)}9z`;
+
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: cleanEmail,
+        password: randomPassword,
+        email_confirm: true,
+        user_metadata: {
+          role: 'customer',
+          created_via: 'login_otp',
+        },
+      });
+
+      if (createErr && !createErr.message.toLowerCase().includes('already')) {
+        return { success: false, message: createErr.message || 'Could not initialize your account.' };
+      }
+      if (created?.user?.id) {
+        isNewAccount = true;
+        userId = created.user.id;
+      }
+    }
+
+    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: cleanEmail,
+    });
+
+    const tokenHash = linkData?.properties?.hashed_token;
+    if (linkErr || !tokenHash) {
+      console.error('[verifyLoginOtpAndSignIn] generateLink failed:', linkErr?.message);
+      return {
+        success: false,
+        message: 'Code verified, but session sign-in could not complete. Please try again.',
+      };
+    }
+
+    const { createClient } = await import('@/lib/supabase/server');
+    const serverSupabase = createClient();
+    const { data: verifiedSession, error: verifyErr } = await serverSupabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: 'magiclink',
+    });
+
+    if (verifyErr || !verifiedSession?.user) {
+      console.error('[verifyLoginOtpAndSignIn] verifyOtp failed:', verifyErr?.message);
+      return {
+        success: false,
+        message: 'Code verified, but persistent sign-in could not be established. Please try again.',
+      };
+    }
+
+    const finalUserId = verifiedSession.user.id || userId;
+    if (finalUserId) {
+      await supabaseAdmin.from('profiles').upsert({
+        id: finalUserId,
+        email: cleanEmail,
+        role: 'customer',
+      });
+
+      await supabaseAdmin
+        .from('orders')
+        .update({ user_id: finalUserId })
+        .is('user_id', null)
+        .ilike('email', cleanEmail);
+    }
+
+    return {
+      success: true,
+      isNewAccount,
+      message: isNewAccount
+        ? 'Welcome to Angelika Fashions! Your account is active and stays signed in.'
+        : 'Welcome back! Signed in securely.',
+    };
+  } catch (err: any) {
+    console.error('verifyLoginOtpAndSignIn error:', err);
+    return { success: false, message: 'Verification failed. Please try again.' };
+  }
+}
