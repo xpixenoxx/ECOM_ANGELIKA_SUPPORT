@@ -3,10 +3,7 @@ import { Footer } from '@/components/composite/Footer';
 import { AnnouncementBar } from '@/components/composite/AnnouncementBar';
 import { WhatsAppFloatButton } from '@/components/composite/WhatsAppFloatButton';
 import { StoreChrome } from '@/components/composite/StoreChrome';
-import { getStoreSettings, getNavbarItems } from '@/lib/actions/store-settings';
-import { getHomepageHeroData } from '@/lib/actions/homepage-hero';
-import { getSiteContent } from '@/lib/actions/site-content';
-import { getStorefrontCategoryStatuses } from '@/lib/actions/shop';
+import { getStoreShellData } from '@/lib/actions/store-settings';
 import { defaultNavigation } from '@/components/composite/header/header-navigation';
 import type { ReactNode } from 'react';
 
@@ -14,13 +11,8 @@ export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
 export default async function StoreLayout({ children }: { children: ReactNode }) {
-  const [settings, navbarItems, heroData, siteContent, storeCategories] = await Promise.all([
-    getStoreSettings(),
-    getNavbarItems(),
-    getHomepageHeroData(),
-    getSiteContent(),
-    getStorefrontCategoryStatuses(),
-  ]);
+  const { settings, navbarItems, heroData, footerContent, storeCategories } =
+    await getStoreShellData();
 
   // Determine navigation: prefer heroData.navigation if configured, fallback to navbarItems or default
   let navigation = defaultNavigation.map((item) => ({ ...item }));
@@ -123,7 +115,7 @@ export default async function StoreLayout({ children }: { children: ReactNode })
       }
       footer={
         <Footer
-          content={siteContent?.footer}
+          content={footerContent}
           contactEmail={settings?.contact_email}
           contactPhone={settings?.contact_phone}
           contactWhatsapp={settings?.contact_whatsapp}

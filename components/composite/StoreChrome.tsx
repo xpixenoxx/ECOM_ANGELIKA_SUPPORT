@@ -51,13 +51,13 @@ export function StoreChrome({
         Skip to main content
       </a>
       {!isDistractionFreeRoute && (
-        <div className="sticky top-0 z-50 w-full">{header}</div>
+        <div className="sticky top-0 z-50 w-full print:hidden">{header}</div>
       )}
       <main id="main-content" tabIndex={-1} className="flex-1 outline-none">
         {children}
       </main>
-      {!isDistractionFreeRoute && footer}
-      {!isDistractionFreeRoute && whatsapp}
+      {!isDistractionFreeRoute && <div className="print:hidden">{footer}</div>}
+      {!isDistractionFreeRoute && <div className="print:hidden">{whatsapp}</div>}
     </div>
   );
 }

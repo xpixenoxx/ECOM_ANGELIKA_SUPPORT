@@ -202,10 +202,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     let authError: { message: string } | null = null;
     if (typeof supabase.auth.updateUser === 'function') {
-      const res = await supabase.auth.updateUser({
-        data: updates as Record<string, any>,
-      });
-      if (res?.error) authError = res.error;
+      // Keep heavy preferences (like address arrays) out of JWT user_metadata to prevent auth cookie bloat
+      const { preferences: _omitPreferences, ...lightweightAuthUpdates } = updates as Record<string, any>;
+      if (Object.keys(lightweightAuthUpdates).length > 0) {
+        const res = await supabase.auth.updateUser({
+          data: lightweightAuthUpdates,
+        });
+        if (res?.error) authError = res.error;
+      }
     }
 
     const fromProfiles = supabase.from?.('profiles');

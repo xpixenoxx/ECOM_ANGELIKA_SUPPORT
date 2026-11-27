@@ -7,6 +7,136 @@ import { CONTENT_ADMIN_ROLES, OWNER_ADMIN_ROLES, logAdminAction, requireAdminRol
 import { TaxSettingsSchema } from '@/lib/validators/commerce';
 import type { Json } from '@/types/database';
 import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache';
+import { defaultHeroData, type HomepageHeroData } from './homepage-hero-types';
+import { DEFAULT_SITE_CONTENT } from '@/lib/services/content/defaults';
+import type { FooterContent } from './site-content-types';
+
+export interface StoreShellCategory {
+  id: string;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  sort_order: number | null;
+}
+
+export interface StoreShellData {
+  settings: StoreSettings | null;
+  navbarItems: NavbarItem[];
+  heroData: HomepageHeroData;
+  footerContent: FooterContent | undefined;
+  storeCategories: StoreShellCategory[];
+}
+
+const STORE_SHELL_TTL_MS = 45_000;
+let cachedStoreShell: { data: StoreShellData; expiresAt: number } | null = null;
+
+function invalidateStoreShellCache() {
+  cachedStoreShell = null;
+}
+
+/**
+ * Lightweight, isolate-cached storefront shell loader used by StoreLayout.
+ * Replaces 5 overlapping queries (including full-catalog CMS sync) with 1 parallel batch
+ * of 4 small metadata queries, cutting storefront SSR latency dramatically.
+ */
+export async function getStoreShellData(): Promise<StoreShellData> {
+  const now = Date.now();
+  if (cachedStoreShell && cachedStoreShell.expiresAt > now) {
+    return cachedStoreShell.data;
+  }
+
+  let heroData: HomepageHeroData = { ...defaultHeroData };
+  let footerContent: FooterContent | undefined = DEFAULT_SITE_CONTENT.footer
+    ? { ...DEFAULT_SITE_CONTENT.footer }
+    : undefined;
+  let settings: StoreSettings | null = null;
+  let navbarItems: NavbarItem[] = [];
+  let storeCategories: StoreShellCategory[] = [];
+
+  if (hasValidSupabaseConfig()) {
+    try {
+      const supabase = createPublicClient();
+      const [settingsRes, navRes, blocksRes, categoriesRes] = await Promise.all([
+        supabase.from('store_settings').select('*').limit(1).maybeSingle(),
+        supabase.from('navbar_items').select('*').order('sort_order', { ascending: true }),
+        supabase
+          .from('content_blocks')
+          .select('key, content')
+          .in('key', ['homepage_hero', 'footer'])
+          .eq('is_active', true),
+        supabase
+          .from('categories')
+          .select('id, name, slug, is_active, sort_order')
+          .order('sort_order', { ascending: true }),
+      ]);
+
+      if (!settingsRes.error && settingsRes.data) {
+        settings = settingsRes.data as StoreSettings;
+      }
+
+      if (!navRes.error && Array.isArray(navRes.data)) {
+        navbarItems = navRes.data as NavbarItem[];
+      }
+
+      if (!categoriesRes.error && Array.isArray(categoriesRes.data)) {
+        storeCategories = categoriesRes.data as StoreShellCategory[];
+      }
+
+      if (!blocksRes.error && Array.isArray(blocksRes.data)) {
+        for (const row of blocksRes.data) {
+          if (row.key === 'homepage_hero' && row.content && typeof row.content === 'object') {
+            heroData = { ...heroData, ...(row.content as Record<string, any>) };
+          } else if (row.key === 'footer' && row.content && typeof row.content === 'object') {
+            footerContent = {
+              ...(DEFAULT_SITE_CONTENT.footer || ({} as FooterContent)),
+              ...(row.content as Record<string, any>),
+            } as FooterContent;
+          }
+        }
+      }
+
+      if (settings) {
+        if (settings.site_name) heroData.brandName = settings.site_name;
+        if (settings.site_tagline) heroData.brandTagline = settings.site_tagline;
+        if (settings.logo_url) heroData.logoUrl = settings.logo_url;
+        if (settings.contact_whatsapp) heroData.conciergeWhatsApp = settings.contact_whatsapp;
+      }
+
+      const activeNav = navbarItems.filter((item) => item.is_active);
+      if (activeNav.length > 0) {
+        heroData.navigation = activeNav.map((item) => ({
+          id: item.id,
+          label: item.label,
+          href: item.href,
+          is_active: item.is_active ?? true,
+        }));
+      }
+    } catch (err) {
+      console.warn('getStoreShellData fallback triggered:', err);
+    }
+  }
+
+  heroData.conciergeTitle =
+    (typeof heroData.conciergeTitle === 'string'
+      ? heroData.conciergeTitle.replace(/conciergesss/gi, 'Concierge').replace(/sss$/gi, '').trim()
+      : '') || "Vidhya's Concierge";
+
+  heroData.conciergeSubtitle =
+    (typeof heroData.conciergeSubtitle === 'string'
+      ? heroData.conciergeSubtitle.replace(/chatsss/gi, 'Chat').replace(/sss$/gi, '').trim()
+      : '') || 'Bespoke Styling Chat';
+
+  const result: StoreShellData = {
+    settings,
+    navbarItems,
+    heroData,
+    footerContent,
+    storeCategories,
+  };
+
+  cachedStoreShell = { data: result, expiresAt: now + STORE_SHELL_TTL_MS };
+  return result;
+}
 
 export interface StoreSettings {
   id: string;
@@ -78,6 +208,7 @@ export async function updateStoreSettings(
     entityId: id,
     afterState: updates,
   });
+  invalidateStoreShellCache();
   revalidateTag('store-settings');
   revalidatePath('/admin/settings');
   revalidatePath('/');
@@ -110,6 +241,7 @@ export async function createNavbarItem(
     entityId: data.id,
     afterState: item,
   });
+  invalidateStoreShellCache();
   revalidateTag('navbar-items');
   revalidatePath('/admin/settings');
   revalidatePath('/');
@@ -136,6 +268,7 @@ export async function updateNavbarItem(
     entityId: id,
     afterState: updates,
   });
+  invalidateStoreShellCache();
   revalidateTag('navbar-items');
   revalidatePath('/admin/settings');
   revalidatePath('/');
@@ -155,6 +288,7 @@ export async function deleteNavbarItem(id: string): Promise<{ success: boolean; 
     entityType: 'navbar_item',
     entityId: id,
   });
+  invalidateStoreShellCache();
   revalidateTag('navbar-items');
   revalidatePath('/admin/settings');
   revalidatePath('/');
@@ -178,6 +312,7 @@ export async function reorderNavbarItems(
     entityType: 'navbar_item',
     afterState: { items },
   });
+  invalidateStoreShellCache();
   revalidateTag('navbar-items');
   revalidatePath('/admin/settings');
   revalidatePath('/');
@@ -410,6 +545,7 @@ export async function saveExtendedStoreSettings(
     afterState: payload,
   });
 
+  invalidateStoreShellCache();
   revalidateTag('store-settings');
   revalidatePath('/admin/settings');
   revalidatePath(`/admin/settings/${section}`);

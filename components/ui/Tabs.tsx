@@ -123,6 +123,7 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
         aria-label={ariaLabel}
         className={cn(
           styles.list,
+          orientation === 'horizontal' && 'overflow-x-auto scrollbar-none scroll-smooth',
           orientation === 'vertical' && 'flex-col',
           variant === 'card' && 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
           className
@@ -179,14 +180,24 @@ export const TabsTrigger = forwardRef<HTMLButtonElement, TabsTriggerProps>(
     return (
       <motion.button
         ref={ref}
+        type="button"
         role="tab"
+        data-state={isActive ? 'active' : 'inactive'}
         aria-selected={isActive}
-        aria-controls={`${tabsId}-panel-${value}`}
         id={`${tabsId}-tab-${value}`}
         disabled={disabled}
-        onClick={() => !disabled && onChange(value)}
+        onClick={(e) => {
+          if (disabled) return;
+          onChange(value);
+          try {
+            e.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+          } catch {
+            // Ignore in non-DOM test environments
+          }
+        }}
         className={cn(
           styles.tab,
+          'flex-none whitespace-nowrap cursor-pointer',
           isActive ? styles.active : styles.inactive,
           disabled && 'opacity-50 cursor-not-allowed',
           'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[var(--color-gold)]/40 focus-visible:ring-offset-2',
@@ -243,14 +254,15 @@ export const TabsContent = forwardRef<HTMLDivElement, TabsContentProps>(
       <motion.div
         ref={ref}
         role="tabpanel"
+        data-state={isActive ? 'active' : 'inactive'}
         id={`${tabsId}-panel-${value}`}
         aria-labelledby={`${tabsId}-tab-${value}`}
         hidden={!isActive}
         className={cn('mt-4', className)}
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.3, ease: [0.175, 0.885, 0.32, 1.275] }}
+        exit={{ opacity: 0, y: -12 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
       >
         {children}
       </motion.div>

@@ -692,9 +692,8 @@ interface AccountDropdownProps {
 }
 
 function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
   const { count: wishlistCount } = useWishlist();
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const userData = getUserDisplayData(user);
@@ -722,10 +721,10 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
     return (
       <Link
         href="/login"
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-[var(--color-ink)] bg-white border border-[var(--color-gold)] rounded-[var(--radius-md)] hover:bg-[var(--color-gold)] hover:text-[var(--color-ink)] transition-all duration-150 ml-1 sm:ml-2 shadow-xs whitespace-nowrap"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold text-[#1A1A1A] bg-[#FFFFFF] border border-[#C9A84C] rounded-[var(--radius-md)] hover:bg-[#C9A84C] hover:text-[#1A1A1A] transition-all duration-150 ml-1 sm:ml-2 shadow-xs whitespace-nowrap"
         aria-label="Sign In"
       >
-        <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 text-[#A4832E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
           <circle cx="12" cy="7" r="4" />
         </svg>
@@ -734,23 +733,39 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
     );
   }
 
-  const handleNavigate = (path: string) => {
-    setIsOpen(false);
-    router.push(path);
-  };
+  const displayName = profile?.full_name?.trim() || userData.name;
+  const displayEmail = profile?.email?.trim() || userData.email;
+  const loyaltyPoints = profile?.loyalty_points ?? 0;
+  const rawTier = (profile?.loyalty_tier || 'bronze').toLowerCase();
+  const tierLabel =
+    rawTier === 'platinum'
+      ? 'Platinum'
+      : rawTier === 'gold'
+        ? 'Gold'
+        : rawTier === 'silver'
+          ? 'Silver'
+          : 'Bronze';
+  const isAdminUser = ['admin', 'owner', 'manager', 'designer'].includes(
+    (profile?.role || '').toLowerCase()
+  );
 
   const handleSignOut = async () => {
     setIsOpen(false);
     await signOut();
-    router.push('/login');
+    window.location.href = '/login?logout=true';
   };
 
-  const menuItems = [
+  const menuItems: Array<{
+    label: string;
+    href: string;
+    badge?: string | number | null;
+    icon: React.ReactNode;
+  }> = [
     {
       label: 'My Account',
       href: '/account',
       icon: (
-        <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 text-[#A4832E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
           <circle cx="12" cy="7" r="4" />
         </svg>
@@ -760,7 +775,7 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
       label: 'My Orders',
       href: '/account/orders',
       icon: (
-        <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 text-[#A4832E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
           <path d="M3 6h18" />
           <path d="M16 10a4 4 0 0 1 0 8" />
@@ -770,8 +785,9 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
     {
       label: 'Wishlist',
       href: '/wishlist',
+      badge: wishlistCount > 0 ? wishlistCount : null,
       icon: (
-        <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 text-[#A4832E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
       ),
@@ -780,7 +796,7 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
       label: 'Saved Addresses',
       href: '/account/addresses',
       icon: (
-        <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 text-[#A4832E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
           <circle cx="12" cy="10" r="3" />
         </svg>
@@ -789,8 +805,9 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
     {
       label: 'Angelika Circle Loyalty',
       href: '/account/loyalty',
+      badge: loyaltyPoints > 0 ? `${loyaltyPoints.toLocaleString('en-IN')} pts` : null,
       icon: (
-        <svg className="h-4 w-4 text-[var(--color-gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="h-4 w-4 text-[#A4832E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
         </svg>
       ),
@@ -802,19 +819,19 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="inline-flex items-center gap-2 px-2.5 py-1.5 text-xs sm:text-sm font-medium text-[var(--color-ink)] bg-white border border-[var(--color-whisper)] rounded-full hover:border-[var(--color-gold)]/60 hover:shadow-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)]/40 cursor-pointer"
+        className="inline-flex items-center gap-2 px-2.5 py-1.5 text-xs sm:text-sm font-medium text-[#1A1A1A] bg-[#FFFFFF] border border-[#DFD5C8] rounded-full hover:border-[#C9A84C] hover:shadow-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A84C] cursor-pointer"
         aria-expanded={isOpen}
-        aria-haspopup="true"
+        aria-haspopup="menu"
         aria-label="Account menu"
       >
-        <Avatar src={userData?.avatarUrl} name={userData?.name || 'User'} size="sm" ring={!!user} />
-        <span className="hidden sm:inline-block max-w-[100px] truncate font-medium text-[var(--color-ink)]">
-          {userData.name}
+        <Avatar src={profile?.avatar_url || userData?.avatarUrl} name={displayName || 'User'} size="sm" ring={!!user} />
+        <span className="hidden sm:inline-block max-w-[110px] truncate font-medium text-[#1A1A1A]">
+          {displayName}
         </span>
         <svg
           className={cn(
-            'h-3.5 w-3.5 text-[var(--color-mist)] transition-transform duration-200',
-            isOpen && 'rotate-180 text-[var(--color-gold)]'
+            'h-3.5 w-3.5 text-[#7A7065] transition-transform duration-200',
+            isOpen && 'rotate-180 text-[#A4832E]'
           )}
           viewBox="0 0 24 24"
           fill="none"
@@ -832,45 +849,83 @@ function AccountDropdown({ user, isLoading }: AccountDropdownProps) {
             initial={{ opacity: 0, scale: 0.96, y: -4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -4 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute right-0 top-full mt-2 w-64 bg-white border border-[var(--color-whisper)] rounded-2xl shadow-xl overflow-hidden z-50 text-left"
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="absolute right-0 top-full mt-2 w-72 bg-[#FFFFFF] border border-[#E5DDD2] rounded-2xl shadow-[0_20px_50px_rgba(22,19,16,0.16)] overflow-hidden z-50 text-left"
             role="menu"
           >
             {/* User Info Header */}
-            <div className="px-4 py-3 bg-[var(--color-snow)]/70 border-b border-[var(--color-whisper)]">
-              <p className="text-xs text-[var(--color-slate)] uppercase tracking-wider font-semibold">Signed in as</p>
-              <p className="text-sm font-semibold text-[var(--color-ink)] truncate mt-0.5">{userData.name}</p>
-              <p className="text-xs text-[var(--color-mist)] truncate">{userData.email}</p>
-              <div className="mt-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--color-gold-light)] text-[var(--color-ink)] border border-[var(--color-gold)]/30">
-                <span>✦ Angelika Circle</span>
+            <div className="px-4 py-3.5 bg-[#FAF8F4] border-b border-[#EAE2D6]">
+              <p className="text-[10px] text-[#7A7065] uppercase tracking-[0.14em] font-semibold">Signed in as</p>
+              <p className="text-sm font-semibold text-[#1A1A1A] truncate mt-0.5">{displayName}</p>
+              <p className="text-xs text-[#6B6258] truncate">{displayEmail}</p>
+              <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#F6EDD9] text-[#6B500E] border border-[#C9A84C]/50">
+                  ✦ Angelika Circle · {tierLabel}
+                </span>
+                {isAdminUser && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#161310] text-[#E6C77A]">
+                    Atelier Staff
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* Nav Items */}
-            <div className="py-1">
+            {/* Nav Items — native <Link> for Next.js route prefetching & middle-click support */}
+            <div className="py-1.5">
               {menuItems.map((item) => (
-                <button
+                <Link
                   key={item.href}
-                  type="button"
-                  onClick={() => handleNavigate(item.href)}
-                  className="w-full px-4 py-2.5 text-sm text-[var(--color-ink)] hover:bg-[var(--color-gold-light)] flex items-center gap-3 transition-colors text-left cursor-pointer"
+                  href={item.href}
+                  prefetch={true}
+                  onClick={() => setIsOpen(false)}
+                  className="w-full px-4 py-2.5 text-sm text-[#1A1A1A] hover:bg-[#FAF4E8] flex items-center justify-between gap-3 transition-colors text-left"
                   role="menuitem"
                 >
-                  <span className="shrink-0">{item.icon}</span>
-                  <span className="font-medium text-[var(--color-ink)]">{item.label}</span>
-                </button>
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="shrink-0">{item.icon}</span>
+                    <span className="font-medium text-[#1A1A1A] truncate">{item.label}</span>
+                  </span>
+                  {item.badge !== null && item.badge !== undefined && (
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#F3ECE0] text-[#6B500E] border border-[#E5D7BC]">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
               ))}
+
+              {isAdminUser && (
+                <div className="mt-1 pt-1 border-t border-[#F0E9DE]">
+                  <Link
+                    href="/admin"
+                    prefetch={false}
+                    onClick={() => setIsOpen(false)}
+                    className="w-full px-4 py-2.5 text-sm text-[#161310] hover:bg-[#F5EFE6] flex items-center justify-between gap-3 transition-colors text-left"
+                    role="menuitem"
+                  >
+                    <span className="flex items-center gap-3 min-w-0">
+                      <svg className="h-4 w-4 text-[#74590E] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="3" width="7" height="7" rx="1" />
+                        <rect x="14" y="14" width="7" height="7" rx="1" />
+                        <rect x="3" y="14" width="7" height="7" rx="1" />
+                      </svg>
+                      <span className="font-semibold text-[#161310]">Atelier Admin Portal</span>
+                    </span>
+                    <span className="text-[11px] text-[#74590E]">→</span>
+                  </Link>
+                </div>
+              )}
             </div>
 
             {/* Sign Out */}
-            <div className="p-1 border-t border-[var(--color-whisper)] bg-[var(--color-snow)]/30">
+            <div className="p-1.5 border-t border-[#EAE2D6] bg-[#FAF8F4]">
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="w-full px-4 py-2 text-sm text-[var(--color-error)] hover:bg-[var(--color-error)]/10 rounded-lg flex items-center gap-3 transition-colors text-left cursor-pointer font-medium"
+                className="w-full px-3.5 py-2 text-sm text-[#B42318] hover:bg-[#FEF2F2] rounded-xl flex items-center gap-3 transition-colors text-left cursor-pointer font-medium"
                 role="menuitem"
               >
-                <svg className="h-4 w-4 shrink-0 text-[var(--color-error)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg className="h-4 w-4 shrink-0 text-[#B42318]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />

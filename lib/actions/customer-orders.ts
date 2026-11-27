@@ -7,7 +7,7 @@ import { canCustomerCancelOrder } from '@/lib/orders/state-machine';
 import { normalizeAddress } from '@/lib/utils/address';
 import { normalizeIndianPhone, sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
 import { checkRateLimitAsync } from '@/lib/utils/rate-limit';
-import { verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
+import { createOrderReceiptToken, verifyOrderReceiptToken } from '@/lib/utils/order-access-token';
 import { sendOrderCancelledNotification } from '@/lib/actions/notifications';
 import { revalidatePath } from 'next/cache';
 import type { Json } from '@/types/database';
@@ -63,6 +63,13 @@ export interface CustomerOrderItem {
   } | null;
 }
 
+export interface CustomerOrderScan {
+  date?: string;
+  status?: string;
+  activity?: string;
+  location?: string;
+}
+
 export interface CustomerOrder {
   id: string;
   order_number: string;
@@ -83,6 +90,11 @@ export interface CustomerOrder {
   billing_address?: Record<string, any>;
   courier_partner: string | null;
   tracking_number: string | null;
+  tracking_url?: string | null;
+  tracking_token?: string | null;
+  shipment_status?: string | null;
+  etd?: string | null;
+  scans?: CustomerOrderScan[];
   shipped_at: string | null;
   delivered_at: string | null;
   cancelled_at: string | null;
@@ -127,7 +139,8 @@ export async function getCustomerOrders(_options?: {
     let query = supabaseAdmin
       .from('orders')
       .select('*, order_items(*)')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (resolvedEmail) {
       query = query.or(`user_id.eq.${resolvedUserId},email.ilike.${sanitizePostgrestSearchTerm(resolvedEmail)}`);
@@ -142,12 +155,57 @@ export async function getCustomerOrders(_options?: {
       return { success: false, isAuthenticated: true, orders: [], error: error.message };
     }
 
-    const formattedOrders: CustomerOrder[] = (rawOrders || []).map((order: any) => {
+    const ordersList = rawOrders || [];
+    const orderIds = ordersList.map((o: any) => o.id).filter(Boolean);
+    const prodIds = Array.from(
+      new Set(
+        ordersList
+          .flatMap((o: any) => o.order_items || [])
+          .map((it: any) => it.product_id)
+          .filter(Boolean)
+      )
+    );
+
+    const shipmentByOrderId = new Map<string, any>();
+    const slugByProductId = new Map<string, string>();
+
+    if (orderIds.length > 0) {
+      const [shipmentsRes, productsRes] = await Promise.all([
+        supabaseAdmin
+          .from('shipments')
+          .select('order_id, courier_name, awb_code, tracking_url, shipment_status, etd, created_at')
+          .in('order_id', orderIds)
+          .order('created_at', { ascending: false }),
+        prodIds.length > 0
+          ? supabaseAdmin.from('products').select('id, slug').in('id', prodIds)
+          : Promise.resolve({ data: [] as Array<{ id: string; slug: string }> }),
+      ]);
+
+      for (const sh of shipmentsRes.data || []) {
+        if (sh.order_id && !shipmentByOrderId.has(sh.order_id)) {
+          shipmentByOrderId.set(sh.order_id, sh);
+        }
+      }
+      for (const p of (productsRes as any).data || []) {
+        if (p?.id && p?.slug) {
+          slugByProductId.set(p.id, p.slug);
+        }
+      }
+    }
+
+    const formattedOrders: CustomerOrder[] = ordersList.map((order: any) => {
+      const shipment = shipmentByOrderId.get(order.id);
       const items: CustomerOrderItem[] = (order.order_items || []).map((it: any) => {
         const vd = it.variant_details || {};
         const img = vd.image || vd.image_url || '/images/collection-kurtis.jpg';
+        const resolvedSlug =
+          (it.product_id ? slugByProductId.get(it.product_id) : null) ||
+          vd.slug ||
+          vd.product_slug ||
+          null;
         return {
           ...it,
+          product_slug: resolvedSlug,
           variant_details: {
             ...vd,
             image: img,
@@ -159,6 +217,7 @@ export async function getCustomerOrders(_options?: {
       const itemsCount = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
       const addr: any = order.shipping_address || {};
       const customerName = [addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.full_name || order.email;
+      const trackingToken = createOrderReceiptToken(order.id, order.email);
 
       return {
         id: order.id,
@@ -178,8 +237,12 @@ export async function getCustomerOrders(_options?: {
         currency: order.currency || 'INR',
         shipping_address: order.shipping_address || {},
         billing_address: order.billing_address || {},
-        courier_partner: order.courier_partner || null,
-        tracking_number: order.tracking_number || null,
+        courier_partner: order.courier_partner || shipment?.courier_name || null,
+        tracking_number: order.tracking_number || shipment?.awb_code || null,
+        tracking_url: shipment?.tracking_url || null,
+        tracking_token: trackingToken || null,
+        shipment_status: shipment?.shipment_status || null,
+        etd: shipment?.etd || null,
         shipped_at: order.shipped_at || null,
         delivered_at: order.delivered_at || null,
         cancelled_at: order.cancelled_at || null,
@@ -226,9 +289,8 @@ export async function getCustomerOrderById(
   try {
     const serverSupabase = createServerClient();
     const { data: { user } } = await serverSupabase.auth.getUser();
-    const adminAuth = user ? await requireAdminRole(OPS_ADMIN_ROLES) : null;
 
-    if (!user && !adminAuth?.authorized) {
+    if (!user) {
       return { success: false, order: null, error: 'Authentication required' };
     }
 
@@ -251,79 +313,71 @@ export async function getCustomerOrderById(
     }
 
     const isOwner = Boolean(
-      user &&
-      ((order.user_id && order.user_id === user.id) ||
-        (user.email && order.email.toLowerCase() === user.email.toLowerCase()))
+      (order.user_id && order.user_id === user.id) ||
+      (user.email && order.email.toLowerCase() === user.email.toLowerCase())
     );
-    if (!isOwner && !adminAuth?.authorized) {
-      return { success: false, order: null, error: 'Order not found' };
+    // Only incur admin-role verification roundtrips when a non-owner staff member inspects an order
+    if (!isOwner) {
+      const adminAuth = await requireAdminRole(OPS_ADMIN_ROLES);
+      if (!adminAuth.authorized) {
+        return { success: false, order: null, error: 'Order not found' };
+      }
     }
 
-    // Fetch existing reviews for order items or products
     const rawOrderItems = order.order_items || [];
     const itemIds = rawOrderItems.map((it: any) => it.id).filter(Boolean);
-    const prodIds = rawOrderItems.map((it: any) => it.product_id).filter(Boolean);
+    const prodIds = Array.from(new Set(rawOrderItems.map((it: any) => it.product_id).filter(Boolean)));
 
-    let existingReviews: any[] = [];
-    try {
-      if (itemIds.length > 0) {
-        const { data: revsByItem } = await supabaseAdmin
-          .from('reviews')
-          .select('id, product_id, order_item_id, rating, title, body, quality_rating, fit_rating, user_measurements, created_at')
-          .in('order_item_id', itemIds);
-        if (revsByItem && revsByItem.length > 0) {
-          existingReviews = revsByItem;
-        }
-      }
-
-      if (existingReviews.length === 0 && prodIds.length > 0 && order.user_id) {
-        const { data: revsByProd } = await supabaseAdmin
-          .from('reviews')
-          .select('id, product_id, order_item_id, rating, title, body, quality_rating, fit_rating, user_measurements, created_at')
-          .eq('user_id', order.user_id)
-          .in('product_id', prodIds);
-        if (revsByProd && revsByProd.length > 0) {
-          existingReviews = revsByProd;
-        }
-      }
-    } catch (e) {
-      console.warn('Reviews fetch warning for order:', e);
-    }
-
-    // Fetch existing return requests for this order
-    let existingReturns: any[] = [];
-    try {
-      const { data: retRows } = await supabaseAdmin
+    // Fetch reviews, returns, product metadata (slug + return window), and live shipment scans in ONE parallel batch
+    const [revsByItemRes, revsByProdRes, returnsRes, productsRes, shipmentRes] = await Promise.all([
+      itemIds.length > 0
+        ? supabaseAdmin
+            .from('reviews')
+            .select('id, product_id, order_item_id, rating, title, body, quality_rating, fit_rating, user_measurements, created_at')
+            .in('order_item_id', itemIds)
+        : Promise.resolve({ data: [] as any[] }),
+      prodIds.length > 0 && order.user_id
+        ? supabaseAdmin
+            .from('reviews')
+            .select('id, product_id, order_item_id, rating, title, body, quality_rating, fit_rating, user_measurements, created_at')
+            .eq('user_id', order.user_id)
+            .in('product_id', prodIds)
+        : Promise.resolve({ data: [] as any[] }),
+      supabaseAdmin
         .from('returns')
         .select('id, order_id, order_item_id, type, status, reason, reason_detail, refund_amount, exchange_size, created_at')
-        .eq('order_id', order.id);
-      if (retRows && retRows.length > 0) {
-        existingReturns = retRows;
-      }
-    } catch (e) {
-      console.warn('Returns fetch warning for order:', e);
-    }
+        .eq('order_id', order.id),
+      prodIds.length > 0
+        ? supabaseAdmin.from('products').select('id, slug, tags').in('id', prodIds)
+        : Promise.resolve({ data: [] as any[] }),
+      supabaseAdmin
+        .from('shipments')
+        .select('courier_name, awb_code, tracking_url, shipment_status, etd, scans, created_at')
+        .eq('order_id', order.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    // Fetch product tags for return windows
+    const existingReviews: any[] =
+      revsByItemRes.data && revsByItemRes.data.length > 0
+        ? revsByItemRes.data
+        : revsByProdRes.data || [];
+    const existingReturns: any[] = returnsRes.data || [];
+    const latestShipment = shipmentRes.data || null;
+
     const productReturnMap = new Map<string, number>();
-    if (prodIds.length > 0) {
-      try {
-        const { data: prods } = await supabaseAdmin
-          .from('products')
-          .select('id, tags')
-          .in('id', prodIds);
-
-        (prods || []).forEach((p: any) => {
-          const tag = (p.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
-          if (tag) {
-            const val = parseInt(tag.replace('return-days:', ''), 10);
-            productReturnMap.set(p.id, isNaN(val) ? 7 : val);
-          } else {
-            productReturnMap.set(p.id, 7);
-          }
-        });
-      } catch (pErr) {
-        console.warn('Product return window fetch warning:', pErr);
+    const productSlugMap = new Map<string, string>();
+    for (const p of (productsRes as any).data || []) {
+      if (p?.id && p?.slug) {
+        productSlugMap.set(p.id, p.slug);
+      }
+      const tag = (p?.tags || []).find((t: string) => typeof t === 'string' && t.startsWith('return-days:'));
+      if (tag) {
+        const val = parseInt(tag.replace('return-days:', ''), 10);
+        productReturnMap.set(p.id, isNaN(val) ? 7 : val);
+      } else if (p?.id) {
+        productReturnMap.set(p.id, 7);
       }
     }
 
@@ -380,6 +434,11 @@ export async function getCustomerOrderById(
 
       return {
         ...it,
+        product_slug:
+          (it.product_id ? productSlugMap.get(it.product_id) : null) ||
+          vd.slug ||
+          vd.product_slug ||
+          null,
         existing_review: reviewObj,
         existing_return: returnObj,
         return_window_days: itemReturnWindowDays,
@@ -398,6 +457,13 @@ export async function getCustomerOrderById(
     const itemsCount = items.reduce((sum, item) => sum + (item.quantity || 1), 0);
     const addr: any = order.shipping_address || {};
     const customerName = [addr.firstName, addr.lastName].filter(Boolean).join(' ') || addr.full_name || order.email;
+    const rawScans = Array.isArray(latestShipment?.scans) ? (latestShipment.scans as any[]) : [];
+    const normalizedScans: CustomerOrderScan[] = rawScans.map((s: any) => ({
+      date: s?.date || s?.timestamp || s?.scan_date || undefined,
+      status: s?.status || s?.['sr-status-label'] || undefined,
+      activity: s?.activity || s?.description || s?.status || undefined,
+      location: s?.location || undefined,
+    }));
 
     const formattedOrder: CustomerOrder = {
       id: order.id,
@@ -417,8 +483,13 @@ export async function getCustomerOrderById(
       currency: order.currency || 'INR',
       shipping_address: normalizeAddress(order.shipping_address),
       billing_address: order.billing_address ? normalizeAddress(order.billing_address) : undefined,
-      courier_partner: order.courier_partner || null,
-      tracking_number: order.tracking_number || null,
+      courier_partner: order.courier_partner || latestShipment?.courier_name || null,
+      tracking_number: order.tracking_number || latestShipment?.awb_code || null,
+      tracking_url: latestShipment?.tracking_url || null,
+      tracking_token: createOrderReceiptToken(order.id, order.email) || null,
+      shipment_status: latestShipment?.shipment_status || null,
+      etd: latestShipment?.etd || null,
+      scans: normalizedScans,
       shipped_at: order.shipped_at || null,
       delivered_at: order.delivered_at || null,
       cancelled_at: order.cancelled_at || null,
