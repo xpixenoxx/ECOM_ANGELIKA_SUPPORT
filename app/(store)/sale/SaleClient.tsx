@@ -415,12 +415,12 @@ export default function SaleClient({ initialContent }: { initialContent?: SalePa
         </div>
       </section>
 
-      {/* Filters Bar */}
-      <section className="py-6 bg-[var(--color-white)] border-b border-[var(--color-whisper)] sticky top-[72px] z-10">
-        <div className="container-custom px-6">
-          <motion.div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Filters Bar — Non-sticky on mobile to keep viewport unobstructed */}
+      <section className="py-3.5 sm:py-5 bg-[var(--color-white)] border-b border-[var(--color-whisper)] lg:sticky lg:top-[72px] z-10">
+        <div className="container-custom px-4 sm:px-6">
+          <motion.div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <ScrollReveal variant="fadeUp" delay={0.1}>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-nowrap sm:flex-wrap gap-2 overflow-x-auto scrollbar-none pb-0.5">
                 {categoriesList.map((cat) => {
                   const count = allProducts.filter((p) => {
                     if (cat === 'Up to 30% Off') return p.discount <= 30;

@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     if (shipmentRow?.order_id) {
       const { data } = await supabaseAdmin
         .from('orders')
-        .select('id, order_number, status, payment_status, tracking_number, courier_partner, tracking_url')
+        .select('id, order_number, status, payment_status, tracking_number, courier_partner, tracking_url, shipped_at, delivered_at')
         .eq('id', shipmentRow.order_id)
         .maybeSingle();
       orderRow = data;
@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
     if (!orderRow && awb) {
       const { data } = await supabaseAdmin
         .from('orders')
-        .select('id, order_number, status, payment_status, tracking_number, courier_partner, tracking_url')
+        .select('id, order_number, status, payment_status, tracking_number, courier_partner, tracking_url, shipped_at, delivered_at')
         .eq('tracking_number', awb)
         .maybeSingle();
       orderRow = data;
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
     if (!orderRow && orderNumber) {
       const { data } = await supabaseAdmin
         .from('orders')
-        .select('id, order_number, status, payment_status, tracking_number, courier_partner, tracking_url')
+        .select('id, order_number, status, payment_status, tracking_number, courier_partner, tracking_url, shipped_at, delivered_at')
         .ilike('order_number', orderNumber)
         .maybeSingle();
       orderRow = data;
@@ -242,9 +242,17 @@ export async function POST(request: NextRequest) {
         updated_at: new Date().toISOString(),
       };
 
-      if (courierName) orderUpdates['courier_partner'] = courierName;
-      if (awb && !orderRow.tracking_number) orderUpdates['tracking_number'] = awb;
-      if (trackingUrl && !orderRow.tracking_url) orderUpdates['tracking_url'] = trackingUrl;
+      if (mapped.shipmentStatus === 'cancelled') {
+        // If shipment was cancelled externally on Shiprocket, detach matching AWB so admin can cleanly rebook
+        if (awb && orderRow.tracking_number === awb) {
+          orderUpdates['tracking_number'] = null;
+          orderUpdates['tracking_url'] = null;
+        }
+      } else {
+        if (courierName) orderUpdates['courier_partner'] = courierName;
+        if (awb && !orderRow.tracking_number) orderUpdates['tracking_number'] = awb;
+        if (trackingUrl && !orderRow.tracking_url) orderUpdates['tracking_url'] = trackingUrl;
+      }
 
       let statusAdvancedTo: string | null = null;
       if (
@@ -254,9 +262,15 @@ export async function POST(request: NextRequest) {
       ) {
         orderUpdates['status'] = mapped.orderStatus;
         statusAdvancedTo = mapped.orderStatus;
-        if (mapped.orderStatus === 'shipped') {
+        if (
+          (mapped.orderStatus === 'shipped' ||
+            mapped.orderStatus === 'out_for_delivery' ||
+            mapped.orderStatus === 'delivered') &&
+          !orderRow.shipped_at
+        ) {
           orderUpdates['shipped_at'] = new Date().toISOString();
-        } else if (mapped.orderStatus === 'delivered') {
+        }
+        if (mapped.orderStatus === 'delivered' && !orderRow.delivered_at) {
           orderUpdates['delivered_at'] = new Date().toISOString();
         }
       }

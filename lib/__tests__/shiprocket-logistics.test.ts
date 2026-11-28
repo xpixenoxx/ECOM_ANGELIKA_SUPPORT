@@ -498,4 +498,124 @@ describe('Shiprocket API v2 Logistics & /api/webhooks/logistics', () => {
     expect(shipmentsMap.get('ship-1').shipment_status).toBe('delivered');
     expect(ordersMap.get('ord-ship-1').status).toBe('delivered');
   });
+
+  it('reconciles COD handling fee, IST order_date, and multi-word firstName in Shiprocket payload', () => {
+    const built = buildShiprocketAdhocOrderPayload({
+      orderNumber: 'ORD-COD-2026',
+      orderDateIso: '2026-11-26T20:00:00Z', // 20:00 UTC -> 01:30 next day IST
+      customerEmail: 'ananya@example.com',
+      customerPhone: '9876543210',
+      shippingAddress: {
+        firstName: 'Ananya Rao',
+        lastName: '',
+        address1: '12 Jubilee Hills\nRoad No 36',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        postalCode: '500033',
+      },
+      items: [
+        {
+          name: 'Modal Silk Kurti',
+          sku: 'AF-KURTI-M',
+          units: 1,
+          sellingPrice: 2000,
+          weightGrams: 350,
+        },
+      ],
+      subtotalInr: 2000,
+      shippingChargesInr: 99,
+      transactionChargesInr: 49, // COD fee
+      expectedTotalInr: 2148,
+      paymentMethod: 'cod',
+    });
+
+    expect(built.valid).toBe(true);
+    expect(built.payload?.['payment_method']).toBe('COD');
+    expect(built.payload?.['order_date']).toBe('2026-11-27 01:30');
+    expect(built.payload?.['billing_customer_name']).toBe('Ananya');
+    expect(built.payload?.['billing_last_name']).toBe('Rao');
+    expect(built.payload?.['billing_address']).toBe('12 Jubilee Hills Road No 36');
+    expect(built.payload?.['sub_total']).toBe(2000);
+    expect(built.payload?.['shipping_charges']).toBe(99);
+    expect(built.payload?.['transaction_charges']).toBe(49);
+    expect(built.collectibleTotalInr).toBe(2148);
+  });
+
+  it('advances processing order directly to delivered when courier skips intermediate transit scans and detaches tracking on external cancel', async () => {
+    ordersMap.set('ord-skip-1', {
+      id: 'ord-skip-1',
+      order_number: 'AF-SKIP-1',
+      email: 'divya@example.com',
+      status: 'processing',
+      payment_status: 'paid',
+      tracking_number: 'AWBSKIP99',
+      courier_partner: 'Delhivery',
+      tracking_url: 'https://shiprocket.co/tracking/AWBSKIP99',
+      shipped_at: null,
+      delivered_at: null,
+    });
+    shipmentsMap.set('ship-skip-1', {
+      id: 'ship-skip-1',
+      order_id: 'ord-skip-1',
+      awb_code: 'AWBSKIP99',
+      shiprocket_shipment_id: '88801',
+      shipment_status: 'awb_assigned',
+      pickup_status: 'scheduled',
+    });
+
+    const deliveredRes = await logisticsWebhookPOST(
+      new NextRequest('https://angelikafashions.com/api/webhooks/logistics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'sr_webhook_secret_token_999' },
+        body: JSON.stringify({
+          awb: 'AWBSKIP99',
+          shipment_status_id: 7,
+          current_status: 'Delivered',
+          current_timestamp: '2026-11-28 16:00:00',
+        }),
+      })
+    );
+    expect(deliveredRes.status).toBe(200);
+    expect(ordersMap.get('ord-skip-1').status).toBe('delivered');
+    expect(ordersMap.get('ord-skip-1').shipped_at).toBeTruthy();
+    expect(ordersMap.get('ord-skip-1').delivered_at).toBeTruthy();
+    expect(ordersMap.get('ord-skip-1').payment_status).toBe('paid');
+
+    // External Shiprocket cancellation webhook detaches matching AWB on order
+    ordersMap.set('ord-ext-cancel', {
+      id: 'ord-ext-cancel',
+      order_number: 'AF-EXT-CANCEL',
+      email: 'nina@example.com',
+      status: 'processing',
+      payment_status: 'paid',
+      tracking_number: 'AWBCANCEL77',
+      courier_partner: 'Blue Dart',
+      tracking_url: 'https://shiprocket.co/tracking/AWBCANCEL77',
+    });
+    shipmentsMap.set('ship-ext-cancel', {
+      id: 'ship-ext-cancel',
+      order_id: 'ord-ext-cancel',
+      awb_code: 'AWBCANCEL77',
+      shiprocket_shipment_id: '88802',
+      shipment_status: 'awb_assigned',
+      pickup_status: 'unscheduled',
+    });
+
+    const cancelRes = await logisticsWebhookPOST(
+      new NextRequest('https://angelikafashions.com/api/webhooks/logistics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'sr_webhook_secret_token_999' },
+        body: JSON.stringify({
+          awb: 'AWBCANCEL77',
+          shipment_status_id: 5,
+          current_status: 'Canceled',
+          current_timestamp: '2026-11-28 17:00:00',
+        }),
+      })
+    );
+    expect(cancelRes.status).toBe(200);
+    expect(shipmentsMap.get('ship-ext-cancel').shipment_status).toBe('cancelled');
+    expect(ordersMap.get('ord-ext-cancel').tracking_number).toBeNull();
+    expect(ordersMap.get('ord-ext-cancel').tracking_url).toBeNull();
+  });
 });

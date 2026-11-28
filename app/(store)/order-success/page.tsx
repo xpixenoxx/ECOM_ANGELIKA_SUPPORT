@@ -243,17 +243,20 @@ function OrderSuccessContent() {
   }
 
   const isCod = (order.payment_method || '').toLowerCase() === 'cod';
+  const isStockConflictRefund = Boolean(order.metadata?.stock_conflict);
   const isPaymentConfirmed = isCod
     ? order.status !== 'cancelled'
-    : order.payment_status === 'paid' ||
-      order.payment_status === 'partially_refunded' ||
-      order.payment_status === 'refunded';
+    : !isStockConflictRefund &&
+      order.status !== 'cancelled' &&
+      (order.payment_status === 'paid' ||
+        order.payment_status === 'partially_refunded' ||
+        order.payment_status === 'refunded');
   const isPaymentPending =
     !isCod &&
     order.status !== 'cancelled' &&
     (order.payment_status === 'pending' || order.payment_status === 'authorized');
   const isPaymentFailedOrCancelled =
-    order.status === 'cancelled' || order.payment_status === 'failed';
+    order.status === 'cancelled' || order.payment_status === 'failed' || isStockConflictRefund;
 
   const orderNumber = order.order_number || orderId;
   const customerName = order.shipping_address?.firstName
@@ -348,14 +351,24 @@ function OrderSuccessContent() {
               </div>
               <div>
                 <span className="text-xs uppercase tracking-[0.2em] text-rose-700 font-bold">
-                  Order Not Confirmed
+                  {isStockConflictRefund ? 'Automatic Refund Initiated' : 'Order Not Confirmed'}
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-display font-medium text-[var(--color-ink)] mt-2">
-                  Payment Could Not Be Completed
+                  {isStockConflictRefund
+                    ? 'Item Sold Out While Payment Settled'
+                    : 'Payment Could Not Be Completed'}
                 </h1>
                 <p className="text-sm text-[var(--color-slate)] mt-2 leading-relaxed">
-                  Order <strong className="font-mono text-[var(--color-ink)]">#{orderNumber}</strong> was not confirmed
-                  {order.cancel_reason ? ` (${order.cancel_reason})` : ''}. If any amount was debited by your bank, Razorpay automatically refunds unsuccessful transactions within 5–7 business days.
+                  {isStockConflictRefund ? (
+                    <>
+                      An item in order <strong className="font-mono text-[var(--color-ink)]">#{orderNumber}</strong> sold out during payment settlement. Your order was automatically cancelled and a full Razorpay refund has been initiated to your original payment method (typically reflected within 5–7 business days).
+                    </>
+                  ) : (
+                    <>
+                      Order <strong className="font-mono text-[var(--color-ink)]">#{orderNumber}</strong> was not confirmed
+                      {order.cancel_reason ? ` (${order.cancel_reason})` : ''}. If any amount was debited by your bank, Razorpay automatically refunds unsuccessful transactions within 5–7 business days.
+                    </>
+                  )}
                 </p>
               </div>
 

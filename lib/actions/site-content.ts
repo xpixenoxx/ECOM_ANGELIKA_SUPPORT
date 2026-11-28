@@ -720,7 +720,7 @@ async function loadMergedSiteContent(): Promise<SiteContent> {
         },
       },
       'vidhyas-picks-page': {
-        ...DEFAULT_SITE_CONTENT['vidhyas-picks-page'],
+        ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!,
         ...(parsed['vidhyas-picks-page'] || {}),
         header: {
           ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.header,
@@ -729,42 +729,17 @@ async function loadMergedSiteContent(): Promise<SiteContent> {
             ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.header.founder,
             ...(parsed['vidhyas-picks-page']?.header?.founder || {}),
           },
-          featuredStats: {
-            ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.header.featuredStats,
-            ...(parsed['vidhyas-picks-page']?.header?.featuredStats || {}),
-          },
-        },
-        curationStandards: {
-          ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.curationStandards,
-          ...(parsed['vidhyas-picks-page']?.curationStandards || {}),
-          items:
-            (parsed['vidhyas-picks-page']?.curationStandards?.items &&
-              parsed['vidhyas-picks-page'].curationStandards.items.length > 0)
-              ? parsed['vidhyas-picks-page'].curationStandards.items
-              : DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.curationStandards.items,
-        },
-        archive: {
-          ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.archive,
-          ...(parsed['vidhyas-picks-page']?.archive || {}),
         },
         concierge: {
           ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.concierge,
           ...(parsed['vidhyas-picks-page']?.concierge || {}),
         },
-        newsletter: {
-          ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.newsletter,
-          ...(parsed['vidhyas-picks-page']?.newsletter || {}),
-        },
-        monthlyEdits:
-          (parsed['vidhyas-picks-page']?.monthlyEdits &&
-            parsed['vidhyas-picks-page'].monthlyEdits.length > 0)
-            ? parsed['vidhyas-picks-page'].monthlyEdits
-            : DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.monthlyEdits,
-        additionalPicks:
-          (parsed['vidhyas-picks-page']?.additionalPicks &&
-            parsed['vidhyas-picks-page'].additionalPicks.length > 0)
-            ? parsed['vidhyas-picks-page'].additionalPicks
-            : DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.additionalPicks,
+        monthlyEdits: Array.isArray(parsed['vidhyas-picks-page']?.monthlyEdits)
+          ? parsed['vidhyas-picks-page']!.monthlyEdits
+          : DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.monthlyEdits,
+        additionalPicks: Array.isArray(parsed['vidhyas-picks-page']?.additionalPicks)
+          ? parsed['vidhyas-picks-page']!.additionalPicks
+          : DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.additionalPicks,
         seo: {
           ...DEFAULT_SITE_CONTENT['vidhyas-picks-page']!.seo,
           ...(parsed['vidhyas-picks-page']?.seo || {}),

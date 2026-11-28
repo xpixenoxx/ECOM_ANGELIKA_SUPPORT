@@ -371,6 +371,19 @@ export default function OrderDetailClient({
         </div>
       )}
 
+      {Boolean(meta.manual_refund_required) && (
+        <div role="alert" className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950">
+          <strong>Manual Refund Action Required:</strong> Automatic gateway refund could not complete
+          {meta.gateway_refund_error ? ` (${String(meta.gateway_refund_error)})` : ''}. Please use the Razorpay Refund form in the sidebar or refund via Razorpay Dashboard.
+        </div>
+      )}
+
+      {Boolean(meta.shiprocket_cancel_warning) && (
+        <div role="alert" className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950">
+          <strong>Shiprocket Cancellation Check Needed:</strong> Order was cancelled, but Shiprocket returned a warning ({String(meta.shiprocket_cancel_warning)}). Verify the parcel is cancelled in Shiprocket Dashboard before handover.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column */}
         <div className="lg:col-span-2 space-y-6">
@@ -512,7 +525,36 @@ export default function OrderDetailClient({
                   </div>
                 </div>
 
+                {!activeShipment.awb_code && activeShipment.shiprocket_shipment_id && (
+                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
+                    <strong>AWB Pending Assignment:</strong> Shiprocket shipment{' '}
+                    <span className="font-mono">{activeShipment.shiprocket_shipment_id}</span> was created, but courier AWB assignment did not complete
+                    {(activeShipment.metadata as any)?.awb_error
+                      ? ` (${String((activeShipment.metadata as any).awb_error)})`
+                      : ''}
+                    . Retry AWB assignment below without creating a duplicate Shiprocket order.
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--color-whisper)]">
+                  {!activeShipment.awb_code && activeShipment.shiprocket_shipment_id && (
+                    <button
+                      type="button"
+                      disabled={srBusy !== null}
+                      onClick={() =>
+                        runShiprocketAction(
+                          'retry_awb',
+                          () => autoDispatchShipmentAwb(order.id),
+                          (r) => `AWB assigned · ${r.awbNumber} (${r.courierPartner})`
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-ink)] text-white font-semibold hover:opacity-90 disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${srBusy === 'retry_awb' ? 'animate-spin' : ''}`} />
+                      {srBusy === 'retry_awb' ? 'Assigning AWB...' : 'Retry AWB Assignment'}
+                    </button>
+                  )}
+
                   {activeShipment.pickup_status === 'unscheduled' && activeShipment.awb_code && (
                     <button
                       type="button"

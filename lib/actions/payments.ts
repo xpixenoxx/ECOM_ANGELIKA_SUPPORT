@@ -124,11 +124,11 @@ export async function confirmAndMarkOrderPaid(params: {
   order: Pick<
     OrderRow,
     'id' | 'email' | 'total_amount' | 'payment_status' | 'status' | 'metadata'
-  > & { user_id?: string | null };
+  > & { user_id?: string | null; cancel_reason?: string | null };
   provider: 'razorpay' | 'stripe';
   paymentId: string;
   extraMeta?: Record<string, unknown>;
-}): Promise<{ confirmed: boolean; stockConflict?: boolean; alreadyPaid?: boolean; duplicatePaymentDetected?: boolean }> {
+}): Promise<{ confirmed: boolean; stockConflict?: boolean; alreadyPaid?: boolean; duplicatePaymentDetected?: boolean; cancelledOrderRefunded?: boolean }> {
   const { order, provider, paymentId, extraMeta } = params;
   const existingMeta = parseMeta(order.metadata);
 
@@ -173,6 +173,58 @@ export async function confirmAndMarkOrderPaid(params: {
     };
   }
 
+  // Never silently resurrect an order that was explicitly cancelled by customer or admin
+  // (as opposed to an automatic payment-failure / 15-minute reservation expiry cancel).
+  const cancelReasonLower = String(order.cancel_reason || '').toLowerCase();
+  const isRecoverableCancel =
+    order.payment_status === 'failed' ||
+    cancelReasonLower.includes('expired') ||
+    cancelReasonLower.includes('failed') ||
+    cancelReasonLower.includes('timeout') ||
+    cancelReasonLower.includes('superseded');
+
+  if (order.status === 'cancelled' && !isRecoverableCancel) {
+    const cancelledMeta = {
+      ...existingMeta,
+      ...(extraMeta || {}),
+      [`${provider}_payment_id`]: paymentId,
+      late_payment_on_cancelled_order: true,
+      late_payment_detected_at: new Date().toISOString(),
+    };
+    await supabaseAdmin
+      .from('orders')
+      .update({
+        payment_status: 'paid',
+        metadata: cancelledMeta as unknown as Json,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    const autoRef = await executeGatewayRefundInternal(
+      order.id,
+      Number(order.total_amount),
+      'Automatic refund: payment settled after order cancellation',
+      {
+        restoreInventory: false,
+        idempotencyKey: `late_cancel_${order.id.replace(/-/g, '')}`,
+      }
+    );
+    if (!autoRef.success) {
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          metadata: {
+            ...cancelledMeta,
+            manual_refund_required: true,
+            gateway_refund_error: autoRef.error || 'Automatic refund failed for cancelled order',
+          } as unknown as Json,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+    }
+    return { confirmed: false, stockConflict: true, cancelledOrderRefunded: true };
+  }
+
   const confirmRes = await supabaseAdmin.rpc('confirm_order_inventory', { p_order_id: order.id });
   const confirmData = confirmRes.data as { confirmed?: boolean; stock_conflict?: boolean } | null;
 
@@ -198,7 +250,7 @@ export async function confirmAndMarkOrderPaid(params: {
       })
       .eq('id', order.id);
 
-    await executeGatewayRefundInternal(
+    const conflictRefundRes = await executeGatewayRefundInternal(
       order.id,
       Number(order.total_amount),
       'Automatic refund: item sold out during payment window',
@@ -208,6 +260,20 @@ export async function confirmAndMarkOrderPaid(params: {
       }
     );
 
+    if (!conflictRefundRes.success) {
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          metadata: {
+            ...conflictMeta,
+            manual_refund_required: true,
+            gateway_refund_error: conflictRefundRes.error || 'Automatic stock-conflict refund failed',
+          } as unknown as Json,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+    }
+
     return { confirmed: false, stockConflict: true };
   }
 
@@ -216,6 +282,8 @@ export async function confirmAndMarkOrderPaid(params: {
     .update({
       payment_status: 'paid',
       status: 'confirmed',
+      cancelled_at: null,
+      cancel_reason: null,
       metadata: {
         ...existingMeta,
         ...(extraMeta || {}),
@@ -371,7 +439,7 @@ async function handlePaymentCaptured(payment: RazorpayPaymentEntity | undefined)
 
   const { data: order } = await supabaseAdmin
     .from('orders')
-    .select('id, user_id, email, total_amount, currency, payment_status, status, metadata')
+    .select('id, user_id, email, total_amount, currency, payment_status, status, cancel_reason, metadata')
     .eq('payment_id', payment.order_id)
     .maybeSingle();
 
@@ -454,7 +522,7 @@ async function handleOrderPaid(orderData: RazorpayOrderEntity | undefined) {
 
   const { data: order } = await supabaseAdmin
     .from('orders')
-    .select('id, user_id, email, total_amount, currency, payment_status, status, metadata')
+    .select('id, user_id, email, total_amount, currency, payment_status, status, cancel_reason, metadata')
     .eq('payment_id', orderData.id)
     .maybeSingle();
 
@@ -479,19 +547,69 @@ async function handleRazorpayRefundEvent(
 ) {
   if (!refund || !refund.payment_id) return;
 
-  // Locate order via metadata.razorpay_payment_id or order_refunds ledger
-  const { data: orders } = await supabaseAdmin
-    .from('orders')
-    .select('id, total_amount, payment_status, status, metadata')
-    .eq('payment_method', 'razorpay')
-    .in('payment_status', ['paid', 'refund_pending', 'partially_refunded', 'refunded']);
+  // 1. Indexed direct lookup via order_refunds ledger (O(1) by gateway_refund_id or gateway_payment_id)
+  let order: {
+    id: string;
+    total_amount: number;
+    payment_status: string;
+    status: string;
+    metadata: Json | null;
+  } | null = null;
 
-  if (!orders || orders.length === 0) return;
+  try {
+    const ledgerQuery = supabaseAdmin
+      .from('order_refunds')
+      .select('order_id')
+      .eq('gateway_payment_id', refund.payment_id);
+    if (typeof (ledgerQuery as any).limit === 'function') {
+      const { data: refundRows } = await (ledgerQuery as any).limit(1);
+      const matchedOrderId = Array.isArray(refundRows) ? refundRows[0]?.order_id : null;
+      if (matchedOrderId) {
+        const { data: ord } = await supabaseAdmin
+          .from('orders')
+          .select('id, total_amount, payment_status, status, metadata')
+          .eq('id', matchedOrderId)
+          .maybeSingle();
+        if (ord) order = ord;
+      }
+    }
+  } catch {
+    // Continue to direct JSONB metadata lookup below
+  }
 
-  const order = orders.find((o) => {
-    const meta = parseMeta(o.metadata);
-    return meta['razorpay_payment_id'] === refund.payment_id;
-  });
+  // 2. Direct JSONB containment query (`metadata @> {"razorpay_payment_id": ...}`) — avoids 1,000-row scan cap
+  if (!order) {
+    try {
+      const ordQuery: any = supabaseAdmin
+        .from('orders')
+        .select('id, total_amount, payment_status, status, metadata');
+      if (typeof ordQuery.contains === 'function') {
+        const { data: ord } = await ordQuery
+          .contains('metadata', { razorpay_payment_id: refund.payment_id })
+          .maybeSingle();
+        if (ord) order = ord;
+      }
+    } catch {
+      // Fallback below for minimal test mocks lacking .contains()
+    }
+  }
+
+  // 3. Minimal mock / legacy fallback if .contains() is unavailable
+  if (!order) {
+    const { data: orders } = await supabaseAdmin
+      .from('orders')
+      .select('id, total_amount, payment_status, status, metadata')
+      .eq('payment_method', 'razorpay')
+      .in('payment_status', ['paid', 'refund_pending', 'partially_refunded', 'refunded']);
+
+    if (orders && orders.length > 0) {
+      order =
+        orders.find((o) => {
+          const meta = parseMeta(o.metadata);
+          return meta['razorpay_payment_id'] === refund.payment_id;
+        }) ?? null;
+    }
+  }
 
   if (!order) return;
 
@@ -603,7 +721,7 @@ async function reconcileRazorpayOrderInternal(orderId: string): Promise<{
 }> {
   const { data: order } = await supabaseAdmin
     .from('orders')
-    .select('id, user_id, email, order_number, total_amount, currency, payment_method, payment_id, payment_status, status, metadata')
+    .select('id, user_id, email, order_number, total_amount, currency, payment_method, payment_id, payment_status, status, cancel_reason, metadata')
     .eq('id', orderId)
     .maybeSingle();
 
@@ -683,7 +801,7 @@ async function reconcileRazorpayOrderInternal(orderId: string): Promise<{
     });
 
     if (captureRes.success && captureRes.data?.status === 'captured') {
-      await confirmAndMarkOrderPaid({
+      const confirmRes = await confirmAndMarkOrderPaid({
         order,
         provider: 'razorpay',
         paymentId: authPay.id,
@@ -692,6 +810,15 @@ async function reconcileRazorpayOrderInternal(orderId: string): Promise<{
           reconciled_at: new Date().toISOString(),
         },
       });
+      if (confirmRes.stockConflict) {
+        return {
+          success: true,
+          reconciled: true,
+          status: 'cancelled',
+          paymentStatus: 'refund_pending',
+          message: 'Authorized payment captured after stock sold out; automatic refund initiated.',
+        };
+      }
       return {
         success: true,
         reconciled: true,

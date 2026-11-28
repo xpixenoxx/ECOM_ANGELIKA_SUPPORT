@@ -292,11 +292,11 @@ export default function NewArrivalsClient({ initialContent }: { initialContent?:
         </div>
       </section>
 
-      {/* Category Filter */}
-      <section className="py-6 bg-[var(--color-white)] border-b border-[var(--color-whisper)] sticky top-[72px] z-10">
-        <div className="container-custom px-6">
+      {/* Category Filter — Non-sticky on mobile to keep viewport unobstructed */}
+      <section className="py-3.5 sm:py-5 bg-[var(--color-white)] border-b border-[var(--color-whisper)] lg:sticky lg:top-[72px] z-10">
+        <div className="container-custom px-4 sm:px-6">
           <ScrollReveal variant="fadeUp" delay={0.1}>
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-nowrap sm:flex-wrap sm:justify-center gap-2 overflow-x-auto scrollbar-none pb-0.5">
               {pageCategories.map((cat) => (
                 <MagneticButton
                   key={cat}

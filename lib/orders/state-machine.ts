@@ -43,11 +43,11 @@ export type ShipmentStatus =
 
 export const ALLOWED_ORDER_TRANSITIONS: Record<string, string[]> = {
   pending: ['confirmed', 'processing', 'cancelled'],
-  confirmed: ['processing', 'shipped', 'cancelled', 'returned'],
-  processing: ['shipped', 'cancelled'],
+  confirmed: ['processing', 'shipped', 'out_for_delivery', 'delivered', 'delivery_failed', 'rto', 'cancelled', 'returned'],
+  processing: ['shipped', 'out_for_delivery', 'delivered', 'delivery_failed', 'rto', 'returned', 'cancelled'],
   shipped: ['out_for_delivery', 'delivered', 'delivery_failed', 'rto', 'returned'],
   out_for_delivery: ['delivered', 'delivery_failed', 'rto', 'returned'],
-  delivery_failed: ['out_for_delivery', 'rto', 'delivered', 'cancelled'],
+  delivery_failed: ['shipped', 'out_for_delivery', 'rto', 'delivered', 'returned', 'cancelled'],
   rto: ['returned', 'cancelled'],
   delivered: ['returned'],
   returned: [],
@@ -124,8 +124,11 @@ export function canTransitionShipmentStatus(fromStatus: string, toStatus: string
   if (from === 'delivered' || from === 'rto_delivered' || from === 'cancelled') {
     return false;
   }
-  // Allow redelivery attempts (delivery_failed -> out_for_delivery -> delivered)
-  if (from === 'delivery_failed' && (to === 'out_for_delivery' || to === 'delivered' || to === 'rto_initiated')) {
+  // Allow redelivery / re-routing attempts (delivery_failed -> in_transit / out_for_delivery -> delivered or rto)
+  if (
+    from === 'delivery_failed' &&
+    (to === 'in_transit' || to === 'out_for_delivery' || to === 'delivered' || to === 'rto_initiated' || to === 'rto_in_transit' || to === 'rto_delivered')
+  ) {
     return true;
   }
   return SHIPMENT_STAGE_RANK[to] >= SHIPMENT_STAGE_RANK[from];

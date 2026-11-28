@@ -216,7 +216,7 @@ const staticPagesList: StaticPageMeta[] = [
     name: "Vidhya's Picks Editorial Page",
     path: '/vidhyas-picks',
     category: 'Brand Heritage',
-    description: 'Full-page editorial showcase of Vidhya curated couture garments',
+    description: 'Editorial masthead, unified curated picks catalog, styling concierge, and SEO',
   },
   {
     id: 'sale-page',

@@ -910,19 +910,99 @@ export async function cancelCustomerOrder(
       };
     }
 
+    // Check active Shiprocket shipment before cancelling so we never refund an already-picked-up parcel
+    // and always cancel pre-pickup AWBs on Shiprocket automatically.
+    let activePrePickupShipment: {
+      id: string;
+      shiprocket_order_id: string | null;
+      awb_code: string | null;
+      shipment_status: string;
+    } | null = null;
+    try {
+      const shipTable: any = supabaseAdmin.from('shipments');
+      if (shipTable && typeof shipTable.select === 'function') {
+        const { data: activeShip } = await shipTable
+          .select('id, shiprocket_order_id, awb_code, shipment_status')
+          .eq('order_id', order.id)
+          .neq('shipment_status', 'cancelled')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeShip) {
+          if (
+            ['picked_up', 'in_transit', 'out_for_delivery', 'delivered'].includes(
+              activeShip.shipment_status
+            )
+          ) {
+            return {
+              success: false,
+              error:
+                'This parcel has already been handed over to the courier and cannot be cancelled online. You may refuse delivery or request a return after arrival.',
+            };
+          }
+          activePrePickupShipment = activeShip;
+        }
+      }
+    } catch {
+      // Non-fatal in minimal unit-test mocks without shipments table
+    }
+
     const cleanReason = reason ? stripHtmlTags(reason).slice(0, 300) : 'Cancelled by customer';
     const existingMeta = (typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata))
       ? (order.metadata as Record<string, unknown>)
       : {};
 
+    let shiprocketCancelWarning: string | null = null;
+    if (activePrePickupShipment) {
+      try {
+        const { cancelShiprocketShipment } = await import('@/lib/services/logistics');
+        const srCancel = await cancelShiprocketShipment({
+          shiprocketOrderId: activePrePickupShipment.shiprocket_order_id,
+          awbCode: activePrePickupShipment.awb_code,
+        });
+        if (!srCancel.success) {
+          shiprocketCancelWarning = srCancel.error || 'Shiprocket pre-pickup cancel returned error';
+        }
+      } catch (srErr: any) {
+        shiprocketCancelWarning = srErr?.message || 'Shiprocket cancel call failed';
+      }
+
+      try {
+        await supabaseAdmin
+          .from('shipments')
+          .update({
+            shipment_status: 'cancelled',
+            pickup_status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activePrePickupShipment.id);
+      } catch {
+        // Non-fatal in minimal unit-test mocks
+      }
+    }
+
+    const orderCancelPatch: Record<string, unknown> = {
+      status: 'cancelled',
+      cancelled_at: new Date().toISOString(),
+      cancel_reason: cleanReason,
+      updated_at: new Date().toISOString(),
+    };
+    if (activePrePickupShipment) {
+      orderCancelPatch['tracking_number'] = null;
+      orderCancelPatch['tracking_url'] = null;
+      if (shiprocketCancelWarning) {
+        orderCancelPatch['metadata'] = {
+          ...existingMeta,
+          shiprocket_cancel_warning: shiprocketCancelWarning,
+        } as unknown as Json;
+      }
+    }
+
     const { error: updateErr } = await supabaseAdmin
       .from('orders')
-      .update({
-        status: 'cancelled',
-        cancelled_at: new Date().toISOString(),
-        cancel_reason: cleanReason,
-        updated_at: new Date().toISOString(),
-      })
+      .update(orderCancelPatch)
       .eq('id', order.id);
 
     if (updateErr) {

@@ -190,11 +190,32 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [checkoutIdempotencyKey] = useState<string>(() =>
+  const generateIdempotencyKey = useCallback(
+    () =>
+      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? `chk_${crypto.randomUUID()}`
+        : `chk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+    []
+  );
+  const [checkoutIdempotencyKey, setCheckoutIdempotencyKey] = useState<string>(() =>
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? `chk_${crypto.randomUUID()}`
       : `chk_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
   );
+
+  // Rotate checkout idempotency key whenever payment method, coupon, gift-wrap, or bag composition changes
+  const cartCompositionSignature = items
+    .map((i) => `${i.variant_id || i.id}:${i.quantity}`)
+    .sort()
+    .join(',');
+  const prevCheckoutSigRef = useRef<string>('');
+  useEffect(() => {
+    const nextSig = `${selectedPayment}|${appliedCoupon?.code || ''}|${giftWrap ? '1' : '0'}|${cartCompositionSignature}`;
+    if (prevCheckoutSigRef.current && prevCheckoutSigRef.current !== nextSig) {
+      setCheckoutIdempotencyKey(generateIdempotencyKey());
+    }
+    prevCheckoutSigRef.current = nextSig;
+  }, [selectedPayment, appliedCoupon?.code, giftWrap, cartCompositionSignature, generateIdempotencyKey]);
 
   // Load OTP availability & active coupons on mount
   useEffect(() => {
@@ -602,6 +623,10 @@ export default function CheckoutPage() {
                   }
                   await clearCart();
                   window.location.href = `/order-success?order_id=${verifyResult.orderId || result.orderId}${verifiedToken}`;
+                } else if (verifyResp.status >= 500) {
+                  // Server transient failure AFTER Razorpay reported payment callback — route to reconciliation
+                  // page so we verify with Razorpay rather than prompting a duplicate charge.
+                  window.location.href = `/order-success?order_id=${result.orderId}${tokenParam}&verifying=1`;
                 } else {
                   setError(
                     verifyResult?.error ||
@@ -635,6 +660,7 @@ export default function CheckoutPage() {
           });
 
           razorpay.on('payment.failed', (failure: any) => {
+            setCheckoutIdempotencyKey(generateIdempotencyKey());
             setError(
               failure?.error?.description ||
                 failure?.error?.reason ||

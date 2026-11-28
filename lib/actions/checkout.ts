@@ -222,16 +222,30 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
       normalizedItems.push({ ...rawItem, variant_id: resolvedVariantId });
     }
 
+    // Deterministic fingerprint of the requested checkout configuration so switching payment
+    // method (Razorpay <-> COD), changing cart items, or toggling coupons/gift-wrap NEVER reuses
+    // a stale unpaid Razorpay order with mismatched totals.
+    const checkoutFingerprint = [
+      orderData.paymentMethod,
+      (orderData.coupon?.code || '').trim().toUpperCase(),
+      orderData.giftWrap ? 'gw1' : 'gw0',
+      cleanShipping.postalCode,
+      normalizedItems
+        .map((i) => `${i.variant_id}:${i.quantity}`)
+        .sort()
+        .join(','),
+    ].join('|');
+
     // 4. Scoped idempotency check (binds ownership to email or authenticated userId to prevent cross-user token leaks)
     const cleanIdemKey = orderData.idempotencyKey?.trim().slice(0, 100) || null;
     if (cleanIdemKey) {
       const { data: existingOrder } = await supabase
         .from('orders')
-        .select('id, order_number, user_id, email, payment_id, payment_method, status, payment_status, total_amount, currency, metadata')
+        .select('id, order_number, user_id, email, payment_id, payment_method, status, payment_status, total_amount, currency, metadata, created_at')
         .eq('idempotency_key', cleanIdemKey)
         .maybeSingle();
 
-      if (existingOrder && existingOrder.status !== 'cancelled') {
+      if (existingOrder) {
         const ownsExisting =
           existingOrder.email.toLowerCase() === cleanEmail ||
           Boolean(userId && existingOrder.user_id && existingOrder.user_id === userId);
@@ -243,8 +257,14 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
           };
         }
 
-        // If online payment is already paid, return safely without creating a duplicate Razorpay order
-        if (existingOrder.payment_status === 'paid' || existingOrder.payment_method === 'cod') {
+        if (existingOrder.status === 'cancelled') {
+          // Prior order with this key failed or expired; detach idempotency_key so a clean retry does not hit 23505
+          await supabase
+            .from('orders')
+            .update({ idempotency_key: null, updated_at: new Date().toISOString() })
+            .eq('id', existingOrder.id);
+        } else if (existingOrder.payment_status === 'paid' || existingOrder.payment_method === 'cod') {
+          // Already paid or confirmed COD — return safely without creating a duplicate order
           return {
             success: true,
             orderId: existingOrder.id,
@@ -256,21 +276,57 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
             currency: existingOrder.currency || 'INR',
             receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
           };
-        }
+        } else {
+          const existingMeta =
+            typeof existingOrder.metadata === 'object' &&
+            existingOrder.metadata !== null &&
+            !Array.isArray(existingOrder.metadata)
+              ? (existingOrder.metadata as Record<string, unknown>)
+              : {};
+          const existingAgeMs = existingOrder.created_at
+            ? Date.now() - new Date(existingOrder.created_at).getTime()
+            : 0;
+          const isFreshPending = existingAgeMs < 12 * 60_000;
+          const fingerprintMatches =
+            !existingMeta['checkout_fingerprint'] ||
+            existingMeta['checkout_fingerprint'] === checkoutFingerprint;
 
-        // Reuse existing pending Razorpay order on retry / double-click
-        if (existingOrder.payment_method === 'razorpay' && existingOrder.payment_id) {
-          return {
-            success: true,
-            orderId: existingOrder.id,
-            orderNumber: existingOrder.order_number,
-            razorpayOrderId: existingOrder.payment_id,
-            razorpayKeyId: rzpCfg?.keyId || undefined,
-            razorpayMode: rzpCfg?.mode ?? null,
-            amountPaise: toPaise(Number(existingOrder.total_amount)),
-            currency: existingOrder.currency || 'INR',
-            receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
-          };
+          // Reuse existing fresh unpaid Razorpay order ONLY if payment method & cart still match
+          if (
+            orderData.paymentMethod === 'razorpay' &&
+            existingOrder.payment_method === 'razorpay' &&
+            existingOrder.payment_id &&
+            existingOrder.payment_status === 'pending' &&
+            isFreshPending &&
+            fingerprintMatches
+          ) {
+            return {
+              success: true,
+              orderId: existingOrder.id,
+              orderNumber: existingOrder.order_number,
+              razorpayOrderId: existingOrder.payment_id,
+              razorpayKeyId: rzpCfg?.keyId || undefined,
+              razorpayMode: rzpCfg?.mode ?? null,
+              amountPaise: toPaise(Number(existingOrder.total_amount)),
+              currency: existingOrder.currency || 'INR',
+              receiptToken: createOrderReceiptToken(existingOrder.id, existingOrder.email),
+            };
+          }
+
+          // Otherwise user switched payment method (e.g. Razorpay -> COD), changed items/coupon,
+          // or reservation is stale: cleanly supersede unpaid pending order and release stock/coupon.
+          await supabase
+            .from('orders')
+            .update({
+              status: 'cancelled',
+              payment_status: 'failed',
+              cancelled_at: new Date().toISOString(),
+              cancel_reason: 'Superseded by updated checkout attempt',
+              idempotency_key: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingOrder.id);
+          await supabase.rpc('release_order_inventory', { p_order_id: existingOrder.id });
         }
       }
     }
@@ -394,14 +450,42 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         whatsapp_opt_in: orderData.whatsappOptIn !== false,
         metadata: {
           cod_fee: initialTotals.codFee,
+          gift_wrap_fee: initialTotals.giftWrapFee,
           included_gst_amount: initialTotals.includedGstAmount,
           gift_wrap: Boolean(orderData.giftWrap),
+          checkout_fingerprint: checkoutFingerprint,
         } as unknown as Json,
       })
       .select()
       .single();
 
     if (orderError || !order) {
+      // Handle concurrent double-submit unique constraint race on idempotency_key gracefully
+      if (orderError?.code === '23505' && cleanIdemKey) {
+        const { data: winner } = await supabase
+          .from('orders')
+          .select('id, order_number, user_id, email, payment_id, payment_method, status, payment_status, total_amount, currency')
+          .eq('idempotency_key', cleanIdemKey)
+          .maybeSingle();
+        if (
+          winner &&
+          winner.status !== 'cancelled' &&
+          (winner.email.toLowerCase() === cleanEmail ||
+            Boolean(userId && winner.user_id && winner.user_id === userId))
+        ) {
+          return {
+            success: true,
+            orderId: winner.id,
+            orderNumber: winner.order_number,
+            razorpayOrderId: winner.payment_id || undefined,
+            razorpayKeyId: rzpCfg?.keyId || undefined,
+            razorpayMode: rzpCfg?.mode ?? null,
+            amountPaise: toPaise(Number(winner.total_amount)),
+            currency: winner.currency || 'INR',
+            receiptToken: createOrderReceiptToken(winner.id, winner.email),
+          };
+        }
+      }
       console.error('Order creation failed:', orderError);
       return { success: false, error: orderError?.message || 'Failed to create order' };
     }
@@ -531,10 +615,12 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         total_amount: finalTotals.total,
         metadata: {
           cod_fee: finalTotals.codFee,
+          gift_wrap_fee: finalTotals.giftWrapFee,
           included_gst_amount: finalTotals.includedGstAmount,
           coupon_code: appliedCouponSpec?.code || null,
           gift_wrap: Boolean(orderData.giftWrap),
           amount_paise: amountPaise,
+          checkout_fingerprint: checkoutFingerprint,
         } as unknown as Json,
       })
       .eq('id', order.id);
@@ -595,10 +681,12 @@ export async function createOrder(orderData: OrderData): Promise<CreateOrderResu
         payment_id: razorpayOrderId,
         metadata: {
           cod_fee: finalTotals.codFee,
+          gift_wrap_fee: finalTotals.giftWrapFee,
           included_gst_amount: finalTotals.includedGstAmount,
           coupon_code: appliedCouponSpec?.code || null,
           gift_wrap: Boolean(orderData.giftWrap),
           amount_paise: amountPaise,
+          checkout_fingerprint: checkoutFingerprint,
           razorpay_order_id: razorpayOrderId,
           razorpay_mode: rzpResult.mode || rzpCfg?.mode || null,
         } as unknown as Json,
@@ -689,7 +777,7 @@ export async function verifyRazorpayPayment(
 
     const { data: order, error: findError } = await supabaseAdmin
       .from('orders')
-      .select('id, order_number, user_id, email, total_amount, currency, metadata, payment_status, status')
+      .select('id, order_number, user_id, email, total_amount, currency, metadata, payment_status, status, cancel_reason')
       .eq('payment_id', cleanOrderId)
       .maybeSingle();
 
@@ -698,6 +786,17 @@ export async function verifyRazorpayPayment(
     }
 
     if (order.payment_status === 'paid') {
+      const existingMeta =
+        typeof order.metadata === 'object' && order.metadata !== null && !Array.isArray(order.metadata)
+          ? (order.metadata as Record<string, unknown>)
+          : {};
+      if (existingMeta['razorpay_payment_id'] && existingMeta['razorpay_payment_id'] !== cleanPaymentId) {
+        await confirmAndMarkOrderPaid({
+          order,
+          provider: 'razorpay',
+          paymentId: cleanPaymentId,
+        });
+      }
       return {
         success: true,
         status: 'paid',

@@ -1131,7 +1131,7 @@ export interface VidhyasPicksPageContent {
       storyLinkText: string;
       storyLinkHref: string;
     };
-    featuredStats: {
+    featuredStats?: {
       stat1Value: string;
       stat1Label: string;
       stat2Value: string;
@@ -1142,13 +1142,13 @@ export interface VidhyasPicksPageContent {
   };
   monthlyEdits: VidhyasPicksMonthlyEdit[];
   additionalPicks: VidhyasPicksPageProduct[];
-  curationStandards: {
+  curationStandards?: {
     eyebrow: string;
     title: string;
     subtitle: string;
     items: VidhyasPicksStandardItem[];
   };
-  archive: {
+  archive?: {
     eyebrow: string;
     title: string;
     subtitle: string;
@@ -1164,7 +1164,7 @@ export interface VidhyasPicksPageContent {
     sizeGuideText: string;
     sizeGuideHref: string;
   };
-  newsletter: {
+  newsletter?: {
     eyebrow: string;
     title: string;
     description: string;

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const {
   ordersMap,
+  shipmentsMap,
   webhookEventsMap,
   refundsList,
   notificationsList,
@@ -11,6 +12,7 @@ const {
   mockRequireAdminRole,
 } = vi.hoisted(() => ({
   ordersMap: new Map<string, any>(),
+  shipmentsMap: new Map<string, any>(),
   webhookEventsMap: new Map<string, any>(),
   refundsList: [] as any[],
   notificationsList: [] as any[],
@@ -143,6 +145,16 @@ vi.mock('@/lib/supabase/admin', () => ({
         let filterVal = '';
         return {
           select: vi.fn().mockReturnThis(),
+          contains: vi.fn((col: string, obj: Record<string, any>) => ({
+            maybeSingle: vi.fn(async () => {
+              const found = Array.from(ordersMap.values()).find((o) => {
+                const target = o[col];
+                if (!target || typeof target !== 'object') return false;
+                return Object.entries(obj).every(([k, v]) => target[k] === v);
+              });
+              return { data: found ?? null, error: null };
+            }),
+          })),
           eq: vi.fn((col: string, val: any) => {
             filterField = col;
             filterVal = val;
@@ -175,6 +187,45 @@ vi.mock('@/lib/supabase/admin', () => ({
             eq: vi.fn(async (_c: string, id: string) => {
               const existing = ordersMap.get(id);
               if (existing) ordersMap.set(id, { ...existing, ...patch });
+              return { error: null };
+            }),
+          })),
+        };
+      }
+
+      if (table === 'shipments') {
+        return {
+          select: vi.fn(() => {
+            const filters: Record<string, any> = {};
+            let neqCol = '';
+            let neqVal: any;
+            const chain: any = {
+              eq: vi.fn((col: string, val: any) => {
+                filters[col] = val;
+                return chain;
+              }),
+              neq: vi.fn((col: string, val: any) => {
+                neqCol = col;
+                neqVal = val;
+                return chain;
+              }),
+              order: vi.fn(() => chain),
+              limit: vi.fn(() => chain),
+              maybeSingle: vi.fn(async () => {
+                const found = Array.from(shipmentsMap.values()).find(
+                  (s) =>
+                    Object.entries(filters).every(([k, v]) => s[k] === v) &&
+                    (!neqCol || s[neqCol] !== neqVal)
+                );
+                return { data: found ?? null, error: null };
+              }),
+            };
+            return chain;
+          }),
+          update: vi.fn((patch: any) => ({
+            eq: vi.fn(async (_c: string, id: string) => {
+              const existing = shipmentsMap.get(id);
+              if (existing) shipmentsMap.set(id, { ...existing, ...patch });
               return { error: null };
             }),
           })),
@@ -235,6 +286,7 @@ describe('Razorpay Verification, Webhooks, Refunds, Reconciliation, Cancel & Tra
   beforeEach(() => {
     vi.clearAllMocks();
     ordersMap.clear();
+    shipmentsMap.clear();
     webhookEventsMap.clear();
     refundsList.length = 0;
     notificationsList.length = 0;
@@ -670,5 +722,198 @@ describe('Razorpay Verification, Webhooks, Refunds, Reconciliation, Cancel & Tra
     (process.env as any).NODE_ENV = 'production';
 
     expect(verifyOrderReceiptToken('order-1', 'priya@example.com', token)).toBe(false);
+  });
+
+  it('recovers cleanly when payment.captured succeeds after an earlier payment.failed retry on the same order', async () => {
+    const failedBody = JSON.stringify({
+      event: 'payment.failed',
+      created_at: 1700001000,
+      payload: {
+        payment: {
+          entity: {
+            id: 'pay_RzpAttempt1Fail',
+            order_id: 'order_RzpTest00001',
+            amount: 400000,
+            currency: 'INR',
+            status: 'failed',
+            error_description: 'Wrong UPI PIN',
+          },
+        },
+      },
+    });
+    await handleRazorpayWebhook(failedBody, signWebhook(failedBody), 'evt_retry_fail_1');
+    expect(ordersMap.get('order-1').status).toBe('cancelled');
+    expect(ordersMap.get('order-1').cancel_reason).toBe('Wrong UPI PIN');
+
+    const retryCaptureBody = JSON.stringify({
+      event: 'payment.captured',
+      created_at: 1700001025,
+      payload: {
+        payment: {
+          entity: {
+            id: 'pay_RzpAttempt2Ok',
+            order_id: 'order_RzpTest00001',
+            amount: 400000,
+            currency: 'INR',
+            status: 'captured',
+            method: 'card',
+          },
+        },
+      },
+    });
+    const capRes = await handleRazorpayWebhook(retryCaptureBody, signWebhook(retryCaptureBody), 'evt_retry_cap_2');
+    expect(capRes.success).toBe(true);
+    expect(ordersMap.get('order-1').status).toBe('confirmed');
+    expect(ordersMap.get('order-1').payment_status).toBe('paid');
+    expect(ordersMap.get('order-1').cancelled_at).toBeNull();
+    expect(ordersMap.get('order-1').cancel_reason).toBeNull();
+    expect(ordersMap.get('order-1').metadata.razorpay_payment_id).toBe('pay_RzpAttempt2Ok');
+  });
+
+  it('auto-refunds instead of resurrecting an order that was manually cancelled before a late payment.captured', async () => {
+    const ord = ordersMap.get('order-1');
+    ord.status = 'cancelled';
+    ord.payment_status = 'pending';
+    ord.cancel_reason = 'Cancelled by customer';
+
+    const refundFetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/refund') && init?.method === 'POST') {
+        const headers = (init.headers || {}) as Record<string, string>;
+        expect(headers['X-Refund-Idempotency']).toBeTruthy();
+        return new Response(
+          JSON.stringify({
+            id: 'rfnd_late_cancel_1',
+            payment_id: 'pay_RzpLateCap99',
+            amount: 400000,
+            currency: 'INR',
+            status: 'processed',
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response('{}', { status: 404 });
+    });
+    vi.stubGlobal('fetch', refundFetchMock);
+
+    const lateCap = JSON.stringify({
+      event: 'payment.captured',
+      created_at: 1700002000,
+      payload: {
+        payment: {
+          entity: {
+            id: 'pay_RzpLateCap99',
+            order_id: 'order_RzpTest00001',
+            amount: 400000,
+            currency: 'INR',
+            status: 'captured',
+          },
+        },
+      },
+    });
+
+    const res = await handleRazorpayWebhook(lateCap, signWebhook(lateCap), 'evt_late_cancel_cap');
+    expect(res.success).toBe(true);
+    expect(ordersMap.get('order-1').status).toBe('cancelled');
+    expect(ordersMap.get('order-1').payment_status).toBe('refunded');
+    expect(ordersMap.get('order-1').metadata.late_payment_on_cancelled_order).toBe(true);
+    expect(refundFetchMock).toHaveBeenCalledTimes(1);
+    expect(mockRpc).not.toHaveBeenCalledWith('confirm_order_inventory', expect.anything());
+  });
+
+  it('reconcileRazorpayOrder reports stock conflict and auto-refunds when capturing an authorized payment hits out-of-stock', async () => {
+    mockRequireAdminRole.mockResolvedValue({ authorized: true, userId: 'admin-1' });
+    mockRpc.mockResolvedValueOnce({ data: { confirmed: false, stock_conflict: true }, error: null });
+
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/orders/order_RzpTest00001/payments')) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              { id: 'pay_RzpAuthOos1', order_id: 'order_RzpTest00001', amount: 400000, currency: 'INR', status: 'authorized' },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.endsWith('/payments/pay_RzpAuthOos1/capture') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            id: 'pay_RzpAuthOos1',
+            order_id: 'order_RzpTest00001',
+            amount: 400000,
+            currency: 'INR',
+            status: 'captured',
+          }),
+          { status: 200 }
+        );
+      }
+      if (url.endsWith('/payments/pay_RzpAuthOos1/refund') && init?.method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            id: 'rfnd_auth_oos_1',
+            payment_id: 'pay_RzpAuthOos1',
+            amount: 400000,
+            currency: 'INR',
+            status: 'pending',
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response('{}', { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const rec = await reconcileRazorpayOrder('order-1');
+    expect(rec.success).toBe(true);
+    expect(rec.status).toBe('cancelled');
+    expect(rec.paymentStatus).toBe('refund_pending');
+    expect(ordersMap.get('order-1').status).toBe('cancelled');
+    expect(ordersMap.get('order-1').metadata.stock_conflict).toBe(true);
+  });
+
+  it('blocks customer cancellation when parcel is already picked up and auto-cancels pre-pickup Shiprocket shipment', async () => {
+    const ord = ordersMap.get('order-1');
+    ord.status = 'processing';
+    ord.tracking_number = 'AWB778899';
+
+    // 1. Parcel already picked up -> block online cancellation
+    shipmentsMap.set('ship-picked', {
+      id: 'ship-picked',
+      order_id: 'order-1',
+      shiprocket_order_id: '50100',
+      awb_code: 'AWB778899',
+      shipment_status: 'picked_up',
+    });
+    mockAuthUser.mockResolvedValueOnce({ data: { user: { id: 'user-1', email: 'priya@example.com' } }, error: null });
+    const blocked = await cancelCustomerOrder('ORD-TEST-001', 'No longer needed');
+    expect(blocked.success).toBe(false);
+    expect(blocked.error).toMatch(/handed over to the courier/i);
+    expect(ordersMap.get('order-1').status).toBe('processing');
+
+    // 2. Pre-pickup AWB assigned -> cancel on Shiprocket, clear tracking, and cancel order
+    shipmentsMap.set('ship-picked', {
+      id: 'ship-picked',
+      order_id: 'order-1',
+      shiprocket_order_id: '50100',
+      awb_code: 'AWB778899',
+      shipment_status: 'awb_assigned',
+    });
+    process.env['SHIPROCKET_EMAIL'] = 'ops@angelikafashions.com';
+    process.env['SHIPROCKET_PASSWORD'] = 'shiprocket_secret_test';
+    const srFetch = vi.fn(async (url: string) => {
+      if (url.endsWith('/auth/login')) return new Response(JSON.stringify({ token: 'jwt_sr_ok' }), { status: 200 });
+      if (url.endsWith('/orders/cancel/shipment/awbs') || url.endsWith('/orders/cancel')) {
+        return new Response(JSON.stringify({ message: 'Cancelled' }), { status: 200 });
+      }
+      return new Response('{}', { status: 200 });
+    });
+    vi.stubGlobal('fetch', srFetch);
+
+    mockAuthUser.mockResolvedValueOnce({ data: { user: { id: 'user-1', email: 'priya@example.com' } }, error: null });
+    const ok = await cancelCustomerOrder('ORD-TEST-001', 'Changed my mind before pickup');
+    expect(ok.success).toBe(true);
+    expect(ordersMap.get('order-1').status).toBe('cancelled');
+    expect(ordersMap.get('order-1').tracking_number).toBeNull();
+    expect(shipmentsMap.get('ship-picked').shipment_status).toBe('cancelled');
   });
 });

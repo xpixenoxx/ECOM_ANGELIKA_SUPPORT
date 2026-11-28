@@ -3321,86 +3321,30 @@ export const DEFAULT_SITE_CONTENT: SiteContent = {
   'vidhyas-picks-page': {
     header: {
       eyebrowBadge: "FOUNDER'S CURATION",
-      badgeSubtitle: 'Updated Monthly',
+      badgeSubtitle: 'Handpicked Atelier Edit',
       title: "Vidhya's Personal Picks",
       titleHighlight: 'Personal',
       description:
-        '“Every piece in this edit is an authentic favorite from my own wardrobe. Hand-selected directly from master looms across Varanasi, Kutch, and Jaipur — chosen for effortless drape, pure natural fiber, and timeless elegance.”',
+        'Hand-selected directly from master looms across Varanasi, Kutch, and Jaipur — chosen for effortless drape, pure natural fiber, and timeless elegance.',
       founder: {
         name: 'Vidhya Sharma',
-        role: 'Founder & Creative Director · Angelika Fashions',
+        role: 'Founder & Creative Director',
         experience: 'Curating pure handloom weaves since 2018',
         avatar: '/images/about/vidhya-profile.jpg',
-        storyLinkText: 'Read Story →',
+        storyLinkText: 'Meet Vidhya →',
         storyLinkHref: '/about/vidhya',
       },
-      featuredStats: {
-        stat1Value: '100%',
-        stat1Label: 'Natural Silk',
-        stat2Value: '5 Categories',
-        stat2Label: 'Artisan Looms',
-        stat3Value: 'Limited',
-        stat3Label: 'Bespoke Batches',
-      },
-    },
-    curationStandards: {
-      eyebrow: 'THE CURATION STANDARD',
-      title: 'Why Every Pick is Rare & Special',
-      subtitle:
-        'We reject mass manufacturing. Every piece in Vidhya’s Picks meets four strict artisanal principles.',
-      items: [
-        {
-          icon: '🪡',
-          title: 'Direct Loom Provenance',
-          description:
-            'Directly commissioned from master weavers in Varanasi, Chanderi, and Kutch with fair-wage artisan partnerships.',
-        },
-        {
-          icon: '👗',
-          title: 'Wear-Tested Drapes',
-          description:
-            'Personally styled and fitted by Vidhya to guarantee all-day comfort, zero-scratch necklines, and effortless fall.',
-        },
-        {
-          icon: '💎',
-          title: 'Micro-Batch Exclusivity',
-          description:
-            'Created in limited editions of only 20–50 units per weave to ensure your look remains singular and unique.',
-        },
-        {
-          icon: '💬',
-          title: '1-on-1 Concierge Styling',
-          description:
-            'Direct WhatsApp styling advice from Vidhya’s personal team for drape options, blouse matching, and custom lengths.',
-        },
-      ],
-    },
-    archive: {
-      eyebrow: 'CURATION ARCHIVE',
-      title: 'Explore Past Monthly Editions',
-      subtitle:
-        'Each month brings a distinct theme, fresh fabrics, and personal styling narratives.',
-      ctaText: 'Browse All Collections →',
-      ctaHref: '/shop',
     },
     concierge: {
-      badge: 'COMPLIMENTARY CONCIERGE',
-      title: 'Unsure About Draping, Blouse Cuts, or Sizing?',
+      badge: 'ATELIER CONCIERGE',
+      title: 'Need Draping, Blouse Cut, or Sizing Advice?',
       description:
-        'Connect directly with designer Vidhya Sharma and our senior bridal styling desk. We provide drape video guides, bespoke size alterations, and fabric matching for your special occasion.',
-      whatsappNumber: '+91 98765 43210',
+        'Connect directly with Vidhya’s styling desk for drape guidance, custom blouse tailoring, and fabric matching for your upcoming occasion.',
+      whatsappNumber: '+91 72072 56690',
       whatsappUrl:
-        'https://wa.me/919876543210?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20for%20an%20upcoming%20event.',
-      sizeGuideText: 'Open Interactive Size Guide',
+        "https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20on%20Vidhya's%20Picks.",
+      sizeGuideText: 'Open Size Finder',
       sizeGuideHref: '/size-finder',
-    },
-    newsletter: {
-      eyebrow: 'PRIVATE PREVIEWS',
-      title: "Get Next Month's Edit 48 Hours Before Public Release",
-      description:
-        'Join Vidhya’s Private Notes. Receive artisanal stories, limited edition early reservations, and personal drape masterclass videos.',
-      buttonText: 'Join VIP List',
-      disclaimer: 'Zero spam. Unsubscribe at any time. We respect your private styling journey.',
     },
     monthlyEdits: [
       {

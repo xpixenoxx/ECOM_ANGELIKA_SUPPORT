@@ -208,7 +208,10 @@ export interface BuildShiprocketOrderInput {
   items: ShiprocketOrderItemInput[];
   subtotalInr: number;
   shippingChargesInr?: number;
+  giftwrapChargesInr?: number;
+  transactionChargesInr?: number;
   discountInr?: number;
+  expectedTotalInr?: number;
   paymentMethod: 'cod' | 'prepaid';
   pickupLocation?: string;
   comment?: string | null;
@@ -223,14 +226,44 @@ export interface BuiltShiprocketPayloadResult {
   dimensionsCm?: { length: number; breadth: number; height: number };
   usedDefaultWeight?: boolean;
   usedDefaultDimensions?: boolean;
+  collectibleTotalInr?: number;
   errors?: string[];
 }
 
+/**
+ * Formats an ISO timestamp into Shiprocket's expected IST (`YYYY-MM-DD HH:mm`) format.
+ * Uses pure UTC+05:30 offset arithmetic for consistent Cloudflare Edge behavior.
+ */
 function formatShiprocketOrderDate(isoDate: string): string {
   const parsed = new Date(isoDate);
-  const d = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const base = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  const ist = new Date(base.getTime() + 330 * 60_000);
   const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+  return `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())} ${pad(ist.getUTCHours())}:${pad(ist.getUTCMinutes())}`;
+}
+
+function splitNameForShiprocket(firstName: string, lastName?: string): { first: string; last: string } {
+  const cleanFirst = (firstName || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const cleanLast = (lastName || '').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (cleanLast) {
+    return { first: cleanFirst.slice(0, 60), last: cleanLast.slice(0, 60) };
+  }
+  const parts = cleanFirst.split(' ').filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      first: parts[0]!.slice(0, 60),
+      last: parts.slice(1).join(' ').slice(0, 60),
+    };
+  }
+  return { first: cleanFirst.slice(0, 60), last: '' };
+}
+
+function sanitizeShiprocketText(val: string | null | undefined, maxLen: number): string {
+  return String(val || '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLen);
 }
 
 function addressesEqual(a: ShiprocketAddressInput, b: ShiprocketAddressInput): boolean {
@@ -332,8 +365,8 @@ export function buildShiprocketAdhocOrderPayload(
   const shippingIsBilling = addressesEqual(ship, bill);
 
   const shiprocketItems = input.items.map((item) => ({
-    name: item.name.trim().slice(0, 120),
-    sku: item.sku.trim().slice(0, 50),
+    name: sanitizeShiprocketText(item.name, 120),
+    sku: sanitizeShiprocketText(item.sku, 50),
     units: item.units,
     selling_price: Number(item.sellingPrice.toFixed(2)),
     discount: Number((item.discount || 0).toFixed(2)),
@@ -341,41 +374,81 @@ export function buildShiprocketAdhocOrderPayload(
     ...(item.hsn ? { hsn: String(item.hsn).replace(/\D/g, '').slice(0, 10) } : {}),
   }));
 
+  const billName = splitNameForShiprocket(bill.firstName, bill.lastName);
+  const shipName = splitNameForShiprocket(ship.firstName, ship.lastName);
+
+  // Authoritative financial reconciliation so Shiprocket's COD collectible amount
+  // (sub_total + shipping_charges + giftwrap_charges + transaction_charges - total_discount)
+  // always matches the customer's exact payable order total (including COD handling fee).
+  const itemsSubTotal = Number(
+    shiprocketItems
+      .reduce((sum, it) => sum + it.units * Math.max(0, it.selling_price - it.discount), 0)
+      .toFixed(2)
+  );
+  const subTotal = itemsSubTotal > 0 ? itemsSubTotal : Number(input.subtotalInr.toFixed(2));
+  const shippingCharges = Number(Math.max(0, input.shippingChargesInr || 0).toFixed(2));
+  const giftwrapCharges = Number(Math.max(0, input.giftwrapChargesInr || 0).toFixed(2));
+  let transactionCharges = Number(Math.max(0, input.transactionChargesInr || 0).toFixed(2));
+  const totalDiscount = Number(Math.max(0, input.discountInr || 0).toFixed(2));
+
+  // If expectedTotalInr is provided and a COD order has a positive fee delta not yet captured
+  // in transactionCharges (e.g., legacy order without metadata.cod_fee), reconcile cleanly.
+  if (
+    input.paymentMethod === 'cod' &&
+    typeof input.expectedTotalInr === 'number' &&
+    Number.isFinite(input.expectedTotalInr) &&
+    input.expectedTotalInr > 0
+  ) {
+    const computedTotal = Number(
+      (subTotal + shippingCharges + giftwrapCharges + transactionCharges - totalDiscount).toFixed(2)
+    );
+    const delta = Number((input.expectedTotalInr - computedTotal).toFixed(2));
+    if (delta > 0 && delta <= 500) {
+      transactionCharges = Number((transactionCharges + delta).toFixed(2));
+    }
+  }
+
+  const collectibleTotalInr = Number(
+    Math.max(0, subTotal + shippingCharges + giftwrapCharges + transactionCharges - totalDiscount).toFixed(2)
+  );
+
   const payload: Record<string, unknown> = {
     order_id: orderNumber,
     order_date: formatShiprocketOrderDate(input.orderDateIso),
-    pickup_location: (input.pickupLocation || cfg.pickupLocation || 'Primary').trim(),
-    ...(input.comment ? { comment: input.comment.slice(0, 200) } : {}),
-    billing_customer_name: bill.firstName.trim(),
-    billing_last_name: (bill.lastName || '').trim(),
-    billing_address: bill.address1.trim(),
-    billing_address_2: (bill.address2 || '').trim(),
-    billing_city: bill.city.trim(),
+    pickup_location: sanitizeShiprocketText(input.pickupLocation || cfg.pickupLocation || 'Primary', 60),
+    ...(input.comment ? { comment: sanitizeShiprocketText(input.comment, 200) } : {}),
+    billing_customer_name: billName.first,
+    billing_last_name: billName.last,
+    billing_address: sanitizeShiprocketText(bill.address1, 190),
+    billing_address_2: sanitizeShiprocketText(bill.address2, 190),
+    billing_city: sanitizeShiprocketText(bill.city, 60),
     billing_pincode: Number(cleanBillPin),
-    billing_state: bill.state.trim(),
-    billing_country: bill.country?.trim() || 'India',
+    billing_state: sanitizeShiprocketText(bill.state, 60),
+    billing_country: sanitizeShiprocketText(bill.country || 'India', 40),
     billing_email: cleanEmail,
     billing_phone: normalizeIndianPhone(bill.phone || cleanPhone) || cleanPhone,
     shipping_is_billing: shippingIsBilling,
     ...(shippingIsBilling
       ? {}
       : {
-          shipping_customer_name: ship.firstName.trim(),
-          shipping_last_name: (ship.lastName || '').trim(),
-          shipping_address: ship.address1.trim(),
-          shipping_address_2: (ship.address2 || '').trim(),
-          shipping_city: ship.city.trim(),
+          shipping_customer_name: shipName.first,
+          shipping_last_name: shipName.last,
+          shipping_address: sanitizeShiprocketText(ship.address1, 190),
+          shipping_address_2: sanitizeShiprocketText(ship.address2, 190),
+          shipping_city: sanitizeShiprocketText(ship.city, 60),
           shipping_pincode: Number(cleanShipPin),
-          shipping_country: ship.country?.trim() || 'India',
-          shipping_state: ship.state.trim(),
+          shipping_country: sanitizeShiprocketText(ship.country || 'India', 40),
+          shipping_state: sanitizeShiprocketText(ship.state, 60),
           shipping_email: cleanEmail,
           shipping_phone: cleanPhone,
         }),
     order_items: shiprocketItems,
     payment_method: input.paymentMethod === 'cod' ? 'COD' : 'Prepaid',
-    shipping_charges: Number((input.shippingChargesInr || 0).toFixed(2)),
-    total_discount: Number((input.discountInr || 0).toFixed(2)),
-    sub_total: Number(input.subtotalInr.toFixed(2)),
+    shipping_charges: shippingCharges,
+    giftwrap_charges: giftwrapCharges,
+    transaction_charges: transactionCharges,
+    total_discount: totalDiscount,
+    sub_total: subTotal,
     length,
     breadth,
     height,
@@ -389,6 +462,7 @@ export function buildShiprocketAdhocOrderPayload(
     dimensionsCm: { length, breadth, height },
     usedDefaultWeight,
     usedDefaultDimensions: !hasCustomDims,
+    collectibleTotalInr,
   };
 }
 

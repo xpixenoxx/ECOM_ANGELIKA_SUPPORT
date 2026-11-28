@@ -1,17 +1,14 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, Suspense } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SocialIcon } from '@/components/ui/SocialIcon';
-import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils/cn';
-import { ScrollReveal } from '@/components/animations/ScrollReveal';
 import { StaggerContainer, StaggerItem, StaggerGrid } from '@/components/animations/Stagger';
-import { MagneticButton } from '@/components/animations/MagneticButton';
 import { LinkButton } from '@/components/ui/LinkButton';
+import { useWishlist } from '@/lib/hooks/useWishlist';
 import type {
   VidhyasPicksPageContent,
   VidhyasPicksPageProduct,
@@ -35,7 +32,7 @@ const COLOR_FILTERS = [
 
 function matchesColorFilter(productColor: string, colorFamily: string | undefined, filterVal: string): boolean {
   if (filterVal === 'All') return true;
-  const col = productColor.toLowerCase();
+  const col = (productColor || '').toLowerCase();
   const fam = (colorFamily || '').toLowerCase();
 
   if (filterVal === 'red') {
@@ -64,15 +61,14 @@ function matchesSearchQuery(product: PickProduct, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
 
-  const name = product.name.toLowerCase();
-  const cat = product.category.toLowerCase();
-  const color = product.color.toLowerCase();
+  const name = (product.name || '').toLowerCase();
+  const cat = (product.category || '').toLowerCase();
+  const color = (product.color || '').toLowerCase();
   const fabric = typeof product.fabric === 'string' ? product.fabric.toLowerCase() : JSON.stringify(product.fabric || '').toLowerCase();
   const origin = (product.origin || '').toLowerCase();
   const note = (product.vidhyaNote || '').toLowerCase();
   const tags = (product.tags || []).join(' ').toLowerCase();
 
-  // Direct substring check
   if (
     name.includes(q) ||
     cat.includes(q) ||
@@ -85,14 +81,12 @@ function matchesSearchQuery(product: PickProduct, query: string): boolean {
     return true;
   }
 
-  // Type synonyms
   if ((q === 'saree' || q === 'sarees' || q === 'sari') && cat === 'sarees') return true;
   if ((q === 'lehenga' || q === 'lehengas' || q === 'choli' || q === 'bridal') && cat === 'lehengas') return true;
   if ((q === 'kurti' || q === 'kurtis' || q === 'kurta' || q === 'anarkali') && cat === 'kurtis') return true;
   if ((q === 'salwar' || q === 'salwars' || q === 'palazzo' || q === 'sharara' || q === 'suit') && cat === 'salwars') return true;
   if ((q === 'dupatta' || q === 'dupattas' || q === 'scarf' || q === 'phulkari') && cat === 'dupattas') return true;
 
-  // Color synonyms
   if (['red', 'crimson', 'maroon', 'ruby'].includes(q) && matchesColorFilter(color, product.colorFamily, 'red')) return true;
   if (['green', 'emerald', 'sage', 'mint'].includes(q) && matchesColorFilter(color, product.colorFamily, 'green')) return true;
   if (['blue', 'navy', 'indigo', 'powder blue'].includes(q) && matchesColorFilter(color, product.colorFamily, 'blue')) return true;
@@ -112,104 +106,114 @@ function ProductCardGrid({
   product: PickProduct;
   index: number;
   isWishlisted: boolean;
-  onToggleWishlist: (id: string) => void;
+  onToggleWishlist: (product: PickProduct) => void;
 }) {
+  const href = `/product/${product.slug || product.id}`;
   const whatsappUrl = `https://wa.me/917207256690?text=${encodeURIComponent(
-    `Hi Vidhya, I saw your curated pick "${product.name}" in ${product.color} (₹${product.price.toLocaleString()}) and would love personal drape advice on sizing and fabric.`
+    `Hi Vidhya, I saw your curated pick "${product.name}" in ${product.color} (₹${product.price.toLocaleString('en-IN')}) and would love personal drape advice on sizing and fabric.`
   )}`;
 
   return (
-    <StaggerItem key={product.id} variant="scale" style={{ transitionDelay: `${index * 0.05}s` }}>
-      <article className="group relative bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-2xl)] overflow-hidden hover:shadow-[var(--shadow-xl)] hover:border-[var(--color-gold)]/40 transition-all duration-500 flex flex-col h-full">
-        {/* Product Image Container */}
-        <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--color-whisper)]">
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            priority={index < 3}
-          />
-          {/* Top Badges */}
-          <div className="absolute top-3.5 left-3.5 flex flex-wrap gap-2 z-10">
-            <Badge variant="gold">Vidhya&apos;s Pick</Badge>
+    <StaggerItem key={product.id} variant="scale" style={{ transitionDelay: `${Math.min(index, 8) * 0.03}s` }}>
+      <article className="group relative bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-xl sm:rounded-2xl overflow-hidden hover:shadow-[var(--shadow-lg)] hover:border-[var(--color-gold)]/40 transition-all duration-300 flex flex-col h-full">
+        {/* Product Image */}
+        <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--color-snow)]">
+          <Link href={href} className="block w-full h-full">
+            <Image
+              src={product.image || '/images/collection-kurtis.jpg'}
+              alt={product.name}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              priority={index < 4}
+            />
+          </Link>
+
+          {/* Top Left Discount / Curation Pill */}
+          <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-wrap gap-1 z-10 pointer-events-none">
+            <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold uppercase tracking-[0.12em] bg-[#1A1A1A]/85 text-[#E8CF86] backdrop-blur-xs">
+              Curated
+            </span>
             {product.discount > 0 && (
-              <Badge variant="outline" className="bg-[var(--color-white)]/95 text-[var(--color-ink)] border-[var(--color-whisper)]">
-                -{product.discount}% OFF
-              </Badge>
+              <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-white/95 text-[#1A1A1A] border border-black/10">
+                -{product.discount}%
+              </span>
             )}
           </div>
 
-          {/* Wishlist Button */}
+          {/* Wishlist Toggle */}
           <button
             type="button"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onToggleWishlist(product.id);
+              onToggleWishlist(product);
             }}
-            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className="absolute top-3.5 right-3.5 z-10 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[var(--color-ink)] shadow-md transition-colors duration-200"
+            aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+            className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10 w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/95 backdrop-blur-xs flex items-center justify-center text-[var(--color-ink)] shadow-sm hover:scale-105 transition-transform cursor-pointer"
           >
             <svg
-              className={cn('w-5 h-5 transition-colors', isWishlisted ? 'text-[var(--color-error)] fill-current' : 'text-[var(--color-ink)]')}
+              className={cn(
+                'w-4 h-4 sm:w-[18px] sm:h-[18px] transition-colors',
+                isWishlisted ? 'text-[var(--color-error)] fill-current' : 'text-[var(--color-ink)]'
+              )}
               viewBox="0 0 24 24"
               stroke="currentColor"
               fill={isWishlisted ? 'currentColor' : 'none'}
-              strokeWidth="2"
+              strokeWidth="1.9"
+              aria-hidden="true"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </button>
         </div>
 
-        {/* Content Details */}
-        <div className="p-5 flex-1 flex flex-col justify-between">
+        {/* Details */}
+        <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between gap-2.5">
           <div>
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-[11px] text-[var(--color-gold)] font-bold uppercase tracking-wider">
+            <div className="flex items-center justify-between gap-1.5 mb-1">
+              <span className="text-[10px] text-[#74590E] font-semibold uppercase tracking-[0.14em] truncate">
                 {product.category}
               </span>
-              <span className="text-[10px] text-stone-700 bg-stone-100 px-2 py-0.5 rounded-full border border-stone-200 font-semibold">
-                {product.color}
-              </span>
+              {product.color && (
+                <span className="hidden sm:inline-block text-[10px] text-stone-600 bg-stone-100 px-2 py-0.5 rounded-full border border-stone-200 truncate max-w-[115px]">
+                  {product.color}
+                </span>
+              )}
             </div>
 
-            <h3 className="text-[var(--font-display)] text-lg font-medium text-[var(--color-ink)] line-clamp-1 group-hover:text-[var(--color-gold)] transition-colors">
-              <Link href={`/product/${product.slug || product.id}`}>
-                {product.name}
-              </Link>
+            <h3 className="font-serif text-[15px] sm:text-lg font-medium text-[var(--color-ink)] leading-snug line-clamp-2 group-hover:text-[#74590E] transition-colors">
+              <Link href={href}>{product.name}</Link>
             </h3>
 
-            <p className="text-xs text-[var(--color-slate)] mt-1 font-medium">
-              Fabric: {typeof product.fabric === 'string' ? product.fabric : String(product.fabric || 'Artisanal Weave')} · {product.origin}
+            <p className="text-[11px] sm:text-xs text-[var(--color-slate)] mt-0.5 line-clamp-1">
+              {typeof product.fabric === 'string' ? product.fabric : String(product.fabric || 'Artisanal Weave')}
             </p>
 
-            <div className="mt-2.5 flex items-baseline gap-2">
-              <span className="text-lg font-bold text-[var(--color-ink)]">
-                ₹{product.price.toLocaleString()}
+            <div className="mt-2 flex items-baseline gap-1.5 flex-wrap">
+              <span className="text-sm sm:text-base font-bold text-[var(--color-ink)]">
+                ₹{Number(product.price || 0).toLocaleString('en-IN')}
               </span>
               {product.originalPrice > product.price && (
-                <span className="text-xs text-[var(--color-mist)] line-through">
-                  ₹{product.originalPrice.toLocaleString()}
+                <span className="text-[11px] sm:text-xs text-[var(--color-mist)] line-through">
+                  ₹{Number(product.originalPrice || 0).toLocaleString('en-IN')}
                 </span>
               )}
             </div>
 
             {product.vidhyaNote && (
-              <p className="text-xs text-[var(--color-slate)]/90 italic mt-3 pt-3 border-t border-[var(--color-whisper)] line-clamp-2">
+              <p className="hidden sm:line-clamp-2 text-xs text-[var(--color-slate)]/90 italic mt-2.5 pt-2.5 border-t border-[var(--color-whisper)] leading-relaxed">
                 &ldquo;{product.vidhyaNote}&rdquo;
               </p>
             )}
           </div>
 
-          <div className="mt-4 pt-3 flex items-center gap-2">
+          <div className="pt-1 flex items-center gap-1.5 sm:gap-2">
             <LinkButton
               variant="outline"
               size="sm"
-              className="flex-1 rounded-[var(--radius-full)] text-xs justify-center"
-              href={`/product/${product.slug || product.id}`}
+              className="flex-1 rounded-full text-[11px] sm:text-xs py-1.5 sm:py-2 justify-center"
+              href={href}
             >
               View Piece
             </LinkButton>
@@ -217,8 +221,8 @@ function ProductCardGrid({
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label="Ask Vidhya about fit on WhatsApp"
-              className="p-2 rounded-[var(--radius-full)] border border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-slate)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] transition-all flex items-center justify-center flex-shrink-0"
+              aria-label={`Ask Vidhya about ${product.name} on WhatsApp`}
+              className="hidden sm:inline-flex p-2 rounded-full border border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-slate)] hover:text-[var(--color-success)] hover:border-[var(--color-success)] transition-colors items-center justify-center flex-shrink-0"
               title="Ask Vidhya on WhatsApp"
             >
               <SocialIcon platform="whatsapp" size="sm" className="w-4 h-4" />
@@ -239,30 +243,34 @@ function ProductCardList({
   product: PickProduct;
   index: number;
   isWishlisted: boolean;
-  onToggleWishlist: (id: string) => void;
+  onToggleWishlist: (product: PickProduct) => void;
 }) {
+  const href = `/product/${product.slug || product.id}`;
   const whatsappUrl = `https://wa.me/917207256690?text=${encodeURIComponent(
-    `Hi Vidhya, I saw your curated pick "${product.name}" in ${product.color} (₹${product.price.toLocaleString()}) and would love styling advice on sizing and fabric.`
+    `Hi Vidhya, I saw your curated pick "${product.name}" in ${product.color} (₹${product.price.toLocaleString('en-IN')}) and would love styling advice on sizing and fabric.`
   )}`;
 
   return (
-    <StaggerItem key={product.id} variant="slide" style={{ transitionDelay: `${index * 0.05}s` }}>
-      <article className="group relative bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-[var(--radius-2xl)] overflow-hidden hover:shadow-[var(--shadow-xl)] hover:border-[var(--color-gold)]/40 transition-all duration-500 flex flex-col sm:flex-row items-stretch">
-        {/* Product Image */}
-        <div className="relative aspect-[3/4] sm:aspect-auto sm:w-72 md:w-80 flex-shrink-0 min-h-[260px] overflow-hidden bg-[var(--color-whisper)]">
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 100vw, 320px"
-          />
-          <div className="absolute top-3.5 left-3.5 flex flex-wrap gap-2 z-10">
-            <Badge variant="gold">Vidhya&apos;s Pick</Badge>
+    <StaggerItem key={product.id} variant="slide" style={{ transitionDelay: `${Math.min(index, 8) * 0.03}s` }}>
+      <article className="group relative bg-[var(--color-white)] border border-[var(--color-whisper)] rounded-2xl overflow-hidden hover:shadow-[var(--shadow-lg)] hover:border-[var(--color-gold)]/40 transition-all duration-300 flex flex-col sm:flex-row items-stretch">
+        <div className="relative aspect-[3/4] sm:aspect-auto sm:w-64 md:w-72 flex-shrink-0 min-h-[240px] overflow-hidden bg-[var(--color-snow)]">
+          <Link href={href} className="block w-full h-full">
+            <Image
+              src={product.image || '/images/collection-kurtis.jpg'}
+              alt={product.name}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              sizes="(max-width: 640px) 100vw, 288px"
+            />
+          </Link>
+          <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10 pointer-events-none">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.12em] bg-[#1A1A1A]/85 text-[#E8CF86]">
+              Vidhya&apos;s Pick
+            </span>
             {product.discount > 0 && (
-              <Badge variant="outline" className="bg-[var(--color-white)]/95 text-[var(--color-ink)] border-[var(--color-whisper)]">
-                -{product.discount}% OFF
-              </Badge>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-white/95 text-[#1A1A1A] border border-black/10">
+                -{product.discount}%
+              </span>
             )}
           </div>
           <button
@@ -270,79 +278,80 @@ function ProductCardList({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onToggleWishlist(product.id);
+              onToggleWishlist(product);
             }}
-            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className="absolute top-3.5 right-3.5 z-10 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[var(--color-ink)] shadow-md transition-colors duration-200"
+            aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+            className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/95 flex items-center justify-center text-[var(--color-ink)] shadow-sm cursor-pointer"
           >
             <svg
               className={cn('w-5 h-5 transition-colors', isWishlisted ? 'text-[var(--color-error)] fill-current' : 'text-[var(--color-ink)]')}
               viewBox="0 0 24 24"
               stroke="currentColor"
               fill={isWishlisted ? 'currentColor' : 'none'}
-              strokeWidth="2"
+              strokeWidth="1.9"
+              aria-hidden="true"
             >
               <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
             </svg>
           </button>
         </div>
 
-        {/* Content Details */}
-        <div className="p-6 flex-1 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-[var(--color-gold)] font-bold uppercase tracking-wider">
+        <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs text-[#74590E] font-bold uppercase tracking-wider">
                 {product.category}
               </span>
-              <span className="text-[11px] text-[var(--color-slate)] bg-[var(--color-snow)] px-2.5 py-0.5 rounded-full border border-[var(--color-whisper)] font-medium">
-                {product.color}
-              </span>
-              <span className="text-[11px] text-[var(--color-slate)]">
-                Origin: {product.origin}
-              </span>
+              {product.color && (
+                <span className="text-[11px] text-[var(--color-slate)] bg-[var(--color-snow)] px-2.5 py-0.5 rounded-full border border-[var(--color-whisper)] font-medium">
+                  {product.color}
+                </span>
+              )}
+              {product.origin && (
+                <span className="text-[11px] text-[var(--color-slate)]">
+                  {product.origin}
+                </span>
+              )}
             </div>
 
-            <h3 className="text-[var(--font-display)] text-2xl font-medium text-[var(--color-ink)] group-hover:text-[var(--color-gold)] transition-colors">
-              <Link href={`/product/${product.slug || product.id}`}>
-                {product.name}
-              </Link>
+            <h3 className="font-serif text-xl sm:text-2xl font-medium text-[var(--color-ink)] group-hover:text-[#74590E] transition-colors">
+              <Link href={href}>{product.name}</Link>
             </h3>
 
-            <p className="text-sm text-[var(--color-slate)] font-medium">
-              Fabric Composition: {typeof product.fabric === 'string' ? product.fabric : String(product.fabric || 'Artisanal Weave')}
+            <p className="text-sm text-[var(--color-slate)]">
+              Fabric: {typeof product.fabric === 'string' ? product.fabric : String(product.fabric || 'Artisanal Weave')}
             </p>
 
-            <div className="flex items-baseline gap-3">
-              <span className="text-2xl font-bold text-[var(--color-ink)]">
-                ₹{product.price.toLocaleString()}
+            <div className="flex items-baseline gap-2.5">
+              <span className="text-xl font-bold text-[var(--color-ink)]">
+                ₹{Number(product.price || 0).toLocaleString('en-IN')}
               </span>
               {product.originalPrice > product.price && (
                 <span className="text-sm text-[var(--color-mist)] line-through">
-                  ₹{product.originalPrice.toLocaleString()}
+                  ₹{Number(product.originalPrice || 0).toLocaleString('en-IN')}
                 </span>
               )}
             </div>
 
             {product.vidhyaNote && (
-              <div className="p-4 rounded-[var(--radius-xl)] bg-[var(--color-snow)] border-l-4 border-[var(--color-gold)] text-sm text-[var(--color-slate)] italic">
+              <p className="p-3.5 rounded-xl bg-[var(--color-snow)] border-l-3 border-[var(--color-gold)] text-sm text-[var(--color-slate)] italic">
                 &ldquo;{product.vidhyaNote}&rdquo;
-              </div>
+              </p>
             )}
           </div>
 
-          {/* Action Row */}
-          <div className="mt-6 pt-5 border-t border-[var(--color-whisper)] flex flex-wrap items-center gap-3">
-            <LinkButton variant="primary" size="md" className="rounded-[var(--radius-full)] px-6 text-xs" href={`/product/${product.slug || product.id}`}>
-              View Product & Sizing
+          <div className="mt-5 pt-4 border-t border-[var(--color-whisper)] flex flex-wrap items-center gap-3">
+            <LinkButton variant="primary" size="md" className="rounded-full px-6 text-xs" href={href}>
+              View Piece &amp; Sizing
             </LinkButton>
             <Link
               href={whatsappUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[var(--radius-full)] border border-[var(--color-whisper)] text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-success)] hover:text-[var(--color-success)] hover:bg-[var(--color-success-bg)] transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--color-whisper)] text-xs font-medium text-[var(--color-ink)] hover:border-[var(--color-success)] hover:text-[var(--color-success)] transition-colors"
             >
               <SocialIcon platform="whatsapp" size="sm" className="w-4 h-4 text-[var(--color-success)]" />
-              Chat with Vidhya About Fit
+              Ask Vidhya About Fit
             </Link>
           </div>
         </div>
@@ -354,96 +363,73 @@ function ProductCardList({
 function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicksPageContent }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isInWishlist, toggleItem } = useWishlist();
 
-  // Read URL query params
   const urlSearch = searchParams.get('search') || searchParams.get('q') || '';
   const urlCategory = searchParams.get('category') || searchParams.get('type') || 'All';
   const urlColor = searchParams.get('color') || 'All';
-  const monthParam = searchParams.get('month');
 
-  // Load content from prop with robust fallbacks
   const content = initialContent;
   const monthlyEdits = useMemo(() => content?.monthlyEdits || [], [content?.monthlyEdits]);
   const additionalPicks = useMemo(() => content?.additionalPicks || [], [content?.additionalPicks]);
 
-  // Unified pool of products
+  // Unified, deduplicated pool of all Vidhya's Picks (backwards-compatible with both legacy monthlyEdits and additionalPicks)
   const allPicks: PickProduct[] = useMemo(() => {
-    const fromEdits = monthlyEdits.flatMap((edit) =>
-      (edit.products || []).map((p) => ({
-        ...p,
-        month: edit.month,
-        theme: edit.theme,
-      }))
-    );
-    return [...fromEdits, ...additionalPicks];
+    const seen = new Set<string>();
+    const combined: PickProduct[] = [];
+    const pushUnique = (item: PickProduct) => {
+      const key = (item.id || item.slug || item.name || '').trim().toLowerCase();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      combined.push(item);
+    };
+
+    for (const edit of monthlyEdits) {
+      for (const p of edit.products || []) {
+        pushUnique({ ...p, month: edit.month, theme: edit.theme });
+      }
+    }
+    for (const p of additionalPicks) {
+      pushUnique(p);
+    }
+    return combined;
   }, [monthlyEdits, additionalPicks]);
 
   const [searchQuery, setSearchQuery] = useState(urlSearch);
-  const [activeMonthIndex, setActiveMonthIndex] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string>(urlCategory);
   const [activeColor, setActiveColor] = useState<string>(urlColor);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'discount'>('featured');
-  const [wishlist, setWishlist] = useState<string[]>([]);
-  const [subscribedEmail, setSubscribedEmail] = useState('');
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const filterDialogRef = useRef<HTMLDialogElement>(null);
 
-  // Sync state if URL search query changes
   useEffect(() => {
     if (urlSearch !== searchQuery) {
       setSearchQuery(urlSearch);
     }
-  }, [urlSearch, searchQuery]);
+  }, [urlSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync month from URL query if provided
-  useEffect(() => {
-    if (monthParam) {
-      const idx = monthlyEdits.findIndex(
-        (e) => e.slug === monthParam || e.month.toLowerCase().replace(/\s+/g, '-') === monthParam.toLowerCase()
-      );
-      if (idx !== -1) setActiveMonthIndex(idx);
-    }
-  }, [monthParam, monthlyEdits]);
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchQuery.trim()) count += 1;
+    if (activeCategory !== 'All') count += 1;
+    if (activeColor !== 'All') count += 1;
+    return count;
+  }, [searchQuery, activeCategory, activeColor]);
 
-  const currentEdit = monthlyEdits[activeMonthIndex] || monthlyEdits[0] || {
-    month: 'January 2026',
-    slug: 'january-2026',
-    theme: 'New Beginnings in Silk',
-    subtitle: 'Lustrous Mulberry Silks & Airy Chiffons for the Fresh Season',
-    note: 'Starting the year with the fabrics that feel like fresh starts.',
-    coverImage: '/images/vp-jan-1.jpg',
-    heroStory: '',
-    curatorInsight: '',
-    products: [],
-  };
-
-  // Determine active base product pool
-  const isSearchOrFilterActive = useMemo(
-    () => Boolean(searchQuery.trim() || activeCategory !== 'All' || activeColor !== 'All'),
-    [searchQuery, activeCategory, activeColor]
-  );
-
-  // Filter and sort products
   const filteredProducts = useMemo(() => {
-    const baseProductList = isSearchOrFilterActive ? allPicks : (currentEdit.products || []);
-
-    let result = baseProductList.filter((product) => {
-      // Category filter
+    let result = allPicks.filter((product) => {
       if (activeCategory !== 'All' && product.category !== activeCategory) {
         return false;
       }
-      // Color filter
       if (!matchesColorFilter(product.color, product.colorFamily, activeColor)) {
         return false;
       }
-      // Search query filter
       if (searchQuery.trim() && !matchesSearchQuery(product, searchQuery)) {
         return false;
       }
       return true;
     });
 
-    // Sort order
     if (sortBy === 'price-asc') {
       result = [...result].sort((a, b) => a.price - b.price);
     } else if (sortBy === 'price-desc') {
@@ -453,12 +439,22 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
     }
 
     return result;
-  }, [isSearchOrFilterActive, allPicks, currentEdit.products, activeCategory, activeColor, searchQuery, sortBy]);
+  }, [allPicks, activeCategory, activeColor, searchQuery, sortBy]);
 
-  const handleToggleWishlist = (productId: string) => {
-    setWishlist((prev) =>
-      prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]
-    );
+  const handleToggleWishlist = (product: PickProduct) => {
+    void toggleItem({
+      id: product.id,
+      productId: product.id,
+      slug: product.slug || product.id,
+      name: product.name,
+      price: product.price,
+      originalPrice: product.originalPrice,
+      discount: product.discount,
+      image: product.image,
+      category: product.category,
+      color: product.color,
+      isVidhyasPick: true,
+    });
   };
 
   const handleClearAllFilters = () => {
@@ -468,109 +464,65 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
     router.replace('/vidhyas-picks', { scroll: false });
   };
 
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (subscribedEmail) {
-      setIsSubscribed(true);
-      setSubscribedEmail('');
-    }
+  const openFilterDialog = () => {
+    filterDialogRef.current?.showModal();
   };
 
-  // Dynamic Content Accessors
+  const closeFilterDialog = () => {
+    filterDialogRef.current?.close();
+  };
+
+  // Dynamic Content Accessors with clean defaults
   const header = content?.header || {
     eyebrowBadge: "FOUNDER'S CURATION",
-    badgeSubtitle: "Updated Monthly",
+    badgeSubtitle: 'Handpicked Atelier Edit',
     title: "Vidhya's Personal Picks",
-    titleHighlight: "Personal",
-    description: "“Every piece in this edit is an authentic favorite from my own wardrobe. Hand-selected directly from master looms across Varanasi, Kutch, and Jaipur — chosen for effortless drape, pure natural fiber, and timeless elegance.”",
+    titleHighlight: 'Personal',
+    description:
+      'Hand-selected directly from master looms across Varanasi, Kutch, and Jaipur — chosen for effortless drape, pure natural fiber, and timeless elegance.',
     founder: {
-      name: "Vidhya Sharma",
-      role: "Founder & Creative Director · Angelika Fashions",
-      experience: "Curating pure handloom weaves since 2018",
-      avatar: "/images/about/vidhya-profile.jpg",
-      storyLinkText: "Read Story →",
-      storyLinkHref: "/about/vidhya",
+      name: 'Vidhya Sharma',
+      role: 'Founder & Creative Director',
+      experience: 'Curating pure handloom weaves since 2018',
+      avatar: '/images/about/vidhya-profile.jpg',
+      storyLinkText: 'Meet Vidhya →',
+      storyLinkHref: '/about/vidhya',
     },
-    featuredStats: {
-      stat1Value: "100%",
-      stat1Label: "Natural Silk",
-      stat2Value: "5 Categories",
-      stat2Label: "Artisan Looms",
-      stat3Value: "Limited",
-      stat3Label: "Bespoke Batches",
-    },
-  };
-
-  const curationStandards = content?.curationStandards || {
-    eyebrow: "THE CURATION STANDARD",
-    title: "Why Every Pick is Rare & Special",
-    subtitle: "We reject mass manufacturing. Every piece in Vidhya’s Picks meets four strict artisanal principles.",
-    items: [
-      {
-        icon: "🪡",
-        title: "Direct Loom Provenance",
-        description: "Directly commissioned from master weavers in Varanasi, Chanderi, and Kutch with fair-wage artisan partnerships.",
-      },
-      {
-        icon: "👗",
-        title: "Wear-Tested Drapes",
-        description: "Personally styled and fitted by Vidhya to guarantee all-day comfort, zero-scratch necklines, and effortless fall.",
-      },
-      {
-        icon: "💎",
-        title: "Micro-Batch Exclusivity",
-        description: "Created in limited editions of only 20–50 units per weave to ensure your look remains singular and unique.",
-      },
-      {
-        icon: "💬",
-        title: "1-on-1 Concierge Styling",
-        description: "Direct WhatsApp styling advice from Vidhya’s personal team for drape options, blouse matching, and custom lengths.",
-      },
-    ],
-  };
-
-  const archive = content?.archive || {
-    eyebrow: "CURATION ARCHIVE",
-    title: "Explore Past Monthly Editions",
-    subtitle: "Each month brings a distinct theme, fresh fabrics, and personal styling narratives.",
-    ctaText: "Browse All Collections →",
-    ctaHref: "/shop",
   };
 
   const concierge = content?.concierge || {
-    badge: "COMPLIMENTARY CONCIERGE",
-    title: "Unsure About Draping, Blouse Cuts, or Sizing?",
-    description: "Connect directly with designer Vidhya Sharma and our senior bridal styling desk. We provide drape video guides, bespoke size alterations, and fabric matching for your special occasion.",
-    whatsappNumber: "+91 72072 56690",
-    whatsappUrl: "https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20for%20an%20upcoming%20event.",
-    sizeGuideText: "Open Interactive Size Guide",
-    sizeGuideHref: "/size-finder",
+    badge: 'ATELIER CONCIERGE',
+    title: 'Need Draping, Blouse Cut, or Sizing Advice?',
+    description:
+      'Connect directly with Vidhya’s styling desk for drape guidance, custom blouse tailoring, and fabric matching.',
+    whatsappNumber: '+91 72072 56690',
+    whatsappUrl:
+      'https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20on%20Vidhya%27s%20Picks.',
+    sizeGuideText: 'Open Size Finder',
+    sizeGuideHref: '/size-finder',
   };
 
-  const newsletter = content?.newsletter || {
-    eyebrow: "PRIVATE PREVIEWS",
-    title: "Get Next Month's Edit 48 Hours Before Public Release",
-    description: "Join Vidhya’s Private Notes. Receive artisanal stories, limited edition early reservations, and personal drape masterclass videos.",
-    buttonText: "Join VIP List",
-    disclaimer: "Zero spam. Unsubscribe at any time. We respect your private styling journey.",
-  };
+  // Normalize legacy placeholder numbers cleanly at render time too
+  const resolvedWhatsappNumber =
+    concierge.whatsappNumber && !concierge.whatsappNumber.includes('98765 43210')
+      ? concierge.whatsappNumber
+      : '+91 72072 56690';
+  const resolvedWhatsappUrl =
+    concierge.whatsappUrl && !concierge.whatsappUrl.includes('919876543210')
+      ? concierge.whatsappUrl
+      : 'https://wa.me/917207256690?text=Hi%20Vidhya,%20I%20need%20styling%20advice%20on%20Vidhya%27s%20Picks.';
 
-  // Render title with highlight word
   const renderTitle = () => {
     const fullTitle = header.title || "Vidhya's Personal Picks";
-    const highlight = header.titleHighlight || "Personal";
-
+    const highlight = header.titleHighlight || 'Personal';
     if (!highlight || !fullTitle.includes(highlight)) {
       return fullTitle;
     }
-
     const parts = fullTitle.split(highlight);
     return (
       <>
         {parts[0]}
-        <span className="italic font-normal text-[var(--color-gold)] font-serif">
-          {highlight}
-        </span>
+        <span className="italic font-normal text-[#74590E] font-serif">{highlight}</span>
         {parts.slice(1).join(highlight)}
       </>
     );
@@ -578,250 +530,123 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
 
   return (
     <div className="min-h-screen bg-[var(--color-snow)] font-sans antialiased text-[var(--color-ink)] selection:bg-[var(--color-gold-light)] selection:text-[var(--color-ink)]">
-      {/* Editorial Hero Header */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[var(--color-snow)] via-[var(--color-white)] to-[var(--color-snow)] border-b border-[var(--color-whisper)] py-12 md:py-20">
-        <div className="absolute top-0 right-0 -mr-24 -mt-24 w-96 h-96 rounded-full bg-[var(--color-gold-light)]/30 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 -ml-24 -mb-24 w-96 h-96 rounded-full bg-[var(--color-gold)]/10 blur-3xl pointer-events-none" />
-
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            {/* Left Column: Editorial Headline & Personal Bio */}
-            <div className="lg:col-span-7 space-y-6">
-              <div className="flex items-center gap-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[var(--color-gold-light)] text-[var(--color-gold)] tracking-wide">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-gold)] animate-pulse" />
+      {/* Compact Editorial Masthead — Content-first on mobile & desktop */}
+      <section className="bg-gradient-to-b from-[#FAF8F5] to-white border-b border-[var(--color-whisper)] py-6 sm:py-10 md:py-12">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 lg:gap-10">
+            <div className="max-w-2xl space-y-2.5 sm:space-y-3">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#F3EFEA] text-[#74590E] tracking-[0.14em] uppercase border border-[#E6DEC8]">
                   {header.eyebrowBadge}
                 </span>
-                <span className="text-xs font-medium text-[var(--color-slate)] uppercase tracking-wider">
-                  {header.badgeSubtitle}
-                </span>
+                {header.badgeSubtitle && (
+                  <span className="text-[11px] font-medium text-[var(--color-slate)] uppercase tracking-[0.12em]">
+                    {header.badgeSubtitle}
+                  </span>
+                )}
               </div>
 
-              <div>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-medium tracking-tight font-serif text-[var(--color-ink)] leading-[1.15]">
-                  {renderTitle()}
-                </h1>
-                <p className="mt-4 text-base sm:text-lg text-[var(--color-slate)] leading-relaxed max-w-2xl font-normal">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-medium tracking-tight font-serif text-[var(--color-ink)] leading-[1.12]">
+                {renderTitle()}
+              </h1>
+
+              {header.description && (
+                <p className="text-sm sm:text-base text-[var(--color-slate)] leading-relaxed line-clamp-3 sm:line-clamp-none">
                   {header.description}
                 </p>
-              </div>
-
-              {/* Founder Profile Snapshot Card */}
-              <div className="pt-2">
-                <div className="inline-flex items-center gap-4 p-3 pr-6 rounded-2xl bg-[var(--color-white)] border border-[var(--color-whisper)] shadow-xs">
-                  <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-[var(--color-gold)]/40 flex-shrink-0 bg-[var(--color-gold-light)]">
-                    <Image
-                      src={header.founder.avatar || '/images/about/vidhya-profile.jpg'}
-                      alt={header.founder.name}
-                      fill
-                      className="object-cover"
-                      sizes="48px"
-                    />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold text-[var(--color-ink)]">
-                      {header.founder.name}
-                    </h2>
-                    <p className="text-xs text-[var(--color-slate)] font-medium">
-                      {header.founder.role}
-                    </p>
-                    <p className="text-[11px] text-[var(--color-mist)]">
-                      {header.founder.experience}
-                    </p>
-                  </div>
-                  {header.founder.storyLinkText && (
-                    <Link
-                      href={header.founder.storyLinkHref || '/about/vidhya'}
-                      className="text-xs font-semibold text-[var(--color-ink)] hover:text-[var(--color-gold)] transition-colors whitespace-nowrap hidden sm:inline-flex items-center gap-1 ml-2"
-                    >
-                      {header.founder.storyLinkText}
-                    </Link>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Right Column: Hero Cover Artwork */}
-            <div className="lg:col-span-5">
-              <div className="relative rounded-[var(--radius-2xl)] overflow-hidden border border-[var(--color-whisper)] shadow-[var(--shadow-xl)] bg-[var(--color-white)]">
-                <div className="relative aspect-[4/3] sm:aspect-[16/11] w-full overflow-hidden bg-[var(--color-whisper)]">
+            {/* Compact Founder Attribution Strip */}
+            <div className="flex items-center justify-between sm:justify-start gap-3.5 px-3.5 py-2.5 rounded-2xl bg-[#FAF8F5] border border-[var(--color-whisper)] lg:shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="relative w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden border border-[#C9A84C]/50 flex-shrink-0 bg-[#F3EFEA]">
                   <Image
-                    src={currentEdit.coverImage || '/images/vp-jan-1.jpg'}
-                    alt={currentEdit.theme}
+                    src={header.founder?.avatar || '/images/about/vidhya-profile.jpg'}
+                    alt={header.founder?.name || 'Vidhya Sharma'}
                     fill
-                    className="object-cover transition-transform duration-700 hover:scale-105"
-                    sizes="(max-width: 1024px) 100vw, 500px"
-                    priority
+                    className="object-cover"
+                    sizes="44px"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
-
-                  <div className="absolute bottom-4 left-4 right-4 text-[var(--color-white)]">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-gold)] bg-[var(--color-ink)]/60 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                      FEATURED CURATION
-                    </span>
-                    <h2 className="text-xl sm:text-2xl font-serif font-medium mt-1 text-[var(--color-white)]">
-                      {currentEdit.theme}
-                    </h2>
-                    <p className="text-xs text-[var(--color-white)]/80 line-clamp-1 mt-0.5">
-                      {currentEdit.subtitle}
-                    </p>
-                  </div>
                 </div>
-
-                <div className="p-4 grid grid-cols-3 gap-2 text-center bg-[var(--color-snow)] border-t border-[var(--color-whisper)]">
-                  <div>
-                    <p className="text-base font-bold text-[var(--color-ink)]">
-                      {header.featuredStats.stat1Value}
-                    </p>
-                    <p className="text-[10px] font-medium text-[var(--color-slate)] uppercase tracking-wider">
-                      {header.featuredStats.stat1Label}
-                    </p>
-                  </div>
-                  <div className="border-x border-[var(--color-whisper)]">
-                    <p className="text-base font-bold text-[var(--color-gold)]">
-                      {header.featuredStats.stat2Value}
-                    </p>
-                    <p className="text-[10px] font-medium text-[var(--color-slate)] uppercase tracking-wider">
-                      {header.featuredStats.stat2Label}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-base font-bold text-[var(--color-ink)]">
-                      {header.featuredStats.stat3Value}
-                    </p>
-                    <p className="text-[10px] font-medium text-[var(--color-slate)] uppercase tracking-wider">
-                      {header.featuredStats.stat3Label}
-                    </p>
-                  </div>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold text-[var(--color-ink)] truncate">
+                    {header.founder?.name || 'Vidhya Sharma'}
+                  </p>
+                  <p className="text-[11px] text-[var(--color-slate)] truncate">
+                    {header.founder?.role || 'Founder & Creative Director'}
+                  </p>
                 </div>
               </div>
+              {header.founder?.storyLinkText && (
+                <Link
+                  href={header.founder.storyLinkHref || '/about/vidhya'}
+                  className="text-[11px] sm:text-xs font-semibold text-[#74590E] hover:text-[var(--color-ink)] transition-colors whitespace-nowrap shrink-0 pl-2"
+                >
+                  {header.founder.storyLinkText}
+                </Link>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Interactive Search & Refinement Bar */}
-      <section className="sticky top-16 md:top-20 z-30 bg-[var(--color-white)]/95 backdrop-blur-md border-b border-[var(--color-whisper)] shadow-xs">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 space-y-3">
-          {/* Row 1: Search Input & Active Search State */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative flex-1 max-w-xl">
-              <svg
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-mist)] pointer-events-none"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="M21 21l-4.35-4.35" />
-              </svg>
-              <input
-                type="search"
-                placeholder="Search Vidhya's picks by type (Lehenga, Saree) or color (Red, Green, Blue)..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-10 pl-10 pr-10 text-xs sm:text-sm bg-[var(--color-snow)] border border-[var(--color-whisper)] rounded-full focus:border-[var(--color-gold)] focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)]/20 transition-all placeholder:text-[var(--color-mist)] [&::-webkit-search-cancel-button]:hidden"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--color-mist)] hover:text-[var(--color-ink)]"
-                  aria-label="Clear search text"
-                >
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-
-            {/* Active Filters Clear Button & Sort Control */}
-            <div className="flex items-center gap-3 self-end sm:self-auto">
-              {isSearchOrFilterActive && (
-                <button
-                  type="button"
-                  onClick={handleClearAllFilters}
-                  className="text-xs text-[var(--color-error)] hover:underline font-semibold flex items-center gap-1"
-                >
-                  <span>Clear All Filters</span>
-                  <span className="text-[10px]">✕</span>
-                </button>
-              )}
-
+      {/* Non-Sticky Refinement Controls — Zero stacked sticky bars on mobile */}
+      <section className="bg-white border-b border-[var(--color-whisper)]">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Mobile Compact Single-Row Control Bar (< lg) */}
+          <div className="lg:hidden py-3 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <label htmlFor="sort-select" className="text-xs text-[var(--color-slate)] hidden md:inline">
-                  Sort:
-                </label>
-                <select
-                  id="sort-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
-                  className="text-xs bg-[var(--color-snow)] border border-[var(--color-whisper)] rounded-lg py-1.5 px-2.5 font-medium text-[var(--color-ink)] focus:outline-none focus:border-[var(--color-gold)]"
+                <button
+                  type="button"
+                  onClick={openFilterDialog}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer',
+                    activeFilterCount > 0
+                      ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
+                      : 'bg-[#FAF8F5] text-[#1A1A1A] border-[#DDD4C7] hover:border-[#C9A84C]'
+                  )}
                 >
-                  <option value="featured">Featured Picks</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="discount">Highest Discount</option>
-                </select>
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <line x1="4" y1="6" x2="20" y2="6" />
+                    <line x1="7" y1="12" x2="17" y2="12" />
+                    <line x1="10" y1="18" x2="14" y2="18" />
+                  </svg>
+                  <span>Filter &amp; Search</span>
+                  {activeFilterCount > 0 && (
+                    <span className="ml-0.5 w-4 h-4 rounded-full bg-[#C9A84C] text-[#1A1A1A] text-[10px] font-bold flex items-center justify-center">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
 
-                {/* View Mode Toggle */}
-                <div className="flex items-center border border-[var(--color-whisper)] rounded-lg overflow-hidden bg-[var(--color-snow)]">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      'p-1.5 transition-colors',
-                      viewMode === 'grid'
-                        ? 'bg-[var(--color-gold)] text-[var(--color-ink)]'
-                        : 'text-[var(--color-slate)] hover:text-[var(--color-ink)]'
-                    )}
-                    aria-label="Grid view"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="3" width="7" height="7" />
-                      <rect x="14" y="3" width="7" height="7" />
-                      <rect x="14" y="14" width="7" height="7" />
-                      <rect x="3" y="14" width="7" height="7" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode('list')}
-                    className={cn(
-                      'p-1.5 transition-colors',
-                      viewMode === 'list'
-                        ? 'bg-[var(--color-gold)] text-[var(--color-ink)]'
-                        : 'text-[var(--color-slate)] hover:text-[var(--color-ink)]'
-                    )}
-                    aria-label="List view"
-                  >
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="8" y1="6" x2="21" y2="6" />
-                      <line x1="8" y1="12" x2="21" y2="12" />
-                      <line x1="8" y1="18" x2="21" y2="18" />
-                      <line x1="3" y1="6" x2="3.01" y2="6" />
-                      <line x1="3" y1="12" x2="3.01" y2="12" />
-                      <line x1="3" y1="18" x2="3.01" y2="18" />
-                    </svg>
-                  </button>
-                </div>
+                <span className="text-xs text-[var(--color-slate)] font-medium">
+                  {filteredProducts.length} {filteredProducts.length === 1 ? 'piece' : 'pieces'}
+                </span>
               </div>
-            </div>
-          </div>
 
-          {/* Row 2: Category Pills & Color Swatches */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 border-t border-[var(--color-whisper)]/60">
-            {/* Category Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              <span className="text-[10px] font-bold text-[var(--color-slate)] uppercase tracking-wider mr-1 shrink-0">
-                Type:
-              </span>
+              <select
+                aria-label="Sort Vidhya's Picks"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="h-9 text-xs bg-[#FAF8F5] border border-[#DDD4C7] rounded-full px-3 font-medium text-[#1A1A1A] focus:outline-none focus:border-[#C9A84C]"
+              >
+                <option value="featured">Featured</option>
+                <option value="price-asc">Price: Low–High</option>
+                <option value="price-desc">Price: High–Low</option>
+                <option value="discount">Best Savings</option>
+              </select>
+            </div>
+
+            {/* 1-Tap Horizontal Category Rail (Scrolls naturally with page, NEVER sticky) */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none -mx-4 px-4">
               {CATEGORIES.map((cat) => {
-                const count = cat === 'All'
-                  ? allPicks.length
-                  : allPicks.filter((p) => p.category === cat).length;
+                const count =
+                  cat === 'All'
+                    ? allPicks.length
+                    : allPicks.filter((p) => p.category === cat).length;
+                if (cat !== 'All' && count === 0) return null;
                 const isSelected = activeCategory === cat;
                 return (
                   <button
@@ -829,14 +654,46 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
                     type="button"
                     onClick={() => setActiveCategory(cat)}
                     className={cn(
-                      'px-3 py-1 text-xs rounded-full whitespace-nowrap transition-all font-medium flex items-center gap-1 shrink-0',
+                      'px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors font-medium shrink-0 flex items-center gap-1 cursor-pointer',
                       isSelected
-                        ? 'bg-[var(--color-gold)] text-[var(--color-ink)] font-bold shadow-xs'
-                        : 'bg-[var(--color-snow)] text-[var(--color-slate)] hover:bg-[var(--color-gold-light)]/40 hover:text-[var(--color-ink)] border border-[var(--color-whisper)]'
+                        ? 'bg-[#1A1A1A] text-white'
+                        : 'bg-[#FAF8F5] text-[var(--color-slate)] border border-[#E5DDD0]'
                     )}
                   >
                     <span>{cat}</span>
-                    <span className="text-[10px] opacity-75">
+                    <span className={cn('text-[10px]', isSelected ? 'text-[#E8CF86]' : 'opacity-65')}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Desktop Single-Row Refined Toolbar (>= lg) */}
+          <div className="hidden lg:flex items-center justify-between gap-4 py-3.5">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+              {CATEGORIES.map((cat) => {
+                const count =
+                  cat === 'All'
+                    ? allPicks.length
+                    : allPicks.filter((p) => p.category === cat).length;
+                if (cat !== 'All' && count === 0) return null;
+                const isSelected = activeCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    className={cn(
+                      'px-3.5 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors font-medium shrink-0 flex items-center gap-1.5 cursor-pointer',
+                      isSelected
+                        ? 'bg-[#1A1A1A] text-white'
+                        : 'bg-[#FAF8F5] text-[var(--color-slate)] hover:text-[#1A1A1A] border border-[var(--color-whisper)]'
+                    )}
+                  >
+                    <span>{cat}</span>
+                    <span className={cn('text-[10px]', isSelected ? 'text-[#E8CF86]' : 'opacity-70')}>
                       {count}
                     </span>
                   </button>
@@ -844,394 +701,413 @@ function VidhyasPicksContent({ initialContent }: { initialContent?: VidhyasPicks
               })}
             </div>
 
-            {/* Color Swatch Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              <span className="text-[10px] font-bold text-[var(--color-slate)] uppercase tracking-wider mr-1 shrink-0">
-                Color:
-              </span>
-              {COLOR_FILTERS.map((col) => {
-                const isSelected = activeColor === col.value;
-                const count = col.value === 'All'
-                  ? allPicks.length
-                  : allPicks.filter((p) => matchesColorFilter(p.color, p.colorFamily, col.value)).length;
-                return (
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="relative w-60">
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--color-mist)] pointer-events-none"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="M21 21l-4.35-4.35" />
+                </svg>
+                <input
+                  type="search"
+                  placeholder="Search silk, saree, color..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-9 pl-8 pr-7 text-xs bg-[#FAF8F5] border border-[var(--color-whisper)] rounded-full focus:border-[#C9A84C] focus:outline-none focus:bg-white transition-colors [&::-webkit-search-cancel-button]:hidden"
+                />
+                {searchQuery && (
                   <button
-                    key={col.value}
                     type="button"
-                    onClick={() => setActiveColor(col.value)}
-                    className={cn(
-                      'px-2.5 py-1 text-xs rounded-full whitespace-nowrap transition-all flex items-center gap-1.5 shrink-0 border',
-                      isSelected
-                        ? 'border-[var(--color-ink)] bg-[var(--color-ink)] text-[var(--color-white)] font-bold shadow-xs'
-                        : 'border-[var(--color-whisper)] bg-[var(--color-white)] text-[var(--color-slate)] hover:text-[var(--color-ink)]'
-                    )}
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--color-mist)] hover:text-[var(--color-ink)] cursor-pointer"
+                    aria-label="Clear search"
                   >
-                    {col.value !== 'All' && (
-                      <span
-                        className="w-2.5 h-2.5 rounded-full border border-black/20"
-                        style={{ backgroundColor: col.bgHex }}
-                      />
-                    )}
-                    <span>{col.label}</span>
-                    <span className="text-[10px] opacity-70">{count}</span>
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
                   </button>
-                );
-              })}
+                )}
+              </div>
+
+              <select
+                aria-label="Filter by color"
+                value={activeColor}
+                onChange={(e) => setActiveColor(e.target.value)}
+                className="h-9 text-xs bg-[#FAF8F5] border border-[var(--color-whisper)] rounded-full px-3 font-medium text-[var(--color-ink)] focus:outline-none focus:border-[#C9A84C]"
+              >
+                {COLOR_FILTERS.map((col) => (
+                  <option key={col.value} value={col.value}>
+                    {col.label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                aria-label="Sort Vidhya's Picks"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                className="h-9 text-xs bg-[#FAF8F5] border border-[var(--color-whisper)] rounded-full px-3 font-medium text-[var(--color-ink)] focus:outline-none focus:border-[#C9A84C]"
+              >
+                <option value="featured">Featured Picks</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="discount">Highest Savings</option>
+              </select>
+
+              <div className="flex items-center border border-[var(--color-whisper)] rounded-full overflow-hidden bg-[#FAF8F5] p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={cn(
+                    'p-1.5 rounded-full transition-colors cursor-pointer',
+                    viewMode === 'grid'
+                      ? 'bg-[#1A1A1A] text-white'
+                      : 'text-[var(--color-slate)] hover:text-[var(--color-ink)]'
+                  )}
+                  aria-label="Grid view"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" />
+                    <rect x="14" y="3" width="7" height="7" />
+                    <rect x="14" y="14" width="7" height="7" />
+                    <rect x="3" y="14" width="7" height="7" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    'p-1.5 rounded-full transition-colors cursor-pointer',
+                    viewMode === 'list'
+                      ? 'bg-[#1A1A1A] text-white'
+                      : 'text-[var(--color-slate)] hover:text-[var(--color-ink)]'
+                  )}
+                  aria-label="List view"
+                >
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="8" y1="6" x2="21" y2="6" />
+                    <line x1="8" y1="12" x2="21" y2="12" />
+                    <line x1="8" y1="18" x2="21" y2="18" />
+                    <line x1="3" y1="6" x2="3.01" y2="6" />
+                    <line x1="3" y1="12" x2="3.01" y2="12" />
+                    <line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Active Filters Chips Row (only shown when user has applied search/color filters) */}
+          {activeFilterCount > 0 && (
+            <div className="pb-3 flex flex-wrap items-center gap-2 text-xs">
+              {searchQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FAF8F5] border border-[#DDD4C7] text-[#1A1A1A] cursor-pointer"
+                >
+                  <span>Search: &ldquo;{searchQuery.trim()}&rdquo;</span>
+                  <span aria-hidden="true">×</span>
+                </button>
+              )}
+              {activeColor !== 'All' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveColor('All')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FAF8F5] border border-[#DDD4C7] text-[#1A1A1A] cursor-pointer"
+                >
+                  <span>Color: {COLOR_FILTERS.find((c) => c.value === activeColor)?.label || activeColor}</span>
+                  <span aria-hidden="true">×</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={handleClearAllFilters}
+                className="text-xs font-semibold text-[#74590E] underline hover:text-[#1A1A1A] cursor-pointer"
+              >
+                Reset all
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Active Search / Filter State Indicator */}
-      {isSearchOrFilterActive && (
-        <section className="bg-amber-50/60 border-b border-amber-200 py-3">
-          <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-            <p className="text-xs sm:text-sm font-medium text-amber-950">
-              Showing <span className="font-bold">{filteredProducts.length}</span> pieces matching{' '}
-              {searchQuery && (
-                <>
-                  &ldquo;<span className="font-bold text-[var(--color-ink)]">{searchQuery}</span>&rdquo;{' '}
-                </>
-              )}
-              {activeCategory !== 'All' && (
-                <>in <span className="font-bold">{activeCategory}</span> </>
-              )}
-              {activeColor !== 'All' && (
-                <>with color <span className="font-bold">{activeColor}</span> </>
-              )}
-              across all monthly capsules.
-            </p>
+      {/* Native <dialog> Mobile Filter & Search Sheet */}
+      <dialog
+        ref={filterDialogRef}
+        onClick={(e) => {
+          if (e.target === filterDialogRef.current) closeFilterDialog();
+        }}
+        className="w-full max-w-md m-auto mb-0 sm:mb-auto rounded-t-3xl sm:rounded-2xl p-0 bg-white text-[var(--color-ink)] shadow-2xl backdrop:bg-black/50 backdrop:backdrop-blur-xs max-h-[85dvh] overflow-hidden"
+      >
+        <div className="flex flex-col max-h-[85dvh]">
+          <div className="px-5 py-4 border-b border-[var(--color-whisper)] flex items-center justify-between">
+            <h2 className="font-serif text-xl font-medium text-[var(--color-ink)]">
+              Filter &amp; Search
+            </h2>
+            <button
+              type="button"
+              onClick={closeFilterDialog}
+              aria-label="Close filter menu"
+              className="w-8 h-8 rounded-full bg-[#FAF8F5] flex items-center justify-center text-[var(--color-ink)] cursor-pointer"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="p-5 overflow-y-auto space-y-6">
+            {/* Search Input */}
+            <div className="space-y-2">
+              <label htmlFor="mobile-vp-search" className="block text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-slate)]">
+                Search Pieces
+              </label>
+              <div className="relative">
+                <input
+                  id="mobile-vp-search"
+                  type="search"
+                  placeholder="Try Saree, Banarasi, Emerald, Kurti..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-11 pl-4 pr-9 text-sm bg-[#FAF8F5] border border-[#DDD4C7] rounded-xl focus:border-[#C9A84C] focus:bg-white focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    aria-label="Clear search text"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-slate)] cursor-pointer"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-slate)]">
+                Silhouette / Type
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map((cat) => {
+                  const count =
+                    cat === 'All'
+                      ? allPicks.length
+                      : allPicks.filter((p) => p.category === cat).length;
+                  if (cat !== 'All' && count === 0) return null;
+                  const isSelected = activeCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setActiveCategory(cat)}
+                      className={cn(
+                        'px-3.5 py-2 text-xs rounded-full font-medium flex items-center gap-1.5 border cursor-pointer transition-colors',
+                        isSelected
+                          ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
+                          : 'bg-[#FAF8F5] text-[var(--color-ink)] border-[#DDD4C7]'
+                      )}
+                    >
+                      <span>{cat}</span>
+                      <span className="text-[10px] opacity-75">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Color Palette */}
+            <div className="space-y-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-slate)]">
+                Color Palette
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_FILTERS.map((col) => {
+                  const isSelected = activeColor === col.value;
+                  const count =
+                    col.value === 'All'
+                      ? allPicks.length
+                      : allPicks.filter((p) => matchesColorFilter(p.color, p.colorFamily, col.value)).length;
+                  return (
+                    <button
+                      key={col.value}
+                      type="button"
+                      onClick={() => setActiveColor(col.value)}
+                      className={cn(
+                        'px-3 py-2 text-xs rounded-full font-medium flex items-center gap-1.5 border cursor-pointer transition-colors',
+                        isSelected
+                          ? 'bg-[#1A1A1A] text-white border-[#1A1A1A]'
+                          : 'bg-white text-[var(--color-ink)] border-[#DDD4C7]'
+                      )}
+                    >
+                      {col.value !== 'All' && (
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/20"
+                          style={{ backgroundColor: col.bgHex }}
+                        />
+                      )}
+                      <span>{col.label}</span>
+                      <span className="text-[10px] opacity-70">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-5 py-4 border-t border-[var(--color-whisper)] bg-[#FAF8F5] flex items-center gap-3">
             <button
               type="button"
               onClick={handleClearAllFilters}
-              className="text-xs font-bold text-amber-900 underline hover:text-amber-950 shrink-0"
+              className="px-4 py-2.5 rounded-full border border-[#DDD4C7] bg-white text-xs font-semibold text-[var(--color-ink)] cursor-pointer"
             >
-              Reset to Current Month Edit
+              Clear All
+            </button>
+            <button
+              type="button"
+              onClick={closeFilterDialog}
+              className="flex-1 py-2.5 px-5 rounded-full bg-[#1A1A1A] text-white text-xs font-semibold uppercase tracking-[0.14em] cursor-pointer"
+            >
+              Show {filteredProducts.length} {filteredProducts.length === 1 ? 'Piece' : 'Pieces'}
             </button>
           </div>
-        </section>
-      )}
+        </div>
+      </dialog>
 
-      {/* Main Products Grid & Showcase */}
-      <section className="py-10 md:py-14 bg-[var(--color-white)]">
+      {/* Main Curated Pieces Grid */}
+      <section className="py-6 sm:py-10 md:py-12 bg-white">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-[var(--color-gold)] font-bold">
-                {isSearchOrFilterActive ? 'CURATED SEARCH RESULTS' : `${currentEdit.month} EDIT`}
-              </p>
-              <h3 className="text-[var(--font-display)] text-2xl md:text-3xl font-medium text-[var(--color-ink)]">
-                Handpicked Pieces ({filteredProducts.length})
-              </h3>
-            </div>
-            <p className="text-xs text-[var(--color-slate)] hidden sm:block">
-              Click any piece for detailed craftsmanship, color notes & drape measurements
+          <div className="hidden sm:flex items-center justify-between mb-6">
+            <p className="text-xs uppercase tracking-[0.16em] text-[var(--color-slate)] font-medium">
+              Showing <span className="font-semibold text-[var(--color-ink)]">{filteredProducts.length}</span> curated{' '}
+              {filteredProducts.length === 1 ? 'piece' : 'pieces'}
+              {activeCategory !== 'All' ? ` in ${activeCategory}` : ''}
             </p>
+            <Link
+              href="/shop"
+              className="text-xs font-semibold text-[#74590E] hover:text-[var(--color-ink)] transition-colors"
+            >
+              Browse Full Catalog →
+            </Link>
           </div>
 
           {filteredProducts.length > 0 ? (
             viewMode === 'grid' ? (
               <StaggerGrid
                 items={filteredProducts}
-                columns={3}
-                gap={24}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
+                columns={4}
+                gap={16}
+                className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 lg:gap-6"
                 renderItem={(product, index) => (
                   <ProductCardGrid
                     key={product.id}
                     product={product}
                     index={index}
-                    isWishlisted={wishlist.includes(product.id)}
+                    isWishlisted={isInWishlist(product.slug || product.id) || isInWishlist(product.id)}
                     onToggleWishlist={handleToggleWishlist}
                   />
                 )}
               />
             ) : (
-              <StaggerContainer variant="default" className="space-y-6">
+              <StaggerContainer variant="default" className="space-y-5">
                 {filteredProducts.map((product, index) => (
                   <ProductCardList
                     key={product.id}
                     product={product}
                     index={index}
-                    isWishlisted={wishlist.includes(product.id)}
+                    isWishlisted={isInWishlist(product.slug || product.id) || isInWishlist(product.id)}
                     onToggleWishlist={handleToggleWishlist}
                   />
                 ))}
               </StaggerContainer>
             )
           ) : (
-            // No Products Found State -> Show explicit message + Explore Vidhya's Picks
-            <div className="py-12">
-              <div className="p-8 sm:p-12 text-center bg-gradient-to-b from-amber-50/70 via-white to-white rounded-[var(--radius-2xl)] border border-[var(--color-whisper)] max-w-2xl mx-auto shadow-sm">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[var(--color-gold-light)] flex items-center justify-center text-[var(--color-gold)] shadow-sm">
-                  <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8" />
-                    <path d="M21 21l-4.35-4.35" />
-                    <line x1="8" y1="11" x2="14" y2="11" />
-                  </svg>
-                </div>
-                <h4 className="font-display text-2xl font-semibold text-[var(--color-ink)] mb-2">
-                  the product you&apos;re searching for is not present
-                </h4>
-                <p className="text-sm text-[var(--color-slate)] max-w-md mx-auto mb-6 leading-relaxed">
-                  We couldn&apos;t find any items matching &ldquo;{searchQuery || activeCategory}&rdquo; in our ethnic wear atelier. But explore Vidhya&apos;s signature picks below:
+            <div className="py-10">
+              <div className="p-7 sm:p-10 text-center bg-[#FAF8F5] rounded-2xl border border-[var(--color-whisper)] max-w-xl mx-auto">
+                <h2 className="font-serif text-2xl font-medium text-[var(--color-ink)] mb-2">
+                  No Matching Pieces Found
+                </h2>
+                <p className="text-sm text-[var(--color-slate)] mb-5 leading-relaxed">
+                  We couldn&apos;t find curated picks matching &ldquo;{searchQuery || activeCategory}&rdquo;. Reset filters to explore all of Vidhya&apos;s selections.
                 </p>
                 <button
                   type="button"
                   onClick={handleClearAllFilters}
-                  className="py-2.5 px-6 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold uppercase tracking-wider hover:bg-[var(--color-gold-hover)] transition-all shadow-sm cursor-pointer"
+                  className="py-2.5 px-6 rounded-full bg-[#1A1A1A] text-white text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[#333333] transition-colors cursor-pointer"
                 >
-                  Clear Search & View All Vidhya&apos;s Picks
+                  View All Curated Picks
                 </button>
               </div>
 
-              {/* Curated Fallback Recommendations */}
-              <div className="mt-14">
-                <div className="flex items-center gap-2 mb-6">
-                  <span className="text-amber-500 text-lg">✨</span>
-                  <h3 className="text-xl font-medium text-[var(--color-ink)] font-display">
-                    Explore Vidhya&apos;s Signature Recommendations
+              {allPicks.length > 0 && (
+                <div className="mt-10">
+                  <h3 className="text-lg sm:text-xl font-medium text-[var(--color-ink)] font-serif mb-5">
+                    Explore Vidhya&apos;s Signature Picks
                   </h3>
+                  <StaggerGrid
+                    items={allPicks.slice(0, 4)}
+                    columns={4}
+                    gap={16}
+                    className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 lg:gap-6"
+                    renderItem={(product, index) => (
+                      <ProductCardGrid
+                        key={product.id}
+                        product={product}
+                        index={index}
+                        isWishlisted={isInWishlist(product.slug || product.id) || isInWishlist(product.id)}
+                        onToggleWishlist={handleToggleWishlist}
+                      />
+                    )}
+                  />
                 </div>
-                <StaggerGrid
-                  items={allPicks.slice(0, 6)}
-                  columns={3}
-                  gap={24}
-                  className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8"
-                  renderItem={(product, index) => (
-                    <ProductCardGrid
-                      key={product.id}
-                      product={product}
-                      index={index}
-                      isWishlisted={wishlist.includes(product.id)}
-                      onToggleWishlist={handleToggleWishlist}
-                    />
-                  )}
-                />
-              </div>
+              )}
             </div>
           )}
         </div>
       </section>
 
-      {/* Why Vidhya Curates (Artisanal Values Strip) */}
-      <section className="py-16 bg-[var(--color-snow)] border-y border-[var(--color-whisper)]">
+      {/* Streamlined Atelier Styling Concierge Strip */}
+      <section className="py-10 sm:py-14 bg-[#FAF8F5] border-t border-[var(--color-whisper)]">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-gold)]">
-              {curationStandards.eyebrow}
-            </span>
-            <h2 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)] mt-2">
-              {curationStandards.title}
-            </h2>
-            <p className="text-sm text-[var(--color-slate)] mt-2">
-              {curationStandards.subtitle}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {curationStandards.items.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-6 rounded-[var(--radius-xl)] bg-[var(--color-white)] border border-[var(--color-whisper)] shadow-xs"
-              >
-                <div className="w-12 h-12 rounded-full bg-[var(--color-gold-light)] text-[var(--color-gold)] flex items-center justify-center text-xl mb-4 font-serif">
-                  {item.icon}
-                </div>
-                <h3 className="font-semibold text-base text-[var(--color-ink)] mb-1">
-                  {item.title}
-                </h3>
-                <p className="text-xs text-[var(--color-slate)] leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Previous Months' Editions Archive */}
-      <section className="py-16 bg-[var(--color-white)]">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-gold)]">
-                {archive.eyebrow}
-              </span>
-              <h2 className="text-[var(--font-display)] text-3xl font-medium text-[var(--color-ink)] mt-1">
-                {archive.title}
-              </h2>
-              <p className="text-sm text-[var(--color-slate)] mt-1">
-                {archive.subtitle}
-              </p>
-            </div>
-            <LinkButton variant="outline" size="sm" href={archive.ctaHref || '/shop'}>
-              {archive.ctaText}
-            </LinkButton>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {monthlyEdits.map((edit, idx) => {
-              const isCurrent = activeMonthIndex === idx && !isSearchOrFilterActive;
-              return (
-                <article
-                  key={edit.month}
-                  className={cn(
-                    'p-6 rounded-[var(--radius-2xl)] border transition-all duration-300 flex flex-col justify-between',
-                    isCurrent
-                      ? 'bg-[var(--color-snow)] border-[var(--color-gold)] shadow-md ring-1 ring-[var(--color-gold)]/40'
-                      : 'bg-[var(--color-white)] border-[var(--color-whisper)] hover:border-[var(--color-gold)] hover:shadow-lg'
-                  )}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="px-3 py-1 bg-[var(--color-gold-light)] text-[var(--color-gold)] text-xs font-bold rounded-full">
-                        {edit.month}
-                      </span>
-                      {isCurrent && (
-                        <span className="text-[10px] font-bold text-[var(--color-gold)] uppercase tracking-wider bg-[var(--color-gold-light)]/60 px-2 py-0.5 rounded-full">
-                          Currently Viewing
-                        </span>
-                      )}
-                    </div>
-
-                    <h3 className="text-[var(--font-display)] text-xl font-medium text-[var(--color-ink)] mb-2">
-                      {edit.theme}
-                    </h3>
-                    <p className="text-xs text-[var(--color-slate)] leading-relaxed mb-5 line-clamp-3">
-                      {edit.note}
-                    </p>
-
-                    <div className="flex items-center gap-3 mb-6">
-                      {(edit.products || []).slice(0, 3).map((p) => (
-                        <div
-                          key={p.id}
-                          className="relative w-16 h-20 rounded-[var(--radius-lg)] overflow-hidden bg-[var(--color-whisper)] border border-[var(--color-whisper)] flex-shrink-0"
-                        >
-                          <Image
-                            src={p.image}
-                            alt={p.name}
-                            fill
-                            className="object-cover"
-                            sizes="64px"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <MagneticButton
-                    variant={isCurrent ? 'primary' : 'outline'}
-                    size="sm"
-                    className="w-full justify-center text-xs"
-                    strength={0.2}
-                    onClick={() => {
-                      setActiveMonthIndex(idx);
-                      setActiveCategory('All');
-                      setActiveColor('All');
-                      setSearchQuery('');
-                      window.scrollTo({ top: 350, behavior: 'smooth' });
-                    }}
-                  >
-                    {isCurrent ? 'Viewing This Edit' : `View ${edit.month} Edit`}
-                  </MagneticButton>
-                </article>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Vidhya's Styling Concierge Desk Callout */}
-      <section className="py-16 bg-[var(--color-snow)] border-t border-[var(--color-whisper)]">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[var(--radius-2xl)] bg-gradient-to-r from-[var(--color-charcoal)] to-[var(--color-ink)] text-[var(--color-white)] p-8 sm:p-12 md:p-16 relative overflow-hidden shadow-xl">
-            <div className="max-w-2xl relative z-10">
-              <span className="inline-block px-3 py-1 bg-[var(--color-gold)] text-[var(--color-ink)] text-xs font-bold uppercase tracking-widest rounded-full mb-4">
+          <div className="rounded-2xl bg-[#1A1A1A] text-white p-6 sm:p-10 md:p-12 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="max-w-xl space-y-2">
+              <span className="inline-block text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C9A84C]">
                 {concierge.badge}
               </span>
-              <h2 className="text-[var(--font-display)] text-3xl sm:text-4xl md:text-5xl font-medium leading-tight mb-4">
+              <h2 className="font-serif text-2xl sm:text-3xl font-medium leading-snug text-white">
                 {concierge.title}
               </h2>
-              <p className="text-[var(--color-whisper)] text-sm sm:text-base leading-relaxed mb-8 opacity-90">
+              <p className="text-xs sm:text-sm text-white/75 leading-relaxed">
                 {concierge.description}
               </p>
-              <div className="flex flex-wrap gap-4 items-center">
-                <MagneticButton variant="whatsapp" size="lg" strength={0.3} asChild>
-                  <Link
-                    href={concierge.whatsappUrl || 'https://wa.me/917207256690'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2.5"
-                  >
-                    <SocialIcon platform="whatsapp" size="sm" className="w-5 h-5 text-current" />
-                    Chat With Concierge ({concierge.whatsappNumber})
-                  </Link>
-                </MagneticButton>
-                <MagneticButton variant="outline" size="lg" strength={0.3} className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)] hover:text-[var(--color-ink)]" asChild>
-                  <Link href={concierge.sizeGuideHref || '/size-finder'}>
-                    {concierge.sizeGuideText}
-                  </Link>
-                </MagneticButton>
-              </div>
             </div>
 
-            <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-10 pointer-events-none flex items-center justify-center font-serif text-[240px] text-[var(--color-gold)] select-none">
-              A
+            <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+              <Link
+                href={resolvedWhatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-full bg-[#C9A84C] text-[#1A1A1A] text-xs font-bold uppercase tracking-[0.12em] hover:bg-[#D8BA66] transition-colors"
+              >
+                <SocialIcon platform="whatsapp" size="sm" className="w-4 h-4 text-current" />
+                <span>Concierge ({resolvedWhatsappNumber})</span>
+              </Link>
+              <Link
+                href={concierge.sizeGuideHref || '/size-finder'}
+                className="inline-flex items-center justify-center px-5 py-3 rounded-full border border-white/25 text-white text-xs font-semibold uppercase tracking-[0.12em] hover:border-[#C9A84C] hover:text-[#E8CF86] transition-colors"
+              >
+                {concierge.sizeGuideText || 'Open Size Finder'}
+              </Link>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* VIP Early Access Newsletter Subscription */}
-      <section className="py-16 bg-[var(--color-ink)] text-[var(--color-white)]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <ScrollReveal variant="fadeUp">
-            <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-gold)]">
-              {newsletter.eyebrow}
-            </span>
-            <h2 className="text-[var(--font-display)] text-3xl sm:text-4xl font-medium mt-2 mb-4 text-[var(--color-white)]">
-              {newsletter.title}
-            </h2>
-            <p className="text-[var(--color-whisper)] text-sm sm:text-base leading-relaxed mb-8 max-w-xl mx-auto opacity-80">
-              {newsletter.description}
-            </p>
-
-            {isSubscribed ? (
-              <div className="p-4 rounded-[var(--radius-xl)] bg-[var(--color-gold)]/20 border border-[var(--color-gold)] text-[var(--color-gold-light)] max-w-md mx-auto flex items-center justify-center gap-2">
-                <span className="text-lg">✓</span>
-                <span className="text-sm font-medium">
-                  Welcome to Vidhya&apos;s Private Circle. Check your inbox for your VIP welcome note!
-                </span>
-              </div>
-            ) : (
-              <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-                <input
-                  type="email"
-                  name="email"
-                  inputMode="email"
-                  autoComplete="email"
-                  spellCheck={false}
-                  enterKeyHint="send"
-                  required
-                  placeholder="Enter your email address"
-                  value={subscribedEmail}
-                  onChange={(e) => setSubscribedEmail(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-full bg-[var(--color-charcoal)] border border-[var(--color-slate)] text-sm text-[var(--color-white)] placeholder-[var(--color-mist)] focus:outline-none focus:border-[var(--color-gold)]"
-                />
-                <button
-                  type="submit"
-                  className="px-6 py-3 rounded-full bg-[var(--color-gold)] text-[var(--color-ink)] text-sm font-bold uppercase tracking-wider hover:bg-[var(--color-gold-hover)] transition-colors shadow-sm"
-                >
-                  {newsletter.buttonText}
-                </button>
-              </form>
-            )}
-
-            <p className="text-[11px] text-[var(--color-mist)] mt-4">
-              {newsletter.disclaimer}
-            </p>
-          </ScrollReveal>
         </div>
       </section>
     </div>
@@ -1242,10 +1118,10 @@ export function VidhyasPicksClient({ initialContent }: { initialContent?: Vidhya
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[var(--color-white)] flex items-center justify-center">
+        <div className="min-h-screen bg-white flex items-center justify-center">
           <div className="text-center">
-            <div className="w-12 h-12 border-3 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm font-medium text-[var(--color-slate)]">Loading Vidhya&apos;s Curated Edits...</p>
+            <div className="w-10 h-10 border-3 border-[var(--color-gold)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm font-medium text-[var(--color-slate)]">Loading Vidhya&apos;s Picks...</p>
           </div>
         </div>
       }
@@ -1254,4 +1130,3 @@ export function VidhyasPicksClient({ initialContent }: { initialContent?: Vidhya
     </Suspense>
   );
 }
-

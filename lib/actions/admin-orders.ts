@@ -11,6 +11,7 @@ import {
 import { normalizeAddress } from '@/lib/utils/address';
 import { sanitizePostgrestSearchTerm, stripHtmlTags } from '@/lib/validators/commerce';
 import {
+  assignShiprocketAwb,
   cancelShiprocketShipment,
   createShipmentWithRealOrderData,
   generateShiprocketLabel,
@@ -244,6 +245,33 @@ export async function updateOrderStatus(
       }
     }
 
+    // If cancelling an order, check & safely handle any active Shiprocket shipment
+    let activeShipmentToCancel: { id: string; shiprocket_order_id: string | null; awb_code: string | null; shipment_status: string } | null = null;
+    if (status === 'cancelled' && currentOrder.status !== 'cancelled') {
+      const { data: activeShip } = await supabaseAdmin
+        .from('shipments')
+        .select('id, shiprocket_order_id, awb_code, shipment_status')
+        .eq('order_id', id)
+        .neq('shipment_status', 'cancelled')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (activeShip) {
+        if (
+          ['picked_up', 'in_transit', 'out_for_delivery', 'delivered'].includes(
+            activeShip.shipment_status
+          )
+        ) {
+          return {
+            success: false,
+            error: `Cannot cancel order because shipment is already "${activeShip.shipment_status.replace(/_/g, ' ')}". Handle via RTO or return instead.`,
+          };
+        }
+        activeShipmentToCancel = activeShip;
+      }
+    }
+
     const updates: Record<string, any> = {
       status,
       updated_at: new Date().toISOString(),
@@ -253,7 +281,13 @@ export async function updateOrderStatus(
     if (courierPartner !== undefined) updates['courier_partner'] = courierPartner;
     if (status === 'shipped') updates['shipped_at'] = new Date().toISOString();
     if (status === 'delivered') updates['delivered_at'] = new Date().toISOString();
-    if (status === 'cancelled') updates['cancelled_at'] = new Date().toISOString();
+    if (status === 'cancelled') {
+      updates['cancelled_at'] = new Date().toISOString();
+      if (activeShipmentToCancel) {
+        updates['tracking_number'] = null;
+        updates['tracking_url'] = null;
+      }
+    }
 
     const { error } = await supabaseAdmin.from('orders').update(updates).eq('id', id);
     if (error) {
@@ -262,6 +296,25 @@ export async function updateOrderStatus(
     }
 
     if (status === 'cancelled' && currentOrder.status !== 'cancelled') {
+      if (activeShipmentToCancel) {
+        try {
+          await cancelShiprocketShipment({
+            shiprocketOrderId: activeShipmentToCancel.shiprocket_order_id,
+            awbCode: activeShipmentToCancel.awb_code,
+          });
+        } catch (shipCancelErr) {
+          console.warn('[updateOrderStatus] Remote Shiprocket cancel warning:', shipCancelErr);
+        }
+        await supabaseAdmin
+          .from('shipments')
+          .update({
+            shipment_status: 'cancelled',
+            pickup_status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activeShipmentToCancel.id);
+      }
       await supabaseAdmin.rpc('release_order_inventory', { p_order_id: id });
       await sendOrderCancelledNotification(id, 'Cancelled by store administrator');
     }
@@ -435,6 +488,8 @@ export async function autoDispatchShipmentAwb(
         shipping_address,
         billing_address,
         notes,
+        gift_wrap,
+        metadata,
         tracking_number,
         courier_partner,
         order_items (
@@ -468,10 +523,10 @@ export async function autoDispatchShipmentAwb(
       };
     }
 
-    // 2. Duplicate shipment prevention check
+    // 2. Duplicate shipment prevention & partial-failure AWB retry recovery
     const { data: existingActiveShipment } = await supabaseAdmin
       .from('shipments')
-      .select('id, awb_code, shiprocket_shipment_id, courier_name, shipment_status')
+      .select('id, awb_code, shiprocket_order_id, shiprocket_shipment_id, courier_name, shipment_status, weight_kg, length_cm, breadth_cm, height_cm, metadata')
       .eq('order_id', orderId)
       .neq('shipment_status', 'cancelled')
       .maybeSingle();
@@ -489,6 +544,113 @@ export async function autoDispatchShipmentAwb(
         success: false,
         configured: true,
         error: `Order already has tracking number ${order.tracking_number}. Use Edit or cancel existing shipment before creating a duplicate AWB.`,
+      };
+    }
+
+    // Partial-failure recovery: Shiprocket order/shipment already exists in 'created' state without AWB.
+    // Reuse existing shiprocket_shipment_id instead of calling /orders/create/adhoc again!
+    if (existingActiveShipment?.shiprocket_shipment_id && !existingActiveShipment.awb_code) {
+      const retryAwb = await assignShiprocketAwb(
+        existingActiveShipment.shiprocket_shipment_id,
+        courierCompanyId
+      );
+      if (!retryAwb.success || !retryAwb.awbCode) {
+        const prevMeta =
+          typeof existingActiveShipment.metadata === 'object' &&
+          existingActiveShipment.metadata !== null &&
+          !Array.isArray(existingActiveShipment.metadata)
+            ? (existingActiveShipment.metadata as Record<string, unknown>)
+            : {};
+        await supabaseAdmin
+          .from('shipments')
+          .update({
+            metadata: {
+              ...prevMeta,
+              awb_error: retryAwb.error || 'AWB retry failed',
+              last_awb_retry_at: new Date().toISOString(),
+            } as unknown as Json,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingActiveShipment.id);
+
+        revalidateOrderPaths(orderId);
+        return {
+          success: false,
+          configured: true,
+          shiprocketOrderId: existingActiveShipment.shiprocket_order_id || undefined,
+          shiprocketShipmentId: existingActiveShipment.shiprocket_shipment_id,
+          error: retryAwb.error || 'Retry AWB assignment failed.',
+        };
+      }
+
+      const retryCourierName = retryAwb.courierName || 'Assigned Courier';
+      const prevMeta =
+        typeof existingActiveShipment.metadata === 'object' &&
+        existingActiveShipment.metadata !== null &&
+        !Array.isArray(existingActiveShipment.metadata)
+          ? (existingActiveShipment.metadata as Record<string, unknown>)
+          : {};
+      await supabaseAdmin
+        .from('shipments')
+        .update({
+          awb_code: retryAwb.awbCode,
+          courier_company_id: retryAwb.courierCompanyId ?? null,
+          courier_name: retryCourierName,
+          tracking_url: retryAwb.trackingUrl || null,
+          shipment_status: 'awb_assigned',
+          metadata: {
+            ...prevMeta,
+            awb_error: null,
+            awb_recovered_at: new Date().toISOString(),
+          } as unknown as Json,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingActiveShipment.id);
+
+      const nextStatus =
+        order.status === 'confirmed' || order.status === 'pending' ? 'processing' : order.status;
+      await supabaseAdmin
+        .from('orders')
+        .update({
+          status: nextStatus,
+          courier_partner: retryCourierName,
+          tracking_number: retryAwb.awbCode,
+          tracking_url: retryAwb.trackingUrl || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId);
+
+      await sendShipmentLifecycleNotification({
+        orderId,
+        shipmentRef: retryAwb.awbCode,
+        stage: 'created',
+        courierName: retryCourierName,
+        awbCode: retryAwb.awbCode,
+        trackingUrl: retryAwb.trackingUrl || null,
+      });
+
+      await logAdminAction({
+        actorId: auth.userId,
+        action: 'retry_shiprocket_awb',
+        entityType: 'order',
+        entityId: orderId,
+        afterState: {
+          shiprocketOrderId: existingActiveShipment.shiprocket_order_id,
+          shiprocketShipmentId: existingActiveShipment.shiprocket_shipment_id,
+          awbNumber: retryAwb.awbCode,
+          courierPartner: retryCourierName,
+        },
+      });
+
+      revalidateOrderPaths(orderId);
+      return {
+        success: true,
+        configured: true,
+        shiprocketOrderId: existingActiveShipment.shiprocket_order_id || undefined,
+        shiprocketShipmentId: existingActiveShipment.shiprocket_shipment_id,
+        awbNumber: retryAwb.awbCode,
+        courierPartner: retryCourierName,
+        trackingUrl: retryAwb.trackingUrl,
       };
     }
 
@@ -530,6 +692,15 @@ export async function autoDispatchShipmentAwb(
     });
 
     const isCod = (order.payment_method || '').toLowerCase() === 'cod';
+    const orderMeta =
+      typeof (order as any).metadata === 'object' &&
+      (order as any).metadata !== null &&
+      !Array.isArray((order as any).metadata)
+        ? ((order as any).metadata as Record<string, unknown>)
+        : {};
+    const codFeeInr = isCod ? Number(orderMeta['cod_fee'] || 0) : 0;
+    const giftwrapFeeInr = Number(orderMeta['gift_wrap_fee'] || 0);
+
     const result = await createShipmentWithRealOrderData(
       {
         orderNumber: order.order_number,
@@ -563,7 +734,10 @@ export async function autoDispatchShipmentAwb(
         items: shiprocketItems,
         subtotalInr: Number(order.subtotal || order.total_amount || 0),
         shippingChargesInr: Number(order.shipping_cost || 0),
+        giftwrapChargesInr: giftwrapFeeInr,
+        transactionChargesInr: codFeeInr,
         discountInr: Number(order.discount_amount || 0),
+        expectedTotalInr: Number(order.total_amount || 0),
         paymentMethod: isCod ? 'cod' : 'prepaid',
         comment: order.notes,
       },
