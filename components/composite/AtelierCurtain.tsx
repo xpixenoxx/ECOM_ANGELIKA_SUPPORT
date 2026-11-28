@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 
 interface AtelierCurtainProps {
@@ -11,137 +11,71 @@ interface AtelierCurtainProps {
 
 type CurtainPhase = 'holding' | 'closing' | 'opening' | 'idle';
 
-interface SilkPalette {
-  id: 'obsidian-silk' | 'champagne-tissue' | 'mulberry-velvet' | 'sandstone-kanjivaram';
+interface CoutureDrapeTheme {
+  id: 'champagne-mulberry' | 'heirloom-mulberry';
   isDark: boolean;
-  /** 5 tonal stops sculpting 9 asymmetric 3D vertical silk drapery pleats */
-  deepValley: string;
-  shadowSlope: string;
-  satinBody: string;
-  ridgeHighlight: string;
-  specularCrest: string;
-  /** Translucent trailing Chanderi organza veil colors */
-  organzaTop: string;
-  organzaMid: string;
-  organzaEdge: string;
-  /** Curled silk fold rim-highlight & underside depth right along the leading hem */
-  foldRimLight: string;
-  foldCreaseShadow: string;
-  /** Woven antique-gold Zari selvedge border colors */
-  zariPrimary: string;
-  zariSecondary: string;
-  zariGlow: string;
-  /** Soft shadow cast by the silk drape onto the storefront beneath */
-  castShadow: string;
-  /** Subtle ambient salon glow behind centered crest */
-  spotlightColor: string;
-  wordmarkColor: string;
-  taglineColor: string;
+  textureSrc: string;
+  logoSrc: string;
+  fallbackBg: string;
+  /** Shader uniforms (normalized RGB 0..1) */
+  zariColor: [number, number, number];
+  organzaColor: [number, number, number];
+  shadowColor: [number, number, number];
+  specularTint: [number, number, number];
+  specularStrength: number;
+  shadowStrength: number;
+  organzaAlpha: number;
+  rimHighlightStrength: number;
   whisperColor: string;
-  weaveTint: string;
-  swayRibbonLight: string;
+  ruleGradient: string;
+  logoShadow: string;
+  centerBackdropGlow: string;
 }
 
 /**
- * 4 curated haute-couture silk drapery palettes sculpted with 3D vertical pleats,
- * feathered curved satin highlights, sheer Chanderi organza under-veil, and antique-gold Zari borders.
+ * 2 studio-photographed couture silk draperies alternating luminous Champagne Mulberry Silk
+ * (initial entrance) with deep Heirloom Mulberry-Burgundy Velvet Silk across navigations.
  */
-const SILK_PALETTES: SilkPalette[] = [
+const COUTURE_THEMES: CoutureDrapeTheme[] = [
   {
-    id: 'obsidian-silk',
-    isDark: true,
-    deepValley: '#0B0807',
-    shadowSlope: '#15100D',
-    satinBody: '#241B15',
-    ridgeHighlight: '#3B2C21',
-    specularCrest: '#4E3B2B',
-    organzaTop: 'rgba(30, 21, 15, 0.54)',
-    organzaMid: 'rgba(186, 148, 74, 0.25)',
-    organzaEdge: 'rgba(236, 204, 122, 0.48)',
-    foldRimLight: 'rgba(252, 232, 178, 0.34)',
-    foldCreaseShadow: 'rgba(5, 3, 2, 0.56)',
-    zariPrimary: '#E6C56B',
-    zariSecondary: 'rgba(198, 154, 58, 0.74)',
-    zariGlow: 'rgba(248, 226, 158, 0.46)',
-    castShadow: 'rgba(8, 5, 4, 0.46)',
-    spotlightColor: 'rgba(229, 196, 106, 0.14)',
-    wordmarkColor: '#FAF6F0',
-    taglineColor: '#E5C56B',
-    whisperColor: '#D5CBBF',
-    weaveTint: 'rgba(229, 196, 106, 0.14)',
-    swayRibbonLight: 'rgba(246, 222, 162, 0.09)',
-  },
-  {
-    id: 'champagne-tissue',
+    id: 'champagne-mulberry',
     isDark: false,
-    deepValley: '#CCBDA8',
-    shadowSlope: '#DDD0BC',
-    satinBody: '#EFE5D6',
-    ridgeHighlight: '#FAF5EC',
-    specularCrest: '#FFFDF8',
-    organzaTop: 'rgba(244, 235, 222, 0.62)',
-    organzaMid: 'rgba(214, 182, 122, 0.28)',
-    organzaEdge: 'rgba(184, 144, 56, 0.46)',
-    foldRimLight: 'rgba(255, 253, 248, 0.85)',
-    foldCreaseShadow: 'rgba(116, 92, 62, 0.28)',
-    zariPrimary: '#B88F30',
-    zariSecondary: 'rgba(154, 114, 34, 0.68)',
-    zariGlow: 'rgba(255, 250, 236, 0.78)',
-    castShadow: 'rgba(38, 28, 18, 0.24)',
-    spotlightColor: 'rgba(255, 252, 245, 0.62)',
-    wordmarkColor: '#1B1511',
-    taglineColor: '#8B6A1D',
-    whisperColor: '#665A4E',
-    weaveTint: 'rgba(148, 112, 42, 0.12)',
-    swayRibbonLight: 'rgba(255, 253, 248, 0.24)',
+    textureSrc: '/images/curtain-champagne-silk.webp',
+    logoSrc: '/images/curtain-logo-light.webp',
+    fallbackBg: '#EFE5D6',
+    zariColor: [0.76, 0.59, 0.21],
+    organzaColor: [0.95, 0.90, 0.80],
+    shadowColor: [0.16, 0.11, 0.07],
+    specularTint: [1.0, 0.98, 0.93],
+    specularStrength: 0.16,
+    shadowStrength: 0.26,
+    organzaAlpha: 0.56,
+    rimHighlightStrength: 0.26,
+    whisperColor: '#564538',
+    ruleGradient: 'linear-gradient(90deg, transparent, rgba(164, 122, 42, 0.85), transparent)',
+    logoShadow: 'drop-shadow(0 8px 22px rgba(74, 46, 28, 0.14))',
+    centerBackdropGlow:
+      'radial-gradient(ellipse 46% 38% at 50% 48%, rgba(255, 251, 244, 0.56) 0%, rgba(255, 251, 244, 0.18) 55%, transparent 100%)',
   },
   {
-    id: 'mulberry-velvet',
+    id: 'heirloom-mulberry',
     isDark: true,
-    deepValley: '#14060D',
-    shadowSlope: '#220B16',
-    satinBody: '#341322',
-    ridgeHighlight: '#4E1F34',
-    specularCrest: '#652A44',
-    organzaTop: 'rgba(46, 16, 30, 0.54)',
-    organzaMid: 'rgba(218, 168, 148, 0.24)',
-    organzaEdge: 'rgba(238, 202, 124, 0.46)',
-    foldRimLight: 'rgba(252, 222, 188, 0.30)',
-    foldCreaseShadow: 'rgba(10, 2, 6, 0.56)',
-    zariPrimary: '#E8C872',
-    zariSecondary: 'rgba(196, 148, 72, 0.72)',
-    zariGlow: 'rgba(248, 224, 162, 0.44)',
-    castShadow: 'rgba(16, 4, 10, 0.46)',
-    spotlightColor: 'rgba(232, 194, 132, 0.14)',
-    wordmarkColor: '#FDF8F4',
-    taglineColor: '#ECCB79',
-    whisperColor: '#DEC9CE',
-    weaveTint: 'rgba(232, 200, 114, 0.13)',
-    swayRibbonLight: 'rgba(246, 206, 186, 0.09)',
-  },
-  {
-    id: 'sandstone-kanjivaram',
-    isDark: false,
-    deepValley: '#C6B09D',
-    shadowSlope: '#D8C4B2',
-    satinBody: '#E9DCD0',
-    ridgeHighlight: '#F6EEE6',
-    specularCrest: '#FDF8F3',
-    organzaTop: 'rgba(238, 226, 214, 0.60)',
-    organzaMid: 'rgba(204, 158, 128, 0.26)',
-    organzaEdge: 'rgba(176, 134, 56, 0.44)',
-    foldRimLight: 'rgba(255, 250, 244, 0.80)',
-    foldCreaseShadow: 'rgba(112, 82, 60, 0.26)',
-    zariPrimary: '#AE832B',
-    zariSecondary: 'rgba(156, 114, 46, 0.66)',
-    zariGlow: 'rgba(255, 248, 238, 0.74)',
-    castShadow: 'rgba(42, 28, 20, 0.24)',
-    spotlightColor: 'rgba(255, 250, 244, 0.58)',
-    wordmarkColor: '#1E1612',
-    taglineColor: '#88651E',
-    whisperColor: '#69594E',
-    weaveTint: 'rgba(154, 114, 54, 0.12)',
-    swayRibbonLight: 'rgba(255, 250, 244, 0.22)',
+    textureSrc: '/images/curtain-mulberry-silk.webp',
+    logoSrc: '/images/curtain-logo-dark.webp',
+    fallbackBg: '#1E0C14',
+    zariColor: [0.91, 0.78, 0.44],
+    organzaColor: [0.42, 0.20, 0.27],
+    shadowColor: [0.05, 0.02, 0.03],
+    specularTint: [1.0, 0.91, 0.76],
+    specularStrength: 0.24,
+    shadowStrength: 0.48,
+    organzaAlpha: 0.54,
+    rimHighlightStrength: 0.30,
+    whisperColor: '#E4D4C6',
+    ruleGradient: 'linear-gradient(90deg, transparent, rgba(230, 197, 107, 0.85), transparent)',
+    logoShadow: 'drop-shadow(0 10px 28px rgba(0, 0, 0, 0.48))',
+    centerBackdropGlow:
+      'radial-gradient(ellipse 46% 38% at 50% 48%, rgba(16, 5, 10, 0.42) 0%, rgba(16, 5, 10, 0.14) 55%, transparent 100%)',
   },
 ];
 
@@ -154,175 +88,375 @@ const ATELIER_WHISPERS = [
   'Timeless Festive Silks',
 ];
 
+const VERTEX_SHADER_SRC = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main() {
+  vUv = vec2(aPos.x * 0.5 + 0.5, 0.5 - aPos.y * 0.5);
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}
+`;
+
 /**
- * Asymmetric 9-fold vertical silk drapery map (0%..100%).
- * Real hand-draped couture silk gathers tighter near the outer edges and falls into fuller
- * sculptural pleats through the center, catching warm specular crests & deep shadow valleys.
+ * Real-time 2D/3D cloth-physics fragment shader:
+ * - Aspect-correct cover mapping of photorealistic studio silk drapery textures
+ * - Coupled harmonic UV fabric ripple + gravity cloth flow (real silk folds bend & sway)
+ * - Analytical surface-normal specular sheen + fold trough darkening (living studio light)
+ * - Top-to-bottom organic catenary hem + trailing sheer Chanderi organza veil
+ * - Curled 3D silk lip highlight, soft cast shadow onto page below, & woven antique-gold Zari selvedge
  */
-function buildPleatStops(p: SilkPalette): Array<{ offset: string; color: string }> {
-  return [
-    { offset: '0%', color: p.deepValley },
-    { offset: '3.2%', color: p.satinBody },
-    { offset: '5.8%', color: p.ridgeHighlight },
-    { offset: '9.4%', color: p.shadowSlope },
-    { offset: '12.2%', color: p.deepValley },
-    { offset: '16.5%', color: p.satinBody },
-    { offset: '20.2%', color: p.specularCrest },
-    { offset: '24.6%', color: p.satinBody },
-    { offset: '27.8%', color: p.deepValley },
-    { offset: '32.8%', color: p.shadowSlope },
-    { offset: '37.4%', color: p.ridgeHighlight },
-    { offset: '41.8%', color: p.satinBody },
-    { offset: '45.2%', color: p.deepValley },
-    { offset: '50.2%', color: p.specularCrest },
-    { offset: '55.6%', color: p.satinBody },
-    { offset: '59.0%', color: p.deepValley },
-    { offset: '63.6%', color: p.shadowSlope },
-    { offset: '68.2%', color: p.ridgeHighlight },
-    { offset: '72.4%', color: p.satinBody },
-    { offset: '75.8%', color: p.deepValley },
-    { offset: '80.5%', color: p.satinBody },
-    { offset: '84.4%', color: p.specularCrest },
-    { offset: '88.6%', color: p.shadowSlope },
-    { offset: '91.8%', color: p.deepValley },
-    { offset: '95.6%', color: p.ridgeHighlight },
-    { offset: '100%', color: p.deepValley },
-  ];
+const FRAGMENT_SHADER_SRC = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+
+varying vec2 vUv;
+
+uniform sampler2D uTex;
+uniform float uHasTex;
+uniform float uTime;
+uniform float uProgress;      // 0..1 primary silk sweep
+uniform float uOrganzaProg;   // 0..1 trailing organza veil sweep
+uniform float uMode;          // 0 = holding, 1 = closing (top->bottom), 2 = opening (top->bottom)
+uniform float uViewportAspect;
+uniform float uTexAspect;
+uniform vec3 uFallbackBg;
+uniform vec3 uZariColor;
+uniform vec3 uOrganzaColor;
+uniform vec3 uShadowColor;
+uniform vec3 uSpecularTint;
+uniform float uSpecularStrength;
+uniform float uShadowStrength;
+uniform float uOrganzaAlpha;
+uniform float uRimStrength;
+
+float clamp01(float v) {
+  return clamp(v, 0.0, 1.0);
 }
 
-interface Point2D {
-  x: number;
-  y: number;
+float sq(float v) {
+  return v * v;
 }
 
-const VIEW_W = 1000;
-const WAVE_SEGMENTS = 10;
+float waveEnvelope(float p) {
+  float s = sin(clamp01(p) * 3.14159265);
+  return s <= 0.0001 ? 0.0 : pow(s, 0.76);
+}
+
+// Smooth organic silk hem profile across x in [0, 1]
+float computeHemY(float x, float baseY, float env, float timeSec, float dirSign, float ampScale, float phaseOff) {
+  float catenary = sin(x * 3.14159265) * 0.078 * env * ampScale * dirSign;
+  float palluBias = sin(x * 4.24 - 0.35) * 0.032 * env * ampScale;
+  float ripple1 = sin(x * 9.8 - timeSec * 5.2 + phaseOff) * 0.022 * env * ampScale;
+  float ripple2 = sin(x * 21.5 + timeSec * 8.4 + phaseOff * 1.6) * 0.0085 * env * ampScale;
+  return baseY + catenary + palluBias + ripple1 + ripple2;
+}
+
+// Continuous 2D cloth wave heightfield for UV fold displacement & normal-mapped specular lighting
+float clothHeight(vec2 uv, float env, float t) {
+  float amp = 0.22 + env * 0.78;
+  float w1 = sin(uv.x * 5.2 + uv.y * 2.1 - t * 3.6) * 0.55;
+  float w2 = sin(uv.x * 11.4 - uv.y * 3.8 + t * 5.1) * 0.28;
+  float w3 = sin(uv.x * 22.0 + uv.y * 5.2 - t * 6.8) * 0.11;
+  return (w1 + w2 + w3) * amp;
+}
+
+vec2 toCoverUv(vec2 uv) {
+  vec2 res = uv;
+  if (uViewportAspect > uTexAspect) {
+    float scale = uTexAspect / uViewportAspect;
+    res.y = (uv.y - 0.5) * scale + 0.5;
+  } else {
+    float scale = uViewportAspect / uTexAspect;
+    res.x = (uv.x - 0.5) * scale + 0.5;
+  }
+  return res;
+}
+
+void main() {
+  vec2 uv = vUv; // y = 0 at TOP, y = 1 at BOTTOM
+  float p = clamp01(uProgress);
+  float po = clamp01(uOrganzaProg);
+  float env = (uMode < 0.5) ? 0.08 : waveEnvelope(p);
+  float oEnv = (uMode < 0.5) ? 0.0 : waveEnvelope(po);
+
+  // Subtle top-to-bottom fabric flow + horizontal cloth billow displacement
+  float flowY = 0.0;
+  if (uMode > 0.5 && uMode < 1.5) {
+    // Closing: fabric cascades downwards with gravity
+    flowY = -(1.0 - p) * 0.14;
+  } else if (uMode >= 1.5) {
+    // Opening: fabric continues descending gently top -> bottom
+    flowY = -p * 0.16;
+  }
+
+  // Analytical heightfield gradient for real 3D optical silk sheen & fold displacement
+  float eps = 0.004;
+  float hC = clothHeight(uv, env, uTime);
+  float hX = clothHeight(uv + vec2(eps, 0.0), env, uTime);
+  float hY = clothHeight(uv + vec2(0.0, eps), env, uTime);
+  vec2 grad = vec2(hX - hC, hY - hC) / eps;
+
+  // Displace texture UV so the photographed silk folds physically billow & sway!
+  vec2 displacedUv = uv + vec2(grad.x * 0.0024 * (0.25 + env), flowY + grad.y * 0.0018 * (0.25 + env));
+  vec2 texUv = clamp(toCoverUv(displacedUv), 0.002, 0.998);
+
+  vec3 silkRgb = uFallbackBg;
+  if (uHasTex > 0.5) {
+    silkRgb = texture2D(uTex, texUv).rgb;
+  }
+
+  // Studio upper-left directional light interacting with dynamic cloth surface normals
+  vec3 normal = normalize(vec3(-grad.x * 0.085, -grad.y * 0.065, 1.0));
+  vec3 lightDir = normalize(vec3(-0.38, -0.45, 0.81));
+  vec3 halfVec = normalize(lightDir + vec3(0.0, 0.0, 1.0));
+
+  float diff = dot(normal, lightDir);
+  float spec = pow(max(dot(normal, halfVec), 0.0001), 14.0);
+
+  // Modulate photographed silk luminance naturally as waves roll across the pleats
+  float motionLight = (diff - 0.80) * (0.35 + env * 1.15);
+  silkRgb += uSpecularTint * (spec * uSpecularStrength * (0.28 + env * 0.95));
+  silkRgb *= (1.0 + motionLight * 0.18);
+
+  // Mode 0: Resting full silk drape with subtle living candlelight breath
+  if (uMode < 0.5) {
+    gl_FragColor = vec4(clamp(silkRgb, 0.0, 1.0), 1.0);
+    return;
+  }
+
+  bool isClosing = uMode < 1.5;
+  float dirSign = isClosing ? 1.0 : -1.0;
+
+  // Primary silk hem & trailing sheer Chanderi organza hem
+  float primaryBaseY = isClosing ? (-0.14 + p * 1.30) : (-0.08 + p * 1.24);
+  float organzaBaseY = isClosing
+    ? (primaryBaseY + 0.055 * env)
+    : (-0.09 + po * 1.26);
+
+  float hemY = computeHemY(uv.x, primaryBaseY, env, uTime, dirSign, 1.0, isClosing ? 0.4 : 0.0);
+  float organzaHemY = computeHemY(uv.x, organzaBaseY, isClosing ? env * 1.15 : oEnv, uTime, dirSign, 1.24, 1.35);
+
+  // Signed distance into primary silk (> 0 inside silk, < 0 outside on revealed page)
+  float signedInside = isClosing ? (hemY - uv.y) : (uv.y - hemY);
+  float signedOrganza = isClosing ? (organzaHemY - uv.y) : (uv.y - organzaHemY);
+
+  // Crisp anti-aliased edge masks
+  float aa = 0.0022;
+  float silkMask = smoothstep(-aa, aa, signedInside);
+  float organzaMask = smoothstep(-aa * 2.0, aa * 2.0, signedOrganza);
+
+  // 1) Soft realistic cast shadow floating on the storefront page just outside the moving silk hem
+  float outDist = max(0.0, -signedInside);
+  float castShadowAlpha = (1.0 - silkMask) * exp(-outDist * 34.0) * uShadowStrength * (0.32 + env * 0.68);
+  vec4 outCol = vec4(uShadowColor, castShadowAlpha);
+
+  // 2) Sheer Chanderi Organza trailing under-veil (visible outside primary silk)
+  float orgBand = organzaMask * (1.0 - silkMask);
+  if (orgBand > 0.001) {
+    float edgeFade = smoothstep(0.0, 0.09, max(0.0, signedOrganza));
+    float orgAlpha = orgBand * uOrganzaAlpha * (0.45 + 0.55 * (1.0 - edgeFade));
+    // Subtle shimmering gold edge along the organza veil
+    float orgEdgeGlint = smoothstep(0.012, 0.0, abs(signedOrganza)) * 0.45;
+    vec3 orgRgb = mix(uOrganzaColor, uZariColor, orgEdgeGlint) + uSpecularTint * (spec * 0.14);
+    // Composite organza over cast shadow
+    float finalA = orgAlpha + outCol.a * (1.0 - orgAlpha);
+    vec3 finalRgb = (orgRgb * orgAlpha + outCol.rgb * outCol.a * (1.0 - orgAlpha)) / max(finalA, 0.0001);
+    outCol = vec4(finalRgb, finalA);
+  }
+
+  // 3) Heavy Primary Silk + 3D Curled Fold Rim + Woven Antique-Gold Zari Selvedge Border
+  if (silkMask > 0.001) {
+    float inDist = max(0.0, signedInside);
+
+    // 3D curled silk fold rim-highlight right inside the hem + soft fold crease right behind it
+    float rimGlow = exp(-sq((inDist - 0.007) / 0.0075)) * uRimStrength * (0.45 + env * 0.55);
+    float creaseDark = exp(-sq((inDist - 0.024) / 0.014)) * 0.22 * (0.45 + env * 0.55);
+    vec3 shadedSilk = silkRgb * (1.0 - creaseDark) + uSpecularTint * rimGlow;
+
+    // Woven Antique-Gold Zari double selvedge border hugging the curved edge
+    float weaveGlint = 0.82 + 0.18 * sin(uv.x * 460.0 + uTime * 2.0);
+    float zariMain = exp(-sq((inDist - 0.0028) / 0.0022)) * 0.92 * weaveGlint;
+    float zariInner = exp(-sq((inDist - 0.0105) / 0.0013)) * 0.58 * (0.55 + 0.45 * sin(uv.x * 260.0));
+    float zariMix = clamp01(zariMain + zariInner) * (0.45 + env * 0.55);
+
+    vec3 zariLit = uZariColor * (0.95 + spec * 0.55);
+    shadedSilk = mix(shadedSilk, zariLit, zariMix);
+
+    float finalA = silkMask + outCol.a * (1.0 - silkMask);
+    vec3 finalRgb = (shadedSilk * silkMask + outCol.rgb * outCol.a * (1.0 - silkMask)) / max(finalA, 0.0001);
+    outCol = vec4(finalRgb, finalA);
+  }
+
+  gl_FragColor = vec4(clamp(outCol.rgb, 0.0, 1.0), clamp01(outCol.a));
+}
+`;
 
 function clamp01(v: number): number {
   if (!Number.isFinite(v)) return 0;
   return v < 0 ? 0 : v > 1 ? 1 : v;
 }
 
-function safeWaveEnvelope(t: number, power: number): number {
-  const s = Math.sin(clamp01(t) * Math.PI);
-  return s <= 0 ? 0 : Math.pow(s, power);
-}
-
-/** Heavy mulberry silk release curve: fluid natural glide with velvet deceleration */
 function easeSilkRelease(t: number): number {
   const c = clamp01(t);
-  return c < 0.5
-    ? 4 * c * c * c
-    : 1 - Math.pow(-2 * c + 2, 3) / 2;
+  return c < 0.5 ? 4 * c * c * c : 1 - Math.pow(-2 * c + 2, 3) / 2;
 }
 
-/** Weighted silk gravity drop curve: crisp top release with cushioned hem settle */
 function easeSilkDrop(t: number): number {
   const c = clamp01(t);
   return 1 - Math.pow(1 - c, 3.2);
 }
 
-/**
- * Computes 11 organic wave points across x ∈ [0, 1000] simulating a living silk veil edge:
- * combines catenary gravity belly, asymmetric couture drape bias, and two traveling cloth harmonics.
- */
-function computeSilkEdgePoints(
-  baseY: number,
-  envelope: number,
-  timeSec: number,
-  direction: 'opening' | 'closing',
-  amplitudeScale = 1,
-  phaseOffset = 0
-): Point2D[] {
-  const pts: Point2D[] = [];
-  const sign = direction === 'closing' ? 1 : -1;
-  const safeEnv = Number.isFinite(envelope) ? Math.max(0, envelope) : 0;
-  const safeTime = Number.isFinite(timeSec) ? Math.max(0, timeSec) : 0;
+interface WebGLContextState {
+  gl: WebGLRenderingContext;
+  program: WebGLProgram;
+  buffer: WebGLBuffer;
+  textures: Map<string, { tex: WebGLTexture; aspect: number; ready: boolean }>;
+  uniforms: {
+    uTex: WebGLUniformLocation | null;
+    uHasTex: WebGLUniformLocation | null;
+    uTime: WebGLUniformLocation | null;
+    uProgress: WebGLUniformLocation | null;
+    uOrganzaProg: WebGLUniformLocation | null;
+    uMode: WebGLUniformLocation | null;
+    uViewportAspect: WebGLUniformLocation | null;
+    uTexAspect: WebGLUniformLocation | null;
+    uFallbackBg: WebGLUniformLocation | null;
+    uZariColor: WebGLUniformLocation | null;
+    uOrganzaColor: WebGLUniformLocation | null;
+    uShadowColor: WebGLUniformLocation | null;
+    uSpecularTint: WebGLUniformLocation | null;
+    uSpecularStrength: WebGLUniformLocation | null;
+    uShadowStrength: WebGLUniformLocation | null;
+    uOrganzaAlpha: WebGLUniformLocation | null;
+    uRimStrength: WebGLUniformLocation | null;
+  };
+}
 
-  for (let i = 0; i <= WAVE_SEGMENTS; i++) {
-    const u = i / WAVE_SEGMENTS;
-    const x = u * VIEW_W;
+function hexToRgb01(hex: string): [number, number, number] {
+  const clean = hex.replace('#', '');
+  const num = parseInt(clean, 16);
+  if (Number.isNaN(num)) return [0.94, 0.9, 0.84];
+  return [((num >> 16) & 255) / 255, ((num >> 8) & 255) / 255, (num & 255) / 255];
+}
 
-    // 1. Natural catenary arch (center hangs/flows organically ahead of selvedges)
-    const catenary =
-      Math.sin(u * Math.PI) * 76 * safeEnv * amplitudeScale * sign;
+function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader | null {
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
 
-    // 2. Subtle diagonal couture pallu drape bias across the width
-    const drapeBias =
-      Math.sin(u * Math.PI * 1.35 - 0.35) * 34 * safeEnv * amplitudeScale;
+function initWebGL(canvas: HTMLCanvasElement): WebGLContextState | null {
+  const gl = canvas.getContext('webgl', {
+    alpha: true,
+    antialias: true,
+    premultipliedAlpha: false,
+    powerPreference: 'high-performance',
+  });
+  if (!gl) return null;
 
-    // 3. Broad traveling silk billow wave
-    const primaryRipple =
-      Math.sin(u * Math.PI * 3.1 - safeTime * 5.4 + phaseOffset) *
-      25 *
-      safeEnv *
-      amplitudeScale;
+  const vs = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SRC);
+  const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SRC);
+  if (!vs || !fs) return null;
 
-    // 4. Delicate fine hem flutter along individual pleats
-    const fineFlutter =
-      Math.sin(u * Math.PI * 7.2 + safeTime * 8.6 + phaseOffset * 1.7) *
-      10 *
-      safeEnv *
-      amplitudeScale;
+  const program = gl.createProgram();
+  if (!program) return null;
+  gl.attachShader(program, vs);
+  gl.attachShader(program, fs);
+  gl.linkProgram(program);
+  gl.deleteShader(vs);
+  gl.deleteShader(fs);
 
-    const y = baseY + catenary + drapeBias + primaryRipple + fineFlutter;
-    pts.push({ x, y });
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    gl.deleteProgram(program);
+    return null;
   }
 
-  return pts;
+  const buffer = gl.createBuffer();
+  if (!buffer) return null;
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+    gl.STATIC_DRAW
+  );
+
+  const aPos = gl.getAttribLocation(program, 'aPos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+  gl.useProgram(program);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+  return {
+    gl,
+    program,
+    buffer,
+    textures: new Map(),
+    uniforms: {
+      uTex: gl.getUniformLocation(program, 'uTex'),
+      uHasTex: gl.getUniformLocation(program, 'uHasTex'),
+      uTime: gl.getUniformLocation(program, 'uTime'),
+      uProgress: gl.getUniformLocation(program, 'uProgress'),
+      uOrganzaProg: gl.getUniformLocation(program, 'uOrganzaProg'),
+      uMode: gl.getUniformLocation(program, 'uMode'),
+      uViewportAspect: gl.getUniformLocation(program, 'uViewportAspect'),
+      uTexAspect: gl.getUniformLocation(program, 'uTexAspect'),
+      uFallbackBg: gl.getUniformLocation(program, 'uFallbackBg'),
+      uZariColor: gl.getUniformLocation(program, 'uZariColor'),
+      uOrganzaColor: gl.getUniformLocation(program, 'uOrganzaColor'),
+      uShadowColor: gl.getUniformLocation(program, 'uShadowColor'),
+      uSpecularTint: gl.getUniformLocation(program, 'uSpecularTint'),
+      uSpecularStrength: gl.getUniformLocation(program, 'uSpecularStrength'),
+      uShadowStrength: gl.getUniformLocation(program, 'uShadowStrength'),
+      uOrganzaAlpha: gl.getUniformLocation(program, 'uOrganzaAlpha'),
+      uRimStrength: gl.getUniformLocation(program, 'uRimStrength'),
+    },
+  };
 }
 
-/** C1-continuous Catmull-Rom cubic Bezier SVG path builder */
-function pointsToSmoothCurve(pts: Point2D[], startCmd = true): string {
-  if (pts.length < 2) return '';
-  const first = pts[0]!;
-  let d = startCmd ? `M ${first.x.toFixed(1)} ${first.y.toFixed(1)}` : '';
+// Persistent browser-session image cache so textures & logos load once and stay instant
+const loadedImageCache = new Map<string, HTMLImageElement>();
 
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)]!;
-    const p1 = pts[i]!;
-    const p2 = pts[i + 1]!;
-    const p3 = pts[Math.min(pts.length - 1, i + 2)]!;
-
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
-
-    d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+function preloadImage(src: string): Promise<HTMLImageElement | null> {
+  if (typeof window === 'undefined') return Promise.resolve(null);
+  const cached = loadedImageCache.get(src);
+  if (cached && cached.complete && cached.naturalWidth > 0) {
+    return Promise.resolve(cached);
   }
-
-  return d;
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.decoding = 'async';
+    img.onload = () => {
+      loadedImageCache.set(src, img);
+      resolve(img);
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
 }
-
-function offsetPointsY(pts: Point2D[], dy: number): Point2D[] {
-  return pts.map((pt) => ({ x: pt.x, y: pt.y + dy }));
-}
-
-function buildClosedVeilPath(pts: Point2D[], fillTo: 'top' | 'bottom'): string {
-  const curve = pointsToSmoothCurve(pts, true);
-  if (fillTo === 'top') {
-    return `${curve} L ${VIEW_W} -80 L 0 -80 Z`;
-  }
-  return `${curve} L ${VIEW_W} 1120 L 0 1120 Z`;
-}
-
-const FULL_COVER_PATH = 'M 0 -40 L 1000 -40 L 1000 1080 L 0 1080 Z';
-const EMPTY_PATH = 'M 0 -200 L 1000 -200 L 1000 -200 L 0 -200 Z';
 
 export function AtelierCurtain({
   logoUrl = '/images/logo.png',
   brandName = 'Angelika',
-  brandTagline = 'Fashions',
 }: AtelierCurtainProps) {
   const pathname = usePathname() || '/';
-  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
   const [phase, setPhase] = useState<CurtainPhase>('holding');
-  const [paletteIndex, setPaletteIndex] = useState(0);
+  const [themeIndex, setThemeIndex] = useState(0);
   const [whisperIndex, setWhisperIndex] = useState(0);
   const [isRapidNav, setIsRapidNav] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [webglReady, setWebglReady] = useState(false);
 
   const prevPathnameRef = useRef<string>(pathname);
   const phaseRef = useRef<CurtainPhase>('holding');
@@ -331,23 +465,25 @@ export function AtelierCurtain({
   const rafRef = useRef<number | null>(null);
   const pendingOpenRef = useRef<boolean>(false);
 
-  // Direct DOM refs for 60/120fps zero-react-rerender cloth physics
-  const shadowContourRef = useRef<SVGPathElement | null>(null);
-  const organzaPathRef = useRef<SVGPathElement | null>(null);
-  const silkClipPathRef = useRef<SVGPathElement | null>(null);
-  const primarySilkPathRef = useRef<SVGPathElement | null>(null);
-  const foldRimStrokeRef = useRef<SVGPathElement | null>(null);
-  const foldCreaseStrokeRef = useRef<SVGPathElement | null>(null);
-  const zariPrimaryPathRef = useRef<SVGPathElement | null>(null);
-  const zariSecondaryPathRef = useRef<SVGPathElement | null>(null);
-  const zariGlowPathRef = useRef<SVGPathElement | null>(null);
-  const pleatGradRef = useRef<SVGLinearGradientElement | null>(null);
-  const sheenGradRef = useRef<SVGLinearGradientElement | null>(null);
-  const swayGroupRef = useRef<SVGGElement | null>(null);
-  const spotlightRectRef = useRef<SVGRectElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const glStateRef = useRef<WebGLContextState | null>(null);
   const crestRef = useRef<HTMLDivElement | null>(null);
+  const centerGlowRef = useRef<HTMLDivElement | null>(null);
+  const fallbackBackdropRef = useRef<HTMLDivElement | null>(null);
+  const ssrImgRef = useRef<HTMLImageElement | null>(null);
 
   phaseRef.current = phase;
+
+  const theme = COUTURE_THEMES[themeIndex] ?? COUTURE_THEMES[0]!;
+  const whisper = ATELIER_WHISPERS[whisperIndex] ?? ATELIER_WHISPERS[0]!;
+
+  // Use studio-isolated transparent logo variants for default Angelika logo; honor custom admin uploads cleanly
+  const isDefaultBrandLogo =
+    !logoUrl ||
+    logoUrl.endsWith('/images/logo.png') ||
+    logoUrl.endsWith('/images/logo.jpg') ||
+    logoUrl === '/images/logo.png';
+  const activeLogoSrc = isDefaultBrandLogo ? theme.logoSrc : logoUrl;
 
   const clearAllTimers = () => {
     timersRef.current.forEach((id) => window.clearTimeout(id));
@@ -367,24 +503,13 @@ export function AtelierCurtain({
     return id;
   };
 
-  const applyFullDrapeState = (shimmerOffset = 0, swayX = 0) => {
-    shadowContourRef.current?.setAttribute('d', '');
-    organzaPathRef.current?.setAttribute('d', EMPTY_PATH);
-    silkClipPathRef.current?.setAttribute('d', FULL_COVER_PATH);
-    primarySilkPathRef.current?.setAttribute('d', FULL_COVER_PATH);
-    foldRimStrokeRef.current?.setAttribute('d', '');
-    foldCreaseStrokeRef.current?.setAttribute('d', '');
-    zariPrimaryPathRef.current?.setAttribute('d', '');
-    zariSecondaryPathRef.current?.setAttribute('d', '');
-    zariGlowPathRef.current?.setAttribute('d', '');
-    pleatGradRef.current?.setAttribute('gradientTransform', `translate(${shimmerOffset.toFixed(4)} 0)`);
-    swayGroupRef.current?.setAttribute('transform', `translate(${swayX.toFixed(2)} 0)`);
-    if (spotlightRectRef.current) spotlightRectRef.current.style.opacity = '1';
-    if (crestRef.current) {
-      crestRef.current.style.opacity = '1';
-      crestRef.current.style.transform = 'translate3d(0, 0, 0) scale(1)';
-    }
-  };
+  // Preload both silk textures & isolated logos into memory once so navigations are instantaneous
+  useEffect(() => {
+    COUTURE_THEMES.forEach((t) => {
+      preloadImage(t.textureSrc);
+      preloadImage(t.logoSrc);
+    });
+  }, []);
 
   // Detect prefers-reduced-motion live
   useEffect(() => {
@@ -402,7 +527,7 @@ export function AtelierCurtain({
     const mqReduce =
       typeof window !== 'undefined' &&
       window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const holdDuration = mqReduce ? 90 : 240;
+    const holdDuration = mqReduce ? 100 : 280;
 
     scheduleTimer(() => {
       setPhase('opening');
@@ -416,7 +541,7 @@ export function AtelierCurtain({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Intercept internal storefront <a> clicks to drop the pleated silk veil top-to-bottom immediately
+  // Intercept internal storefront <a> clicks to drop the photorealistic silk veil top-to-bottom
   useEffect(() => {
     const handleDocumentClick = (e: MouseEvent) => {
       if (
@@ -462,8 +587,8 @@ export function AtelierCurtain({
       lastNavTimeRef.current = now;
       setIsRapidNav(rapid);
 
-      // Advance silk palette & whisper independently for 12 distinct couture pairings
-      setPaletteIndex((prev) => (prev + 1) % SILK_PALETTES.length);
+      // Alternate luminous Champagne Silk <-> Heirloom Mulberry Velvet & rotate whisper
+      setThemeIndex((prev) => (prev + 1) % COUTURE_THEMES.length);
       setWhisperIndex((prev) => (prev + 1) % ATELIER_WHISPERS.length);
 
       pendingOpenRef.current = false;
@@ -475,7 +600,7 @@ export function AtelierCurtain({
         if (phaseRef.current === 'closing' || phaseRef.current === 'holding') {
           setPhase('opening');
         }
-      }, 1450);
+      }, 1500);
     };
 
     document.addEventListener('click', handleDocumentClick, true);
@@ -501,12 +626,12 @@ export function AtelierCurtain({
       const rapid = now - lastNavTimeRef.current < 2600;
       lastNavTimeRef.current = now;
       setIsRapidNav(rapid);
-      setPaletteIndex((prev) => (prev + 1) % SILK_PALETTES.length);
+      setThemeIndex((prev) => (prev + 1) % COUTURE_THEMES.length);
       setWhisperIndex((prev) => (prev + 1) % ATELIER_WHISPERS.length);
       setPhase('holding');
     }
 
-    const holdMs = reducedMotion ? 60 : isRapidNav ? 70 : 115;
+    const holdMs = reducedMotion ? 60 : isRapidNav ? 75 : 125;
     scheduleTimer(() => {
       setPhase('opening');
     }, holdMs);
@@ -515,16 +640,26 @@ export function AtelierCurtain({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // ── 60/120fps Real-Time Organic Top-to-Bottom Silk Drapery Physics Loop ──
+  // ── Real-Time WebGL Photorealistic Cloth-Physics Render Loop ──
   useEffect(() => {
     stopRaf();
-    if (phase === 'idle') return;
+    if (phase === 'idle') {
+      // Clean up GPU context when unmounted
+      if (glStateRef.current) {
+        const { gl, program, buffer, textures } = glStateRef.current;
+        textures.forEach((entry) => gl.deleteTexture(entry.tex));
+        gl.deleteBuffer(buffer);
+        gl.deleteProgram(program);
+        glStateRef.current = null;
+      }
+      setWebglReady(false);
+      return;
+    }
 
-    // Under prefers-reduced-motion: no spatial wave animation; gentle opacity cross-fade only
+    // Reduced motion: calm opacity fade over static photorealistic silk still
     if (reducedMotion) {
-      applyFullDrapeState(0, 0);
       if (phase === 'opening') {
-        scheduleTimer(() => setPhase('idle'), 190);
+        scheduleTimer(() => setPhase('idle'), 200);
       } else if (phase === 'closing') {
         scheduleTimer(() => {
           if (pendingOpenRef.current) {
@@ -538,24 +673,183 @@ export function AtelierCurtain({
       return;
     }
 
-    // Gentle living candlelight satin drift while resting in 'holding'
+    const canvas = canvasRef.current;
+    let glState = glStateRef.current;
+    if (canvas && !glState) {
+      glState = initWebGL(canvas);
+      glStateRef.current = glState;
+    }
+
+    const activeTheme = COUTURE_THEMES[themeIndex] ?? COUTURE_THEMES[0]!;
+    const fallbackRgb = hexToRgb01(activeTheme.fallbackBg);
+
+    // Upload or reuse photorealistic silk texture in WebGL
+    const ensureTexture = (state: WebGLContextState, src: string) => {
+      const existing = state.textures.get(src);
+      if (existing) return existing;
+
+      const { gl } = state;
+      const tex = gl.createTexture();
+      if (!tex) return null;
+
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      const domImg =
+        ssrImgRef.current &&
+        ssrImgRef.current.getAttribute('src') === src &&
+        ssrImgRef.current.complete &&
+        ssrImgRef.current.naturalWidth > 0
+          ? ssrImgRef.current
+          : null;
+      const cachedImg = domImg || loadedImageCache.get(src) || null;
+      const hasCachedImg = Boolean(cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0);
+      const entry = {
+        tex,
+        aspect: hasCachedImg
+          ? cachedImg!.naturalWidth / Math.max(1, cachedImg!.naturalHeight)
+          : 1376 / 768,
+        ready: hasCachedImg,
+      };
+
+      if (hasCachedImg && cachedImg) {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, cachedImg);
+      } else {
+        // 1x1 fallback pixel until image decodes
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          1,
+          1,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array([
+            Math.round(fallbackRgb[0] * 255),
+            Math.round(fallbackRgb[1] * 255),
+            Math.round(fallbackRgb[2] * 255),
+            255,
+          ])
+        );
+
+        preloadImage(src).then((img) => {
+          if (!img || glStateRef.current !== state) return;
+          gl.bindTexture(gl.TEXTURE_2D, tex);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          entry.aspect = img.naturalWidth / Math.max(1, img.naturalHeight);
+          entry.ready = true;
+        });
+      }
+
+      state.textures.set(src, entry);
+      return entry;
+    };
+
+    const texEntry = glState ? ensureTexture(glState, activeTheme.textureSrc) : null;
+
+    const resizeCanvas = () => {
+      if (!canvas || !glState) return;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+      const w = Math.max(1, Math.round(window.innerWidth * dpr));
+      const h = Math.max(1, Math.round(window.innerHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
+      glState.gl.viewport(0, 0, w, h);
+    };
+
+    const drawFrame = (mode: number, progress: number, organzaProg: number, timeSec: number) => {
+      if (!glState || !canvas) return;
+      resizeCanvas();
+
+      const { gl, uniforms } = glState;
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+
+      if (texEntry) {
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texEntry.tex);
+        gl.uniform1i(uniforms.uTex, 0);
+        gl.uniform1f(uniforms.uHasTex, texEntry.ready ? 1.0 : 0.0);
+        gl.uniform1f(uniforms.uTexAspect, texEntry.aspect);
+      } else {
+        gl.uniform1f(uniforms.uHasTex, 0.0);
+        gl.uniform1f(uniforms.uTexAspect, 16 / 9);
+      }
+
+      gl.uniform1f(uniforms.uTime, timeSec);
+      gl.uniform1f(uniforms.uProgress, clamp01(progress));
+      gl.uniform1f(uniforms.uOrganzaProg, clamp01(organzaProg));
+      gl.uniform1f(uniforms.uMode, mode);
+      gl.uniform1f(uniforms.uViewportAspect, canvas.width / Math.max(1, canvas.height));
+      gl.uniform3fv(uniforms.uFallbackBg, fallbackRgb);
+      gl.uniform3fv(uniforms.uZariColor, activeTheme.zariColor);
+      gl.uniform3fv(uniforms.uOrganzaColor, activeTheme.organzaColor);
+      gl.uniform3fv(uniforms.uShadowColor, activeTheme.shadowColor);
+      gl.uniform3fv(uniforms.uSpecularTint, activeTheme.specularTint);
+      gl.uniform1f(uniforms.uSpecularStrength, activeTheme.specularStrength);
+      gl.uniform1f(uniforms.uShadowStrength, activeTheme.shadowStrength);
+      gl.uniform1f(uniforms.uOrganzaAlpha, activeTheme.organzaAlpha);
+      gl.uniform1f(uniforms.uRimStrength, activeTheme.rimHighlightStrength);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      // Hide SSR fallback once real texture is painted into WebGL cleanly
+      if (texEntry?.ready && fallbackBackdropRef.current) {
+        fallbackBackdropRef.current.style.opacity = '0';
+      }
+    };
+
+    if (glState) {
+      setWebglReady(true);
+    }
+
+    // Fallback CSS transform animation ONLY if WebGL is unavailable on device
+    const applyCssFallback = (mode: 'holding' | 'closing' | 'opening', p: number) => {
+      if (!fallbackBackdropRef.current) return;
+      fallbackBackdropRef.current.style.opacity = '1';
+      if (mode === 'holding') {
+        fallbackBackdropRef.current.style.transform = 'translate3d(0, 0, 0)';
+      } else if (mode === 'closing') {
+        const y = -100 + p * 100;
+        fallbackBackdropRef.current.style.transform = `translate3d(0, ${y.toFixed(2)}%, 0)`;
+      } else {
+        const y = p * 105;
+        fallbackBackdropRef.current.style.transform = `translate3d(0, ${y.toFixed(2)}%, 0)`;
+      }
+    };
+
+    // ── Phase: HOLDING (living subtle candlelight cloth breath) ──
     if (phase === 'holding') {
       let startTime: number | null = null;
       const tickHold = (now: number) => {
         if (startTime === null) startTime = now;
         const elapsedSec = Math.max(0, (now - startTime) / 1000);
-        const drift = Math.sin(elapsedSec * 1.8) * 0.012;
-        const swayX = Math.sin(elapsedSec * 1.4) * 6;
-        applyFullDrapeState(drift, swayX);
+        if (glState) {
+          drawFrame(0, 0, 0, elapsedSec);
+        } else {
+          applyCssFallback('holding', 0);
+        }
+        if (crestRef.current) {
+          crestRef.current.style.opacity = '1';
+          crestRef.current.style.transform = 'translate3d(0, 0, 0) scale(1)';
+        }
+        if (centerGlowRef.current) {
+          centerGlowRef.current.style.opacity = '1';
+        }
         rafRef.current = window.requestAnimationFrame(tickHold);
       };
       rafRef.current = window.requestAnimationFrame(tickHold);
       return () => stopRaf();
     }
 
-    // Closing: Heavy pleated silk cascades naturally from TOP -> BOTTOM
+    // ── Phase: CLOSING (top -> bottom weighted silk cascade) ──
     if (phase === 'closing') {
-      const durationMs = isRapidNav ? 280 : 380;
+      const durationMs = isRapidNav ? 290 : 390;
       let startTime: number | null = null;
 
       const tickClose = (now: number) => {
@@ -565,65 +859,21 @@ export function AtelierCurtain({
         const eased = easeSilkDrop(rawT);
         const elapsedSec = elapsedMs / 1000;
 
-        // Sweeps from y = -120 above top edge down past y = 1080
-        const baseY = -120 + eased * 1200;
-        const env = safeWaveEnvelope(rawT, 0.78);
+        if (glState) {
+          drawFrame(1, eased, eased, elapsedSec);
+        } else {
+          applyCssFallback('closing', eased);
+        }
 
-        const primaryPts = computeSilkEdgePoints(baseY, env, elapsedSec, 'closing', 0.94, 0.4);
-        const silkPath = buildClosedVeilPath(primaryPts, 'top');
-
-        // Evenly contoured soft cast shadow floating just below the descending zari hem
-        const shadowCurve = pointsToSmoothCurve(offsetPointsY(primaryPts, 18), true);
-
-        // Evenly contoured 3D curled silk rim highlight + fold crease hugging just above the hem
-        const foldRimCurve = pointsToSmoothCurve(offsetPointsY(primaryPts, -6), true);
-        const foldCreaseCurve = pointsToSmoothCurve(offsetPointsY(primaryPts, -20), true);
-
-        // Leading sheer organza tip billowing gracefully ahead of the heavy silk
-        const organzaPts = computeSilkEdgePoints(
-          baseY + 58 * env,
-          env * 1.15,
-          elapsedSec,
-          'closing',
-          1.14,
-          1.1
-        );
-        const organzaPath = buildClosedVeilPath(organzaPts, 'top');
-
-        // Double antique-gold Zari selvedge border tracing the exact curved hem
-        const zariMain = pointsToSmoothCurve(primaryPts, true);
-        const zariInner = pointsToSmoothCurve(offsetPointsY(primaryPts, -11), true);
-        const zariGlow = pointsToSmoothCurve(offsetPointsY(primaryPts, -4), true);
-
-        shadowContourRef.current?.setAttribute('d', shadowCurve);
-        organzaPathRef.current?.setAttribute('d', organzaPath);
-        silkClipPathRef.current?.setAttribute('d', silkPath);
-        primarySilkPathRef.current?.setAttribute('d', silkPath);
-        foldRimStrokeRef.current?.setAttribute('d', foldRimCurve);
-        foldCreaseStrokeRef.current?.setAttribute('d', foldCreaseCurve);
-        zariPrimaryPathRef.current?.setAttribute('d', zariMain);
-        zariSecondaryPathRef.current?.setAttribute('d', zariInner);
-        zariGlowPathRef.current?.setAttribute('d', zariGlow);
-
-        // Specular light & continuous fold sway that returns smoothly to 0 at rawT = 1 (zero snap)
-        const pleatShift = Math.sin(rawT * Math.PI) * 0.02;
-        const swayX = Math.sin(rawT * Math.PI) * 14 * env;
-        pleatGradRef.current?.setAttribute('gradientTransform', `translate(${pleatShift.toFixed(4)} 0)`);
-        sheenGradRef.current?.setAttribute(
-          'gradientTransform',
-          `translate(0 ${((eased - 0.5) * 0.3).toFixed(4)})`
-        );
-        swayGroupRef.current?.setAttribute('transform', `translate(${swayX.toFixed(2)} 0)`);
-
-        // Bloom centered crest smoothly ONLY after falling silk crosses center (~38%..86%)
-        const crestProgress = clamp01((rawT - 0.38) / 0.48);
+        // Bloom uncropped Angelika logo cleanly once falling silk crosses center (~36%..86%)
+        const crestProgress = clamp01((rawT - 0.36) / 0.50);
         const crestEased = easeSilkDrop(crestProgress);
-        if (spotlightRectRef.current) {
-          spotlightRectRef.current.style.opacity = crestEased.toFixed(3);
+        if (centerGlowRef.current) {
+          centerGlowRef.current.style.opacity = crestEased.toFixed(3);
         }
         if (crestRef.current) {
           const offsetY = (1 - crestEased) * -14;
-          const scale = 0.955 + crestEased * 0.045;
+          const scale = 0.96 + crestEased * 0.04;
           crestRef.current.style.opacity = crestEased.toFixed(3);
           crestRef.current.style.transform = `translate3d(0, ${offsetY.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
         }
@@ -631,10 +881,9 @@ export function AtelierCurtain({
         if (rawT < 1) {
           rafRef.current = window.requestAnimationFrame(tickClose);
         } else {
-          applyFullDrapeState(0, 0);
           if (pendingOpenRef.current) {
             pendingOpenRef.current = false;
-            scheduleTimer(() => setPhase('opening'), isRapidNav ? 45 : 85);
+            scheduleTimer(() => setPhase('opening'), isRapidNav ? 45 : 90);
           } else {
             setPhase('holding');
           }
@@ -645,10 +894,10 @@ export function AtelierCurtain({
       return () => stopRaf();
     }
 
-    // Opening: Living Top -> Bottom Silk Cascade Unveiling the Page (Header -> Hero -> Full View)
+    // ── Phase: OPENING (top -> bottom living pleated silk & organza unveil) ──
     if (phase === 'opening') {
-      const primaryDurationMs = isRapidNav ? 520 : 740;
-      const organzaLagMs = isRapidNav ? 90 : 130;
+      const primaryDurationMs = isRapidNav ? 540 : 780;
+      const organzaLagMs = isRapidNav ? 95 : 140;
       const totalDurationMs = primaryDurationMs + organzaLagMs;
       let startTime: number | null = null;
 
@@ -660,86 +909,26 @@ export function AtelierCurtain({
         const rawPrimary = clamp01(elapsedMs / primaryDurationMs);
         const easedPrimary = easeSilkRelease(rawPrimary);
 
-        // Primary heavy silk releases from top (-40) and cascades smoothly past bottom (1140)
-        const primaryBaseY = -40 + easedPrimary * 1180;
-        const primaryEnv = safeWaveEnvelope(rawPrimary, 0.72);
-
-        const primaryPts = computeSilkEdgePoints(
-          primaryBaseY,
-          primaryEnv,
-          elapsedSec,
-          'opening',
-          1.06,
-          0.0
-        );
-        const primarySilkPath =
-          rawPrimary >= 1 ? EMPTY_PATH : buildClosedVeilPath(primaryPts, 'bottom');
-
-        // Trailing gossamer Chanderi organza veil lags gracefully behind the heavy silk
         const rawOrganza = clamp01(
           (elapsedMs - organzaLagMs * 0.55) / (primaryDurationMs + organzaLagMs * 0.45)
         );
         const easedOrganza = easeSilkRelease(rawOrganza);
-        const organzaBaseY = -55 + easedOrganza * 1210;
-        const organzaEnv = safeWaveEnvelope(rawOrganza, 0.72);
 
-        const organzaPts = computeSilkEdgePoints(
-          organzaBaseY,
-          organzaEnv,
-          elapsedSec,
-          'opening',
-          1.28,
-          1.35
-        );
-        const organzaPath =
-          rawOrganza >= 1 ? EMPTY_PATH : buildClosedVeilPath(organzaPts, 'bottom');
+        if (glState) {
+          drawFrame(2, easedPrimary, easedOrganza, elapsedSec);
+        } else {
+          applyCssFallback('opening', easedPrimary);
+        }
 
-        // Evenly contoured soft cast shadow riding just above the curling top fold
-        const shadowCurve =
-          rawPrimary >= 1 ? '' : pointsToSmoothCurve(offsetPointsY(primaryPts, -18), true);
-
-        // Evenly contoured 3D curled silk fold rim highlight + underside crease hugging the top hem
-        const foldRimCurve =
-          rawPrimary >= 1 ? '' : pointsToSmoothCurve(offsetPointsY(primaryPts, 6), true);
-        const foldCreaseCurve =
-          rawPrimary >= 1 ? '' : pointsToSmoothCurve(offsetPointsY(primaryPts, 20), true);
-
-        // Double antique-gold Zari selvedge border tracing the exact live undulating crest
-        const zariMain = rawPrimary >= 1 ? '' : pointsToSmoothCurve(primaryPts, true);
-        const zariInner =
-          rawPrimary >= 1 ? '' : pointsToSmoothCurve(offsetPointsY(primaryPts, 11), true);
-        const zariGlow =
-          rawPrimary >= 1 ? '' : pointsToSmoothCurve(offsetPointsY(primaryPts, 4), true);
-
-        shadowContourRef.current?.setAttribute('d', shadowCurve);
-        organzaPathRef.current?.setAttribute('d', organzaPath);
-        silkClipPathRef.current?.setAttribute('d', primarySilkPath);
-        primarySilkPathRef.current?.setAttribute('d', primarySilkPath);
-        foldRimStrokeRef.current?.setAttribute('d', foldRimCurve);
-        foldCreaseStrokeRef.current?.setAttribute('d', foldCreaseCurve);
-        zariPrimaryPathRef.current?.setAttribute('d', zariMain);
-        zariSecondaryPathRef.current?.setAttribute('d', zariInner);
-        zariGlowPathRef.current?.setAttribute('d', zariGlow);
-
-        // Specular satin highlight & curved fold sway glide naturally as silk descends
-        const pleatShift = Math.sin(rawPrimary * Math.PI * 1.5) * 0.024;
-        const swayX = Math.sin(rawPrimary * Math.PI) * 18 * primaryEnv;
-        pleatGradRef.current?.setAttribute('gradientTransform', `translate(${pleatShift.toFixed(4)} 0)`);
-        sheenGradRef.current?.setAttribute(
-          'gradientTransform',
-          `translate(0 ${(easedPrimary * 0.36).toFixed(4)})`
-        );
-        swayGroupRef.current?.setAttribute('transform', `translate(${swayX.toFixed(2)} 0)`);
-
-        // Lift & feather out centered crest cleanly just ahead of the descending silk edge
-        const exitT = clamp01(rawPrimary / 0.38);
+        // Lift & feather out centered logo gracefully ahead of the descending silk wave
+        const exitT = clamp01(rawPrimary / 0.36);
         const exitOpacity = Math.max(0, 1 - easeSilkRelease(exitT));
-        if (spotlightRectRef.current) {
-          spotlightRectRef.current.style.opacity = exitOpacity.toFixed(3);
+        if (centerGlowRef.current) {
+          centerGlowRef.current.style.opacity = exitOpacity.toFixed(3);
         }
         if (crestRef.current) {
           const liftY = -18 * easeSilkRelease(exitT);
-          const scale = 1 - 0.045 * easeSilkRelease(exitT);
+          const scale = 1 - 0.035 * easeSilkRelease(exitT);
           crestRef.current.style.opacity = exitOpacity.toFixed(3);
           crestRef.current.style.transform = `translate3d(0, ${liftY.toFixed(2)}px, 0) scale(${scale.toFixed(4)})`;
         }
@@ -754,263 +943,71 @@ export function AtelierCurtain({
       rafRef.current = window.requestAnimationFrame(tickOpen);
       return () => stopRaf();
     }
-  }, [phase, isRapidNav, reducedMotion]);
+  }, [phase, themeIndex, isRapidNav, reducedMotion]);
 
   if (phase === 'idle') return null;
 
-  const palette = SILK_PALETTES[paletteIndex] ?? SILK_PALETTES[0]!;
-  const whisper = ATELIER_WHISPERS[whisperIndex] ?? ATELIER_WHISPERS[0]!;
-  const pleatStops = buildPleatStops(palette);
-
   const isOpening = phase === 'opening';
   const isClosing = phase === 'closing';
-  const initialSilkPath = isClosing ? EMPTY_PATH : FULL_COVER_PATH;
-
-  // Immediate click-through the moment unveiling starts so shoppers never feel blocked
   const pointerClass = isOpening ? 'pointer-events-none' : 'pointer-events-auto';
-
-  const pleatGradId = `atelier-pleats-${uid}`;
-  const sheenGradId = `atelier-sheen-${uid}`;
-  const organzaGradId = `atelier-organza-${uid}`;
-  const weavePatternId = `atelier-weave-${uid}`;
-  const spotlightGradId = `atelier-spot-${uid}`;
-  const silkClipId = `atelier-clip-${uid}`;
-  const ribbonBlurId = `atelier-ribbon-blur-${uid}`;
-  const shadowBlurId = `atelier-shadow-blur-${uid}`;
-  const foldBlurId = `atelier-fold-blur-${uid}`;
 
   return (
     <div
       aria-hidden="true"
       data-curtain-phase={phase}
-      data-curtain-theme={palette.id}
+      data-curtain-theme={theme.id}
+      data-curtain-webgl={webglReady ? 'active' : 'fallback'}
       className={`atelier-curtain-root fixed inset-0 z-[9999] overflow-hidden select-none ${pointerClass}`}
       style={
         reducedMotion
           ? {
               opacity: isOpening ? 0 : 1,
-              transition: 'opacity 180ms ease-out',
+              transition: 'opacity 190ms ease-out',
             }
           : undefined
       }
     >
-      {/* ── Real-Time Sculpted 3D Pleated Silk & Sheer Organza Drapery Stage ── */}
-      <svg
-        viewBox="0 0 1000 1000"
-        preserveAspectRatio="none"
-        className="absolute inset-0 block h-full w-full"
-        aria-hidden="true"
+      {/* Instant SSR / Non-WebGL Photorealistic Silk Drapery Fallback (Zero Flash on Frame 0) */}
+      <div
+        ref={fallbackBackdropRef}
+        className="absolute inset-0 will-change-transform"
+        style={{
+          backgroundColor: theme.fallbackBg,
+          opacity: isClosing && webglReady ? 0 : 1,
+          transform: isClosing && !webglReady ? 'translate3d(0, -100%, 0)' : 'translate3d(0, 0, 0)',
+        }}
       >
-        <defs>
-          {/* Dynamic Clip Path Matching Live Curved Silk Contour */}
-          <clipPath id={silkClipId}>
-            <path ref={silkClipPathRef} d={initialSilkPath} />
-          </clipPath>
-
-          {/* Soft Feathered Filters for Natural Satin Sheen, Cast Shadow & Curled Silk Rim */}
-          <filter id={ribbonBlurId} x="-15%" y="-10%" width="130%" height="120%">
-            <feGaussianBlur stdDeviation="14" />
-          </filter>
-          <filter id={shadowBlurId} x="-10%" y="-25%" width="120%" height="150%">
-            <feGaussianBlur stdDeviation="16" />
-          </filter>
-          <filter id={foldBlurId} x="-10%" y="-25%" width="120%" height="150%">
-            <feGaussianBlur stdDeviation="7" />
-          </filter>
-
-          {/* 9-Fold Asymmetric 3D Volumetric Silk Pleats (reflect prevents edge clamping during sheen shift) */}
-          <linearGradient
-            ref={pleatGradRef}
-            id={pleatGradId}
-            x1="0%"
-            y1="0%"
-            x2="100%"
-            y2="0%"
-            spreadMethod="reflect"
-          >
-            {pleatStops.map((stop, idx) => (
-              <stop key={`${stop.offset}-${idx}`} offset={stop.offset} stopColor={stop.color} />
-            ))}
-          </linearGradient>
-
-          {/* Traveling Diagonal Satin Specular Light & Depth Shading */}
-          <linearGradient
-            ref={sheenGradRef}
-            id={sheenGradId}
-            x1="12%"
-            y1="0%"
-            x2="88%"
-            y2="100%"
-          >
-            <stop
-              offset="0%"
-              stopColor={palette.isDark ? '#FFF4D4' : '#FFFFFF'}
-              stopOpacity={palette.isDark ? '0.10' : '0.32'}
-            />
-            <stop
-              offset="34%"
-              stopColor={palette.isDark ? '#E6C26D' : '#F4E4C8'}
-              stopOpacity={palette.isDark ? '0.045' : '0.08'}
-            />
-            <stop
-              offset="66%"
-              stopColor={palette.isDark ? '#000000' : '#8A6B48'}
-              stopOpacity={palette.isDark ? '0.16' : '0.10'}
-            />
-            <stop
-              offset="100%"
-              stopColor={palette.isDark ? '#000000' : '#6B4F34'}
-              stopOpacity={palette.isDark ? '0.32' : '0.16'}
-            />
-          </linearGradient>
-
-          {/* Soft Warm Salon Spotlight Behind Crest */}
-          <radialGradient id={spotlightGradId} cx="50%" cy="48%" r="48%">
-            <stop offset="0%" stopColor={palette.spotlightColor} stopOpacity="1" />
-            <stop offset="100%" stopColor={palette.spotlightColor} stopOpacity="0" />
-          </radialGradient>
-
-          {/* Trailing Sheer Chanderi Organza Under-Veil Gradient (oriented toward active hem) */}
-          <linearGradient
-            id={organzaGradId}
-            x1="0%"
-            y1={isClosing ? '100%' : '0%'}
-            x2="0%"
-            y2={isClosing ? '0%' : '100%'}
-          >
-            <stop offset="0%" stopColor={palette.organzaEdge} />
-            <stop offset="28%" stopColor={palette.organzaMid} />
-            <stop offset="100%" stopColor={palette.organzaTop} />
-          </linearGradient>
-
-          {/* Fine Handwoven Mulberry Silk Cross-Slub Micro-Weave Pattern */}
-          <pattern
-            id={weavePatternId}
-            width="18"
-            height="18"
-            patternUnits="userSpaceOnUse"
-          >
-            <path
-              d="M 0 6 H 18 M 0 14 H 18"
-              stroke={palette.weaveTint}
-              strokeWidth="0.65"
-              opacity="0.46"
-            />
-            <path
-              d="M 9 0 V 18"
-              stroke={palette.weaveTint}
-              strokeWidth="0.45"
-              opacity="0.32"
-            />
-          </pattern>
-        </defs>
-
-        {/* Layer 1: Uniform Contour-Hugging Soft Cast Shadow Floating Ahead of Fold Crest */}
-        <path
-          ref={shadowContourRef}
-          d=""
-          fill="none"
-          stroke={palette.castShadow}
-          strokeWidth="44"
-          strokeLinecap="round"
-          filter={`url(#${shadowBlurId})`}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          ref={ssrImgRef}
+          src={theme.textureSrc}
+          alt=""
+          decoding="sync"
+          fetchPriority="high"
+          className="h-full w-full object-cover"
         />
+      </div>
 
-        {/* Layer 2: Trailing Translucent Chanderi Silk Organza Under-Veil */}
-        <path ref={organzaPathRef} d={EMPTY_PATH} fill={`url(#${organzaGradId})`} />
-
-        {/* Layer 3: Primary 3D Sculpted Pleated Mulberry Silk Drape */}
-        <path ref={primarySilkPathRef} d={initialSilkPath} fill={`url(#${pleatGradId})`} />
-
-        {/* Layer 4: Feathered Swaying Satin Folds, Micro-Weave, Sheen & 3D Curled Hem Shading */}
-        <g clipPath={`url(#${silkClipId})`}>
-          {/* Softly feathered S-fold satin specular highlights that sway gently as cloth billows */}
-          <g ref={swayGroupRef} filter={`url(#${ribbonBlurId})`}>
-            <path
-              d="M 182 -60 C 162 240, 224 620, 190 1080 L 242 1080 C 272 620, 210 240, 228 -60 Z"
-              fill={palette.swayRibbonLight}
-            />
-            <path
-              d="M 472 -60 C 512 280, 448 650, 492 1080 L 552 1080 C 506 650, 568 280, 528 -60 Z"
-              fill={palette.swayRibbonLight}
-            />
-            <path
-              d="M 788 -60 C 758 260, 826 660, 782 1080 L 836 1080 C 878 660, 808 260, 838 -60 Z"
-              fill={palette.swayRibbonLight}
-            />
-          </g>
-
-          {/* Handwoven Raw Silk Cross-Slub Micro-Weave */}
-          <rect x="0" y="0" width="1000" height="1000" fill={`url(#${weavePatternId})`} />
-
-          {/* Traveling Diagonal Satin Specular Light */}
-          <rect x="0" y="0" width="1000" height="1000" fill={`url(#${sheenGradId})`} />
-
-          {/* Soft Warm Salon Spotlight Behind Centered Crest */}
-          <rect
-            ref={spotlightRectRef}
-            x="0"
-            y="0"
-            width="1000"
-            height="1000"
-            fill={`url(#${spotlightGradId})`}
-            style={{ opacity: isClosing ? 0 : 1 }}
-          />
-
-          {/* Uniform 3D Curled Silk Rim Highlight + Soft Underside Crease Along Moving Hem */}
-          <path
-            ref={foldCreaseStrokeRef}
-            d=""
-            fill="none"
-            stroke={palette.foldCreaseShadow}
-            strokeWidth="22"
-            strokeLinecap="round"
-            filter={`url(#${foldBlurId})`}
-          />
-          <path
-            ref={foldRimStrokeRef}
-            d=""
-            fill="none"
-            stroke={palette.foldRimLight}
-            strokeWidth="12"
-            strokeLinecap="round"
-            filter={`url(#${foldBlurId})`}
-          />
-        </g>
-
-        {/* Layer 5: Non-Scaling Crisp Woven Antique-Gold Zari Selvedge Border Tracing the Live Curved Hem */}
-        <path
-          ref={zariGlowPathRef}
-          d=""
-          fill="none"
-          stroke={palette.zariGlow}
-          strokeWidth="6"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-          opacity="0.56"
+      {/* Real-Time GPU WebGL Cloth-Physics & Specular-Light Silk Drapery Canvas */}
+      {!reducedMotion && (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 block h-full w-full"
+          aria-hidden="true"
         />
-        <path
-          ref={zariPrimaryPathRef}
-          d=""
-          fill="none"
-          stroke={palette.zariPrimary}
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-        />
-        <path
-          ref={zariSecondaryPathRef}
-          d=""
-          fill="none"
-          stroke={palette.zariSecondary}
-          strokeWidth="1.15"
-          strokeDasharray="6 4"
-          strokeLinecap="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
+      )}
 
-      {/* ── Centered Angelika Couture Medallion & Whisper ─────────────── */}
+      {/* Subtle Soft Center Luminance Cushion so Logo Reads With Museum-Grade Clarity */}
+      <div
+        ref={centerGlowRef}
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: theme.centerBackdropGlow,
+          opacity: isClosing ? 0 : 1,
+        }}
+      />
+
+      {/* Razor-Sharp, Uncropped Angelika Couture Ribbon Logo & Poetic Atelier Whisper */}
       <div
         ref={crestRef}
         className={`atelier-curtain-crest absolute inset-0 flex flex-col items-center justify-center px-6 will-change-transform ${
@@ -1022,80 +1019,35 @@ export function AtelierCurtain({
             : {
                 opacity: isClosing ? 0 : 1,
                 transform: isClosing
-                  ? 'translate3d(0, -14px, 0) scale(0.955)'
+                  ? 'translate3d(0, -14px, 0) scale(0.96)'
                   : 'translate3d(0, 0, 0) scale(1)',
                 transition: 'none',
               }
         }
       >
-        {/* Outer Antique-Gold Filigree Halo + Circular Silk Crest */}
-        <div className="relative flex items-center justify-center">
-          <div
-            className="atelier-crest-halo absolute -inset-3 rounded-full border"
-            style={{
-              borderColor: palette.isDark
-                ? 'rgba(229, 197, 107, 0.36)'
-                : 'rgba(168, 131, 38, 0.34)',
-            }}
-          />
-          <div
-            className="absolute -inset-1.5 rounded-full border border-dashed"
-            style={{
-              borderColor: palette.isDark
-                ? 'rgba(229, 197, 107, 0.22)'
-                : 'rgba(168, 131, 38, 0.22)',
-            }}
-          />
-          <div
-            className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-full overflow-hidden bg-[#F2EBE1] p-1.5"
-            style={{
-              boxShadow: palette.isDark
-                ? '0 18px 48px rgba(0,0,0,0.52), 0 0 0 1px rgba(229,197,107,0.72)'
-                : '0 16px 38px rgba(34,16,24,0.14), 0 0 0 1px rgba(178,139,45,0.62)',
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={logoUrl}
-              alt=""
-              width={112}
-              height={112}
-              decoding="sync"
-              fetchPriority="high"
-              className="h-full w-full rounded-full object-cover object-top scale-[1.08]"
-            />
-          </div>
-        </div>
-
-        {/* Crisp Editorial Wordmark */}
-        <div className="mt-5 flex flex-col items-center text-center">
-          <span
-            className="font-display text-2xl sm:text-[26px] font-semibold uppercase tracking-[0.28em] leading-none"
-            style={{ color: palette.wordmarkColor }}
-          >
-            {brandName}
-          </span>
-          <span
-            className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.36em]"
-            style={{ color: palette.taglineColor }}
-          >
-            {brandTagline}
-          </span>
-
-          {/* Illuminated Zari Hairline Rule */}
-          <div
-            className="mt-3.5 h-[1px] w-20"
-            style={{
-              background: palette.isDark
-                ? 'linear-gradient(90deg, transparent, #E5C56B, transparent)'
-                : 'linear-gradient(90deg, transparent, #B68E2E, transparent)',
-            }}
+        <div className="flex flex-col items-center text-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={activeLogoSrc}
+            alt={brandName}
+            width={340}
+            height={264}
+            decoding="sync"
+            fetchPriority="high"
+            className="h-auto w-[235px] sm:w-[295px] md:w-[335px] max-w-[78vw] object-contain"
+            style={{ filter: theme.logoShadow }}
           />
 
-          {/* Poetic Atelier Whisper */}
+          {/* Fine Antique-Gold Zari Hairline Divider */}
+          <div
+            className="mt-4 h-[1px] w-24 sm:w-28"
+            style={{ background: theme.ruleGradient }}
+          />
+
+          {/* Subtle Atelier Whisper (No Duplicate Wordmark!) */}
           <p
-            className="mt-3 text-[11px] font-medium uppercase tracking-[0.22em]"
-            style={{ color: palette.whisperColor }}
+            className="mt-3 text-[10.5px] sm:text-[11px] font-medium uppercase tracking-[0.28em]"
+            style={{ color: theme.whisperColor }}
           >
             {whisper}
           </p>

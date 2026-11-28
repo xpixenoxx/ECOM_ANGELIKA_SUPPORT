@@ -592,17 +592,6 @@ dialog::backdrop {
   }
 }
 
-@keyframes atelierHaloBreathe {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 0.72;
-  }
-  50% {
-    transform: scale(1.045);
-    opacity: 1;
-  }
-}
-
 .atelier-curtain-root[data-curtain-phase="holding"] {
   animation: atelierCurtainFailsafe 2.4s ease-out forwards;
 }
@@ -618,21 +607,15 @@ dialog::backdrop {
 
 .atelier-curtain-crest.is-exiting {
   opacity: 0;
-  transform: translate3d(0, -16px, 0) scale(0.955);
+  transform: translate3d(0, -16px, 0) scale(0.96);
   transition-duration: 240ms;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .atelier-crest-halo {
-    animation: atelierHaloBreathe 2.8s ease-in-out infinite;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .atelier-curtain-crest,
   .atelier-curtain-crest.is-exiting {
     transform: none;
-    transition: opacity 180ms ease-out;
+    transition: opacity 190ms ease-out;
   }
 }
 
